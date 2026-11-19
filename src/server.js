@@ -235,14 +235,16 @@ function readJsonBody(req) {
 }
 
 /**
- * Start a Streamable HTTP endpoint at /mcp with one MCP session per client.
- * @returns {Promise<http.Server>} the listening HTTP server
+ * Build a Streamable HTTP request handler for /mcp without binding a port.
+ * Used both by the local `startHttpServer` and by the Vercel entrypoint.
+ * @param {import('./upstreams.js').UpstreamManager} upstreamManager
+ * @returns {(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => Promise<void>}
  */
-export async function startHttpServer(upstreamManager, port = 3000) {
+export function createMcpRequestHandler(upstreamManager) {
   /** @type {Map<string, {server: McpServer, transport: StreamableHTTPServerTransport}>} */
   const sessions = new Map();
 
-  const httpServer = http.createServer(async (req, res) => {
+  return async (req, res) => {
     try {
       const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
       if (pathname !== '/mcp') {
@@ -308,7 +310,16 @@ export async function startHttpServer(upstreamManager, port = 3000) {
         res.end();
       }
     }
-  });
+  };
+}
+
+/**
+ * Start a Streamable HTTP endpoint at /mcp with one MCP session per client.
+ * @returns {Promise<http.Server>} the listening HTTP server
+ */
+export async function startHttpServer(upstreamManager, port = 3000) {
+  const handleMcp = createMcpRequestHandler(upstreamManager);
+  const httpServer = http.createServer((req, res) => { void handleMcp(req, res); });
 
   await new Promise((resolveListen, rejectListen) => {
     httpServer.once('error', rejectListen);
