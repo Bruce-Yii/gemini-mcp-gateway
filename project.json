@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "slug": "gemini-mcp-gateway",
+  "kind": "software",
+  "area": "projects",
+  "status": "active",
+  "summary": "标准远程 MCP 网关：把 GitHub/Notion 多上游工具收敛为白名单工具+gateway_call，供 Gemini 自定义连接器使用",
+  "createdAt": "2026-11-19 08:55:06",
+  "updatedAt": "2026-11-19 08:55:06",
+  "layout": [
+    "docs",
+    "docs\\decisions",
+    "scripts",
+    "data",
+    "work",
+    "outputs",
+    "src",
+    "tests"
+  ],
+  "entrypoints": {
+    "build": null,
+    "test": null,
+    "run": null
+  },
+  "git": {
+    "initialized": false
+  }
+}
