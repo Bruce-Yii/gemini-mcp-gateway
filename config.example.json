@@ -20,6 +20,9 @@
       "transport": "http",
       "url": "https://mcp.notion.com/mcp",
       "tokenEnv": "NOTION_TOKEN",
+      "refreshEnv": "NOTION_REFRESH_TOKEN",
+      "clientIdEnv": "NOTION_CLIENT_ID",
+      "expiresInEnv": "NOTION_EXPIRES_IN",
       "allowTools": ["notion-search", "notion-fetch"]
     },
     {
@@ -27,6 +30,9 @@
       "transport": "http",
       "url": "https://mcp.linear.app/mcp",
       "tokenEnv": "LINEAR_TOKEN",
+      "refreshEnv": "LINEAR_REFRESH_TOKEN",
+      "clientIdEnv": "LINEAR_CLIENT_ID",
+      "expiresInEnv": "LINEAR_EXPIRES_IN",
       "allowTools": ["list_issues", "get_issue", "list_projects", "list_teams"]
     },
     {

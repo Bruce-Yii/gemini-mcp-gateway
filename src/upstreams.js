@@ -13,8 +13,11 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { isAllowed } from './catalog.js';
+import { UpstreamAuth } from './upstream-auth.js';
 
 const CLIENT_INFO = { name: 'gemini-mcp-gateway', version: '0.1.0' };
+/** Upstreams whose OAuth access tokens expire and need auto-refresh. */
+const PROVIDER_REFRESH_SERVERS = new Set(['notion', 'linear']);
 
 function messageOf(err) {
   return err instanceof Error ? err.message : String(err);
@@ -32,16 +35,30 @@ function aggregate(errors) {
 }
 
 export class UpstreamManager {
-  constructor(configs = []) {
+  constructor(configs = [], options = {}) {
     this.configs = Array.isArray(configs) ? configs : [];
     /** @type {Array<{server:string, tool:string, name:string, description?:string, inputSchema?:object, _client:Client}>} */
     this.entries = [];
     /** server name -> { client, transport, config } */
     this._clients = new Map();
     this._closed = new Set();
+    this._auth = options.auth ?? new UpstreamAuth();
   }
 
-  _createTransport(config) {
+  async _resolveToken(config) {
+    if (!config.tokenEnv) return undefined;
+    const envToken = process.env[config.tokenEnv];
+    if (!PROVIDER_REFRESH_SERVERS.has(config.name)) return envToken; // long-lived token
+    // Notion/Linear: go through the refresh-aware lifecycle.
+    return this._auth.getAccessToken(config.name, {
+      envToken,
+      envRefresh: config.refreshEnv ? process.env[config.refreshEnv] : undefined,
+      envClientId: config.clientIdEnv ? process.env[config.clientIdEnv] : undefined,
+      envExpiresIn: config.expiresInEnv ? Number(process.env[config.expiresInEnv]) : undefined,
+    });
+  }
+
+  async _createTransport(config) {
     if (config.transport === 'stdio') {
       if (!config.command) throw new Error('stdio 上游缺少 command');
       const params = { command: config.command, args: config.args ?? [] };
@@ -53,10 +70,10 @@ export class UpstreamManager {
       if (!config.url) throw new Error('http 上游缺少 url');
       const headers = { ...(config.headers ?? {}) };
       // tokenEnv: read the bearer token from an environment variable so the
-      // secret never lands in config files, git, or logs. The config only
-      // stores the variable NAME (e.g. "GITHUB_TOKEN").
+      // secret never lands in config files, git, or logs. For Notion/Linear the
+      // token goes through the auto-refresh lifecycle before being used.
       if (config.tokenEnv) {
-        const token = process.env[config.tokenEnv];
+        const token = await this._resolveToken(config);
         if (!token) {
           throw new Error(`http 上游环境变量 ${config.tokenEnv} 未设置`);
         }
@@ -78,7 +95,7 @@ export class UpstreamManager {
       let client;
       let transport;
       try {
-        transport = this._createTransport(config);
+        transport = await this._createTransport(config);
         client = new Client(CLIENT_INFO);
         await client.connect(transport);
 
