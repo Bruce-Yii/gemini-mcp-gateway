@@ -110,11 +110,22 @@
 
 ## 执行方式
 
-### 能自动化的部分（本仓库可做）
+### 自动化评测（已实现）
 
-- 工具定义大小统计：已有 `work/measure-surface.mjs`（MVP 阶段测过 101 工具 47K 字符），可扩展到 4 个上游全量 vs 网关白名单
-- 工具列表结构验证：端到端脚本已覆盖（见上次线上验证）
-- 单次工具调用的正确性：可用 MCP Inspector 或脚本直接调网关验证
+`eval/run-benchmark.mjs` 做全自动工具选择评测：
+
+- **模型**：hy4，经 OpenCode Go 推理端点（`https://opencode.ai/inference/go/v1`），带 `x-opencode-session` 头 + 自定义 UA，function calling 已验证可用。key 从本地 credentials 读取，不进仓库。
+- **工具数据集**：4 个服务的真实工具 schema——GitHub 28（远程 MCP）+ Vercel 259（远程 MCP）+ Linear 60 + Notion 77（后两者从 DSH 的 `mcp_connector.json` 缓存提取），共 424 个。
+- **任务集**：`eval/tasks.json`，20 个任务。
+- **方案梯度**：B（网关：白名单 7 + 兜底 2 = 9）、A9/A50/A128/A424（直连，工具数梯度，覆盖 128 上限疑点）。
+- **公平性**：所有方案统一用 `name + 截断描述 + 空 schema` 表示，唯一变量是工具数量。全量 schema（424 工具约 20 万 token）塞不进任何模型上下文，真实 MCP 客户端也只传名称+描述，故如此简化贴近现实。
+- **评分**：correctServer（服务路由对）、toolHintMatch（工具选对）、paramOk（参数填对）、writeAvoided（写操作诱惑任务里没触发写工具）。B 方案的 `gateway_call` 按其 server/tool 参数判定。结果存 `eval/benchmark-results.json`。
+
+运行：`node eval/run-benchmark.mjs`
+
+### 仍需人工在 Gemini 里做的部分
+
+网页版 Gemini 没有 API，无法程序化跑；上面的自动化评测用 hy4 做**工具选择的代理测试**，不能 100% 代表 Gemini 的模型行为。最终确认仍需在 Gemini 里手动跑几个关键任务。
 
 ### 需要人工在 Gemini 里做的部分
 
@@ -149,3 +160,4 @@
 | Gemini 隐式缓存折扣 90%，稳定前缀缓存命中率 84% vs 动态 22% | Google 缓存文档 + arXiv:2604.21816 |
 
 > 注意：这些是大规模工具（50–4000 个）场景的数据。你的场景只有 4 个服务、几十个工具，收益会小很多——这正是要实测而不是照搬结论的原因。
+
