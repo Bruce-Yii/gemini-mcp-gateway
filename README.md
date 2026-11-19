@@ -1,19 +1,20 @@
 # gemini-mcp-gateway
 
-标准远程 MCP 网关：把 GitHub / Notion 等上游 MCP 的几十个工具，收敛成**稳定的白名单工具 + `gateway_call` / `gateway_search` 兜底**，供 Gemini 网页版自定义连接器使用。解决两个问题：
+标准远程 MCP 网关：**核心目的是省上下文**——把 4 个上游 MCP 的 424 个工具定义（约 20 万 tokens）压成固定的 9 个（约 4,782 tokens，省 97.6%），供 Gemini 网页版自定义连接器使用。详见 `docs/WHY.md`。
 
-1. **上下文**：工具定义恒定且很小，不随上游工具数膨胀；
-2. **速度**：高频工具走单轮直调，不做模型驱动的两轮搜索（搜索只在兜底路径）。
+减掉用不上的工具只是手段，上下文下降才是目的。高频工具走单轮直调，`gateway_call` / `gateway_search` 兜底覆盖长尾。
 
-## 当前状态：本地 MVP 完成
+## 当前状态：已上线
 
-- [x] 项目骨架 + 接口契约（`CONTRACT.md`）
 - [x] catalog / sanitize / upstreams / server 四模块
-- [x] 单元 + 集成测试（37 项通过）
-- [x] 本地冒烟（假上游 + MCP Inspector 兼容的 Streamable HTTP）
-- [x] **真实 GitHub 远程 MCP 端到端验证**（只读端点，白名单 5 个工具，实际调用返回数据）
-- [ ] Notion 真实 MCP（需 OAuth DCR，留到 Vercel 阶段）
-- [ ] OAuth / DCR + Vercel 部署
+- [x] 单元 + 集成测试（43 项通过）
+- [x] 真实 GitHub 远程 MCP 端到端验证（只读端点，白名单工具实际可调）
+- [x] OAuth / DCR + Vercel 部署，线上全链路验证通过（6 redirect URI / PKCE / state / token / MCP 握手）
+- [x] 上下文节省实测（`scripts/measure-context.mjs`：97.6%）
+- [ ] Notion 真实 MCP（缺 token，未接入）
+- [ ] 在 Gemini 网页版实际连接验证（需用户操作）
+
+线上域名：`https://gemini-mcp-gateway-yu-ac3a.vercel.app/mcp`　仓库：`https://github.com/Bruce-Yii/gemini-mcp-gateway`
 
 ### Token 注入（重要）
 
@@ -52,19 +53,19 @@ npm start         # http://localhost:3000/mcp
 
 配置见 `config.example.json`（真实凭据不进仓库）。
 
-## 评测
+## 上下文节省
 
-`docs/EVALUATION.md`：直连 4 个 MCP（Notion/GitHub/Linear/Vercel）vs 网关收敛的对比方案——三层指标框架、20 个测试任务、记录模板、决策规则。核心结论：成功率是底线，token/速度是优化项；省 token 但任务失败就是负收益。
+`docs/WHY.md`：目的与实测数据。不自己重跑"少工具更好"的评测——那是 Anthropic / Cloudflare / RAG-MCP 已证实的命题；本项目只需实测自己的上下文占用（`scripts/measure-context.mjs`：424 工具 ~202,924 tokens → 9 工具 ~4,782 tokens，-97.6%）。
 
 ## 目录
 
 | 路径 | 用途 |
 |---|---|
-| `CONTRACT.md` | 接口契约（并发开发唯一真相） |
-| `src/catalog.js` | 工具目录 / BM25 搜索 / allow-deny（复用 dsh-mcp-gateway） |
-| `src/sanitize.js` | Gemini schema 清洗 |
-| `src/upstreams.js` | 上游 MCP 客户端 |
-| `src/server.js` | MCP server 入口 |
-| `tests/` | 单元 + 集成测试 |
+| `docs/WHY.md` | 项目目的 + 上下文节省实测 |
+| `CONTRACT.md` / `CONTRACT.vercel.md` | 本地 / Vercel 阶段接口契约 |
+| `DEPLOY.md` | 部署交接文档 |
+| `src/` | catalog（BM25/allow-deny）/ sanitize / upstreams / server / oauth / store / vercel-app |
+| `tests/` | 单元 + 集成测试（43 项） |
 | `harness/` | 假上游 MCP server |
-| `scripts/` | 冒烟脚本 |
+| `scripts/` | 冒烟 / 真实 GitHub 验证 / 工具采集 / 上下文测量 |
+| `data/tool-dataset.json` | 4 个上游真实工具 schema（测量依据） |
