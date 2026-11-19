@@ -1,0 +1,20 @@
+{
+  "name": "gemini-mcp-gateway",
+  "version": "0.1.0",
+  "description": "Remote MCP gateway: consolidate GitHub/Notion upstream tools into a stable whitelist + gateway_call for Gemini custom connectors",
+  "type": "module",
+  "main": "src/server.js",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test \"tests/**/*.test.js\"",
+    "start": "node src/server.js --config config.example.json --port 3000",
+    "smoke": "node scripts/smoke.mjs",
+    "check": "node --check src/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2"
+  }
+}

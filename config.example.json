@@ -1,0 +1,17 @@
+{
+  "maxWhitelistTools": 20,
+  "servers": [
+    {
+      "name": "github",
+      "transport": "http",
+      "url": "https://api.githubcopilot.com/mcp/readonly",
+      "allowTools": ["get_file_contents", "list_issues", "search_code"]
+    },
+    {
+      "name": "notion",
+      "transport": "http",
+      "url": "https://mcp.notion.com/mcp",
+      "allowTools": ["notion-search", "notion-fetch"]
+    }
+  ]
+}
