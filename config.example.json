@@ -21,6 +21,20 @@
       "url": "https://mcp.notion.com/mcp",
       "tokenEnv": "NOTION_TOKEN",
       "allowTools": ["notion-search", "notion-fetch"]
+    },
+    {
+      "name": "linear",
+      "transport": "http",
+      "url": "https://mcp.linear.app/mcp",
+      "tokenEnv": "LINEAR_TOKEN",
+      "allowTools": ["list_issues", "get_issue", "list_projects", "list_teams"]
+    },
+    {
+      "name": "vercel",
+      "transport": "http",
+      "url": "https://mcp.vercel.com/",
+      "tokenEnv": "VERCEL_TOKEN",
+      "allowTools": ["list_projects", "list_deployments", "get_deployment"]
     }
   ]
 }
