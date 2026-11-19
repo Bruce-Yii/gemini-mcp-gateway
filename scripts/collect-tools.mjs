@@ -42,7 +42,7 @@ async function live(url, headers) {
   }
 }
 
-const github = await live('https://api.githubcopilot.com/mcp/readonly', { Authorization: `Bearer ${ccSwitchGithubToken()}` });
+const github = await live('https://api.githubcopilot.com/mcp/', { Authorization: `Bearer ${ccSwitchGithubToken()}` });
 const vercel = await live('https://mcp.vercel.com/', process.env.VERCEL_TOKEN ? { Authorization: `Bearer ${process.env.VERCEL_TOKEN}` } : {});
 const linear = dshCached('linear');
 const notion = dshCached('notion');
