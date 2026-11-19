@@ -27,6 +27,7 @@ import {
 import { sanitizeTool } from './sanitize.js';
 import { searchEntries } from './catalog.js';
 import { UpstreamManager } from './upstreams.js';
+import { createCodeModeTools } from './codemode.js';
 
 const SERVER_INFO = { name: 'gemini-mcp-gateway', version: '0.1.0' };
 
@@ -191,14 +192,25 @@ function buildToolRegistry(upstreamManager, options = {}) {
 /**
  * Create the gateway as an McpServer.
  * @param {import('./upstreams.js').UpstreamManager} upstreamManager
- * @param {{maxWhitelistTools?: number}} [options]
+ * @param {{maxWhitelistTools?: number, mode?: 'whitelist'|'codemode', maxCalls?: number, maxResultChars?: number}} [options]
  * @returns {McpServer}
  */
 export function createGatewayServer(upstreamManager, options = {}) {
-  const tools = buildToolRegistry(upstreamManager, options);
+  let tools;
+  let instructions = INSTRUCTIONS;
+  if (options.mode === 'codemode') {
+    tools = createCodeModeTools(upstreamManager, options);
+    instructions = [
+      'This gateway exposes two tools: search() to discover upstream tools, and execute() to run JavaScript that calls them.',
+      'Prefer execute(): write code that calls codemode.<tool>(args), process large results inside the code, and return only a concise summary. Only your return value enters the conversation.',
+      'Use search() first if you do not know the exact tool name.',
+    ].join(' ');
+  } else {
+    tools = buildToolRegistry(upstreamManager, options);
+  }
   const byName = new Map(tools.map((tool) => [tool.name, tool]));
 
-  const mcpServer = new McpServer(SERVER_INFO, { instructions: INSTRUCTIONS });
+  const mcpServer = new McpServer(SERVER_INFO, { instructions });
   const server = mcpServer.server;
   server.registerCapabilities({ tools: { listChanged: false } });
 
@@ -265,7 +277,7 @@ function readJsonBody(req) {
  * @param {import('./upstreams.js').UpstreamManager} upstreamManager
  * @returns {(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => Promise<void>}
  */
-export function createMcpRequestHandler(upstreamManager) {
+export function createMcpRequestHandler(upstreamManager, options = {}) {
   /** @type {Map<string, {server: McpServer, transport: StreamableHTTPServerTransport}>} */
   const sessions = new Map();
 
@@ -309,7 +321,7 @@ export function createMcpRequestHandler(upstreamManager) {
             if (entry.transport === transport) sessions.delete(sid);
           }
         };
-        gatewayServer = createGatewayServer(upstreamManager);
+        gatewayServer = createGatewayServer(upstreamManager, options);
         await gatewayServer.connect(transport);
         await transport.handleRequest(req, res, body);
         return;
@@ -342,8 +354,8 @@ export function createMcpRequestHandler(upstreamManager) {
  * Start a Streamable HTTP endpoint at /mcp with one MCP session per client.
  * @returns {Promise<http.Server>} the listening HTTP server
  */
-export async function startHttpServer(upstreamManager, port = 3000) {
-  const handleMcp = createMcpRequestHandler(upstreamManager);
+export async function startHttpServer(upstreamManager, port = 3000, options = {}) {
+  const handleMcp = createMcpRequestHandler(upstreamManager, options);
   const httpServer = http.createServer((req, res) => { void handleMcp(req, res); });
 
   await new Promise((resolveListen, rejectListen) => {
@@ -396,17 +408,21 @@ async function runCli() {
   const config = JSON.parse(await readFile(args.config, 'utf8'));
   const upstreamManager = new UpstreamManager(config.servers ?? []);
   await upstreamManager.connect();
+  const gatewayOptions = {
+    mode: config.mode ?? 'whitelist',
+    maxWhitelistTools: config.maxWhitelistTools,
+    maxCalls: config.maxCalls,
+    maxResultChars: config.maxResultChars,
+  };
 
   let httpServer;
   let gatewayServer;
   if (args.stdio) {
-    gatewayServer = createGatewayServer(upstreamManager, {
-      maxWhitelistTools: config.maxWhitelistTools,
-    });
+    gatewayServer = createGatewayServer(upstreamManager, gatewayOptions);
     await gatewayServer.connect(new StdioServerTransport());
   } else {
     const port = args.port ?? 3000;
-    httpServer = await startHttpServer(upstreamManager, port);
+    httpServer = await startHttpServer(upstreamManager, port, gatewayOptions);
     const boundPort = httpServer.address()?.port ?? port;
     console.error(`[gemini-mcp-gateway] Streamable HTTP endpoint: http://127.0.0.1:${boundPort}/mcp`);
   }

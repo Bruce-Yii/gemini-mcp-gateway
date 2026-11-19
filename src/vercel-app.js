@@ -43,7 +43,13 @@ function sendNoContent(res, extraHeaders = {}) {
 function normalizeConfig(value) {
   if (Array.isArray(value)) return { servers: value };
   if (value && typeof value === 'object') {
-    return { servers: value.servers ?? [], maxWhitelistTools: value.maxWhitelistTools };
+    return {
+      servers: value.servers ?? [],
+      maxWhitelistTools: value.maxWhitelistTools,
+      mode: value.mode,
+      maxCalls: value.maxCalls,
+      maxResultChars: value.maxResultChars,
+    };
   }
   throw new Error('gateway config must be an object with a servers array');
 }
@@ -98,13 +104,20 @@ export function createAppHandler(options = {}) {
     if (!mcpHandlerPromise) {
       mcpHandlerPromise = (async () => {
         let upstreamManager = options.upstreamManager;
+        let gatewayOptions = {};
         if (!upstreamManager) {
           const config = await loadConfig(options);
           upstreamManager = new UpstreamManager(availableServers(config.servers));
           // Deferred init: no network call until the first authenticated /mcp hit.
           await upstreamManager.connect();
+          gatewayOptions = {
+            mode: config.mode ?? 'whitelist',
+            maxWhitelistTools: config.maxWhitelistTools,
+            maxCalls: config.maxCalls,
+            maxResultChars: config.maxResultChars,
+          };
         }
-        return createMcpRequestHandler(upstreamManager);
+        return createMcpRequestHandler(upstreamManager, gatewayOptions);
       })().catch((error) => {
         mcpHandlerPromise = undefined;
         throw error;

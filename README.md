@@ -53,9 +53,14 @@ npm start         # http://localhost:3000/mcp
 
 配置见 `config.example.json`（真实凭据不进仓库）。
 
-## 上下文节省
+## 两种模式
 
-`docs/WHY.md`：目的与实测数据。不自己重跑"少工具更好"的评测——那是 Anthropic / Cloudflare / RAG-MCP 已证实的命题；本项目只需实测自己的上下文占用（`scripts/measure-context.mjs`：424 工具 ~202,924 tokens → 9 工具 ~4,782 tokens，-97.6%）。
+config 里 `mode` 切换：
+
+- **`whitelist`**（默认）：暴露白名单工具 + `gateway_call`/`gateway_search` 兜底。
+- **`codemode`**：只暴露 `search` + `execute` 两个工具（基于 Cloudflare `@cloudflare/codemode` MIT SDK 的机制，Node VM 沙箱）。模型写代码调 `codemode.<tool>()`，**大结果在沙箱里被代码过滤，只有 return 值进上下文**——解决"调用时不多占"。真实端到端已验证：GitHub/Notion 工具能在沙箱里调用，5 万字符的上游结果被过滤成小摘要。
+
+`docs/WHY.md`：目的与实测数据。挂载时 424 工具 ~202,924 tokens → 9 工具 ~4,782 tokens（-97.6%）；调用时靠 codemode 沙箱控制。
 
 ## 目录
 

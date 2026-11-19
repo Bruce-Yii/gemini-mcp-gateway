@@ -1,4 +1,5 @@
 {
+  "mode": "whitelist",
   "maxWhitelistTools": 20,
   "servers": [
     {
