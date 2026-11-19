@@ -16,9 +16,10 @@
 
 | 来源 | 评测 | 关键数据 | 类型 |
 |---|---|---|---|
-| Anthropic 官方 | Tool Search 开关 A/B（同模型同任务） | Opus 4 **49%→74%**，Opus 4.5 **79.5%→88.1%**，token **-85%** | 厂商内部 A/B（营销性，非独立复现） |
+| Anthropic 官方 | Tool Search 开关 A/B（同模型同任务） | Opus 4 **49%→74%**，Opus 4.5 **79.5%→88.1%**，token 占用 **72K→8.7K（-85%）**；保留上下文 122,800→191,300 tokens | 厂商内部 A/B（营销性，非独立复现） |
 | Anthropic 官方 | Code execution with MCP | **150K→2K tokens（-98.7%）** | 厂商示例 |
-| RAG-MCP (arXiv:2505.03275) | 检索式工具选择 | 准确率 **13.6%→43.1%**，prompt token **-49%**；1→11,100 工具压测 | 论文 |
+| Cloudflare Code Mode | 云端两工具（search+execute），**与本项目形态最贴合** | 两工具约 **1,000 tokens**；等价全量 MCP 需 **1.17M tokens**（超最强模型整个上下文窗口） | 厂商博客 |
+| RAG-MCP (arXiv:2505.03275) | 检索式工具选择 | 准确率 **13.6%→43.1%**，prompt token **-49%**；1→11,100 工具压测；候选池 <30 工具成功率 >90%，>100 工具 retrieval 退化主导 | 论文 |
 | BoR (arXiv:2605.24660, Meta) | 该看几个工具，chance-corrected | 展示 50 个 90.8%，只展示 7 个 90.3%；选择准确率 **93.1% vs 87.1%** | 论文 |
 | Less is More (arXiv:2411.15399) | 裁剪工具数 | 46→19 工具，准确率 **89%** | 论文 |
 | GitHub 官方 | Copilot 工具治理 | 内置工具 **40→13**，上 embedding routing | 厂商博客 |
@@ -58,6 +59,7 @@
 
 - Anthropic Tool Search: https://www.anthropic.com/research/advanced-tool-use
 - Anthropic Code Mode: https://www.anthropic.com/research/code-execution-with-mcp
+- Cloudflare Code Mode: https://blog.cloudflare.com/code-mode-mcp
 - RAG-MCP: https://arxiv.org/abs/2505.03275
 - BoR: https://arxiv.org/abs/2605.24660
 - Less is More: https://arxiv.org/abs/2411.15399
