@@ -56,7 +56,9 @@ export function sanitizeTool(tool) -> {name, description, inputSchema, annotatio
 ### `src/upstreams.js`
 ```js
 export class UpstreamManager {
-  constructor(configs) // configs: [{name, transport:'stdio'|'http', command?, args?, url?, env?, allowTools?, denyTools?, headers?}]
+  constructor(configs) // configs: [{name, transport:'stdio'|'http', command?, args?, url?, env?, allowTools?, denyTools?, headers?, tokenEnv?}]
+  // tokenEnv: HTTP 上游的环境变量名（如 GITHUB_TOKEN），从 process.env 读 token 拼成 Authorization: Bearer。
+  // 凭据只走环境变量，绝不写进配置文件/git/日志；未设置时连接报错。
   async connect() -> void   // 连接所有上游，拉 tools/list，填充 this.entries
   getEntries() -> entry[]   // 全量 entry（已按 allow/deny 过滤）
   getWhitelist() -> entry[] // 白名单工具（在 allowTools 里且未在 denyTools 里的）

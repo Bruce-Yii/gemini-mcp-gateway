@@ -5,12 +5,27 @@
 1. **上下文**：工具定义恒定且很小，不随上游工具数膨胀；
 2. **速度**：高频工具走单轮直调，不做模型驱动的两轮搜索（搜索只在兜底路径）。
 
-## 当前状态：MVP 开发中
+## 当前状态：本地 MVP 完成
 
 - [x] 项目骨架 + 接口契约（`CONTRACT.md`）
-- [ ] catalog / sanitize / upstreams / server 四模块
-- [ ] 单元 + 集成测试
-- [ ] 本地冒烟（假上游 + MCP Inspector）
+- [x] catalog / sanitize / upstreams / server 四模块
+- [x] 单元 + 集成测试（37 项通过）
+- [x] 本地冒烟（假上游 + MCP Inspector 兼容的 Streamable HTTP）
+- [x] **真实 GitHub 远程 MCP 端到端验证**（只读端点，白名单 5 个工具，实际调用返回数据）
+- [ ] Notion 真实 MCP（需 OAuth DCR，留到 Vercel 阶段）
+- [ ] OAuth / DCR + Vercel 部署
+
+### Token 注入（重要）
+
+凭据**只走环境变量**，绝不进配置文件/git/日志。HTTP 上游用 `tokenEnv` 字段指定环境变量名：
+
+```json
+{ "name": "github", "transport": "http",
+  "url": "https://api.githubcopilot.com/mcp/readonly",
+  "tokenEnv": "GITHUB_TOKEN", "allowTools": ["get_file_contents", "search_repositories"] }
+```
+
+`npm run start` 前先 `setx GITHUB_TOKEN <token>`（或在进程里注入）。`scripts/verify-real-github.mjs` 演示了从 CC Switch 的 Copilot token 读取并注入环境变量（不落盘、不打印）。
 
 ## 设计
 

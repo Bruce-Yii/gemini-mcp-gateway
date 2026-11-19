@@ -51,9 +51,20 @@ export class UpstreamManager {
     }
     if (config.transport === 'http') {
       if (!config.url) throw new Error('http 上游缺少 url');
+      const headers = { ...(config.headers ?? {}) };
+      // tokenEnv: read the bearer token from an environment variable so the
+      // secret never lands in config files, git, or logs. The config only
+      // stores the variable NAME (e.g. "GITHUB_TOKEN").
+      if (config.tokenEnv) {
+        const token = process.env[config.tokenEnv];
+        if (!token) {
+          throw new Error(`http 上游环境变量 ${config.tokenEnv} 未设置`);
+        }
+        headers.Authorization = `Bearer ${token}`;
+      }
       const options = {};
-      if (config.headers && Object.keys(config.headers).length > 0) {
-        options.requestInit = { headers: config.headers };
+      if (Object.keys(headers).length > 0) {
+        options.requestInit = { headers };
       }
       return new StreamableHTTPClientTransport(new URL(config.url), options);
     }
