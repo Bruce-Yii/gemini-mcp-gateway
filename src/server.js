@@ -38,13 +38,38 @@ const INSTRUCTIONS = [
 ].join(' ');
 
 const MAX_BODY_BYTES = 1024 * 1024;
+// Result-size guard: a single upstream call can dump a huge blob (file content,
+// deployment logs) straight into the model's context. Cap each text block and
+// tell the model how to get more. Keep the MCP content structure intact.
+const DEFAULT_MAX_RESULT_CHARS = Number(process.env.GATEWAY_MAX_RESULT_CHARS ?? 8000);
 
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
-function textResult(result) {
-  return { content: [{ type: 'text', text: JSON.stringify(result) }] };
+/**
+ * Bound upstream tool results before they re-enter the model context.
+ * Works on the MCP result shape { content: [{type:'text', text}, ...] }.
+ * Non-text content (images etc.) is left untouched.
+ */
+export function boundResult(result, maxChars = DEFAULT_MAX_RESULT_CHARS) {
+  if (!result || typeof result !== 'object' || !Array.isArray(result.content)) return result;
+  let truncated = false;
+  const content = result.content.map((item) => {
+    if (!item || item.type !== 'text' || typeof item.text !== 'string') return item;
+    if (item.text.length <= maxChars) return item;
+    truncated = true;
+    const head = item.text.slice(0, maxChars);
+    const tail = `\n\n… [truncated ${item.text.length - maxChars} chars by gateway. ` +
+      `Use a narrower query or gateway_call with specific args to fetch less.]`;
+    return { ...item, text: head + tail };
+  });
+  return truncated ? { ...result, content } : result;
+}
+
+function textResult(result, options = {}) {
+  const bounded = options.noBound ? result : boundResult(result, options.maxChars);
+  return { content: [{ type: 'text', text: JSON.stringify(bounded) }] };
 }
 
 function errorResult(error) {
