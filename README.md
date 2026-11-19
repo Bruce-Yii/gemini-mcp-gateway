@@ -52,6 +52,10 @@ npm start         # http://localhost:3000/mcp
 
 配置见 `config.example.json`（真实凭据不进仓库）。
 
+## 评测
+
+`docs/EVALUATION.md`：直连 4 个 MCP（Notion/GitHub/Linear/Vercel）vs 网关收敛的对比方案——三层指标框架、20 个测试任务、记录模板、决策规则。核心结论：成功率是底线，token/速度是优化项；省 token 但任务失败就是负收益。
+
 ## 目录
 
 | 路径 | 用途 |
