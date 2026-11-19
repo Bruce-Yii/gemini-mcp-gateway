@@ -40,14 +40,16 @@ export class TokenStore {
    * @param {{url?: string, token?: string, fetch?: typeof globalThis.fetch}} [options]
    */
   constructor(options = {}) {
-    this.url = options.url ?? process.env.KV_REST_API_URL ?? '';
-    this.token = options.token ?? process.env.KV_REST_API_TOKEN ?? '';
+    this.url = options.url ?? process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL ?? '';
+    this.token = options.token ?? process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN ?? '';
     this._fetch = options.fetch ?? globalThis.fetch;
   }
 
   /** Deployment-time check: are the KV environment variables present? */
   static isConfigured() {
-    return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+    const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+    const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+    return Boolean(url && token);
   }
 
   /** Same check on an instance (handy when credentials were injected). */
@@ -58,7 +60,7 @@ export class TokenStore {
   _assertConfigured() {
     if (!this.url || !this.token) {
       throw new Error(
-        'TokenStore 未配置：请设置环境变量 KV_REST_API_URL 与 KV_REST_API_TOKEN',
+        'TokenStore 未配置：请设置环境变量 KV_REST_API_URL / UPSTASH_REDIS_REST_URL 与 KV_REST_API_TOKEN / UPSTASH_REDIS_REST_TOKEN',
       );
     }
     if (typeof this._fetch !== 'function') {
