@@ -1,5 +1,7 @@
 # 评测结果：直连 4 个 MCP vs 网关收敛
 
+> ⛔ **本报告已作废，请勿引用。** 经审计发现评测设计存在根本缺陷（对照组工具构成不公平、gold 答案错误、评分过宽、样本量不足），数字不成立。重做方案见 `EVAL-REDESIGN.md`。保留原文仅供追溯。
+
 > 运行时间：2026-11-20　模型：hy4（OpenCode Go 推理端点）　原始结果：`eval/benchmark-results.json`
 > 脚本：`eval/run-benchmark.mjs`（可复现）；任务集：`eval/tasks.json`（20 个）
 
