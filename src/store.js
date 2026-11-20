@@ -68,6 +68,60 @@ export class TokenStore {
     }
   }
 
+  /** Run a command via JSON request body (needed for EVAL scripts with special chars). */
+  async _commandBody(args) {
+    this._assertConfigured();
+    const base = String(this.url).replace(/\/+$/, '');
+    let response;
+    try {
+      response = await this._fetch(base, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.token}`, 'content-type': 'application/json' },
+        body: JSON.stringify(args),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Upstash Redis 请求失败: ${message}`);
+    }
+    const text = await response.text();
+    if (!response.ok) throw new Error(`Upstash Redis HTTP ${response.status}: ${text.slice(0, 300)}`);
+    let payload;
+    try { payload = JSON.parse(text); } catch { return text.trim(); }
+    if (payload?.error) throw new Error(`Upstash Redis 错误: ${payload.error}`);
+    return payload?.result ?? payload;
+  }
+
+  /**
+   * Compare-and-set: write `nextJson` to key only if its current value still
+   * equals `expectedJson`. Returns true if the swap happened. This is the
+   * fencing primitive that makes concurrent refreshes safe even if the lock
+   * lease expires.
+   */
+  async compareAndSet(key, expectedJson, nextJson) {
+    const script =
+      "if redis.call('GET', KEYS[1]) == ARGV[1] then " +
+      "redis.call('SET', KEYS[1], ARGV[2]); return 1 else return 0 end";
+    const r = await this._commandBody(['EVAL', script, '1', key, expectedJson, nextJson]);
+    return Number(r) === 1;
+  }
+
+  /**
+   * Fencing CAS for a token record: write `nextJson` only if the current
+   * record's refresh_token still equals `expectedRefresh`. Prevents a stale
+   * refresh result from overwriting a newer token written by another worker.
+   */
+  async casToken(key, expectedRefresh, nextJson) {
+    const script =
+      "local cur = redis.call('GET', KEYS[1]); " +
+      "if not cur then return 0 end; " +
+      "local ok, obj = pcall(cjson.decode, cur); " +
+      "if not ok then return 0 end; " +
+      "if tostring(obj.refresh_token) ~= ARGV[1] then return 0 end; " +
+      "redis.call('SET', KEYS[1], ARGV[2]); return 1";
+    const r = await this._commandBody(['EVAL', script, '1', key, String(expectedRefresh), nextJson]);
+    return Number(r) === 1;
+  }
+
   _key(namespace, secret) {
     return this._keyFromHash(namespace, hashSecret(secret));
   }

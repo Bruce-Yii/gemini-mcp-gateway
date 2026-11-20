@@ -119,7 +119,20 @@ export class UpstreamAuth {
       // grant after a few requests and ends in invalid_grant / revoked grant.
       bootstrapped: false,
     };
-    await this._save(server, next);
+    // Fencing CAS: only commit if no other worker already rotated this grant.
+    // If CAS fails, another worker refreshed first — use the token it stored.
+    if (typeof this.store.casToken === 'function') {
+      const committed = await this.store.casToken(this._key(server), rec.refresh_token, JSON.stringify(next));
+      if (!committed) {
+        const winner = await this._load(server);
+        if (winner?.access_token) {
+          console.error(`[upstream-auth] ${server} refresh lost CAS race; using winner's token`);
+          return winner;
+        }
+      }
+    } else {
+      await this._save(server, next);
+    }
     return next;
   }
 
