@@ -327,7 +327,17 @@ export function createMcpRequestHandler(upstreamManager, options = {}) {
         return;
       }
 
-      if (method === 'GET' || method === 'DELETE') {
+      // GET opens an SSE stream that hangs until the client disconnects. On
+      // Vercel this hits the 60s function timeout. Google's Connected Apps spec
+      // explicitly allows stateless servers to answer GET with 405, which the
+      // client proxy handles cleanly. All real traffic is HTTP POST.
+      if (method === 'GET') {
+        res.writeHead(405, { Allow: 'POST, DELETE' });
+        res.end();
+        return;
+      }
+
+      if (method === 'DELETE') {
         const sessionId = req.headers['mcp-session-id'];
         const session = sessionId ? sessions.get(String(sessionId)) : undefined;
         if (!session) {
