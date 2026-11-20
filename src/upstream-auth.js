@@ -64,6 +64,28 @@ export class UpstreamAuth {
     try { await this.store._command('del', this._key(server) + ':lock'); } catch {}
   }
 
+  /** Verify an ACCESS token is usable by calling tools/list. Does NOT consume
+   * the refresh token. Returns true only on a successful MCP handshake+list. */
+  async _verifyToken(server, accessToken) {
+    const url = {
+      notion: 'https://mcp.notion.com/mcp',
+      linear: 'https://mcp.linear.app/mcp',
+    }[server];
+    if (!url || !this._fetch) return false;
+    try {
+      const r = await this._fetch(url, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json, text/event-stream',
+          authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }),
+      });
+      return r.ok;
+    } catch { return false; }
+  }
+
   /**
    * Return a valid access token for `server`.
    * `envToken` is the bootstrap value from the environment variable (first run).
@@ -128,6 +150,18 @@ export class UpstreamAuth {
     }
     if (!rec || !rec.access_token) return envToken;
 
+    // A dead grant (invalid_grant) must not be retried on every request — that
+    // hammers the provider and risks reuse detection. Back off until a NEW env
+    // token appears (i.e. someone re-authorized and redeployed), then retry.
+    if (rec.needsReauth) {
+      if (envToken && rec.envSeed === envToken) {
+        // same dead token still in env -> stop trying
+        return rec.access_token;
+      }
+      // env token changed -> treat as fresh authorization, clear the flag
+      rec.needsReauth = false;
+    }
+
     const now = Date.now();
     const exp = Number(rec.expires_at ?? 0);
     const nearExpiry = exp > 0 && exp - REFRESH_SKEW_MS <= now;
@@ -162,23 +196,41 @@ export class UpstreamAuth {
       console.error(`[upstream-auth] refreshed ${server} token (expires_in=${next.expires_at ? Math.round((next.expires_at - Date.now())/1000) : '?'}s)`);
       return next.access_token;
     } catch (e) {
-      console.error(`[upstream-auth] refresh ${server} failed: ${e.message}; using stored token`);
-      // If the stored grant is revoked/invalid (rotated-away or burned), rebuild
-      // from the env-injected token pair once. This self-heals a poisoned KV
-      // record without needing manual cache deletion.
-      const invalid = /invalid_grant|revoked|expired/i.test(String(e.message ?? ''));
-      if (invalid && envToken && envRefresh && envClientId) {
-        console.error(`[upstream-auth] ${server} grant invalid; rebootstrapping from env`);
-        const rebuilt = {
-          access_token: envToken,
-          refresh_token: envRefresh,
-          client_id: envClientId,
-          expires_at: 0,
-          envSeed: envToken,
-          bootstrapped: false, // do NOT force-refresh again -> avoid burning grant in a loop
-        };
-        await this._save(server, rebuilt);
-        return envToken;
+      const msg = String(e.message ?? '');
+      const invalid = /invalid_grant|revoked|expired/i.test(msg);
+      console.error(`[upstream-auth] refresh ${server} failed: ${msg}`);
+
+      // Per provider guidance (Notion/OAuth 2.1 RFC 9700): invalid_grant is
+      // TERMINAL for the connection — retrying with an old/rotated refresh
+      // token triggers reuse detection and can revoke the ENTIRE token family.
+      // So we never blindly rebootstrap here.
+      //
+      // The only safe recovery is the "lost update" case: our KV record got
+      // overwritten by a stale response, but the env-injected pair is still
+      // valid. We detect that WITHOUT consuming the refresh token — by using
+      // the env access token directly. If it works, the grant is alive. If it
+      // doesn't, we mark reauth-required and stop (no further refresh attempts).
+      if (invalid && envToken && envRefresh && envClientId && rec.envSeed !== envToken) {
+        const valid = await this._verifyToken(server, envToken);
+        if (valid) {
+          console.error(`[upstream-auth] ${server} KV record was stale; restoring from env token (no refresh)`);
+          await this._save(server, {
+            access_token: envToken,
+            refresh_token: envRefresh,
+            client_id: envClientId,
+            expires_at: Number(envExpiresIn ?? 0) > 0 && Number(envObtainedAt ?? 0) > 0
+              ? Number(envObtainedAt) + Number(envExpiresIn) * 1000 : 0,
+            envSeed: envToken,
+            bootstrapped: false,
+          });
+          return envToken;
+        }
+      }
+      if (invalid) {
+        // Grant is dead. Mark it so we stop trying on every request (which would
+        // hammer the provider and risk reuse detection). Human must re-authorize.
+        await this._save(server, { ...rec, needsReauth: true, needsReauthAt: Date.now() });
+        console.error(`[upstream-auth] ${server} needs re-authorization (grant invalid)`);
       }
       return rec.access_token;
     } finally {
