@@ -244,20 +244,35 @@ export function createOAuthHandlers(store, options = {}) {
   const baseUrl = (req) => resolveBaseUrl(options, req);
   const mcpUrl = (req) => options.mcpUrl ?? `${baseUrl(req)}/mcp`;
 
+  // When ALLOWED_CLIENT_ID is set, only this pre-registered client may connect.
+  // DCR is disabled so a random person with the URL cannot self-register.
+  const ALLOWED_CLIENT_ID = options.allowedClientId ?? process.env.ALLOWED_CLIENT_ID ?? '';
+  const ALLOWED_CLIENT_SECRET = options.allowedClientSecret ?? process.env.ALLOWED_CLIENT_SECRET ?? '';
+  const LOCKED = Boolean(ALLOWED_CLIENT_ID);
+
+  function clientAllowed(clientId, clientSecret) {
+    if (!LOCKED) return true;
+    if (str(clientId) !== ALLOWED_CLIENT_ID) return false;
+    if (ALLOWED_CLIENT_SECRET && !safeEqual(str(clientSecret), ALLOWED_CLIENT_SECRET)) return false;
+    return true;
+  }
+
   async function metadata(req, res) {
     const base = baseUrl(req);
-    sendJson(res, 200, {
+    const doc = {
       issuer: base,
       authorization_endpoint: `${base}/oauth/authorize`,
       token_endpoint: `${base}/oauth/token`,
-      registration_endpoint: `${base}/oauth/register`,
       revocation_endpoint: `${base}/oauth/revoke`,
       response_types_supported: [...RESPONSE_TYPES],
       grant_types_supported: [...GRANT_TYPES],
       code_challenge_methods_supported: ['S256'],
       token_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
       scopes_supported: [...SCOPES],
-    });
+    };
+    // Hide registration_endpoint so clients fall back to pre-registered credentials.
+    if (!LOCKED) doc.registration_endpoint = `${base}/oauth/register`;
+    sendJson(res, 200, doc);
   }
 
   async function protectedResource(req, res) {
@@ -270,6 +285,9 @@ export function createOAuthHandlers(store, options = {}) {
   }
 
   async function register(req, res) {
+    if (LOCKED) {
+      return oauthError(res, 403, 'invalid_request', 'dynamic client registration is disabled');
+    }
     let params;
     try {
       params = await readParams(req);
@@ -338,9 +356,19 @@ export function createOAuthHandlers(store, options = {}) {
     const scope = str(params.scope);
     const responseType = str(params.response_type);
 
-    const client = await store.getClient(clientId);
+    // In locked mode, credentials come from env; build a synthetic client on the
+    // fly so no KV write is needed. Anyone without the exact client_id is rejected.
+    let client = await store.getClient(clientId);
+    if (LOCKED && clientAllowed(clientId)) {
+      client = client ?? { clientId, clientName: 'Gemini', redirectUris: [redirectUri] };
+      // Accept any Google-hosted redirect for the single allowed client.
+      if (!client.redirectUris?.includes(redirectUri)) client.redirectUris = [redirectUri];
+    }
     if (!client) {
       return oauthError(res, 400, 'invalid_client', 'unknown client_id');
+    }
+    if (!clientAllowed(clientId)) {
+      return oauthError(res, 401, 'invalid_client', 'client not allowed');
     }
     if (!isRegisteredRedirect(client, redirectUri)) {
       return oauthError(res, 400, 'invalid_request', 'redirect_uri is not registered for this client');
@@ -434,6 +462,10 @@ export function createOAuthHandlers(store, options = {}) {
       return oauthError(res, 400, 'invalid_grant', 'PKCE code_verifier is invalid');
     }
 
+    // Locked mode: the pre-registered client's secret must match the env value.
+    if (LOCKED && !clientAllowed(str(params.client_id), str(params.client_secret))) {
+      return oauthError(res, 401, 'invalid_client', 'client credentials are invalid');
+    }
     if (record.clientId) {
       const client = await store.getClient(record.clientId);
       if (client?.clientSecretHash) {
@@ -474,6 +506,9 @@ export function createOAuthHandlers(store, options = {}) {
       return oauthError(res, 400, 'invalid_grant', 'refresh_token expired');
     }
     const clientId = str(params.client_id);
+    if (LOCKED && !clientAllowed(clientId, str(params.client_secret))) {
+      return oauthError(res, 401, 'invalid_client', 'client credentials are invalid');
+    }
     if (clientId && record.clientId && clientId !== record.clientId) {
       return oauthError(res, 400, 'invalid_grant', 'client_id does not match the refresh token');
     }
