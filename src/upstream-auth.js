@@ -50,6 +50,20 @@ export class UpstreamAuth {
     }
   }
 
+  /** Acquire a short-lived refresh lock (SET NX EX). Returns true if acquired. */
+  async _acquireLock(server, ttlSeconds = 30) {
+    if (!this.store.isConfigured()) return true; // no KV: single-instance assumption
+    try {
+      const r = await this.store._command('set', this._key(server) + ':lock', '1', 'NX', 'EX', String(ttlSeconds));
+      return r === 'OK' || r === 'ok' || r === true;
+    } catch { return true; } // lock backend failure -> degrade to unlocked
+  }
+
+  async _releaseLock(server) {
+    if (!this.store.isConfigured()) return;
+    try { await this.store._command('del', this._key(server) + ':lock'); } catch {}
+  }
+
   /**
    * Return a valid access token for `server`.
    * `envToken` is the bootstrap value from the environment variable (first run).
@@ -126,7 +140,24 @@ export class UpstreamAuth {
       console.error(`[upstream-auth] ${server} token needs refresh but no refresh token stored`);
       return rec.access_token;
     }
+    // Serialize refreshes across Vercel instances. Rotating refresh tokens mean
+    // two concurrent refreshes invalidate each other -> revoked grant.
+    const locked = await this._acquireLock(server);
+    if (!locked) {
+      // Another instance is refreshing; wait briefly and re-read the shared token.
+      await new Promise((r) => setTimeout(r, 1200));
+      const fresh = await this._load(server);
+      if (fresh?.access_token && fresh.access_token !== rec.access_token) return fresh.access_token;
+      return rec.access_token;
+    }
     try {
+      // Re-read inside the lock: another instance may have already refreshed
+      // between our first read and acquiring the lock.
+      const latest = await this._load(server);
+      if (latest?.access_token && latest.access_token !== rec.access_token &&
+          Number(latest.expires_at ?? 0) - REFRESH_SKEW_MS > Date.now()) {
+        return latest.access_token;
+      }
       const next = await this._refresh(server, rec);
       console.error(`[upstream-auth] refreshed ${server} token (expires_in=${next.expires_at ? Math.round((next.expires_at - Date.now())/1000) : '?'}s)`);
       return next.access_token;
@@ -150,6 +181,8 @@ export class UpstreamAuth {
         return envToken;
       }
       return rec.access_token;
+    } finally {
+      await this._releaseLock(server);
     }
   }
 
