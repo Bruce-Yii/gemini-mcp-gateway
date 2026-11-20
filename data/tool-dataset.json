@@ -9339,6 +9339,10 @@
           "description": "Filter by creator ID",
           "type": "string"
         },
+        "private": {
+          "description": "true lists only your private documents, false leaves them out. Omit to list both",
+          "type": "boolean"
+        },
         "createdAt": {
           "description": "Created after: ISO-8601 date/duration (e.g., -P1D)",
           "type": "string"
@@ -9381,7 +9385,7 @@
     "server": "linear",
     "tool": "save_document",
     "name": "linear__save_document",
-    "description": "Create or update a Linear document. If `id` is provided, edits the existing document; otherwise creates a new one. When creating, `title` is required and exactly one parent (`project`, `issue`, `initiative`, `cycle`, or `team`) must be specified. On update, passing a parent reparents the document. To change parts of the content without resending all of it, pass `patch` instead of `content`.",
+    "description": "Create or update a Linear document. If `id` is provided, edits the existing document; otherwise creates a new one. When creating, `title` is required, and at most one parent (`project`, `issue`, `initiative`, `cycle`, or `team`) may be specified. Without a parent, pass `private: true` to create the document in your private space. On update, passing a parent reparents the document. To change parts of the content without resending all of it, pass `patch` instead of `content`.",
     "inputSchema": {
       "type": "object",
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -9569,6 +9573,10 @@
         "color": {
           "description": "Hex color",
           "type": "string"
+        },
+        "private": {
+          "description": "true creates the document in your private space, where only you and the people you share it with can see it, or moves an existing document there. To move a private document out, pass a parent instead",
+          "type": "boolean"
         }
       },
       "additionalProperties": false
@@ -12267,6 +12275,85 @@
   },
   {
     "server": "vercel",
+    "tool": "open_deployments",
+    "name": "vercel__open_deployments",
+    "description": "Use this when the user wants to see a Vercel deployment, check whether it is deployed, or follow its build: \"show me deployments\", \"show me a live deployment\", \"show me UI deployments\", \"is it deployed yet?\", or \"watch this build\". Fetches the latest matching deployment and renders an interactive live card with status, preview URL, commit, and expandable build logs. The user does not need to ask for a UI or card. Use the connection's project scope, or supply projectId (ID or name), repo, or a full commit sha. No prior deployment lookup is needed when that context is known. Optionally filter by branch, sha, or target environment. The card updates while the build runs; calling again updates the same project card. Use list_deployments for history or filtered lists, get_deployment for details by deployment ID or URL, list_deployment_events for build-failure investigation or log analysis, and get_runtime_logs for application runtime logs. Clients without app support receive a text summary.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "view": {
+          "description": "The deployment card view.",
+          "type": "string",
+          "const": "preview"
+        },
+        "teamId": {
+          "description": "The ID or slug of the team that owns the resource.\nTeam IDs start with \"team_\".\nIf you do not know the team ID or slug, it can be found through these mechanism:\n- Read the file .vercel/project.json if it exists and extract the orgId\n- Use the `list_teams` tool\nOptional: when omitted, the team is found from projectId.",
+          "type": "string"
+        },
+        "projectId": {
+          "description": "The project ID or name. Read projectId from .vercel/project.json when the repository has one. Without it, pass repo for a preview instead of guessing, or use a project name the user gave. Required unless a preview call has repo or sha.",
+          "type": "string"
+        },
+        "branch": {
+          "description": "The git branch name.",
+          "type": "string"
+        },
+        "sha": {
+          "description": "The full git commit SHA.",
+          "type": "string"
+        },
+        "repo": {
+          "description": "Preview only. The git remote URL or owner/name (git remote get-url origin). Finds the linked project when projectId is unknown, even before the deployment exists.",
+          "type": "string"
+        },
+        "target": {
+          "description": "Only consider deployments for this environment.",
+          "type": "string",
+          "enum": [
+            "production",
+            "preview"
+          ]
+        }
+      },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
+    "tool": "ui_get_build_log_excerpt",
+    "name": "vercel__ui_get_build_log_excerpt",
+    "description": "Get the last lines of a deployment build log, for the deployment widget logs panel.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "teamId": {
+          "type": "string",
+          "description": "The ID or slug of the team that owns the resource.\nTeam IDs start with \"team_\".\nIf you do not know the team ID or slug, it can be found through these mechanism:\n- Read the file .vercel/project.json if it exists and extract the orgId\n- Use the `list_teams` tool"
+        },
+        "idOrUrl": {
+          "type": "string",
+          "description": "The unique identifier or hostname of the deployment."
+        },
+        "limit": {
+          "description": "How many of the most recent log lines to return. Defaults to 120.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "since": {
+          "description": "Only events after this timestamp (ms), oldest first, so a live view can fetch just what is new. Pass the previous latestAt.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "teamId",
+        "idOrUrl"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
     "tool": "get_runtime_logs",
     "name": "vercel__get_runtime_logs",
     "description": "Use this when reading application output (console.log, warnings, errors) that the functions and daemons of a project wrote at runtime, as individual log records, or when counting those records with group_by. Filter by deployment, environment, level, source, request ID, time range, or full-text query. The default window is the latest 50 minutes; for a recent window, pass since like \"30m\" and omit until, which is only needed for historical end times. How far back logs go depends on the runtime-log retention of the plan. For wide time ranges, scope to a deploymentId or use group_by. Do not use for build failures; use the deployment build logs instead. For clustered summaries of production errors, prefer get_runtime_errors.",
@@ -13550,6 +13637,161 @@
   },
   {
     "server": "vercel",
+    "tool": "list_ai_gateway_virtual_models",
+    "name": "vercel__list_ai_gateway_virtual_models",
+    "description": "Use this when finding a team's Vercel AI Gateway virtual models, the reusable model configurations that requests call as vmc/<slug>. Returns each one's ID, slug, kind, display name, description, status, and the names of up to 20 target models with the total as modelCount, ordered by slug, with a nextCursor when more remain. Virtual models with status archived are left out unless includeArchived is true. Use get_ai_gateway_virtual_model for one model's full routing configuration. The public model catalog is separate and does not include virtual models. Fails with a permission error when the connection has no AI Gateway virtual model access or is limited to selected projects.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "teamId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The ID (team_...) or slug of the team that owns the AI Gateway configuration. Use list_teams to discover an unknown team."
+        },
+        "includeArchived": {
+          "description": "Also return virtual models whose status is archived.",
+          "type": "boolean"
+        },
+        "limit": {
+          "description": "Maximum virtual models to return. Defaults to 25. Use a smaller value when a page is refused as too large.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "cursor": {
+          "description": "The nextCursor from the previous call, to get the next page. Omit for the first page.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      },
+      "required": [
+        "teamId"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
+    "tool": "get_ai_gateway_virtual_model",
+    "name": "vercel__get_ai_gateway_virtual_model",
+    "description": "Use this when reading the full configuration of one Vercel AI Gateway virtual model: its target model or models, provider order and restrictions, inference region, caching, service tier, timeouts, and data-retention settings. Pass the slug with or without the vmc/ prefix; use list_ai_gateway_virtual_models to discover it. Returns the stored configuration without the IDs of the people who changed it. In the free-form provider and selector options, a value that its key or its own text marks as a credential is replaced with [redacted]. Text is cut at 500 characters. A configuration above the size limit is returned without the values that do not fit, and marked truncated. This reads configuration only, not the model's spend or traffic.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "teamId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The ID (team_...) or slug of the team that owns the AI Gateway configuration. Use list_teams to discover an unknown team."
+        },
+        "slug": {
+          "type": "string",
+          "maxLength": 1000,
+          "pattern": "^(vmc\\/)?(\\.{3,}|\\.*[a-zA-Z0-9_-][a-zA-Z0-9_.-]*)$",
+          "description": "The virtual model slug, such as fast-chat or vmc/fast-chat."
+        }
+      },
+      "required": [
+        "teamId",
+        "slug"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
+    "tool": "list_ai_gateway_rules",
+    "name": "vercel__list_ai_gateway_rules",
+    "description": "Use this when checking how a team's Vercel AI Gateway routing rules change or block model requests. Returns each rule's ID, type (rewrite sends a matched model to another model; deny rejects it), match, action, enabled state, and description, oldest first, with a nextCursor when more remain. shadowedBy names the rule that takes precedence for the same model, so the listed rule never applies. Disabled rules are left out unless includeDisabled is true. Rules apply to the whole team.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "teamId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The ID (team_...) or slug of the team that owns the AI Gateway configuration. Use list_teams to discover an unknown team."
+        },
+        "includeDisabled": {
+          "description": "Also return rules that are turned off.",
+          "type": "boolean"
+        },
+        "limit": {
+          "description": "Maximum rules to return. Defaults to 25. Use a smaller value when a page is refused as too large.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "cursor": {
+          "description": "The nextCursor from the previous call, to get the next page. Omit for the first page.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      },
+      "required": [
+        "teamId"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
+    "tool": "list_ai_gateway_budgets",
+    "name": "vercel__list_ai_gateway_budgets",
+    "description": "Use this when checking a team's Vercel AI Gateway spend limits and how much of each is used. Returns the budgets set for the team, its projects, members, and API keys: the limit and current spend in USD, the BYOK spend, the refresh period, and whether the budget is active. Budgets that a scope inherits from a default are not listed; defaultCoveredCounts gives their number per scope type. Pass scopeType to return one kind. Pass scopeId to return one project's, member's, or API key's budget, including an inherited one, which is marked source: default. Set defaults to true to return the per-scope default budgets instead. Budgets cap spend; they do not show which models the spend went to.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "teamId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The ID (team_...) or slug of the team that owns the AI Gateway configuration. Use list_teams to discover an unknown team."
+        },
+        "scopeType": {
+          "description": "Only budgets of this scope.",
+          "type": "string",
+          "enum": [
+            "team",
+            "project",
+            "user",
+            "api-key"
+          ]
+        },
+        "scopeId": {
+          "description": "Only the budget of this project ID (prj_...), user ID, or API key ID. The result is empty when that scope has no budget. Ignored when defaults is true.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "defaults": {
+          "description": "Return the default budgets that apply to every project, member, or API key without its own budget, instead of individual budgets. Not paged.",
+          "type": "boolean"
+        },
+        "limit": {
+          "description": "Maximum budgets to return. Defaults to 25. Use a smaller value when a page is refused as too large.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "cursor": {
+          "description": "The nextCursor from the previous call, to get the next page. Omit for the first page.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      },
+      "required": [
+        "teamId"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
     "tool": "list_ai_gateway_models",
     "name": "vercel__list_ai_gateway_models",
     "description": "Use this when choosing a model on Vercel AI Gateway or checking what one costs. Searches the live public catalog and returns each match's ID, type, context window, output limit, model-specific pricing in USD, and capability tags, with the total number of matches and, when more remain, a nextOffset to pass as offset for the next page. Use get_ai_gateway_model for the providers that serve one model. This is reference data; it does not read the user's account, so a team's virtual models (vmc/...) are not listed.",
@@ -13752,123 +13994,9 @@
   },
   {
     "server": "vercel",
-    "tool": "list_drives",
-    "name": "vercel__list_drives",
-    "description": "Use this when finding persistent Sandbox drives in a known project. Returns drive records and pagination; follow cursor for more results (limit 1–50). Supply projectId and the owning team. namePrefix requires sortBy=name. Requires Drive private-beta access; listing does not create or attach a drive.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "projectId": {
-          "type": "string",
-          "example": "prj_abc123",
-          "description": "The project ID or name associated with the drives. Required unless using a Vercel OIDC token scoped to a project."
-        },
-        "limit": {
-          "default": 20,
-          "example": 20,
-          "description": "Maximum number of drives to return in the response. Used for pagination.",
-          "type": "number",
-          "minimum": 1,
-          "maximum": 50
-        },
-        "cursor": {
-          "type": "string",
-          "description": "Opaque pagination cursor from a previous response."
-        },
-        "sortBy": {
-          "default": "createdAt",
-          "description": "Field to sort drives by.",
-          "type": "string",
-          "enum": [
-            "createdAt",
-            "updatedAt",
-            "name"
-          ]
-        },
-        "namePrefix": {
-          "type": "string",
-          "description": "Filter drives whose name starts with this prefix. Only valid when sortBy=name."
-        },
-        "sortOrder": {
-          "default": "desc",
-          "description": "Sort direction for results.",
-          "type": "string",
-          "enum": [
-            "asc",
-            "desc"
-          ]
-        },
-        "teamId": {
-          "description": "Team ID to use for this operation.",
-          "type": "string",
-          "example": "team_1a2b3c4d5e6f7g8h9i0j1k2l"
-        },
-        "slug": {
-          "description": "Team slug to use for this operation. Use instead of teamId.",
-          "type": "string",
-          "example": "my-team-url-slug"
-        }
-      },
-      "required": [
-        "projectId"
-      ],
-      "$schema": "https://json-schema.org/draft/2020-12/schema"
-    }
-  },
-  {
-    "server": "vercel",
-    "tool": "get_or_create_drive",
-    "name": "vercel__get_or_create_drive",
-    "description": "Use this when provisioning a persistent Sandbox drive or reopening one by name in the same project. Supply name and requestBody.projectId. Returns the existing drive or creates it when absent; maxSizeBytes applies to creation, not resizing an existing drive. Requires Drive private-beta access. This does not start a sandbox or attach the drive to a session.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "maxLength": 64,
-          "pattern": "^[a-zA-Z0-9_-]+$",
-          "example": "workspace",
-          "description": "Name for the drive. Must be unique per project and URL-safe (alphanumeric, hyphens, underscores)."
-        },
-        "teamId": {
-          "description": "Team ID to use for this operation.",
-          "type": "string",
-          "example": "team_1a2b3c4d5e6f7g8h9i0j1k2l"
-        },
-        "slug": {
-          "description": "Team slug to use for this operation. Use instead of teamId.",
-          "type": "string",
-          "example": "my-team-url-slug"
-        },
-        "requestBody": {
-          "type": "object",
-          "properties": {
-            "projectId": {
-              "type": "string",
-              "example": "prj_abc123",
-              "description": "The project ID or name to associate the drive with. Required unless using a Vercel OIDC token scoped to a project."
-            },
-            "maxSizeBytes": {
-              "type": "integer",
-              "minimum": -9007199254740991,
-              "maximum": 9007199254740991,
-              "description": "Maximum drive size in bytes. Defaults to 100 GiB when omitted."
-            }
-          },
-          "additionalProperties": false
-        }
-      },
-      "required": [
-        "name"
-      ],
-      "$schema": "https://json-schema.org/draft/2020-12/schema"
-    }
-  },
-  {
-    "server": "vercel",
     "tool": "delete_drive",
     "name": "vercel__delete_drive",
-    "description": "Use this when permanently removing an unattached Sandbox drive and its stored data. Supply its name, projectId, owning team, and confirm:true. An attached drive cannot be deleted; stop or replace its session first. Requires Drive private-beta access. Use list_drives afterward to verify removal.",
+    "description": "Use this when permanently removing an unattached Vercel Drive and its stored data. Set name to the drive name or ID, and supply projectId, the owning team, and confirm:true. An attached drive cannot be deleted; stop or replace its session first. Use list_drives afterward to verify removal.",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -13877,12 +14005,85 @@
           "maxLength": 64,
           "pattern": "^[a-zA-Z0-9_-]+$",
           "example": "workspace",
-          "description": "Name for the drive. Must be unique per project and URL-safe (alphanumeric, hyphens, underscores)."
+          "description": "The drive name or ID."
         },
         "projectId": {
           "type": "string",
           "example": "prj_abc123",
           "description": "The project ID or name associated with the drive. Required unless using a Vercel OIDC token scoped to a project."
+        },
+        "teamId": {
+          "description": "Team ID to use for this operation.",
+          "type": "string",
+          "example": "team_1a2b3c4d5e6f7g8h9i0j1k2l"
+        },
+        "slug": {
+          "description": "Team slug to use for this operation. Use instead of teamId.",
+          "type": "string",
+          "example": "my-team-url-slug"
+        },
+        "confirm": {
+          "type": "boolean",
+          "const": true,
+          "description": "Required. Set to true to permanently delete this resource."
+        }
+      },
+      "required": [
+        "name",
+        "confirm"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
+    "tool": "get_flags_project_disconnection_link",
+    "name": "vercel__get_flags_project_disconnection_link",
+    "description": "Get a dashboard link to disconnect a consumer from the source project’s flags across environments. projectIdOrName selects the source; consumerProjectId identifies the connection to remove. Verifies source project ownership and returns requires_user_action. The user must select Remove Connection in Vercel with connection management permission on the source. This tool does not revoke access.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectIdOrName": {
+          "type": "string",
+          "description": "The project id or name"
+        },
+        "consumerProjectId": {
+          "type": "string",
+          "description": "The connected consumer project id"
+        },
+        "teamId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Team ID to use for this operation."
+        }
+      },
+      "required": [
+        "projectIdOrName",
+        "consumerProjectId",
+        "teamId"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
+    "tool": "delete_sandbox",
+    "name": "vercel__delete_sandbox",
+    "description": "Use this when permanently removing a named Sandbox from a project. Supply name, projectId, the owning team, and confirm:true. Stops any running sessions with that name and removes the named sandbox metadata. To stop a session without deleting the named sandbox, use stop_session. Snapshot and Drive cleanup use delete_session_snapshot and delete_drive separately.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "example": "my-sandbox",
+          "description": "The sandbox name to delete."
+        },
+        "projectId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "The project ID that owns the named sandbox. When provided, takes precedence over OIDC project context."
         },
         "teamId": {
           "description": "Team ID to use for this operation.",
@@ -13939,79 +14140,6 @@
       "required": [
         "snapshotId",
         "confirm"
-      ],
-      "$schema": "https://json-schema.org/draft/2020-12/schema"
-    }
-  },
-  {
-    "server": "vercel",
-    "tool": "delete_sandbox",
-    "name": "vercel__delete_sandbox",
-    "description": "Use this when permanently removing a named Sandbox from a project. Supply name, projectId, the owning team, and confirm:true. Stops any running sessions with that name and removes the named sandbox metadata. To stop a session without deleting the named sandbox, use stop_session. Snapshot and Drive cleanup use delete_session_snapshot and delete_drive separately.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "maxLength": 128,
-          "pattern": "^[a-zA-Z0-9_-]+$",
-          "example": "my-sandbox",
-          "description": "The sandbox name to delete."
-        },
-        "projectId": {
-          "type": "string",
-          "maxLength": 128,
-          "description": "The project ID that owns the named sandbox. When provided, takes precedence over OIDC project context."
-        },
-        "teamId": {
-          "description": "Team ID to use for this operation.",
-          "type": "string",
-          "example": "team_1a2b3c4d5e6f7g8h9i0j1k2l"
-        },
-        "slug": {
-          "description": "Team slug to use for this operation. Use instead of teamId.",
-          "type": "string",
-          "example": "my-team-url-slug"
-        },
-        "confirm": {
-          "type": "boolean",
-          "const": true,
-          "description": "Required. Set to true to permanently delete this resource."
-        }
-      },
-      "required": [
-        "name",
-        "confirm"
-      ],
-      "$schema": "https://json-schema.org/draft/2020-12/schema"
-    }
-  },
-  {
-    "server": "vercel",
-    "tool": "get_flags_project_disconnection_link",
-    "name": "vercel__get_flags_project_disconnection_link",
-    "description": "Get a dashboard link to disconnect a consumer from the source project’s flags across environments. projectIdOrName selects the source; consumerProjectId identifies the connection to remove. Verifies source project ownership and returns requires_user_action. The user must select Remove Connection in Vercel with connection management permission on the source. This tool does not revoke access.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "projectIdOrName": {
-          "type": "string",
-          "description": "The project id or name"
-        },
-        "consumerProjectId": {
-          "type": "string",
-          "description": "The connected consumer project id"
-        },
-        "teamId": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Team ID to use for this operation."
-        }
-      },
-      "required": [
-        "projectIdOrName",
-        "consumerProjectId",
-        "teamId"
       ],
       "$schema": "https://json-schema.org/draft/2020-12/schema"
     }
@@ -14641,6 +14769,109 @@
       },
       "required": [
         "id"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
+    "tool": "list_drives",
+    "name": "vercel__list_drives",
+    "description": "Use this when finding persistent Vercel Drives in a known project. Returns drive records and pagination; follow cursor for more results (limit 1–50). Supply projectId and the owning team. namePrefix requires sortBy=name. Listing does not create a drive or attach it to a sandbox.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "projectId": {
+          "type": "string",
+          "example": "prj_abc123",
+          "description": "The project ID or name associated with the drives. Required unless using a Vercel OIDC token scoped to a project."
+        },
+        "limit": {
+          "default": 20,
+          "example": 20,
+          "description": "Maximum number of drives to return in the response. Used for pagination.",
+          "type": "number",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "cursor": {
+          "type": "string",
+          "description": "Opaque pagination cursor from a previous response."
+        },
+        "sortBy": {
+          "default": "createdAt",
+          "description": "Field to sort drives by.",
+          "type": "string",
+          "enum": [
+            "createdAt",
+            "updatedAt",
+            "name"
+          ]
+        },
+        "namePrefix": {
+          "type": "string",
+          "description": "Filter drives whose name starts with this prefix. Only valid when sortBy=name."
+        },
+        "sortOrder": {
+          "default": "desc",
+          "description": "Sort direction for results.",
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ]
+        },
+        "teamId": {
+          "description": "Team ID to use for this operation.",
+          "type": "string",
+          "example": "team_1a2b3c4d5e6f7g8h9i0j1k2l"
+        },
+        "slug": {
+          "description": "Team slug to use for this operation. Use instead of teamId.",
+          "type": "string",
+          "example": "my-team-url-slug"
+        }
+      },
+      "required": [
+        "projectId"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
+    "tool": "get_drive",
+    "name": "vercel__get_drive",
+    "description": "Use this when reading one Vercel Drive by name or drive ID, for example to check its size, region, or whether it exists. Supply nameOrId, projectId, and the owning team. Returns 404 when the drive does not exist; this never creates a drive. Use get_or_create_drive to provision one.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "nameOrId": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "example": "workspace",
+          "description": "The drive name or ID."
+        },
+        "projectId": {
+          "type": "string",
+          "example": "prj_abc123",
+          "description": "The project ID or name associated with the drive. Required unless using a Vercel OIDC token scoped to a project."
+        },
+        "teamId": {
+          "description": "Team ID to use for this operation.",
+          "type": "string",
+          "example": "team_1a2b3c4d5e6f7g8h9i0j1k2l"
+        },
+        "slug": {
+          "description": "Team slug to use for this operation. Use instead of teamId.",
+          "type": "string",
+          "example": "my-team-url-slug"
+        }
+      },
+      "required": [
+        "nameOrId",
+        "projectId"
       ],
       "$schema": "https://json-schema.org/draft/2020-12/schema"
     }
@@ -19433,6 +19664,557 @@
       "required": [
         "idOrName",
         "domain"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
+    "tool": "update_ai_gateway_rule",
+    "name": "vercel__update_ai_gateway_rule",
+    "description": "Use this when turning a Vercel AI Gateway routing rule on or off, or changing its target model, deny reason, or description. The change applies to every request of the whole team. Needs teamId or slug to name the team; the call fails without one. requestBody needs ruleId (from list_ai_gateway_rules) and at least one of enabled, description, or action. action replaces the stored action as a whole. For a rewrite rule it must contain rewriteModel: a catalog model ID, or a virtual model as vmc/<slug>, that exists and is active. This tool cannot change the rule type or the matched model. The result is the rule as list_ai_gateway_rules returns it. Confirm the change with list_ai_gateway_rules; set includeDisabled to see a rule that is off.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "teamId": {
+          "description": "Team ID to use for this operation.",
+          "type": "string",
+          "example": "team_1a2b3c4d5e6f7g8h9i0j1k2l"
+        },
+        "slug": {
+          "description": "Team slug to use for this operation. Use instead of teamId.",
+          "type": "string",
+          "example": "my-team-url-slug"
+        },
+        "requestBody": {
+          "type": "object",
+          "properties": {
+            "ruleId": {
+              "type": "string",
+              "description": "The ID of the rule to update. Send at least one of `enabled`, `description`, or `action` with it."
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether the rule is enabled."
+            },
+            "description": {
+              "type": "string",
+              "description": "A free-text note about the rule."
+            },
+            "action": {
+              "type": "object",
+              "properties": {
+                "rewriteModel": {
+                  "type": "string",
+                  "description": "The model that serves the request, for a rewrite rule: a catalog model, or one of your virtual models as `vmc/<slug>`. It must exist and be active."
+                },
+                "reason": {
+                  "type": "string",
+                  "description": "Why the model is denied, for a deny rule."
+                }
+              },
+              "additionalProperties": false,
+              "description": "Replaces the stored action. For a rewrite rule it must contain `rewriteModel`."
+            }
+          },
+          "required": [
+            "ruleId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "requestBody"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
+    "tool": "update_ai_gateway_virtual_model",
+    "name": "vercel__update_ai_gateway_virtual_model",
+    "description": "Use this when changing a Vercel AI Gateway virtual model or restoring a deleted one. The change applies to every request of the team that calls it. Needs teamId or slug to name the team; the call fails without one. Here slug is the team slug: vmcSlug is the virtual model slug, with or without the vmc/ prefix (from list_ai_gateway_virtual_models). requestBody holds only the fields to change, and needs at least one. Omitted fields keep their value; null removes the stored value of a field that accepts it. Any status other than active stops it serving requests. To restore a deleted virtual model, set deleted to false. When the caller is a user, only the creator of the virtual model or a team owner can change it. Fails with a permission error for other users, and when the connection has no AI Gateway virtual model write access or is limited to selected projects. The result is the configuration as get_ai_gateway_virtual_model returns it, with the same redaction, inside the catalog size limits.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "vmcSlug": {
+          "type": "string",
+          "maxLength": 1000,
+          "pattern": "^(vmc\\/)?(\\.{3,}|\\.*[a-zA-Z0-9_-][a-zA-Z0-9_.-]*)$",
+          "description": "The virtual model slug, such as fast-chat or vmc/fast-chat."
+        },
+        "teamId": {
+          "description": "Team ID to use for this operation.",
+          "type": "string",
+          "example": "team_1a2b3c4d5e6f7g8h9i0j1k2l"
+        },
+        "slug": {
+          "description": "Team slug to use for this operation. Use instead of teamId.",
+          "type": "string",
+          "example": "my-team-url-slug"
+        },
+        "requestBody": {
+          "type": "object",
+          "properties": {
+            "displayName": {
+              "type": "string",
+              "description": "The name shown in the UI."
+            },
+            "description": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "description": "The lifecycle status: `draft`, `active`, or `archived`. Any value other than `active` stops it serving requests. Defaults to `active`."
+            },
+            "modelSlug": {
+              "type": "string",
+              "description": "The model that the virtual model resolves to: a catalog model such as `openai/gpt-4o-mini`, or one of your team's private models as `private/<slug>`. Required on create."
+            },
+            "models": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "description": "A model ID: a catalog model such as `openai/gpt-4o`, or one of your team's private models as `private/<slug>`. A fallback can also name a virtual model as `vmc/<slug>`."
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "model": {
+                        "type": "string",
+                        "description": "A model ID: a catalog model such as `openai/gpt-4o`, or one of your team's private models as `private/<slug>`. A fallback can also name a virtual model as `vmc/<slug>`."
+                      },
+                      "when": {
+                        "type": "object",
+                        "properties": {
+                          "question": {
+                            "type": "string",
+                            "maxLength": 256,
+                            "description": "The question to check, with `confidenceBelow` or `probabilityBetween`. Without it, the condition checks every question of the applicable type."
+                          },
+                          "confidenceBelow": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "probabilityBetween": {
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "type": "array",
+                            "items": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            "description": "A `[lower, upper]` pair."
+                          },
+                          "any": {
+                            "minItems": 1,
+                            "maxItems": 20,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            "description": "Nested conditions. Each one has the same shape as `when`."
+                          },
+                          "all": {
+                            "minItems": 1,
+                            "maxItems": 20,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            "description": "Nested conditions. Each one has the same shape as `when`."
+                          },
+                          "atLeast": {
+                            "type": "object",
+                            "properties": {
+                              "count": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 9007199254740991,
+                                "description": "Must not be more than the number of conditions."
+                              },
+                              "conditions": {
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                "description": "Nested conditions. Each one has the same shape as `when`."
+                              }
+                            },
+                            "required": [
+                              "count",
+                              "conditions"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "The fallback model is used when the answers of the primary model match this condition. Set exactly one of `confidenceBelow`, `probabilityBetween`, `any`, `all`, or `atLeast`. A condition tree can be 5 levels deep and can hold 100 conditions."
+                      }
+                    },
+                    "required": [
+                      "model",
+                      "when"
+                    ],
+                    "additionalProperties": false,
+                    "description": "A conditional fallback. Only an alias can have one."
+                  }
+                ]
+              },
+              "description": "The ordered fallback models, optionally led by one conditional `{ model, when }` entry."
+            },
+            "providerOrder": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "The providers to try, in order."
+            },
+            "providerOnly": {
+              "maxItems": 256,
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Restrict routing to these providers."
+            },
+            "observabilityTags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Observability tags attached to requests through this virtual model."
+            },
+            "deleted": {
+              "type": "boolean",
+              "const": false,
+              "description": "Set to `false` to restore a deleted virtual model."
+            },
+            "providerOptions": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": {}
+                  },
+                  "description": "Provider-specific options, keyed by provider slug. The slug of one of your team's private providers is also valid. `null` removes the stored value."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "byokCredentialIds": {
+              "anyOf": [
+                {
+                  "maxItems": 256,
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "The BYOK credentials that this virtual model can use. `null` removes the stored value."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "inferenceRegion": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "zone",
+                        "global"
+                      ],
+                      "description": "The pin scope: `zone` (a geo zone) or `global`."
+                    },
+                    "geoRegion": {
+                      "type": "string",
+                      "description": "The geo zone, for example `us` or `eu`. Required when `scope` is `zone`."
+                    },
+                    "providers": {
+                      "type": "object",
+                      "properties": {},
+                      "additionalProperties": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "scope": {
+                                "type": "string",
+                                "enum": [
+                                  "zone",
+                                  "global"
+                                ],
+                                "description": "The pin scope: `zone` (a geo zone) or `global`."
+                              },
+                              "geoRegion": {
+                                "type": "string",
+                                "description": "The geo zone, for example `us` or `eu`. Required when `scope` is `zone`."
+                              }
+                            },
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "description": "Region overrides for each provider, keyed by provider slug."
+                    }
+                  },
+                  "additionalProperties": false,
+                  "description": "The region that requests are pinned to. `null` removes the stored value."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "sort": {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "@default"
+                    },
+                    {
+                      "type": "string",
+                      "const": "cost"
+                    },
+                    {
+                      "type": "string",
+                      "const": "ttft"
+                    },
+                    {
+                      "type": "string",
+                      "const": "tps"
+                    },
+                    {
+                      "type": "string",
+                      "const": "price"
+                    },
+                    {
+                      "type": "string",
+                      "const": "latency"
+                    },
+                    {
+                      "type": "string",
+                      "const": "throughput"
+                    },
+                    {
+                      "type": "null",
+                      "const": null
+                    }
+                  ],
+                  "description": "Rank eligible providers by an attribute. `@default` ignores the value from the inference request. `null` removes the stored value."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "has": {
+              "anyOf": [
+                {
+                  "maxItems": 32,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "implicit-caching",
+                      "reasoning",
+                      "structured-output",
+                      "tool-use",
+                      "vision"
+                    ]
+                  },
+                  "description": "Limit providers to those with these features. `null` removes the stored value."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "caching": {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "@default"
+                    },
+                    {
+                      "type": "string",
+                      "const": "auto"
+                    },
+                    {
+                      "type": "null",
+                      "const": null
+                    }
+                  ],
+                  "description": "Use caching if available. `@default` ignores the value from the inference request. `null` removes the stored value."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "serviceTier": {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "@default"
+                    },
+                    {
+                      "type": "string",
+                      "const": "flex"
+                    },
+                    {
+                      "type": "string",
+                      "const": "priority"
+                    },
+                    {
+                      "type": "string",
+                      "const": "fast"
+                    },
+                    {
+                      "type": "null",
+                      "const": null
+                    }
+                  ],
+                  "description": "The service tier for providers that support it. `@default` ignores the value from the inference request. `null` removes the stored value."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "providerTimeouts": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "const": "@default"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "byok": {
+                          "type": "object",
+                          "properties": {},
+                          "additionalProperties": {
+                            "type": "integer",
+                            "minimum": 1000,
+                            "maximum": 789000
+                          },
+                          "description": "The timeout for each provider that uses a BYOK credential, keyed by provider slug."
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "description": "Provider timeouts in milliseconds. `@default` ignores the value from the inference request. `null` removes the stored value."
+            },
+            "zeroDataRetention": {
+              "anyOf": [
+                {
+                  "type": "boolean",
+                  "description": "Only use providers with zero data retention. `null` removes the stored value."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "hipaaCompliant": {
+              "anyOf": [
+                {
+                  "type": "boolean",
+                  "description": "Only use HIPAA-compliant providers. `null` removes the stored value."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "disallowPromptTraining": {
+              "anyOf": [
+                {
+                  "type": "boolean",
+                  "description": "Only use providers that do not train on prompts. `null` removes the stored value."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "speed": {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "const": "fast"
+                    },
+                    {
+                      "type": "null",
+                      "const": null
+                    }
+                  ],
+                  "description": "Only use the fastest providers, with short timeouts. `null` removes the stored value."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "allowFallbackFromFast": {
+              "anyOf": [
+                {
+                  "type": "boolean",
+                  "description": "Allow fallback from fast to standard providers on failure. `null` removes the stored value."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "vmcSlug",
+        "requestBody"
       ],
       "$schema": "https://json-schema.org/draft/2020-12/schema"
     }
@@ -26755,6 +27537,424 @@
   },
   {
     "server": "vercel",
+    "tool": "create_ai_gateway_rule",
+    "name": "vercel__create_ai_gateway_rule",
+    "description": "Use this when adding a Vercel AI Gateway routing rule that sends requests for one model to another model (type rewrite) or rejects them (type deny). The rule applies to every request of the whole team. Needs teamId or slug to name the team; the call fails without one. requestBody needs type and match.model. A rewrite rule also needs action.rewriteModel: a catalog model ID, or a virtual model as vmc/<slug> (from list_ai_gateway_virtual_models). That model must exist and be active. A deny rule can give action.reason. The rule is enabled unless enabled is false. Fails with a conflict when a rule of the same type already exists for the model; change that rule with update_ai_gateway_rule. The result is the rule as list_ai_gateway_rules returns it. Confirm with list_ai_gateway_rules, where shadowedBy names a rule that takes precedence.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "teamId": {
+          "description": "Team ID to use for this operation.",
+          "type": "string",
+          "example": "team_1a2b3c4d5e6f7g8h9i0j1k2l"
+        },
+        "slug": {
+          "description": "Team slug to use for this operation. Use instead of teamId.",
+          "type": "string",
+          "example": "my-team-url-slug"
+        },
+        "requestBody": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "rewrite",
+                "deny"
+              ],
+              "description": "`rewrite` sends requests for the matched model to another model. `deny` rejects them."
+            },
+            "match": {
+              "type": "object",
+              "properties": {
+                "model": {
+                  "type": "string",
+                  "description": "The model that the rule applies to."
+                }
+              },
+              "required": [
+                "model"
+              ],
+              "additionalProperties": false
+            },
+            "action": {
+              "type": "object",
+              "properties": {
+                "rewriteModel": {
+                  "type": "string",
+                  "description": "The model that serves the request: a catalog model, or one of your virtual models as `vmc/<slug>`. It must exist and be active. Required when `type` is `rewrite`."
+                },
+                "reason": {
+                  "type": "string",
+                  "description": "Why the model is denied. Used when `type` is `deny`."
+                }
+              },
+              "additionalProperties": false,
+              "description": "Required when `type` is `rewrite`."
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether the rule is enabled. Defaults to `true`."
+            },
+            "description": {
+              "type": "string",
+              "description": "A free-text note about the rule."
+            }
+          },
+          "required": [
+            "type",
+            "match"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "requestBody"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
+    "tool": "create_ai_gateway_virtual_model",
+    "name": "vercel__create_ai_gateway_virtual_model",
+    "description": "Use this when creating a Vercel AI Gateway virtual model, a reusable model configuration that every request of the team can call as vmc/<slug>. Needs teamId or slug to name the team; the call fails without one. Here slug is the team slug, not the virtual model slug. requestBody needs virtualModelSlug and modelSlug, the model that it resolves to. Optional fields set fallback models, provider order and restrictions, inference region, caching, service tier, timeouts, and data-retention limits. It serves requests when status is active, which is the default. Fails with a conflict when the slug is in use, also by a deleted virtual model; restore that one with update_ai_gateway_virtual_model. Fails with a permission error when the connection has no AI Gateway virtual model write access or is limited to selected projects. The result is the configuration as get_ai_gateway_virtual_model returns it, with the same redaction, inside the catalog size limits.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "teamId": {
+          "description": "Team ID to use for this operation.",
+          "type": "string",
+          "example": "team_1a2b3c4d5e6f7g8h9i0j1k2l"
+        },
+        "slug": {
+          "description": "Team slug to use for this operation. Use instead of teamId.",
+          "type": "string",
+          "example": "my-team-url-slug"
+        },
+        "requestBody": {
+          "type": "object",
+          "properties": {
+            "virtualModelSlug": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_.-]+$",
+              "description": "The slug of the virtual model. Requests name it as `vmc/<slug>`. `list` is reserved."
+            },
+            "displayName": {
+              "type": "string",
+              "description": "The name shown in the UI."
+            },
+            "description": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "description": "The lifecycle status: `draft`, `active`, or `archived`. Any value other than `active` stops it serving requests. Defaults to `active`."
+            },
+            "modelSlug": {
+              "type": "string",
+              "description": "The model that the virtual model resolves to: a catalog model such as `openai/gpt-4o-mini`, or one of your team's private models as `private/<slug>`. Required on create."
+            },
+            "models": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "description": "A model ID: a catalog model such as `openai/gpt-4o`, or one of your team's private models as `private/<slug>`. A fallback can also name a virtual model as `vmc/<slug>`."
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "model": {
+                        "type": "string",
+                        "description": "A model ID: a catalog model such as `openai/gpt-4o`, or one of your team's private models as `private/<slug>`. A fallback can also name a virtual model as `vmc/<slug>`."
+                      },
+                      "when": {
+                        "type": "object",
+                        "properties": {
+                          "question": {
+                            "type": "string",
+                            "maxLength": 256,
+                            "description": "The question to check, with `confidenceBelow` or `probabilityBetween`. Without it, the condition checks every question of the applicable type."
+                          },
+                          "confidenceBelow": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1
+                          },
+                          "probabilityBetween": {
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "type": "array",
+                            "items": {
+                              "type": "number",
+                              "minimum": 0,
+                              "maximum": 1
+                            },
+                            "description": "A `[lower, upper]` pair."
+                          },
+                          "any": {
+                            "minItems": 1,
+                            "maxItems": 20,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            "description": "Nested conditions. Each one has the same shape as `when`."
+                          },
+                          "all": {
+                            "minItems": 1,
+                            "maxItems": 20,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {},
+                              "additionalProperties": {}
+                            },
+                            "description": "Nested conditions. Each one has the same shape as `when`."
+                          },
+                          "atLeast": {
+                            "type": "object",
+                            "properties": {
+                              "count": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 9007199254740991,
+                                "description": "Must not be more than the number of conditions."
+                              },
+                              "conditions": {
+                                "minItems": 1,
+                                "maxItems": 20,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {},
+                                  "additionalProperties": {}
+                                },
+                                "description": "Nested conditions. Each one has the same shape as `when`."
+                              }
+                            },
+                            "required": [
+                              "count",
+                              "conditions"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "The fallback model is used when the answers of the primary model match this condition. Set exactly one of `confidenceBelow`, `probabilityBetween`, `any`, `all`, or `atLeast`. A condition tree can be 5 levels deep and can hold 100 conditions."
+                      }
+                    },
+                    "required": [
+                      "model",
+                      "when"
+                    ],
+                    "additionalProperties": false,
+                    "description": "A conditional fallback. Only an alias can have one."
+                  }
+                ]
+              },
+              "description": "The ordered fallback models, optionally led by one conditional `{ model, when }` entry."
+            },
+            "providerOrder": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "The providers to try, in order."
+            },
+            "providerOnly": {
+              "maxItems": 256,
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Restrict routing to these providers."
+            },
+            "observabilityTags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Observability tags attached to requests through this virtual model."
+            },
+            "providerOptions": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": {}
+              },
+              "description": "Provider-specific options, keyed by provider slug. The slug of one of your team's private providers is also valid."
+            },
+            "byokCredentialIds": {
+              "maxItems": 256,
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "The BYOK credentials that this virtual model can use."
+            },
+            "inferenceRegion": {
+              "type": "object",
+              "properties": {
+                "scope": {
+                  "type": "string",
+                  "enum": [
+                    "zone",
+                    "global"
+                  ],
+                  "description": "The pin scope: `zone` (a geo zone) or `global`."
+                },
+                "geoRegion": {
+                  "type": "string",
+                  "description": "The geo zone, for example `us` or `eu`. Required when `scope` is `zone`."
+                },
+                "providers": {
+                  "type": "object",
+                  "properties": {},
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "scope": {
+                            "type": "string",
+                            "enum": [
+                              "zone",
+                              "global"
+                            ],
+                            "description": "The pin scope: `zone` (a geo zone) or `global`."
+                          },
+                          "geoRegion": {
+                            "type": "string",
+                            "description": "The geo zone, for example `us` or `eu`. Required when `scope` is `zone`."
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "description": "Region overrides for each provider, keyed by provider slug."
+                }
+              },
+              "additionalProperties": false,
+              "description": "The region that requests are pinned to."
+            },
+            "sort": {
+              "type": "string",
+              "enum": [
+                "@default",
+                "cost",
+                "ttft",
+                "tps",
+                "price",
+                "latency",
+                "throughput"
+              ],
+              "description": "Rank eligible providers by an attribute. `@default` ignores the value from the inference request."
+            },
+            "has": {
+              "maxItems": 32,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "implicit-caching",
+                  "reasoning",
+                  "structured-output",
+                  "tool-use",
+                  "vision"
+                ]
+              },
+              "description": "Limit providers to those with these features."
+            },
+            "caching": {
+              "type": "string",
+              "enum": [
+                "@default",
+                "auto"
+              ],
+              "description": "Use caching if available. `@default` ignores the value from the inference request."
+            },
+            "serviceTier": {
+              "type": "string",
+              "enum": [
+                "@default",
+                "flex",
+                "priority",
+                "fast"
+              ],
+              "description": "The service tier for providers that support it. `@default` ignores the value from the inference request."
+            },
+            "providerTimeouts": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "const": "@default"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "byok": {
+                      "type": "object",
+                      "properties": {},
+                      "additionalProperties": {
+                        "type": "integer",
+                        "minimum": 1000,
+                        "maximum": 789000
+                      },
+                      "description": "The timeout for each provider that uses a BYOK credential, keyed by provider slug."
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ],
+              "description": "Provider timeouts in milliseconds. `@default` ignores the value from the inference request."
+            },
+            "zeroDataRetention": {
+              "type": "boolean",
+              "description": "Only use providers with zero data retention."
+            },
+            "hipaaCompliant": {
+              "type": "boolean",
+              "description": "Only use HIPAA-compliant providers."
+            },
+            "disallowPromptTraining": {
+              "type": "boolean",
+              "description": "Only use providers that do not train on prompts."
+            },
+            "speed": {
+              "type": "string",
+              "const": "fast",
+              "description": "Only use the fastest providers, with short timeouts."
+            },
+            "allowFallbackFromFast": {
+              "type": "boolean",
+              "description": "Allow fallback from fast to standard providers on failure."
+            }
+          },
+          "required": [
+            "virtualModelSlug"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "requestBody"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
     "tool": "create_storage_stores_blob",
     "name": "vercel__create_storage_stores_blob",
     "description": "Create a Vercel Blob store with a name, optional region, and public or private access (default public). When projectId is supplied, also connects the store to that project and creates its storage environment variables. The result can contain storage credentials. This creates storage; it does not upload files.",
@@ -27781,6 +28981,136 @@
           "additionalProperties": false
         }
       },
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
+    "tool": "get_or_create_drive",
+    "name": "vercel__get_or_create_drive",
+    "description": "Use this when provisioning a persistent Vercel Drive or reopening one by name in the same project. Supply name and requestBody.projectId. Returns the existing drive or creates it when absent. When reopening a drive, omit maxSizeBytes and region unless they match the existing drive. This does not start a sandbox or attach the drive to a session.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "example": "workspace",
+          "description": "Name for the drive. Must be unique per project and URL-safe (alphanumeric, hyphens, underscores)."
+        },
+        "teamId": {
+          "description": "Team ID to use for this operation.",
+          "type": "string",
+          "example": "team_1a2b3c4d5e6f7g8h9i0j1k2l"
+        },
+        "slug": {
+          "description": "Team slug to use for this operation. Use instead of teamId.",
+          "type": "string",
+          "example": "my-team-url-slug"
+        },
+        "requestBody": {
+          "type": "object",
+          "properties": {
+            "projectId": {
+              "type": "string",
+              "example": "prj_abc123",
+              "description": "The project ID or name to associate the drive with. Required unless using a Vercel OIDC token scoped to a project."
+            },
+            "maxSizeBytes": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "Maximum drive size in bytes. Must be a multiple of 4096 bytes. Defaults to 1 TiB when omitted (1 GiB for Hobby). The maximum quota is 16 TiB. Request a quota above 16 TiB at https://vercel.com/help."
+            },
+            "region": {
+              "type": "string",
+              "enum": [
+                "iad1",
+                "sfo1",
+                "cle1",
+                "cdg1",
+                "fra1",
+                "arn1",
+                "sin1",
+                "pdx1",
+                "lhr1",
+                "icn1",
+                "bom1",
+                "cpt1",
+                "dub1",
+                "gru1",
+                "hkg1",
+                "syd1",
+                "yul1",
+                "hnd1",
+                "kix1"
+              ],
+              "example": "iad1",
+              "description": "Region where the drive is stored. Defaults to iad1."
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
+    "tool": "fork_drive",
+    "name": "vercel__fork_drive",
+    "description": "Use this when copying an existing Vercel Drive into a new drive in the same project. Supply the source drive name, projectId, the owning team, and requestBody.name for the new drive. The fork inherits the source region and maximum size. Fails with a conflict when the new name is in use. Read the result back with get_drive.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "example": "workspace",
+          "description": "Name of the source drive to fork."
+        },
+        "projectId": {
+          "type": "string",
+          "example": "prj_abc123",
+          "description": "The project ID or name associated with the drive. Required unless using a Vercel OIDC token scoped to a project."
+        },
+        "teamId": {
+          "description": "Team ID to use for this operation.",
+          "type": "string",
+          "example": "team_1a2b3c4d5e6f7g8h9i0j1k2l"
+        },
+        "slug": {
+          "description": "Team slug to use for this operation. Use instead of teamId.",
+          "type": "string",
+          "example": "my-team-url-slug"
+        },
+        "requestBody": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-zA-Z0-9_-]+$",
+              "example": "workspace-fork",
+              "description": "Name for the forked drive. Must be unique per project and URL-safe (alphanumeric, hyphens, underscores)."
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "name",
+        "projectId",
+        "requestBody"
+      ],
       "$schema": "https://json-schema.org/draft/2020-12/schema"
     }
   },
@@ -35611,6 +36941,179 @@
       "required": [
         "idOrName",
         "domain"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
+    "tool": "upsert_ai_gateway_budget",
+    "name": "vercel__upsert_ai_gateway_budget",
+    "description": "Use this when setting or changing a Vercel AI Gateway spend limit for a whole team, one project, or one team member. Needs teamId or slug to name the team; the call fails without one. Creates the budget for that scope or replaces the existing one, and makes an archived budget active again. requestBody needs scopeType and limitAmount in USD (minimum 1), with projectId for scope project (from list_projects) or userId for scope user (the uid from list_team_members). Each call sets the whole budget: an omitted refreshPeriod becomes monthly and an omitted includeByokInQuota becomes false. Omitted alertThresholds keep their value. A caller without permission to change team budgets can change only their own user budget, when the team allows it, and must give justification. The result is a row as list_ai_gateway_budgets returns it, but its currentSpend is always 0: read the spend with list_ai_gateway_budgets. This does not set API key budgets; use upsert_ai_gateway_budget_default for a default budget.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "teamId": {
+          "description": "Team ID to use for this operation.",
+          "type": "string",
+          "example": "team_1a2b3c4d5e6f7g8h9i0j1k2l"
+        },
+        "slug": {
+          "description": "Team slug to use for this operation. Use instead of teamId.",
+          "type": "string",
+          "example": "my-team-url-slug"
+        },
+        "requestBody": {
+          "type": "object",
+          "properties": {
+            "scopeType": {
+              "type": "string",
+              "enum": [
+                "team",
+                "project",
+                "user"
+              ]
+            },
+            "projectId": {
+              "type": "string",
+              "description": "Required when scopeType is \\\"project\\\"."
+            },
+            "userId": {
+              "type": "string",
+              "description": "Required when scopeType is \\\"user\\\"."
+            },
+            "limitAmount": {
+              "type": "number",
+              "minimum": 1,
+              "description": "Budget limit in dollars."
+            },
+            "refreshPeriod": {
+              "default": "monthly",
+              "type": "string",
+              "enum": [
+                "daily",
+                "weekly",
+                "monthly",
+                "none"
+              ]
+            },
+            "includeByokInQuota": {
+              "type": "boolean",
+              "description": "Whether BYOK usage counts toward this budget."
+            },
+            "alertThresholds": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "const": 50
+                  },
+                  {
+                    "type": "number",
+                    "const": 75
+                  },
+                  {
+                    "type": "number",
+                    "const": 100
+                  }
+                ]
+              }
+            },
+            "justification": {
+              "type": "string",
+              "description": "Why the budget is being changed, up to 500 characters. Recorded in the activity log and audit log drains, and sent in the ai-gateway.budget.updated webhook."
+            }
+          },
+          "required": [
+            "scopeType",
+            "limitAmount"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "requestBody"
+      ],
+      "$schema": "https://json-schema.org/draft/2020-12/schema"
+    }
+  },
+  {
+    "server": "vercel",
+    "tool": "upsert_ai_gateway_budget_default",
+    "name": "vercel__upsert_ai_gateway_budget_default",
+    "description": "Use this when setting a default Vercel AI Gateway spend limit for a team: the limit of every project, every team member, or every API key that has no budget of its own. Needs teamId or slug to name the team; the call fails without one. requestBody needs scopeType (project, user, or api-key) and limitAmount in USD (minimum 1). Creates the default for that scope or changes its limit. It does not reset the other settings: omitted refreshPeriod and alertThresholds keep their stored values, and a new default is monthly. Needs permission to change team budgets. Confirm the change with list_ai_gateway_budgets and defaults:true. To limit the team itself, one project, or one member, use upsert_ai_gateway_budget.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "teamId": {
+          "description": "Team ID to use for this operation.",
+          "type": "string",
+          "example": "team_1a2b3c4d5e6f7g8h9i0j1k2l"
+        },
+        "slug": {
+          "description": "Team slug to use for this operation. Use instead of teamId.",
+          "type": "string",
+          "example": "my-team-url-slug"
+        },
+        "requestBody": {
+          "type": "object",
+          "properties": {
+            "scopeType": {
+              "type": "string",
+              "enum": [
+                "project",
+                "api-key",
+                "user"
+              ]
+            },
+            "limitAmount": {
+              "type": "number",
+              "minimum": 1,
+              "description": "Default budget limit in dollars."
+            },
+            "refreshPeriod": {
+              "type": "string",
+              "enum": [
+                "daily",
+                "weekly",
+                "monthly",
+                "none"
+              ]
+            },
+            "alertThresholds": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "const": 50
+                  },
+                  {
+                    "type": "number",
+                    "const": 75
+                  },
+                  {
+                    "type": "number",
+                    "const": 100
+                  }
+                ]
+              }
+            },
+            "justification": {
+              "type": "string",
+              "description": "Why the budget is being changed, up to 500 characters. Recorded in the activity log and audit log drains, and sent in the ai-gateway.budget.updated webhook."
+            }
+          },
+          "required": [
+            "scopeType",
+            "limitAmount"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "requestBody"
       ],
       "$schema": "https://json-schema.org/draft/2020-12/schema"
     }

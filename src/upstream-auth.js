@@ -55,19 +55,53 @@ export class UpstreamAuth {
    * `envToken` is the bootstrap value from the environment variable (first run).
    * `envRefresh` / `envClientId` are only needed on first run to seed KV.
    */
-  async getAccessToken(server, { envToken, envRefresh, envClientId, envExpiresIn } = {}) {
+  /** Call the provider's refresh endpoint for a fresh token pair. */
+  async _refresh(server, rec) {
+    const provider = PROVIDERS[server];
+    const now = Date.now();
+    const body = new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: rec.refresh_token,
+      client_id: rec.client_id,
+    });
+    const r = await this._fetch(provider.token, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+    const j = await r.json();
+    if (!r.ok || !j.access_token) throw new Error(j.error ?? `HTTP ${r.status}`);
+    const expiresIn = Number(j.expires_in ?? 0);
+    const next = {
+      access_token: j.access_token,
+      refresh_token: j.refresh_token || rec.refresh_token, // rotate, fall back to old
+      client_id: rec.client_id,
+      expires_at: expiresIn > 0 ? now + expiresIn * 1000 : 0,
+    };
+    await this._save(server, next);
+    return next;
+  }
+
+  async getAccessToken(server, { envToken, envRefresh, envClientId, envExpiresIn, envObtainedAt } = {}) {
     const provider = PROVIDERS[server];
     if (!provider) return envToken; // GitHub/Vercel use long-lived tokens; no refresh.
 
     let rec = await this._load(server);
     if (!rec && envToken) {
-      // Bootstrap from env on first run, with real expiry so refresh fires on time.
+      // Bootstrap from env. Compute the REAL expiry from when the token was
+      // obtained (if provided) instead of assuming "just now" — env tokens are
+      // often injected hours/days after they were minted.
       const expiresIn = Number(envExpiresIn ?? 0);
+      const obtained = Number(envObtainedAt ?? 0);
+      const expiresAt = obtained > 0 && expiresIn > 0
+        ? obtained + expiresIn * 1000
+        : (expiresIn > 0 ? Date.now() + expiresIn * 1000 : 0);
       rec = {
         access_token: envToken,
         refresh_token: envRefresh ?? '',
         client_id: envClientId ?? '',
-        expires_at: expiresIn > 0 ? Date.now() + expiresIn * 1000 : 0,
+        expires_at: expiresAt,
+        bootstrapped: true,
       };
       await this._save(server, rec);
     }
@@ -75,36 +109,19 @@ export class UpstreamAuth {
 
     const now = Date.now();
     const exp = Number(rec.expires_at ?? 0);
-    const needsRefresh = exp > 0 && exp - REFRESH_SKEW_MS <= now;
-    if (!needsRefresh) return rec.access_token;
+    const nearExpiry = exp > 0 && exp - REFRESH_SKEW_MS <= now;
+    // A freshly bootstrapped token is treated as stale on first use: env-injected
+    // tokens may already be expired, so verify by refreshing once when possible.
+    const shouldRefresh = nearExpiry || rec.bootstrapped === true;
+    if (!shouldRefresh) return rec.access_token;
 
-    // Refresh
     if (!rec.refresh_token) {
-      console.error(`[upstream-auth] ${server} token expired but no refresh token stored`);
+      console.error(`[upstream-auth] ${server} token needs refresh but no refresh token stored`);
       return rec.access_token;
     }
     try {
-      const body = new URLSearchParams({
-        grant_type: 'refresh_token',
-        refresh_token: rec.refresh_token,
-        client_id: rec.client_id,
-      });
-      const r = await this._fetch(provider.token, {
-        method: 'POST',
-        headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        body: body.toString(),
-      });
-      const j = await r.json();
-      if (!r.ok || !j.access_token) throw new Error(j.error ?? `HTTP ${r.status}`);
-      const expiresIn = Number(j.expires_in ?? 0);
-      const next = {
-        access_token: j.access_token,
-        refresh_token: j.refresh_token || rec.refresh_token, // rotate, fall back to old
-        client_id: rec.client_id,
-        expires_at: expiresIn > 0 ? now + expiresIn * 1000 : 0,
-      };
-      await this._save(server, next);
-      console.error(`[upstream-auth] refreshed ${server} token (expires_in=${expiresIn}s)`);
+      const next = await this._refresh(server, rec);
+      console.error(`[upstream-auth] refreshed ${server} token (expires_in=${next.expires_at ? Math.round((next.expires_at - Date.now())/1000) : '?'}s)`);
       return next.access_token;
     } catch (e) {
       console.error(`[upstream-auth] refresh ${server} failed: ${e.message}; using stored token`);

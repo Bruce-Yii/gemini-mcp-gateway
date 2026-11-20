@@ -55,6 +55,7 @@ export class UpstreamManager {
       envRefresh: config.refreshEnv ? process.env[config.refreshEnv] : undefined,
       envClientId: config.clientIdEnv ? process.env[config.clientIdEnv] : undefined,
       envExpiresIn: config.expiresInEnv ? Number(process.env[config.expiresInEnv]) : undefined,
+      envObtainedAt: config.obtainedAtEnv ? Number(process.env[config.obtainedAtEnv]) : undefined,
     });
   }
 
