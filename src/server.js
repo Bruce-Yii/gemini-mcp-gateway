@@ -140,7 +140,8 @@ function buildToolRegistry(upstreamManager, options = {}) {
   whitelist.sort((a, b) => sortKey(a).localeCompare(sortKey(b), 'en'));
 
   const max = options.maxWhitelistTools;
-  if (Number.isFinite(max) && max >= 0) {
+  // 0 or unset means "no cap" — only a positive number limits the list.
+  if (Number.isFinite(max) && max > 0) {
     whitelist.length = Math.min(whitelist.length, max);
   }
 
