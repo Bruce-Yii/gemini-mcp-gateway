@@ -189,18 +189,49 @@ function shrinkObject(value, maxChars) {
   return out;
 }
 
+/** An `images[]` entry from unwrapResult(): `{data, mimeType}`. */
+function isImagePayload(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) &&
+    typeof value.data === 'string';
+}
+
 /**
  * Bound a value to `maxChars` of serialized JSON, keeping its shape valid.
  * Strings are truncated as text; objects/arrays are shrunk structurally.
+ *
+ * Image payloads are the exception: their base64 must reach the gateway
+ * untouched so it can emit a native MCP `image` content block. Truncating it
+ * would corrupt the picture while still filling the text context, so we detach
+ * any `images[]` array before shrinking and reattach it afterwards. The text
+ * budget therefore applies only to the textual part of the result.
  */
 export function truncateResultValue(value, { maxChars = 24000 } = {}) {
   if (typeof value === 'string') return truncateResponseText(value, { maxChars });
+
+  let images;
+  let rest = value;
+  if (value && typeof value === 'object' && !Array.isArray(value) &&
+      Array.isArray(value.images) && value.images.some(isImagePayload)) {
+    images = value.images.filter(isImagePayload);
+    const { images: _detached, ...withoutImages } = value;
+    void _detached;
+    rest = withoutImages;
+  }
+
   let serialized;
-  try { serialized = JSON.stringify(value); } catch { return value; }
+  try { serialized = JSON.stringify(rest); } catch { return value; }
   if (serialized === undefined) return value;
-  if (serialized.length <= maxChars) return value;
-  const shrunk = shrink(JSON.parse(serialized), maxChars);
-  return jsonSize(shrunk) <= maxChars ? shrunk : truncateResponseText(serialized, { maxChars });
+  let out;
+  if (serialized.length <= maxChars) {
+    out = rest;
+  } else {
+    const shrunk = shrink(JSON.parse(serialized), maxChars);
+    out = jsonSize(shrunk) <= maxChars ? shrunk : truncateResponseText(serialized, { maxChars });
+  }
+  if (images && out && typeof out === 'object' && !Array.isArray(out)) {
+    return { ...out, images };
+  }
+  return out;
 }
 
 /* ------------------------------------------------------------------ */

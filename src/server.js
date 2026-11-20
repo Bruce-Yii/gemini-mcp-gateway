@@ -68,9 +68,61 @@ export function boundResult(result, maxChars = DEFAULT_MAX_RESULT_CHARS) {
   return truncated ? { ...result, content } : result;
 }
 
+/**
+ * Native MCP image content blocks are `{type:'image', data, mimeType}`.
+ * `unwrapResult()` collects upstream image blocks into an `images[]` array, and
+ * direct whitelist tools can return an MCP `content` array with image blocks.
+ * When such a result is serialized as one text block the base64 is invisible to
+ * the vision encoder and large enough to blow up the context window.
+ *
+ * These helpers detach every recognised image payload into its own content
+ * block, leaving only a lightweight `{__imageRef, mimeType}` placeholder in the
+ * text JSON. Results without images are passed through byte-for-byte, so all
+ * other tools keep their existing behaviour.
+ */
+function isImagePayload(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value) &&
+    typeof value.data === 'string' && value.data.length > 0;
+}
+
+function imageAt(value, inImagesArray) {
+  return isImagePayload(value) && (inImagesArray || value.type === 'image');
+}
+
+function hasImagePayload(value, inImagesArray = false) {
+  if (Array.isArray(value)) return value.some((v) => hasImagePayload(v, inImagesArray));
+  if (value === null || typeof value !== 'object') return false;
+  if (imageAt(value, inImagesArray)) return true;
+  return Object.entries(value).some(([key, v]) => hasImagePayload(v, key === 'images'));
+}
+
+function collectImages(value, sink, inImagesArray = false) {
+  if (Array.isArray(value)) return value.map((v) => collectImages(v, sink, inImagesArray));
+  if (value === null || typeof value !== 'object') return value;
+  if (imageAt(value, inImagesArray)) {
+    const ref = sink.length;
+    sink.push({
+      type: 'image',
+      data: value.data,
+      mimeType: typeof value.mimeType === 'string' && value.mimeType ? value.mimeType : 'image/png',
+    });
+    return { __imageRef: ref, ...(typeof value.mimeType === 'string' ? { mimeType: value.mimeType } : {}) };
+  }
+  const out = {};
+  for (const [key, v] of Object.entries(value)) out[key] = collectImages(v, sink, key === 'images');
+  return out;
+}
+
 function textResult(result, options = {}) {
-  const bounded = options.noBound ? result : boundResult(result, options.maxChars);
-  return { content: [{ type: 'text', text: JSON.stringify(bounded) }] };
+  const images = [];
+  const detached = hasImagePayload(result) ? collectImages(result, images) : result;
+  const bounded = options.noBound ? detached : boundResult(detached, options.maxChars);
+  return {
+    content: [
+      { type: 'text', text: JSON.stringify(bounded) },
+      ...images,
+    ],
+  };
 }
 
 function errorResult(error) {

@@ -27,9 +27,13 @@ import {
 
 const DATASET = process.env.EXPLORE_DATASET || 'explore/tasks.json';
 const MODEL = process.env.EXPLORE_MODEL || 'hy4-flash-free'; // FREE model — never the paid hy4
-// Use the FREE model endpoint — never the paid Go subscription endpoint.
-// hy4-flash-free is free on OpenCode (limited-time). Override via env if needed.
-const MODEL_BASE = process.env.EXPLORE_MODEL_BASE || 'https://opencode.ai/inference/openai/v1';
+// Use the FREE Go endpoint. The /inference/openai/v1 endpoint is METERED (and
+// rate-limits hard) — never use it for bulk exploration. Fail fast if someone
+// overrides to a metered endpoint or a non-free model by accident.
+const MODEL_BASE = process.env.EXPLORE_MODEL_BASE || 'https://opencode.ai/zen/go/v1';
+if (/\/inference\/openai\//.test(MODEL_BASE) || !/free/.test(MODEL)) {
+  throw new Error(`[explore] Refusing non-free model/endpoint: ${MODEL} @ ${MODEL_BASE}. Bulk tests must use a free model on the Go endpoint.`);
+}
 const MODEL_KEY = process.env.EXPLORE_MODEL_KEY || readOpencodeKey();
 
 function readOpencodeKey() {

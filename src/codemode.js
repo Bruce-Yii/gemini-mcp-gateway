@@ -170,6 +170,70 @@ function toJsonSafe(value) {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * Lightweight pre-flight arg validation (Gemini suggestion 2)
+ *
+ * Only two layers: (1) required fields present, (2) top-level primitive type
+ * for fields whose schema declares a basic type. This is intentionally NOT a
+ * full JSON Schema validator: enum/format/items/nested schemas, multi-types and
+ * fields the schema never mentions are left to the upstream. The upstream is
+ * the authority; we only reject what it would certainly reject anyway, so a
+ * bad call fails in one round with an actionable message instead of after an
+ * upstream 400 + retry.
+ * ------------------------------------------------------------------ */
+const BASIC_ARG_TYPES = new Set(['string', 'number', 'boolean', 'array', 'object']);
+const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+
+/** Cross-realm-safe type name for the "got" part of an error message. */
+function argType(value) {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'array'; // Array.isArray works across vm realms
+  return typeof value; // string | number | boolean | object | function | ...
+}
+
+/** Return the primitive name we check, or null to skip (leave it to upstream). */
+function expectedArgType(def) {
+  if (!def || typeof def !== 'object') return null;
+  const type = def.type;
+  if (type === 'integer') return 'number'; // integral-ness is upstream's job, not ours
+  return typeof type === 'string' && BASIC_ARG_TYPES.has(type) ? type : null;
+}
+
+/**
+ * Validate `codemode.<tool>(args)` against the tool's inputSchema.
+ * Throws an actionable Error; the sandbox catch turns it into an execute error
+ * the model can fix in a single round.
+ */
+export function validateToolArgs(tool, args) {
+  const schema = tool?.inputSchema;
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return;
+  const name = tool?.name ?? tool?.tool ?? 'unknown';
+
+  // Odd arg shapes are not our business — pass them through to the upstream.
+  if (args !== null && (typeof args !== 'object' || Array.isArray(args))) return;
+  const a = args ?? {};
+
+  const props = schema.properties && typeof schema.properties === 'object' && !Array.isArray(schema.properties)
+    ? schema.properties
+    : {};
+  const required = Array.isArray(schema.required) ? schema.required : [];
+
+  const missing = required.filter((field) => !hasOwn(a, field) || a[field] === undefined);
+  if (missing.length > 0) {
+    throw new Error(`tool ${name} requires fields: ${missing.join(', ')}`);
+  }
+
+  for (const [field, def] of Object.entries(props)) {
+    if (!hasOwn(a, field) || a[field] === undefined) continue; // absent (optional) field
+    const expected = expectedArgType(def);
+    if (expected === null) continue; // unknown/multi-type: upstream decides
+    const actual = argType(a[field]);
+    if (actual !== expected) {
+      throw new Error(`tool ${name} field '${field}' expected ${expected}, got ${actual}`);
+    }
+  }
+}
+
 /**
  * Run normalized model code in a VM with a `codemode` proxy whose methods call
  * upstream tools. @returns { result, logs, toolCalls }.
@@ -202,6 +266,9 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
   }
   for (const [ident, tool] of byIdent) {
     codemode[ident] = async (args) => {
+      // Pre-flight before any budget/audit/dedup bookkeeping or upstream call:
+      // cheap, actionable errors beat an upstream 400 + another model round.
+      validateToolArgs(tool, args);
       const dedupeKey = isReadOnlyTool(tool)
         ? `${tool.server ?? ''}::${tool.tool ?? ''}::${stableKey(args ?? {})}`
         : null;

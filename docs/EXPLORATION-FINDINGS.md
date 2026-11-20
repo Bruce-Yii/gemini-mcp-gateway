@@ -98,19 +98,18 @@
 > 用修好的框架（异常归因/去重/trace/manifest/指标）+ v2 任务集（86 条 derived 经反向验证重生）重跑。
 > 注意：manifest 的 gitSha=937b2e7，是测试期间代码陆续合入前的基线，**结果不代表最新代码**。
 
-- 跑了 **138 条**（v2 里 191 条，当前配置暴露的工具只有 138 个——Vercel 禁用后工具减少，runner 过滤掉不存在的）
+- 跑了 **138 条**（runner 按 server 过滤，v2 里 191 条对应实际配置的 138 条）
 - 异常 **215**（raw 222，去重 7）
 - **归因**：gateway 73 / model 136 / synthetic_data 5 / infra 1 —— **大部分（63%）是模型行为，不是网关问题**
-- gateway 缺陷 73 个：search_empty 19 + execute_error 54
 - 指标：平均 3.72 轮、平均 8256 tokens/task、工具召回 searchHitRate 75.4% / searchHitAt3Rate 70.9% / toolHitRate 59.4%
 
-**新发现的具体问题**：
-1. `codemode.github__pull_request_read is not a function` —— 工具名 sanitize（连字符→下划线 `pull_request_read`）与模型写的名字对不上；或模型跨服务混淆（在 Linear 任务里调 GitHub 工具）
-2. `TypeError: t.includes is not a function` —— execute 脚本里对非字符串调用了 includes，可能是结构化截断/解包后值类型变化引入的回归，需复现定位
-3. search_empty 19 —— 多是长任务（多意图）搜不到单一工具；部分是任务里点名了外部服务（Sentry/Datadog）我们没有对应工具（这类应标为 expected_behavior）
-4. execute_error 54 —— 混合了：上游 404（真实数据没有）、参数 validation_error（模型填错）、以及上面 1/2 两个真 bug
+**逐条归类后（work/v2-gateway-triage.md，静态分析 73 条 gateway 异常）**：
+- **真网关确定性缺陷只有 5 条**：`execute_read` 只读过滤回归（`codemode.X is not a function`）——**已在 HEAD 65a76b8 修复**（upstreams 透传 annotations + annotation 优先判定 + 被过滤工具抛可行动错误）
+- 其余 68 条：16 模型脚本/行为（含 `t.includes`——模型把 listTools() 返回的对象当字符串用，非网关 bug）、41 上游 404/403（占位符数据/权限）、10 该次运行没暴露 Linear 工具（runner 配置问题）、1 边界任务预期行为
+- 19 条 search_empty 的真相：只有 1 条是点名外部服务；10 条是该次运行没有 Linear 工具；7 条是模型误用 `select:`（工具其实找到了）；1 条理解偏差
+- 探测器误标：20 条 Vercel "arg mismatch" 实际是干净的 404/403（占位符），6 条 execute_error 的 detail 抓成了搜索结果——detector 问题需修，不是网关缺陷
 
-**结论**：这次终于有了带归因的可信基线。网关自身的确定性缺陷主要是 **工具名 sanitize 一致性**（问题 1）和 **可能的类型回归**（问题 2）——这两个值得修。其余大多是模型行为或测试数据问题，不是网关缺陷。
+**结论**：v2 暴露的网关确定性缺陷已全部修复，残留 0（前提：真实上游给 `pull_request_read` 等标 readOnlyHint；即便没标，stub 也会明确提示改用 execute()）。其余异常是模型/数据/探测器问题，不是网关缺陷。
 
 ## 数据来源
 - 最终任务集：explore/tasks-v2.json（191 条，105 官方逐字 + 86 反向验证重生）
