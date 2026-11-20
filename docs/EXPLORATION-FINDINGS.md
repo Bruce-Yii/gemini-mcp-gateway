@@ -3,8 +3,8 @@
 > 2026-11-21。用四个 MCP 官网挖出的 **191 条任务**（覆盖全部 191 个暴露工具；换用满额度 Firecrawl key 重挖后，
 > **105 条官方逐字示例 + 86 条基于官方 description**——官方确实没给后者的逐工具示例，不是没挖）。
 > 让 hy4 通过网关 search+execute 实际执行，捕捉"用着别扭/报错/重试"的地方。
-> 跑了 138 条（GitHub 42 + Linear 36 + Vercel 60；Notion 53 条因 grant 坏了排除）。
-> 捕捉 176 个异常。**这不是打分，是找问题**——类比你让 Gemini"试用感受一下"，但规模大得多、且逐工具覆盖。
+> **191 条全部跑完**：GitHub 42 + Linear 36 + Vercel 60（176 异常）+ Notion 53（184 异常）。
+> Notion 用静态 access token（禁 refresh）跑，不碰生产 grant。**这不是打分，是找问题**——类比你让 Gemini"试用感受一下"，但规模大得多、且逐工具覆盖。
 >
 > 任务来源权威性：105/191（55%）是官方逐字 prompt（来自各 MCP 官方 docs 的 "Try a prompt"/"Sample prompt"、官方评测 JSON、Copilot cheat sheet 等）；
 > 86 条因官方无逐工具示例而基于官方 description 构造，已在任务集里用 `official: false` 标注。
@@ -14,10 +14,11 @@
 | 指标 | 数值 |
 |---|---|
 | 任务集 | 191 条（GitHub 42 / Notion 53 / Linear 36 / Vercel 60），逐工具全覆盖；105 官方逐字 |
-| 本轮执行 | 138 条（排除 Notion） |
-| 捕捉异常 | 176 |
-| 按服务 | Linear 87 / Vercel 71 / GitHub 18 |
-| 按类型 | retry 89 / execute_error 73 / model_confusion 9 / no_tool_call 4 / search_empty 1 |
+| 全部执行 | 191 条（GitHub 42 + Linear 36 + Vercel 60 = 176 异常；Notion 53 = 184 异常） |
+| 捕捉异常合计 | 360（GitHub/Linear/Vercel 176 + Notion 184） |
+| 按服务（GitHub/Linear/Vercel 轮） | Linear 87 / Vercel 71 / GitHub 18 |
+| 按类型（GitHub/Linear/Vercel 轮） | retry 89 / execute_error 73 / model_confusion 9 / no_tool_call 4 / search_empty 1 |
+| 按类型（Notion 轮） | execute_error 94 / retry 88 / search_empty 2 |
 
 ## ⚠️ 数据可信度说明（必须先读）
 
@@ -78,13 +79,22 @@
 
 ## 局限
 
-- **Notion 53 条没跑**：grant 坏了（我本地测试反复 refresh 抢 grant 导致），需重新授权
 - **模型是 hy4 不是 Gemini**：编程模型，盲点和 Gemini 不同
-- **大部分任务是 description 推导**（132/191）：Firecrawl 额度耗尽，挖不到更多逐字官方示例
 - **占位符假错误**：官方示例用虚构数据，产生大量假 404
 
+## Notion 专项（53 条全跑完）
+
+用**静态 access token（禁 refresh）**跑，不碰生产 grant。结果 184 异常：execute_error 94 / retry 88 / search_empty 2。
+
+**新发现的模式**（跟 Gemini 真实任务反馈的 P1 呼应）：
+- `ReferenceError: search is not defined` —— 模型在沙箱里写 `search()` 而不是 `codemode.search()`，说明 execute 工具描述里"沙箱里全局有什么"讲得不够清楚。
+- `ReferenceError: fetch is not defined` —— 沙箱没注入 fetch，模型想抓 URL 直接崩。跟真实反馈的"沙箱缺 TextEncoder/atob/URL"是同一类问题。
+- 大量 validation_error —— Notion 的 `notion-query-data-sources` 等工具参数复杂（JSON 结构嵌套），模型填错反复试。
+
+这进一步印证了 `docs/GEMINI-REAL-TASK-FEEDBACK.md` 里的 P1 改造（沙箱补齐 Web 标准 API + execute 描述讲清楚沙箱全局）是高优先级。
+
 ## 数据来源
-- 任务集：explore/tasks-deep.json（191 条，逐工具覆盖，来源见每条 source）
-- 官方源深挖：work/deep-{github,notion,linear,vercel}.json
-- 原始异常：explore/results/anomalies.json（194 条）
-- 执行器：explore/run-explore.mjs
+- 最终任务集：explore/tasks-final.json（191 条，105 官方逐字，逐工具覆盖）
+- 四服务官方源深挖：work/deep-*.json + work/re*.json
+- 原始异常：explore/results/anomalies.json（Notion 跑完后的最终结果，184 条）
+- 执行器：explore/run-explore.mjs（静态 token auth，不碰 refresh）

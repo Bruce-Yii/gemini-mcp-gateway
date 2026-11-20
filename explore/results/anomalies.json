@@ -1,1415 +1,1479 @@
 {
-  "generatedAt": "2026-11-20T19:57:05.080Z",
+  "generatedAt": "2026-11-20T20:53:39.975Z",
   "model": "hy4",
-  "totalTasks": 138,
+  "totalTasks": 53,
   "anomalies": [
     {
-      "task": "F001",
-      "server": "github",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "In octocat/Hello-World, add a review comment on line 42 of src/app.js on my latest pending pull request review (#12) saying: 'Please handle the null case here.'"
+      "task": "F043",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "What did the product team decide this month about the rollout? Answer in chat."
     },
     {
-      "task": "F010",
-      "server": "github",
+      "task": "F043",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "What did the product team decide this month about the rollout? Answer in chat."
+    },
+    {
+      "task": "F043",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "What did the product team decide this month about the rollout? Answer in chat."
+    },
+    {
+      "task": "F043",
+      "server": "notion",
       "category": "read",
       "type": "retry",
       "detail": "search called 2x with 2 different args",
-      "prompt": "What is the expected output of this commit?"
+      "prompt": "What did the product team decide this month about the rollout? Answer in chat."
     },
     {
-      "task": "F011",
-      "server": "github",
+      "task": "F043",
+      "server": "notion",
       "category": "read",
-      "type": "no_tool_call",
-      "detail": "model produced no tool call",
-      "prompt": "Explain this file."
-    },
-    {
-      "task": "F013",
-      "server": "github",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: failed to get latest release: GET https://api.github.com/repos/octocat/Hello-World/releases/latest: 404 Not Found []\",\"logs\":[],\"toolCalls\":[{\"name\":\"github__get_latest_release\",\"args\":{\"owner\":\"octocat\",\"repo\":\"Hello-World\"}}],\"isError\":true}",
-      "prompt": "What is the latest release of octocat/Hello-World?"
-    },
-    {
-      "task": "F015",
-      "server": "github",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: failed to get release by tag: v1.0.0: GET https://api.github.com/repos/octocat/Hello-World/releases/tags/v1.0.0: 404 Not Found []\",\"logs\":[],\"toolCalls\":[{\"name\":\"github__get_release_by_tag\",\"args\":{\"owner\":\"octocat\",\"repo\":\"Hello-World\",\"tag\":\"v1.0.0\"}}],\"isError\":true}",
-      "prompt": "Get the release notes for tag v1.0.0 in octocat/Hello-World."
-    },
-    {
-      "task": "F016",
-      "server": "github",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: failed to get tag reference: GET https://api.github.com/repos/octocat/Hello-World/git/ref/tags/v1.0.0: 404 Not Found []\",\"logs\":[],\"toolCalls\":[{\"name\":\"github__get_tag\",\"args\":{\"owner\":\"octocat\",\"repo\":\"Hello-World\",\"tag\":\"v1.0.0\"}}],\"isError\":true}",
-      "prompt": "Show me the details of the tag v1.0.0 in octocat/Hello-World."
-    },
-    {
-      "task": "F016",
-      "server": "github",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: failed to get release by tag: v1.0.0: GET https://api.github.com/repos/octocat/Hello-World/releases/tags/v1.0.0: 404 Not Found []\",\"logs\":[],\"toolCalls\":[{\"name\":\"github__get_release_by_tag\",\"args\":{\"owner\":\"octocat\",\"repo\":\"Hello-World\",\"tag\":\"v1.0.0\"}}],\"isError\":true}",
-      "prompt": "Show me the details of the tag v1.0.0 in octocat/Hello-World."
-    },
-    {
-      "task": "F016",
-      "server": "github",
-      "category": "derived",
       "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "Show me the details of the tag v1.0.0 in octocat/Hello-World."
+      "detail": "execute called 4x with 3 different args",
+      "prompt": "What did the product team decide this month about the rollout? Answer in chat."
     },
     {
-      "task": "F020",
-      "server": "github",
-      "category": "derived",
+      "task": "F044",
+      "server": "notion",
+      "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: failed to list commits: main: GET https://api.github.com/repos/octocat/Hello-World/commits?page=1&per_page=100&sha=main&since=2026-01-01T00%3A00%3A00Z: 404 Not Found []\",\"logs\":[],\"toolCalls\":[{\"name\":\"github__list_commits\",\"args\":{\"owner\":\"octocat\",\"repo\":\"Hello-World\",\"sh",
-      "prompt": "List the most recent commits on the main branch of octocat/Hello-World since 2026-01-01."
+      "detail": "{\"result\":\"execute error: ReferenceError: fetch is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "What do my Notion memories say about how I prefer project updates?"
     },
     {
-      "task": "F020",
-      "server": "github",
-      "category": "derived",
+      "task": "F044",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"about\\\":{\\\"metadata\\\":{\\\"type\\\":\\\"memory\\\"},\\\"title\\\":\\\"Notion Memory\\\",\\\"url\\\":\\\"https://app.notion.com/p/3f21e795caee81b9b2b8fb573edeb0d5\\\",\\\"text\\\":\\\"The user's About page, then their Memories database. Query the database's data source to list or count memories.\\\\n\\\\nHere is the res",
+      "prompt": "What do my Notion memories say about how I prefer project updates?"
+    },
+    {
+      "task": "F044",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "What do my Notion memories say about how I prefer project updates?"
+    },
+    {
+      "task": "F044",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "execute called 4x with 4 different args",
+      "prompt": "What do my Notion memories say about how I prefer project updates?"
+    },
+    {
+      "task": "F045",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: fetch is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "In two sentences, what is the launch date in https://notion.so/launch? Answer here; do not save."
+    },
+    {
+      "task": "F045",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: {\\\"name\\\":\\\"APIResponseError\\\",\\\"code\\\":\\\"validation_error\\\",\\\"status\\\":400,\\\"headers\\\":{},\\\"body\\\":\\\"{\\\\\\\"object\\\\\\\":\\\\\\\"error\\\\\\\",\\\\\\\"status\\\\\\\":400,\\\\\\\"code\\\\\\\":\\\\\\\"validation_error\\\\\\\",\\\\\\\"message\\\\\\\":\\\\\\\"URL type webpage not currently supported for fetch tool.\\\\\\\",\\\\\\\"",
+      "prompt": "In two sentences, what is the launch date in https://notion.so/launch? Answer here; do not save."
+    },
+    {
+      "task": "F045",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"results\\\":[{\\\"id\\\":\\\"3c91e795-caee-81fe-81f8-c42301e59973\\\",\\\"title\\\":\\\"LaunchMesh OPC项目协作平台｜滨江启梦空间｜2026\\\",\\\"url\\\":\\\"https://app.notion.com/p/3c91e795caee81fe81f8c42301e59973?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"LaunchMesh OPC项目协作平台｜滨江启梦空间｜2026\\\",\\\"timestamp\\\":\\\"2026-08-27T22:17",
+      "prompt": "In two sentences, what is the launch date in https://notion.so/launch? Answer here; do not save."
+    },
+    {
+      "task": "F045",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "In two sentences, what is the launch date in https://notion.so/launch? Answer here; do not save."
+    },
+    {
+      "task": "F045",
+      "server": "notion",
+      "category": "read",
       "type": "retry",
       "detail": "execute called 3x with 3 different args",
-      "prompt": "List the most recent commits on the main branch of octocat/Hello-World since 2026-01-01."
+      "prompt": "In two sentences, what is the launch date in https://notion.so/launch? Answer here; do not save."
     },
     {
-      "task": "F021",
-      "server": "github",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: failed to list issue fields: Could not resolve to an Organization with the login of 'octocat'.\",\"logs\":[],\"toolCalls\":[{\"name\":\"github__list_issue_fields\",\"args\":{\"owner\":\"octocat\"}},{\"name\":\"github__list_issue_fields\",\"args\":{\"owner\":\"octocat\",\"repo\":\"Hello-World\"}}],\"isEr",
-      "prompt": "List the custom issue fields defined for the octocat organization and for the repository octocat/Hello-World."
-    },
-    {
-      "task": "F021",
-      "server": "github",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "List the custom issue fields defined for the octocat organization and for the repository octocat/Hello-World."
-    },
-    {
-      "task": "F028",
-      "server": "github",
-      "category": "read",
+      "task": "F046",
+      "server": "notion",
+      "category": "cross",
       "type": "retry",
       "detail": "search called 2x with 2 different args",
-      "prompt": "Show me the diff for PR #123"
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary."
     },
     {
-      "task": "F029",
-      "server": "github",
-      "category": "write",
-      "type": "no_tool_call",
-      "detail": "model produced no tool call",
-      "prompt": "Help review this pull request."
+      "task": "F047",
+      "server": "notion",
+      "category": "cross",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary."
     },
     {
-      "task": "F032",
-      "server": "github",
-      "category": "boundary",
-      "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "Scan my current changes for exposed secrets and show me the files and lines I should update before I commit."
+      "task": "F047",
+      "server": "notion",
+      "category": "cross",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary."
     },
     {
-      "task": "F033",
-      "server": "github",
-      "category": "read",
-      "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "Search the code in the github organization's repositories for Go code that contains 'WithContext'."
-    },
-    {
-      "task": "F033",
-      "server": "github",
-      "category": "read",
-      "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "Search the code in the github organization's repositories for Go code that contains 'WithContext'."
-    },
-    {
-      "task": "F039",
-      "server": "github",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "Add issue #50 as a sub-issue of parent issue #42 in octocat/Hello-World."
-    },
-    {
-      "task": "F096",
-      "server": "linear",
-      "category": "read",
+      "task": "F047",
+      "server": "notion",
+      "category": "cross",
       "type": "retry",
       "detail": "search called 2x with 2 different args",
-      "prompt": "add retry handling for failed image uploads described in this issue"
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary."
     },
     {
-      "task": "F097",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"Could not find referenced Issue.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9e86079c37b5d\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_issue\",\"args\":{\"id\":\"LIN-123\",\"includeRelations\":true}}],\"isError\":true}",
-      "prompt": "Start from issue LIN-123. Read the issue description and all its comments, then list what the team has already observed and hypothesized about the bug."
+      "task": "F047",
+      "server": "notion",
+      "category": "cross",
+      "type": "retry",
+      "detail": "execute called 4x with 3 different args",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary."
     },
     {
-      "task": "F097",
-      "server": "linear",
+      "task": "F048",
+      "server": "notion",
       "category": "read",
       "type": "retry",
       "detail": "search called 4x with 4 different args",
-      "prompt": "Start from issue LIN-123. Read the issue description and all its comments, then list what the team has already observed and hypothesized about the bug."
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary."
     },
     {
-      "task": "F097",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "Start from issue LIN-123. Read the issue description and all its comments, then list what the team has already observed and hypothesized about the bug."
-    },
-    {
-      "task": "F098",
-      "server": "linear",
-      "category": "cross",
-      "type": "no_tool_call",
-      "detail": "model produced no tool call",
-      "prompt": "Turn these standup notes into updates on existing Linear issues. Match each note by ID, title, owner, or clear context; for every confident match add a concise comment capturing what changed, the current status or blocker, and the next step. Show me the issues and exact comments before applying them, then list any notes you skipped. Standup notes: [paste the raw text here]"
-    },
-    {
-      "task": "F099",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"Could not find referenced Issue.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9e8d06c765ea4\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_issue\",\"args\":{\"id\":\"ENG-2844\"}}],\"isError\":true}",
-      "prompt": "Delete the outdated comment I left on ENG-2844 that recommends the workaround we abandoned."
-    },
-    {
-      "task": "F099",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_issues: fields.1: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"title\\\"|\\\"description\\\"|\\\"projectMilestone\\\"|\\\"priority\\\"|\\\"estimate\\\"|\\\"url\\\"|\\\"gitBranchName\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"complete",
-      "prompt": "Delete the outdated comment I left on ENG-2844 that recommends the workaround we abandoned."
-    },
-    {
-      "task": "F099",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "Delete the outdated comment I left on ENG-2844 that recommends the workaround we abandoned."
-    },
-    {
-      "task": "F099",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 3x with 3 different args",
-      "prompt": "Delete the outdated comment I left on ENG-2844 that recommends the workaround we abandoned."
-    },
-    {
-      "task": "F100",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Error: Could not find team \\\"LIN\\\" for teamId\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_cycles\",\"args\":{\"teamId\":\"LIN\"}},{\"name\":\"linear__list_cycles\",\"args\":{\"teamId\":\"FEA\"}}],\"isError\":true}",
-      "prompt": "Identify the most recently completed cycle for teams LIN and FEA, gather the relevant issues, and produce a concise summary of what was actually completed, the main themes, and any notable patterns."
-    },
-    {
-      "task": "F100",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Error: Could not find team \\\"LIN\\\"\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_team\",\"args\":{\"query\":\"LIN\"}},{\"name\":\"linear__get_team\",\"args\":{\"query\":\"FEA\"}}],\"isError\":true}",
-      "prompt": "Identify the most recently completed cycle for teams LIN and FEA, gather the relevant issues, and produce a concise summary of what was actually completed, the main themes, and any notable patterns."
-    },
-    {
-      "task": "F100",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_issues: fields.1: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"title\\\"|\\\"description\\\"|\\\"projectMilestone\\\"|\\\"priority\\\"|\\\"estimate\\\"|\\\"url\\\"|\\\"gitBranchName\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"complete",
-      "prompt": "Identify the most recently completed cycle for teams LIN and FEA, gather the relevant issues, and produce a concise summary of what was actually completed, the main themes, and any notable patterns."
-    },
-    {
-      "task": "F100",
-      "server": "linear",
+      "task": "F049",
+      "server": "notion",
       "category": "read",
       "type": "retry",
       "detail": "search called 2x with 2 different args",
-      "prompt": "Identify the most recently completed cycle for teams LIN and FEA, gather the relevant issues, and produce a concise summary of what was actually completed, the main themes, and any notable patterns."
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary."
     },
     {
-      "task": "F100",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "execute called 5x with 5 different args",
-      "prompt": "Identify the most recently completed cycle for teams LIN and FEA, gather the relevant issues, and produce a concise summary of what was actually completed, the main themes, and any notable patterns."
-    },
-    {
-      "task": "F102",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_documents: fields.2: Invalid option: expected one of \\\"id\\\"|\\\"title\\\"|\\\"content\\\"|\\\"url\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"creator\\\"|\\\"updatedBy\\\"|\\\"project\\\"|\\\"initiative\\\"|\\\"team\\\"|\\\"issue\\\", fields.6: In",
-      "prompt": "How does notification grouping work today, and where should we change it? Read the relevant Linear documents and summarize the current behavior and the open questions."
-    },
-    {
-      "task": "F102",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"documents\\\":[{\\\"id\\\":\\\"d35e599d-e339-46df-9883-10c23bf1eb73\\\",\\\"title\\\":\\\"Laya Control Plane｜Execution Bootstrap\\\",\\\"url\\\":\\\"https://linear.app/yi383775/document/laya-control-planeexecution-bootstrap-6dbbcc83d64e\\\",\\\"updatedAt\\\":\\\"2026-10-13T19:27:57.810Z\\\",\\\"project\\\":{\\\"id\\\":\\\"13465f",
-      "prompt": "How does notification grouping work today, and where should we change it? Read the relevant Linear documents and summarize the current behavior and the open questions."
-    },
-    {
-      "task": "F102",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "execute called 5x with 5 different args",
-      "prompt": "How does notification grouping work today, and where should we change it? Read the relevant Linear documents and summarize the current behavior and the open questions."
-    },
-    {
-      "task": "F103",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"documents\\\":[{\\\"id\\\":\\\"d35e599d-e339-46df-9883-10c23bf1eb73\\\",\\\"title\\\":\\\"Laya Control Plane｜Execution Bootstrap\\\",\\\"updatedAt\\\":\\\"2026-10-13T19:27:57.810Z\\\",\\\"content\\\":\\\"## ACTIVE CONTROL ROUTES｜2026-10-14\\\\n\\\\n* **Formal Review（当前唯一执行方向）**：[YU-365](<https://linear.app/yi383775/issue",
-      "prompt": "List all Linear documents in my workspace with their titles and last-updated dates, and highlight any that are about the API launch."
-    },
-    {
-      "task": "F103",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 3x with 3 different args",
-      "prompt": "List all Linear documents in my workspace with their titles and last-updated dates, and highlight any that are about the API launch."
-    },
-    {
-      "task": "F104",
-      "server": "linear",
+      "task": "F050",
+      "server": "notion",
       "category": "write",
       "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Draft a new document on this project that comprehensively outlines the feature."
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Save our deployment discussion to the team wiki."
     },
     {
-      "task": "F105",
-      "server": "linear",
-      "category": "read",
+      "task": "F051",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: {\\\"name\\\":\\\"APIResponseError\\\",\\\"code\\\":\\\"validation_error\\\",\\\"status\\\":400,\\\"headers\\\":{},\\\"body\\\":\\\"{\\\\\\\"object\\\\\\\":\\\\\\\"error\\\\\\\",\\\\\\\"status\\\\\\\":400,\\\\\\\"code\\\\\\\":\\\\\\\"validation_error\\\\\\\",\\\\\\\"message\\\\\\\":\\\\\\\"URL type webpage not currently supported for fetch tool.\\\\\\\",\\\\\\\"",
+      "prompt": "Update https://notion.so/deploy-guide with this correction: verify /ready returns 200 instead of /health. Keep the rest."
+    },
+    {
+      "task": "F051",
+      "server": "notion",
+      "category": "write",
       "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "add retry handling for failed image uploads described in this issue"
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Update https://notion.so/deploy-guide with this correction: verify /ready returns 200 instead of /health. Keep the rest."
     },
     {
-      "task": "F106",
-      "server": "linear",
+      "task": "F051",
+      "server": "notion",
+      "category": "write",
+      "type": "retry",
+      "detail": "execute called 3x with 3 different args",
+      "prompt": "Update https://notion.so/deploy-guide with this correction: verify /ready returns 200 instead of /health. Keep the rest."
+    },
+    {
+      "task": "F052",
+      "server": "notion",
+      "category": "boundary",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents."
+    },
+    {
+      "task": "F052",
+      "server": "notion",
+      "category": "boundary",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents."
+    },
+    {
+      "task": "F052",
+      "server": "notion",
       "category": "boundary",
       "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Investigate this issue using Sentry and summarize the likely cause."
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents."
     },
     {
-      "task": "F107",
-      "server": "linear",
-      "category": "read",
+      "task": "F052",
+      "server": "notion",
+      "category": "boundary",
+      "type": "retry",
+      "detail": "execute called 4x with 4 different args",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents."
+    },
+    {
+      "task": "F053",
+      "server": "notion",
+      "category": "boundary",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_issues: fields.1: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"title\\\"|\\\"description\\\"|\\\"projectMilestone\\\"|\\\"priority\\\"|\\\"estimate\\\"|\\\"url\\\"|\\\"gitBranchName\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"complete",
-      "prompt": "Review today's mobile triage and group the issues by what should happen next."
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Create a content calendar in Notion for the campaign we discussed. Add draft ideas with owners, publish dates, and statuses, then create a calendar view and a view of content ready for review."
     },
     {
-      "task": "F107",
-      "server": "linear",
-      "category": "read",
+      "task": "F053",
+      "server": "notion",
+      "category": "boundary",
       "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"issues\\\":[{\\\"id\\\":\\\"LAJI-35\\\",\\\"title\\\":\\\"[Gateway Smoke Test] 写操作连通性验证\\\",\\\"description\\\":\\\"Automated write test via gemini-mcp-gateway (will be canceled immediately).\\\",\\\"status\\\":\\\"Canceled\\\",\\\"statusType\\\":\\\"canceled\\\",\\\"priority\\\":{\\\"value\\\":4,\\\"name\\\":\\\"Low\\\"},\\\"labels\\\":[],\\\"assi",
-      "prompt": "Review today's mobile triage and group the issues by what should happen next."
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Create a content calendar in Notion for the campaign we discussed. Add draft ideas with owners, publish dates, and statuses, then create a calendar view and a view of content ready for review."
     },
     {
-      "task": "F107",
-      "server": "linear",
-      "category": "read",
+      "task": "F053",
+      "server": "notion",
+      "category": "boundary",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Create a content calendar in Notion for the campaign we discussed. Add draft ideas with owners, publish dates, and statuses, then create a calendar view and a view of content ready for review."
+    },
+    {
+      "task": "F053",
+      "server": "notion",
+      "category": "boundary",
+      "type": "retry",
+      "detail": "search called 4x with 4 different args",
+      "prompt": "Create a content calendar in Notion for the campaign we discussed. Add draft ideas with owners, publish dates, and statuses, then create a calendar view and a view of content ready for review."
+    },
+    {
+      "task": "F053",
+      "server": "notion",
+      "category": "boundary",
+      "type": "retry",
+      "detail": "execute called 3x with 2 different args",
+      "prompt": "Create a content calendar in Notion for the campaign we discussed. Add draft ideas with owners, publish dates, and statuses, then create a calendar view and a view of content ready for review."
+    },
+    {
+      "task": "F054",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F054",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"results\\\":[{\\\"id\\\":\\\"3c91e795-caee-81fe-81f8-c42301e59973\\\",\\\"title\\\":\\\"LaunchMesh OPC项目协作平台｜滨江启梦空间｜2026\\\",\\\"url\\\":\\\"https://app.notion.com/p/3c91e795caee81fe81f8c42301e59973?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"LaunchMesh OPC项目协作平台｜滨江启梦空间｜2026\\\",\\\"timestamp\\\":\\\"2026-08-27T22:17",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F054",
+      "server": "notion",
+      "category": "write",
       "type": "retry",
       "detail": "search called 3x with 3 different args",
-      "prompt": "Review today's mobile triage and group the issues by what should happen next."
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
     },
     {
-      "task": "F107",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "execute called 4x with 4 different args",
-      "prompt": "Review today's mobile triage and group the issues by what should happen next."
-    },
-    {
-      "task": "F109",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_issues: fields.1: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"title\\\"|\\\"description\\\"|\\\"projectMilestone\\\"|\\\"priority\\\"|\\\"estimate\\\"|\\\"url\\\"|\\\"gitBranchName\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"complete",
-      "prompt": "Review new and untriaged issues for our team. For each issue, recommend the next step, such as clarifying scope, assigning an owner, setting priority, linking related work, or closing it if it is no longer needed. Flag any duplicates, missing context, or risks."
-    },
-    {
-      "task": "F109",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"issues\\\":[{\\\"id\\\":\\\"LAJI-35\\\",\\\"title\\\":\\\"[Gateway Smoke Test] 写操作连通性验证\\\",\\\"description\\\":\\\"Automated write test via gemini-mcp-gateway (will be canceled immediately).\\\",\\\"priority\\\":{\\\"value\\\":4,\\\"name\\\":\\\"Low\\\"},\\\"url\\\":\\\"https://linear.app/yi383775/issue/LAJI-35/gateway-smoke-test-写",
-      "prompt": "Review new and untriaged issues for our team. For each issue, recommend the next step, such as clarifying scope, assigning an owner, setting priority, linking related work, or closing it if it is no longer needed. Flag any duplicates, missing context, or risks."
-    },
-    {
-      "task": "F109",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"total\\\":100,\\\"byStatus\\\":{\\\"Canceled\\\":27,\\\"In Progress\\\":22,\\\"Done\\\":36,\\\"In Review\\\":5,\\\"Backlog\\\":4,\\\"Todo\\\":4,\\\"Waiting\\\":1,\\\"Blocked\\\":1},\\\"untriagedCount\\\":100,\\\"untriaged\\\":[{\\\"id\\\":\\\"LAJI-35\\\",\\\"title\\\":\\\"[Gateway Smoke Test] 写操作连通性验证\\\",\\\"status\\\":\\\"Canceled\\\",\\\"priority\\\":\\\"Lo",
-      "prompt": "Review new and untriaged issues for our team. For each issue, recommend the next step, such as clarifying scope, assigning an owner, setting priority, linking related work, or closing it if it is no longer needed. Flag any duplicates, missing context, or risks."
-    },
-    {
-      "task": "F109",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Review new and untriaged issues for our team. For each issue, recommend the next step, such as clarifying scope, assigning an owner, setting priority, linking related work, or closing it if it is no longer needed. Flag any duplicates, missing context, or risks."
-    },
-    {
-      "task": "F109",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "execute called 4x with 4 different args",
-      "prompt": "Review new and untriaged issues for our team. For each issue, recommend the next step, such as clarifying scope, assigning an owner, setting priority, linking related work, or closing it if it is no longer needed. Flag any duplicates, missing context, or risks."
-    },
-    {
-      "task": "F110",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool get_issue_status: id: Invalid input: expected string, received undefined\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_issue_status\",\"args\":{\"name\":\"In Review\",\"team\":\"Engineering\"}}],\"isError\":true}",
-      "prompt": "Look up the 'In Review' workflow status in the Engineering team and tell me its type, position in the workflow, and whether issues in it count as started or completed."
-    },
-    {
-      "task": "F110",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Look up the 'In Review' workflow status in the Engineering team and tell me its type, position in the workflow, and whether issues in it count as started or completed."
-    },
-    {
-      "task": "F110",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 4x with 4 different args",
-      "prompt": "Look up the 'In Review' workflow status in the Engineering team and tell me its type, position in the workflow, and whether issues in it count as started or completed."
-    },
-    {
-      "task": "F111",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Error: Could not find team \\\"Engineering\\\"\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_teams\",\"args\":{\"query\":\"Engineering\"}},{\"name\":\"linear__list_issue_labels\",\"args\":{\"limit\":100,\"includeGroups\":true}},{\"name\":\"linear__list_issue_labels\",\"args\":{\"team\":\"Engineering\",\"l",
-      "prompt": "List the issue labels available in my workspace and in the Engineering team, and tell me which ones are used for bug triage."
-    },
-    {
-      "task": "F111",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "List the issue labels available in my workspace and in the Engineering team, and tell me which ones are used for bug triage."
-    },
-    {
-      "task": "F111",
-      "server": "linear",
-      "category": "derived",
+      "task": "F054",
+      "server": "notion",
+      "category": "write",
       "type": "retry",
       "detail": "execute called 3x with 3 different args",
-      "prompt": "List the issue labels available in my workspace and in the Engineering team, and tell me which ones are used for bug triage."
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
     },
     {
-      "task": "F112",
-      "server": "linear",
-      "category": "read",
+      "task": "F055",
+      "server": "notion",
+      "category": "write",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_projects: limit: Too big: expected number to be <=50, fields.2: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"name\\\"|\\\"summary\\\"|\\\"description\\\"|\\\"url\\\"|\\\"trashed\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"startedAt\\\"|\\\"compl",
-      "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed."
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Use Product projects. I am working with Maya on design and Eli on engineering. I lead product; Maya should review the interaction spec."
     },
     {
-      "task": "F112",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Error: Initiative status updates are not enabled for this workspace. Pass `type: \\\"project\\\"` for project status updates, or enable roadmaps to use initiatives.\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"includeMilestones\":true,\"includeMembe",
-      "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed."
-    },
-    {
-      "task": "F112",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 19005. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9edc6be50b5d4\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"includeMilestones\":t",
-      "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed."
-    },
-    {
-      "task": "F112",
-      "server": "linear",
-      "category": "read",
+      "task": "F055",
+      "server": "notion",
+      "category": "write",
       "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed."
+      "detail": "search called 4x with 4 different args",
+      "prompt": "Use Product projects. I am working with Maya on design and Eli on engineering. I lead product; Maya should review the interaction spec."
     },
     {
-      "task": "F112",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "execute called 3x with 3 different args",
-      "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed."
-    },
-    {
-      "task": "F113",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 19130. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9edee5d32e9dd\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"orderBy\":\"updatedAt\"",
-      "prompt": "Summarize the current status of this project with progress, risks, and next steps."
-    },
-    {
-      "task": "F113",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_issues: fields.1: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"title\\\"|\\\"description\\\"|\\\"projectMilestone\\\"|\\\"priority\\\"|\\\"estimate\\\"|\\\"url\\\"|\\\"gitBranchName\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"complete",
-      "prompt": "Summarize the current status of this project with progress, risks, and next steps."
-    },
-    {
-      "task": "F113",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Summarize the current status of this project with progress, risks, and next steps."
-    },
-    {
-      "task": "F113",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "execute called 4x with 4 different args",
-      "prompt": "Summarize the current status of this project with progress, risks, and next steps."
-    },
-    {
-      "task": "F116",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"gh\\\":{\\\"login\\\":\\\"Bruce-Yii\\\",\\\"id\\\":298228875,\\\"profile_url\\\":\\\"https://github.com/Bruce-Yii\\\",\\\"avatar_url\\\":\\\"https://avatars.githubusercontent.com/u/298228875?v=4\\\",\\\"details\\\":{\\\"email\\\":\\\"yuyi64906@gmail.com\\\",\\\"public_repos\\\":43,\\\"public_gists\\\":0,\\\"followers\\\":20,\\\"following\\\":",
-      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
-    },
-    {
-      "task": "F116",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 19130. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9eed60d3cb941\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"includeMilestones\":t",
-      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
-    },
-    {
-      "task": "F116",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 15879.999999999998. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9eeebd908b941\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"include",
-      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
-    },
-    {
-      "task": "F116",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"count\\\":34,\\\"active\\\":[{\\\"id\\\":\\\"YU-419\\\",\\\"title\\\":\\\"VIVIC｜队友 Private 仓库交接\\\",\\\"status\\\":\\\"In Progress\\\",\\\"priority\\\":\\\"High\\\",\\\"project\\\":\\\"VIVIC｜全双工实时交互与 Agent 协同\\\",\\\"dueDate\\\":null,\\\"updatedAt\\\":\\\"2026-11-16T16:07:20.850Z\\\",\\\"createdAt\\\":\\\"2026-11-16T07:46:59.390Z\\\",\\\"url\\\":\\\"https:",
-      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
-    },
-    {
-      "task": "F116",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
-    },
-    {
-      "task": "F116",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "execute called 5x with 5 different args",
-      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
-    },
-    {
-      "task": "F117",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Error: Could not find project \\\"API launch\\\"\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_milestone\",\"args\":{\"project\":\"API launch\",\"query\":\"Public Beta\"}}],\"isError\":true}",
-      "prompt": "Open the 'Public Beta' milestone of the API launch project and tell me its target date, description, and current progress."
-    },
-    {
-      "task": "F117",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 15879.999999999998. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9ef6ddba872d5\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"include",
-      "prompt": "Open the 'Public Beta' milestone of the API launch project and tell me its target date, description, and current progress."
-    },
-    {
-      "task": "F117",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Open the 'Public Beta' milestone of the API launch project and tell me its target date, description, and current progress."
-    },
-    {
-      "task": "F117",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 4x with 4 different args",
-      "prompt": "Open the 'Public Beta' milestone of the API launch project and tell me its target date, description, and current progress."
-    },
-    {
-      "task": "F118",
-      "server": "linear",
-      "category": "cross",
-      "type": "no_tool_call",
-      "detail": "model produced no tool call",
-      "prompt": "Turn this planning document into a well-structured Linear project. Read the document, create a project that reflects its objective, scope, and timeline, create the issues, and organize issues into milestones when the document clearly implies phases, deliverables, or checkpoints. Before creating anything, show me the proposed project, milestones, issues, and relationships."
-    },
-    {
-      "task": "F119",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"notifications\\\":[{\\\"id\\\":\\\"d290247a-3671-4a26-bc05-e090295d2bec\\\",\\\"type\\\":\\\"issueNewComment\\\",\\\"title\\\":\\\"Dify #42973｜PDF 预览失败恢复｜分支收敛 + 证据复验\\\",\\\"subtitle\\\":\\\"Linear error: Your workspace's AI credits aren't set up yet. Ask a workspace admin to add credits, and reply here to continue.\\",
-      "prompt": "Show me the unread notifications in my Linear inbox from the last two days, starting with the Priority tab items."
-    },
-    {
-      "task": "F120",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"notifications\\\":[{\\\"id\\\":\\\"fc627580-c68b-49ac-98f7-3aca70fada9b\\\",\\\"type\\\":\\\"issueNewComment\\\",\\\"title\\\":\\\"求职补强｜FactoryBench-100 AP-042 公开任务复用与真实 Agent 实践\\\",\\\"subtitle\\\":\\\"Linear error: Your workspace's AI credits aren't set up yet. Ask a workspace admin to add credits, and reply here ",
-      "prompt": "Mark all Linear notifications about ENG-2844 as read and snooze the one about the API launch until tomorrow."
-    },
-    {
-      "task": "F121",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_issues: fields.1: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"title\\\"|\\\"description\\\"|\\\"projectMilestone\\\"|\\\"priority\\\"|\\\"estimate\\\"|\\\"url\\\"|\\\"gitBranchName\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"complete",
-      "prompt": "Summarize the progress of our team's current cycle and tell me which issues are at risk of rolling over. Start by identifying the right team in the workspace."
-    },
-    {
-      "task": "F121",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"issues\\\":[{\\\"id\\\":\\\"LAJI-35\\\",\\\"title\\\":\\\"[Gateway Smoke Test] 写操作连通性验证\\\",\\\"priority\\\":{\\\"value\\\":4,\\\"name\\\":\\\"Low\\\"},\\\"estimate\\\":null,\\\"url\\\":\\\"https://linear.app/yi383775/issue/LAJI-35/gateway-smoke-test-写操作连通性验证\\\",\\\"createdAt\\\":\\\"2026-11-20T16:25:30.457Z\\\",\\\"updatedAt\\\":\\\"2026-11-2",
-      "prompt": "Summarize the progress of our team's current cycle and tell me which issues are at risk of rolling over. Start by identifying the right team in the workspace."
-    },
-    {
-      "task": "F121",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "Summarize the progress of our team's current cycle and tell me which issues are at risk of rolling over. Start by identifying the right team in the workspace."
-    },
-    {
-      "task": "F121",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "execute called 5x with 5 different args",
-      "prompt": "Summarize the progress of our team's current cycle and tell me which issues are at risk of rolling over. Start by identifying the right team in the workspace."
-    },
-    {
-      "task": "F122",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Error: Could not find team \\\"Mobile\\\"\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_team\",\"args\":{\"query\":\"Mobile\"}}],\"isError\":true}",
-      "prompt": "Look up the Mobile team and tell me its key, workflow statuses, and triage settings."
-    },
-    {
-      "task": "F122",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Look up the Mobile team and tell me its key, workflow statuses, and triage settings."
-    },
-    {
-      "task": "F122",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 3x with 3 different args",
-      "prompt": "Look up the Mobile team and tell me its key, workflow statuses, and triage settings."
-    },
-    {
-      "task": "F124",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Error: Could not find template \\\"Bug Report\\\". Call list_templates to see what is available\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_template\",\"args\":{\"id\":\"Bug Report\"}}],\"isError\":true}",
-      "prompt": "Show me the 'Bug Report' issue template, including the content it pre-fills, the default fields it applies, and any sub-issues."
-    },
-    {
-      "task": "F124",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 3x with 3 different args",
-      "prompt": "Show me the 'Bug Report' issue template, including the content it pre-fills, the default fields it applies, and any sub-issues."
-    },
-    {
-      "task": "F125",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_issues: fields.1: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"title\\\"|\\\"description\\\"|\\\"projectMilestone\\\"|\\\"priority\\\"|\\\"estimate\\\"|\\\"url\\\"|\\\"gitBranchName\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"complete",
-      "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved."
-    },
-    {
-      "task": "F125",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"Variable \\\\\\\"$filter\\\\\\\" got invalid value \\\\\\\">-P14D\\\\\\\" at \\\\\\\"filter.updatedAt.gte\\\\\\\"; Expected type \\\\\\\"DateTimeOrDuration\\\\\\\". Unable to parse value '>-P14D' into a valid date\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9f1d0bb122a",
-      "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved."
-    },
-    {
-      "task": "F125",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"gh\\\":{\\\"login\\\":\\\"Bruce-Yii\\\",\\\"id\\\":298228875,\\\"profile_url\\\":\\\"https://github.com/Bruce-Yii\\\",\\\"avatar_url\\\":\\\"https://avatars.githubusercontent.com/u/298228875?v=4\\\",\\\"details\\\":{\\\"email\\\":\\\"yuyi64906@gmail.com\\\",\\\"public_repos\\\":43,\\\"public_gists\\\":0,\\\"followers\\\":20,\\\"following\\\":",
-      "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved."
-    },
-    {
-      "task": "F125",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_projects: limit: Too big: expected number to be <=50\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_users\",\"args\":{\"limit\":100}},{\"name\":\"linear__list_projects\",\"args\":{\"updatedAt\":\"-P14D\",\"limit\":100,\"orderBy\":\"updated",
-      "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved."
-    },
-    {
-      "task": "F125",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved."
-    },
-    {
-      "task": "F125",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "execute called 4x with 4 different args",
-      "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved."
-    },
-    {
-      "task": "F126",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Error: Could not find user \\\"alex@example.com\\\"\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_user\",\"args\":{\"query\":\"alex@example.com\"}}],\"isError\":true}",
-      "prompt": "Look up the Linear user with email alex@example.com and tell me their display name, teams, and role."
-    },
-    {
-      "task": "F126",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Look up the Linear user with email alex@example.com and tell me their display name, teams, and role."
-    },
-    {
-      "task": "F126",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 3x with 3 different args",
-      "prompt": "Look up the Linear user with email alex@example.com and tell me their display name, teams, and role."
-    },
-    {
-      "task": "F128",
-      "server": "linear",
-      "category": "derived",
+      "task": "F055",
+      "server": "notion",
+      "category": "write",
       "type": "retry",
       "detail": "execute called 2x with 2 different args",
-      "prompt": "Search Linear's documentation to explain how cycles differ from project milestones, and link the relevant docs pages."
+      "prompt": "Use Product projects. I am working with Maya on design and Eli on engineering. I lead product; Maya should review the interaction spec."
     },
     {
-      "task": "F129",
-      "server": "linear",
-      "category": "read",
+      "task": "F056",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents."
+    },
+    {
+      "task": "F056",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"[{\\\"id\\\":\\\"40f1e795-caee-8168-a56b-dbede24ca2e5\\\",\\\"r\\\":{\\\"metadata\\\":{\\\"type\\\":\\\"page\\\"},\\\"title\\\":\\\"🧭 Agent Project OS｜AWRP Next（独立产品）\\\",\\\"url\\\":\\\"https://app.notion.com/p/40f1e795caee8168a56bdbede24ca2e5?pvs=204\\\",\\\"text\\\":\\\"Here is the result of \\\\\\\"fetch\\\\\\\" for the Page with URL ht",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents."
+    },
+    {
+      "task": "F056",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"[{\\\"id\\\":\\\"4171e795-caee-812d-aada-d2b56659a7ca\\\",\\\"text\\\":\\\"Here is the result of \\\\\\\"fetch\\\\\\\" for the Page with URL https://app.notion.com/p/4171e795caee812daadad2b56659a7ca as of 2026-11-13T13:33:17.573Z:\\\\n<page url=\\\\\\\"https://app.notion.com/p/4171e795caee812daadad2b56659a7ca\\\\\\\" ic",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents."
+    },
+    {
+      "task": "F056",
+      "server": "notion",
+      "category": "write",
       "type": "retry",
       "detail": "search called 3x with 3 different args",
-      "prompt": "Draft a project update that summarizes progress, risks, blockers, and recent changes. First read this project's existing status updates so the draft does not repeat them, then show me the draft for review."
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents."
     },
     {
-      "task": "F129",
-      "server": "linear",
-      "category": "read",
+      "task": "F056",
+      "server": "notion",
+      "category": "write",
+      "type": "retry",
+      "detail": "execute called 4x with 4 different args",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents."
+    },
+    {
+      "task": "F057",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: fetch is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Create a simple equipment checkout database under https://notion.so/lab. Use one row per item, with item name, borrower, due date, and available or checked-out status. Add an overdue view if supported. Do not add sample items."
+    },
+    {
+      "task": "F057",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: {\\\"name\\\":\\\"APIResponseError\\\",\\\"code\\\":\\\"validation_error\\\",\\\"status\\\":400,\\\"headers\\\":{},\\\"body\\\":\\\"{\\\\\\\"object\\\\\\\":\\\\\\\"error\\\\\\\",\\\\\\\"status\\\\\\\":400,\\\\\\\"code\\\\\\\":\\\\\\\"validation_error\\\\\\\",\\\\\\\"message\\\\\\\":\\\\\\\"URL type webpage not currently supported for fetch tool.\\\\\\\",\\\\\\\"",
+      "prompt": "Create a simple equipment checkout database under https://notion.so/lab. Use one row per item, with item name, borrower, due date, and available or checked-out status. Add an overdue view if supported. Do not add sample items."
+    },
+    {
+      "task": "F057",
+      "server": "notion",
+      "category": "write",
+      "type": "retry",
+      "detail": "search called 4x with 4 different args",
+      "prompt": "Create a simple equipment checkout database under https://notion.so/lab. Use one row per item, with item name, borrower, due date, and available or checked-out status. Add an overdue view if supported. Do not add sample items."
+    },
+    {
+      "task": "F057",
+      "server": "notion",
+      "category": "write",
       "type": "retry",
       "detail": "execute called 3x with 3 different args",
-      "prompt": "Draft a project update that summarizes progress, risks, blockers, and recent changes. First read this project's existing status updates so the draft does not repeat them, then show me the draft for review."
+      "prompt": "Create a simple equipment checkout database under https://notion.so/lab. Use one row per item, with item name, borrower, due date, and available or checked-out status. Add an overdue view if supported. Do not add sample items."
     },
     {
-      "task": "F130",
-      "server": "linear",
+      "task": "F058",
+      "server": "notion",
+      "category": "cross",
+      "type": "retry",
+      "detail": "search called 4x with 4 different args",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary."
+    },
+    {
+      "task": "F059",
+      "server": "notion",
+      "category": "cross",
+      "type": "retry",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary."
+    },
+    {
+      "task": "F060",
+      "server": "notion",
       "category": "write",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_projects: fields.3: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"name\\\"|\\\"summary\\\"|\\\"description\\\"|\\\"url\\\"|\\\"trashed\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"startedAt\\\"|\\\"completedAt\\\"|\\\"canceledAt\\\"|\\\"startDate\\\"|\\\"star",
-      "prompt": "Draft a concise weekly update for this project. Call out any meaningful changes in scope or timeline, note work that appears off plan or drifting from the original goals, and base the update on evidence from project issues and activity. Share the draft with me in this chat first; once I approve it, post it to the project."
+      "detail": "{\"result\":\"execute error: {\\\"name\\\":\\\"APIResponseError\\\",\\\"code\\\":\\\"validation_error\\\",\\\"status\\\":400,\\\"headers\\\":{},\\\"body\\\":\\\"{\\\\\\\"object\\\\\\\":\\\\\\\"error\\\\\\\",\\\\\\\"status\\\\\\\":400,\\\\\\\"code\\\\\\\":\\\\\\\"validation_error\\\\\\\",\\\\\\\"message\\\\\\\":\\\\\\\"URL type webpage not currently supported for fetch tool.\\\\\\\",\\\\\\\"",
+      "prompt": "Our team tracker at https://notion.so/deliverables is hard to scan. Add a simple progress field so we can quickly see what is planned, underway, or finished. Fill it in from what is already there, and keep our original labels and notes."
     },
     {
-      "task": "F130",
-      "server": "linear",
+      "task": "F060",
+      "server": "notion",
       "category": "write",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 18940. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9f3f5ca56c38a\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"includeMilestones\":t",
-      "prompt": "Draft a concise weekly update for this project. Call out any meaningful changes in scope or timeline, note work that appears off plan or drifting from the original goals, and base the update on evidence from project issues and activity. Share the draft with me in this chat first; once I approve it, post it to the project."
+      "detail": "{\"result\":\"{\\\"search\\\":{\\\"results\\\":[{\\\"id\\\":\\\"4131e795-caee-8178-945b-d83a4eb0e433\\\",\\\"title\\\":\\\"03｜开发前准备阶段｜Pre-development Readiness\\\",\\\"url\\\":\\\"https://app.notion.com/p/4131e795caee8178945bd83a4eb0e433?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"将开发拆成 Work Package，每个包有 Goal、Scope、Non-scope、Depend",
+      "prompt": "Our team tracker at https://notion.so/deliverables is hard to scan. Add a simple progress field so we can quickly see what is planned, underway, or finished. Fill it in from what is already there, and keep our original labels and notes."
     },
     {
-      "task": "F130",
-      "server": "linear",
+      "task": "F060",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: {\\\"name\\\":\\\"APIResponseError\\\",\\\"code\\\":\\\"validation_error\\\",\\\"status\\\":400,\\\"headers\\\":{},\\\"body\\\":\\\"{\\\\\\\"object\\\\\\\":\\\\\\\"error\\\\\\\",\\\\\\\"status\\\\\\\":400,\\\\\\\"code\\\\\\\":\\\\\\\"validation_error\\\\\\\",\\\\\\\"message\\\\\\\":\\\\\\\"Supplied identifier must be a Notion page ID, database ID, data s",
+      "prompt": "Our team tracker at https://notion.so/deliverables is hard to scan. Add a simple progress field so we can quickly see what is planned, underway, or finished. Fill it in from what is already there, and keep our original labels and notes."
+    },
+    {
+      "task": "F060",
+      "server": "notion",
+      "category": "write",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Our team tracker at https://notion.so/deliverables is hard to scan. Add a simple progress field so we can quickly see what is planned, underway, or finished. Fill it in from what is already there, and keep our original labels and notes."
+    },
+    {
+      "task": "F060",
+      "server": "notion",
+      "category": "write",
+      "type": "retry",
+      "detail": "execute called 3x with 3 different args",
+      "prompt": "Our team tracker at https://notion.so/deliverables is hard to scan. Add a simple progress field so we can quickly see what is planned, underway, or finished. Fill it in from what is already there, and keep our original labels and notes."
+    },
+    {
+      "task": "F061",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Comment \"Hello MCP\" on page \"Getting started\""
+    },
+    {
+      "task": "F061",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"results\\\":[{\\\"id\\\":\\\"3ed1e795-caee-8110-9731-edcb6dfa40a5\\\",\\\"title\\\":\\\"Natnael Alemseged\\\",\\\"url\\\":\\\"https://app.notion.com/p/3ed1e795caee81109731edcb6dfa40a5?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"uv docs.astral.sh/uv/**getting-started**/installation/ --- uv docs.astral.sh/uv/**",
+      "prompt": "Comment \"Hello MCP\" on page \"Getting started\""
+    },
+    {
+      "task": "F061",
+      "server": "notion",
       "category": "write",
       "type": "retry",
       "detail": "search called 2x with 2 different args",
-      "prompt": "Draft a concise weekly update for this project. Call out any meaningful changes in scope or timeline, note work that appears off plan or drifting from the original goals, and base the update on evidence from project issues and activity. Share the draft with me in this chat first; once I approve it, post it to the project."
+      "prompt": "Comment \"Hello MCP\" on page \"Getting started\""
     },
     {
-      "task": "F130",
-      "server": "linear",
+      "task": "F061",
+      "server": "notion",
+      "category": "write",
+      "type": "retry",
+      "detail": "execute called 2x with 2 different args",
+      "prompt": "Comment \"Hello MCP\" on page \"Getting started\""
+    },
+    {
+      "task": "F062",
+      "server": "notion",
+      "category": "cross",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"results\\\":[{\\\"id\\\":\\\"4151e795-caee-81c9-acd3-ded98853efb9\\\",\\\"title\\\":\\\"PRD｜Recruitment OS 10.0｜Master Product Requirements Document\\\",\\\"url\\\":\\\"https://app.notion.com/p/4151e795caee81c9acd3ded98853efb9?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"2.0 — Hiring Demand & Role Planning **P",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F062",
+      "server": "notion",
+      "category": "cross",
+      "type": "retry",
+      "detail": "search called 5x with 5 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F063",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F063",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F063",
+      "server": "notion",
+      "category": "write",
+      "type": "retry",
+      "detail": "search called 5x with 5 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F063",
+      "server": "notion",
+      "category": "write",
+      "type": "retry",
+      "detail": "execute called 4x with 3 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F064",
+      "server": "notion",
+      "category": "boundary",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F064",
+      "server": "notion",
+      "category": "boundary",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: TypeError: t.includes is not a function\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F064",
+      "server": "notion",
+      "category": "boundary",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F064",
+      "server": "notion",
+      "category": "boundary",
+      "type": "retry",
+      "detail": "execute called 3x with 3 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F065",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F065",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"results\\\":[{\\\"id\\\":\\\"4151e795-caee-81c9-acd3-ded98853efb9\\\",\\\"title\\\":\\\"PRD｜Recruitment OS 10.0｜Master Product Requirements Document\\\",\\\"url\\\":\\\"https://app.notion.com/p/4151e795caee81c9acd3ded98853efb9?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"2.0 — Hiring Demand & Role Planning **P",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F065",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"a\\\":{\\\"results\\\":[{\\\"id\\\":\\\"4151e795-caee-81c9-acd3-ded98853efb9\\\",\\\"title\\\":\\\"PRD｜Recruitment OS 10.0｜Master Product Requirements Document\\\",\\\"url\\\":\\\"https://app.notion.com/p/4151e795caee81c9acd3ded98853efb9?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"2.0 — Hiring Demand & Role Plann",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F065",
+      "server": "notion",
+      "category": "write",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F065",
+      "server": "notion",
       "category": "write",
       "type": "retry",
       "detail": "execute called 3x with 3 different args",
-      "prompt": "Draft a concise weekly update for this project. Call out any meaningful changes in scope or timeline, note work that appears off plan or drifting from the original goals, and base the update on evidence from project issues and activity. Share the draft with me in this chat first; once I approve it, post it to the project."
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
     },
     {
-      "task": "F131",
-      "server": "linear",
-      "category": "derived",
+      "task": "F066",
+      "server": "notion",
+      "category": "write",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_projects: limit: Too big: expected number to be <=50\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":100,\"includeArchived\":true}}],\"isError\":true}",
-      "prompt": "Delete the obsolete status update I posted on the API launch project last month."
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
     },
     {
-      "task": "F131",
-      "server": "linear",
-      "category": "derived",
+      "task": "F066",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F066",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: list is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F066",
+      "server": "notion",
+      "category": "write",
       "type": "retry",
       "detail": "search called 3x with 3 different args",
-      "prompt": "Delete the obsolete status update I posted on the API launch project last month."
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
     },
     {
-      "task": "F131",
-      "server": "linear",
-      "category": "derived",
+      "task": "F066",
+      "server": "notion",
+      "category": "write",
+      "type": "retry",
+      "detail": "execute called 4x with 3 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F067",
+      "server": "notion",
+      "category": "cross",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F067",
+      "server": "notion",
+      "category": "cross",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"results\\\":[{\\\"id\\\":\\\"4151e795-caee-81c9-acd3-ded98853efb9\\\",\\\"title\\\":\\\"PRD｜Recruitment OS 10.0｜Master Product Requirements Document\\\",\\\"url\\\":\\\"https://app.notion.com/p/4151e795caee81c9acd3ded98853efb9?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"2.0 — Hiring Demand & Role Planning **P",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F067",
+      "server": "notion",
+      "category": "cross",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"results\\\":[{\\\"id\\\":\\\"3c91e795-caee-81fe-81f8-c42301e59973\\\",\\\"title\\\":\\\"LaunchMesh OPC项目协作平台｜滨江启梦空间｜2026\\\",\\\"url\\\":\\\"https://app.notion.com/p/3c91e795caee81fe81f8c42301e59973?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"LaunchMesh OPC项目协作平台｜滨江启梦空间｜2026\\\",\\\"timestamp\\\":\\\"2026-08-27T22:17",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F067",
+      "server": "notion",
+      "category": "cross",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"results\\\":[{\\\"type\\\":\\\"page\\\",\\\"url\\\":\\\"https://app.notion.com/p/4051e795caee8139a393cbb11474fd23?pvs=204\\\",\\\"title\\\":\\\"11｜赛前研究总控与多窗口执行计划 V1.0\\\",\\\"icon\\\":\\\"🗺️\\\"},{\\\"type\\\":\\\"page\\\",\\\"url\\\":\\\"https://app.notion.com/p/4041e795caee810f80c2e524fa0761ec?pvs=204\\\",\\\"title\\\":\\\"10｜九命题全景基线｜原文校",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F067",
+      "server": "notion",
+      "category": "cross",
+      "type": "retry",
+      "detail": "search called 5x with 5 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F067",
+      "server": "notion",
+      "category": "cross",
       "type": "retry",
       "detail": "execute called 4x with 4 different args",
-      "prompt": "Delete the obsolete status update I posted on the API launch project last month."
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
     },
     {
-      "task": "F132",
-      "server": "vercel",
+      "task": "F068",
+      "server": "notion",
+      "category": "cross",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F068",
+      "server": "notion",
+      "category": "cross",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: TypeError: codemode.notion__notion__search is not a function\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F068",
+      "server": "notion",
+      "category": "cross",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F068",
+      "server": "notion",
+      "category": "cross",
+      "type": "retry",
+      "detail": "execute called 3x with 3 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F069",
+      "server": "notion",
+      "category": "boundary",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F069",
+      "server": "notion",
+      "category": "boundary",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F069",
+      "server": "notion",
+      "category": "boundary",
+      "type": "retry",
+      "detail": "search called 4x with 4 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F069",
+      "server": "notion",
+      "category": "boundary",
+      "type": "retry",
+      "detail": "execute called 2x with 2 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F070",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents."
+    },
+    {
+      "task": "F070",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"[{\\\"id\\\":\\\"40f1e795-caee-8168-a56b-dbede24ca2e5\\\",\\\"r\\\":{\\\"metadata\\\":{\\\"type\\\":\\\"page\\\"},\\\"title\\\":\\\"🧭 Agent Project OS｜AWRP Next（独立产品）\\\",\\\"url\\\":\\\"https://app.notion.com/p/40f1e795caee8168a56bdbede24ca2e5?pvs=204\\\",\\\"text\\\":\\\"Here is the result of \\\\\\\"fetch\\\\\\\" for the Page with URL ht",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents."
+    },
+    {
+      "task": "F070",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents."
+    },
+    {
+      "task": "F070",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "execute called 4x with 4 different args",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents."
+    },
+    {
+      "task": "F071",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: fetch is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Give me a brief weekly update for https://notion.so/pilot for September 28–October 4, 2026. Tell me how much progress we made."
+    },
+    {
+      "task": "F071",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: {\\\"name\\\":\\\"APIResponseError\\\",\\\"code\\\":\\\"validation_error\\\",\\\"status\\\":400,\\\"headers\\\":{},\\\"body\\\":\\\"{\\\\\\\"object\\\\\\\":\\\\\\\"error\\\\\\\",\\\\\\\"status\\\\\\\":400,\\\\\\\"code\\\\\\\":\\\\\\\"validation_error\\\\\\\",\\\\\\\"message\\\\\\\":\\\\\\\"URL type webpage not currently supported for fetch tool.\\\\\\\",\\\\\\\"",
+      "prompt": "Give me a brief weekly update for https://notion.so/pilot for September 28–October 4, 2026. Tell me how much progress we made."
+    },
+    {
+      "task": "F071",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"metadata\\\":{\\\"type\\\":\\\"page\\\"},\\\"title\\\":\\\"🧪 JD × Resume Agent-first Full-chain Pilot｜10岗位 × 200简历\\\",\\\"url\\\":\\\"https://app.notion.com/p/3e01e795caee8151a035ff585a50d704?pvs=204\\\",\\\"text\\\":\\\"Here is the result of \\\\\\\"fetch\\\\\\\" for the Page with URL https://app.notion.com/p/3e01e795caee",
+      "prompt": "Give me a brief weekly update for https://notion.so/pilot for September 28–October 4, 2026. Tell me how much progress we made."
+    },
+    {
+      "task": "F071",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Give me a brief weekly update for https://notion.so/pilot for September 28–October 4, 2026. Tell me how much progress we made."
+    },
+    {
+      "task": "F071",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "execute called 4x with 4 different args",
+      "prompt": "Give me a brief weekly update for https://notion.so/pilot for September 28–October 4, 2026. Tell me how much progress we made."
+    },
+    {
+      "task": "F072",
+      "server": "notion",
+      "category": "cross",
+      "type": "retry",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes."
+    },
+    {
+      "task": "F073",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F073",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F073",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F073",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F073",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "execute called 4x with 4 different args",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F074",
+      "server": "notion",
       "category": "read",
       "type": "search_empty",
-      "detail": "How do I configure custom domains in Vercel?",
-      "prompt": "How do I configure custom domains in Vercel?"
+      "detail": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources.",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
     },
     {
-      "task": "F132",
-      "server": "vercel",
+      "task": "F074",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"[{\\\"q\\\":\\\"launch\\\",\\\"results\\\":[{\\\"id\\\":\\\"3c91e795-caee-81fe-81f8-c42301e59973\\\",\\\"title\\\":\\\"LaunchMesh OPC项目协作平台｜滨江启梦空间｜2026\\\",\\\"url\\\":\\\"https://app.notion.com/p/3c91e795caee81fe81f8c42301e59973?pvs=204\\\",\\\"timestamp\\\":\\\"2026-08-27T22:17:00.000Z\\\",\\\"path\\\":\\\"🧠 我的第二大脑 / 🛰️ 机会情报库\\\",\\\"hig",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F074",
+      "server": "notion",
       "category": "read",
       "type": "retry",
       "detail": "search called 4x with 4 different args",
-      "prompt": "How do I configure custom domains in Vercel?"
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
     },
     {
-      "task": "F133",
-      "server": "vercel",
-      "category": "read",
-      "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "Which of my Git repositories already have Vercel projects?"
-    },
-    {
-      "task": "F133",
-      "server": "vercel",
+      "task": "F074",
+      "server": "notion",
       "category": "read",
       "type": "retry",
       "detail": "execute called 2x with 2 different args",
-      "prompt": "Which of my Git repositories already have Vercel projects?"
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
     },
     {
-      "task": "F134",
-      "server": "vercel",
-      "category": "cross",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"me\\\":{\\\"login\\\":\\\"Bruce-Yii\\\",\\\"id\\\":298228875,\\\"profile_url\\\":\\\"https://github.com/Bruce-Yii\\\",\\\"avatar_url\\\":\\\"https://avatars.githubusercontent.com/u/298228875?v=4\\\",\\\"details\\\":{\\\"email\\\":\\\"yuyi64906@gmail.com\\\",\\\"public_repos\\\":43,\\\"public_gists\\\":0,\\\"followers\\\":20,\\\"following\\\":",
-      "prompt": "Show the deployment for the branch and commit I just pushed."
-    },
-    {
-      "task": "F134",
-      "server": "vercel",
-      "category": "cross",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Show the deployment for the branch and commit I just pushed."
-    },
-    {
-      "task": "F134",
-      "server": "vercel",
-      "category": "cross",
-      "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "Show the deployment for the branch and commit I just pushed."
-    },
-    {
-      "task": "F135",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"No project given. Call again with projectId: read it from .vercel/project.json in a linked repository, or use the project name. teamId is optional.\\\",\\\"recovery\\\":\\\"Try an available mapped CLI fallback first for the same authorized action, with the",
-      "prompt": "Show the latest build log lines from the deployments card for my most recent deployment."
-    },
-    {
-      "task": "F135",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 3x with 3 different args",
-      "prompt": "Show the latest build log lines from the deployments card for my most recent deployment."
-    },
-    {
-      "task": "F137",
-      "server": "vercel",
+      "task": "F075",
+      "server": "notion",
       "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"[{\\\"project\\\":\\\"gemini-mcp-gateway\\\",\\\"result\\\":\\\"## Runtime Errors\\\\n\\\\n**Project:** prj_lo9xcadrDV0cEOFGbiDbV4awZ4Br\\\\n\\\\n7 error group(s), most frequent first:\\\\n\\\\n### [upstreams] 1/4 upstreams failed: notion\\\\ncount=18 users=7 routes=/api/index\\\\nfirst=2026-11-20T13:34:24.000Z last=2",
-      "prompt": "Why is my production app throwing errors?"
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
     },
     {
-      "task": "F137",
-      "server": "vercel",
+      "task": "F075",
+      "server": "notion",
       "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: ## Runtime Logs\\n\\n**Project:** prj_lo9xcadrDV0cEOFGbiDbV4awZ4Br\\n**Time range:** 2026-11-19T19:47:01.087Z → 2026-11-20T19:47:01.087Z\\n\\nThe runtime log query failed before returning results — this is an error from the logs API, not an absence of logs. See the details below",
-      "prompt": "Why is my production app throwing errors?"
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
     },
     {
-      "task": "F137",
-      "server": "vercel",
+      "task": "F075",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F075",
+      "server": "notion",
       "category": "read",
       "type": "retry",
       "detail": "search called 2x with 2 different args",
-      "prompt": "Why is my production app throwing errors?"
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
     },
     {
-      "task": "F137",
-      "server": "vercel",
+      "task": "F075",
+      "server": "notion",
       "category": "read",
       "type": "retry",
       "detail": "execute called 4x with 4 different args",
-      "prompt": "Why is my production app throwing errors?"
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
     },
     {
-      "task": "F140",
-      "server": "vercel",
+      "task": "F076",
+      "server": "notion",
       "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\n  \\\"success\\\": false,\\n  \\\"info\\\": \\\"The deployment could not be found, or your Vercel connection may not have access to it. Check the URL. If it is correct, ask the user to extend their Vercel authorization to include the deployment's project and team, then retry.\\\",\\n ",
-      "prompt": "Make sure the content from my-app.vercel.app/api/status looks right"
+      "detail": "{\"result\":\"[{\\\"q\\\":\\\"latest launch decisions\\\",\\\"r\\\":{\\\"results\\\":[{\\\"id\\\":\\\"3e51e795-caee-8162-a90f-c97697266393\\\",\\\"title\\\":\\\"04｜Decisions, Constraints & Rejected Routes\\\",\\\"url\\\":\\\"https://app.notion.com/p/3e51e795caee8162a90fc97697266393?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"YU-359 linear.",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
     },
     {
-      "task": "F141",
-      "server": "vercel",
+      "task": "F076",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"[{\\\"q\\\":\\\"launch\\\",\\\"results\\\":[{\\\"id\\\":\\\"3c91e795-caee-81fe-81f8-c42301e59973\\\",\\\"title\\\":\\\"LaunchMesh OPC项目协作平台｜滨江启梦空间｜2026\\\",\\\"url\\\":\\\"https://app.notion.com/p/3c91e795caee81fe81f8c42301e59973?pvs=204\\\",\\\"ts\\\":\\\"2026-08-27T22:17:00.000Z\\\",\\\"path\\\":\\\"🧠 我的第二大脑 / 🛰️ 机会情报库\\\",\\\"highlight\\",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F076",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"[{\\\"q\\\":\\\"会议纪要\\\",\\\"n\\\":15,\\\"top\\\":[{\\\"id\\\":\\\"4101e795-caee-814b-b90a-f8666f43efc4\\\",\\\"title\\\":\\\"素材图片（供作品集选用）\\\",\\\"url\\\":\\\"https://app.notion.com/p/4101e795caee814bb90af8666f43efc4?pvs=204\\\",\\\"ts\\\":\\\"2026-11-06T09:59:00.000Z\\\",\\\"path\\\":\\\"Vivic 作品集素材库\\\",\\\"highlight\\\":\\\"27 种卡片：待办、便签、倒计时、日程、周计",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F076",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F076",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "execute called 3x with 3 different args",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F077",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: fetch is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Create a private weekly planner with a task board and example tasks. I want to see the board immediately when I open the page, with notes and ideas below it. Open in the side panel."
+    },
+    {
+      "task": "F077",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: fetch is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Create a private weekly planner with a task board and example tasks. I want to see the board immediately when I open the page, with notes and ideas below it. Open in the side panel."
+    },
+    {
+      "task": "F077",
+      "server": "notion",
+      "category": "write",
+      "type": "retry",
+      "detail": "search called 6x with 6 different args",
+      "prompt": "Create a private weekly planner with a task board and example tasks. I want to see the board immediately when I open the page, with notes and ideas below it. Open in the side panel."
+    },
+    {
+      "task": "F077",
+      "server": "notion",
+      "category": "write",
+      "type": "retry",
+      "detail": "execute called 2x with 2 different args",
+      "prompt": "Create a private weekly planner with a task board and example tasks. I want to see the board immediately when I open the page, with notes and ideas below it. Open in the side panel."
+    },
+    {
+      "task": "F079",
+      "server": "notion",
+      "category": "cross",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F079",
+      "server": "notion",
+      "category": "cross",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"a\\\":{\\\"results\\\":[{\\\"id\\\":\\\"3c91e795-caee-81fe-81f8-c42301e59973\\\",\\\"title\\\":\\\"LaunchMesh OPC项目协作平台｜滨江启梦空间｜2026\\\",\\\"url\\\":\\\"https://app.notion.com/p/3c91e795caee81fe81f8c42301e59973?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"LaunchMesh OPC项目协作平台｜滨江启梦空间｜2026\\\",\\\"timestamp\\\":\\\"2026-08-2",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F079",
+      "server": "notion",
+      "category": "cross",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F079",
+      "server": "notion",
+      "category": "cross",
+      "type": "retry",
+      "detail": "execute called 3x with 3 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F080",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F080",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"results\\\":[{\\\"id\\\":\\\"4151e795-caee-81c9-acd3-ded98853efb9\\\",\\\"title\\\":\\\"PRD｜Recruitment OS 10.0｜Master Product Requirements Document\\\",\\\"url\\\":\\\"https://app.notion.com/p/4151e795caee81c9acd3ded98853efb9?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"2.0 — Hiring Demand & Role Planning **P",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F080",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"results\\\":[{\\\"id\\\":\\\"3c91e795-caee-81fe-81f8-c42301e59973\\\",\\\"title\\\":\\\"LaunchMesh OPC项目协作平台｜滨江启梦空间｜2026\\\",\\\"url\\\":\\\"https://app.notion.com/p/3c91e795caee81fe81f8c42301e59973?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"LaunchMesh OPC项目协作平台｜滨江启梦空间｜2026\\\",\\\"timestamp\\\":\\\"2026-08-27T22:17",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F080",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F080",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "execute called 3x with 3 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F081",
+      "server": "notion",
+      "category": "boundary",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F081",
+      "server": "notion",
+      "category": "boundary",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"results\\\":[{\\\"id\\\":\\\"4151e795-caee-81c9-acd3-ded98853efb9\\\",\\\"title\\\":\\\"PRD｜Recruitment OS 10.0｜Master Product Requirements Document\\\",\\\"url\\\":\\\"https://app.notion.com/p/4151e795caee81c9acd3ded98853efb9?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"2.0 — Hiring Demand & Role Planning **P",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F081",
+      "server": "notion",
+      "category": "boundary",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"results\\\":[{\\\"id\\\":\\\"3c91e795-caee-81fe-81f8-c42301e59973\\\",\\\"title\\\":\\\"LaunchMesh OPC项目协作平台｜滨江启梦空间｜2026\\\",\\\"url\\\":\\\"https://app.notion.com/p/3c91e795caee81fe81f8c42301e59973?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"LaunchMesh OPC项目协作平台｜滨江启梦空间｜2026\\\",\\\"timestamp\\\":\\\"2026-08-27T22:17",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F081",
+      "server": "notion",
+      "category": "boundary",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F081",
+      "server": "notion",
+      "category": "boundary",
+      "type": "retry",
+      "detail": "execute called 3x with 3 different args",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review."
+    },
+    {
+      "task": "F082",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F082",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F082",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F082",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F082",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "execute called 4x with 3 different args",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F083",
+      "server": "notion",
+      "category": "derived",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: get is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Show me the current tab and sidebar layout of my Notion workspace, including which tabs and sections are visible."
+    },
+    {
+      "task": "F083",
+      "server": "notion",
+      "category": "derived",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: get is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Show me the current tab and sidebar layout of my Notion workspace, including which tabs and sections are visible."
+    },
+    {
+      "task": "F083",
+      "server": "notion",
       "category": "derived",
       "type": "retry",
       "detail": "search called 2x with 2 different args",
-      "prompt": "List all virtual models configured in my Vercel AI Gateway."
+      "prompt": "Show me the current tab and sidebar layout of my Notion workspace, including which tabs and sections are visible."
     },
     {
-      "task": "F141",
-      "server": "vercel",
+      "task": "F083",
+      "server": "notion",
       "category": "derived",
       "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "List all virtual models configured in my Vercel AI Gateway."
+      "detail": "execute called 4x with 3 different args",
+      "prompt": "Show me the current tab and sidebar layout of my Notion workspace, including which tabs and sections are visible."
     },
     {
-      "task": "F142",
-      "server": "vercel",
+      "task": "F084",
+      "server": "notion",
       "category": "derived",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404: vmc_not_found). Virtual model config not found\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"actor\\\":\\\"agent\\\",\\\"action\\\"",
-      "prompt": "Show me the details of the virtual model named 'my-virtual-model' in AI Gateway."
+      "detail": "{\"result\":\"execute error: ReferenceError: get is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "In my Notion sidebar, pin the \"Projects\" page and hide the \"Templates\" section, leaving everything else as it is."
     },
     {
-      "task": "F142",
-      "server": "vercel",
+      "task": "F084",
+      "server": "notion",
+      "category": "derived",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: get is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "In my Notion sidebar, pin the \"Projects\" page and hide the \"Templates\" section, leaving everything else as it is."
+    },
+    {
+      "task": "F084",
+      "server": "notion",
       "category": "derived",
       "type": "retry",
       "detail": "search called 3x with 3 different args",
-      "prompt": "Show me the details of the virtual model named 'my-virtual-model' in AI Gateway."
+      "prompt": "In my Notion sidebar, pin the \"Projects\" page and hide the \"Templates\" section, leaving everything else as it is."
     },
     {
-      "task": "F142",
-      "server": "vercel",
+      "task": "F084",
+      "server": "notion",
       "category": "derived",
       "type": "retry",
       "detail": "execute called 3x with 3 different args",
-      "prompt": "Show me the details of the virtual model named 'my-virtual-model' in AI Gateway."
+      "prompt": "In my Notion sidebar, pin the \"Projects\" page and hide the \"Templates\" section, leaving everything else as it is."
     },
     {
-      "task": "F143",
-      "server": "vercel",
+      "task": "F085",
+      "server": "notion",
+      "category": "derived",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Add the \"Launch proposal\" page to my Notion favorites and remove the old \"2024 roadmap\" page from favorites."
+    },
+    {
+      "task": "F085",
+      "server": "notion",
+      "category": "derived",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Add the \"Launch proposal\" page to my Notion favorites and remove the old \"2024 roadmap\" page from favorites."
+    },
+    {
+      "task": "F085",
+      "server": "notion",
       "category": "derived",
       "type": "retry",
       "detail": "search called 2x with 2 different args",
-      "prompt": "List all rules configured in my Vercel AI Gateway."
+      "prompt": "Add the \"Launch proposal\" page to my Notion favorites and remove the old \"2024 roadmap\" page from favorites."
     },
     {
-      "task": "F143",
-      "server": "vercel",
+      "task": "F085",
+      "server": "notion",
       "category": "derived",
-      "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "List all rules configured in my Vercel AI Gateway."
-    },
-    {
-      "task": "F144",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "List all AI Gateway budgets for my team."
-    },
-    {
-      "task": "F144",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 3x with 3 different args",
-      "prompt": "List all AI Gateway budgets for my team."
-    },
-    {
-      "task": "F147",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404: not_found). Record rec_123 not found.\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"actor\\\":\\\"agent\\\",\\\"action\\\":\\\"correc",
-      "prompt": "Get the DNS record with ID 'rec_123' for my domain."
-    },
-    {
-      "task": "F148",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404: not_found). Store not found\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"actor\\\":\\\"agent\\\",\\\"action\\\":\\\"correct_request\\",
-      "prompt": "Show the details of the storage store with ID 'store_123'."
-    },
-    {
-      "task": "F149",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"matches\":[{\"name\":\"vercel__get_drive\",\"description\":\"Use this when reading one Vercel Drive by name or drive ID, for example to check its size, region, or whether it exists. Supply nameOrId, projectId, and the owning team. Returns 404 when the drive does not exist; this never creates a drive. Use ",
-      "prompt": "Show me the details of my Vercel Drive."
-    },
-    {
-      "task": "F149",
-      "server": "vercel",
-      "category": "derived",
-      "type": "model_confusion",
-      "detail": "I can call `vercel__get_drive`, but it requires a `nameOrId` and `projectId` (plus optionally `teamId`/`slug`). I don't have those from your request.\n\nCould you provide:\n- **Drive name or ID**\n- **Project ID or name**\n- **Team ID or slug** (if it's under a team)\n\nOnce you give me those, the exact re",
-      "prompt": "Show me the details of my Vercel Drive."
-    },
-    {
-      "task": "F151",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "List all routing rules (rewrites and redirects) for my project."
-    },
-    {
-      "task": "F151",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "List all routing rules (rewrites and redirects) for my project."
-    },
-    {
-      "task": "F153",
-      "server": "vercel",
-      "category": "derived",
-      "type": "model_confusion",
-      "detail": "I found the right tool, but I need two pieces of info before I can call it:\n\n1. **Which project?** — a project ID or name (e.g. `prj_...` or `my-app`).\n2. **Time window** — I'll use the last 7 days relative to now. Since I don't have a reliable current timestamp from the gateway, please confirm the ",
-      "prompt": "Aggregate my project's analytics events over the last 7 days, grouped by event name."
-    },
-    {
-      "task": "F154",
-      "server": "vercel",
-      "category": "derived",
-      "type": "model_confusion",
-      "detail": "I can answer this with `vercel__count_events`, but I need two pieces of information first:\n\n1. **Which project?** — the tool requires a `projectId` (and optionally `teamId`/`slug`). I don't have a project ID from you, and there's no \"current project\" context available.\n2. **Time window** — \"last 24 ",
-      "prompt": "How many 'signup' events did my project record in the last 24 hours?"
-    },
-    {
-      "task": "F157",
-      "server": "vercel",
-      "category": "derived",
-      "type": "model_confusion",
-      "detail": "`example.com` is **not available** to register (`available: false`). This was a read-only registry lookup — nothing was reserved or purchased.",
-      "prompt": "Check whether the domain 'example.com' is available to register."
-    },
-    {
-      "task": "F158",
-      "server": "vercel",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"matches\":[{\"name\":\"vercel__search_domains\",\"description\":\"Get registration availability and pricing for 1-200 exact domain names. Returns results in input order, with registration and renewal prices in USD for available domains. No authentication required.\",\"params\":[\"teamId?: string\",\"requestBody",
-      "prompt": "Is example.com available, and what does it cost to register?"
-    },
-    {
-      "task": "F158",
-      "server": "vercel",
-      "category": "read",
-      "type": "model_confusion",
-      "detail": "**example.com is not available** for registration — it's already registered, so there's no purchase price offered.\n\nI used a read-only lookup (`vercel__search_domains` with `{\"domains\":[\"example.com\"]}`), which returned `available: false` and no pricing (prices are only returned for available domain",
-      "prompt": "Is example.com available, and what does it cost to register?"
-    },
-    {
-      "task": "F159",
-      "server": "vercel",
-      "category": "read",
-      "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "Show me projects in my team"
-    },
-    {
-      "task": "F162",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404: not_found). Deployment dpl_123 not found\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"actor\\\":\\\"agent\\\",\\\"action\\\":\\\"cor",
-      "prompt": "List all aliases assigned to deployment ID 'dpl_123'."
-    },
-    {
-      "task": "F164",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Error: Could not find team \\\"my-team\\\"\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_team\",\"args\":{\"query\":\"my-team\"}}],\"isError\":true}",
-      "prompt": "Show the details of my team 'my-team'."
-    },
-    {
-      "task": "F166",
-      "server": "vercel",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"result\\\":{\\\"deployments\\\":{\\\"pagination\\\":{\\\"count\\\":10,\\\"next\\\":1795189741907,\\\"prev\\\":1795201527097},\\\"deployments\\\":[{\\\"id\\\":\\\"dpl_Em325z7EaQGD5FnA2UCjBFUEt4W6\\\",\\\"name\\\":\\\"gemini-mcp-gateway\\\",\\\"url\\\":\\\"gemini-mcp-gateway-nxysaued5-yu-ac3a.vercel.app\\\",\\\"created\\\":1795201527097,\\\"s",
-      "prompt": "Show me the latest build logs for the failed deployment"
-    },
-    {
-      "task": "F166",
-      "server": "vercel",
-      "category": "read",
-      "type": "model_confusion",
-      "detail": "I found the failed deployments. The latest one is **`dpl_4x4a6K6swPTCxVn5MppMmm3aEs7a`** (`ai-pm-portfolio`, commit `4934f10` \"update AI PM portfolio\", state `ERROR`).\n\nIts build logs (`bld_46i0yzvip`):\n\n```\nRunning build in Washington, D.C., USA (East) – iad1\nBuild machine configuration: 2 cores, 8",
-      "prompt": "Show me the latest build logs for the failed deployment"
-    },
-    {
-      "task": "F166",
-      "server": "vercel",
-      "category": "read",
       "type": "retry",
       "detail": "execute called 4x with 4 different args",
-      "prompt": "Show me the latest build logs for the failed deployment"
+      "prompt": "Add the \"Launch proposal\" page to my Notion favorites and remove the old \"2024 roadmap\" page from favorites."
     },
     {
-      "task": "F168",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"result\\\":{\\\"aliases\\\":[{\\\"alias\\\":\\\"gemini-mcp-gateway-yu-ac3a.vercel.app\\\",\\\"created\\\":\\\"2026-11-19T13:33:54.596Z\\\",\\\"createdAt\\\":1795095234596,\\\"creator\\\":{\\\"uid\\\":\\\"XHZB8GDFevtPRYdOVUA78gL2\\\",\\\"email\\\":\\\"yuyi64906@gmail.com\\\",\\\"username\\\":\\\"yuyi64906-1442\\\"},\\\"deletedAt\\\":null,\\\"dep",
-      "prompt": "List all aliases in my team."
-    },
-    {
-      "task": "F169",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404).\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"actor\\\":\\\"agent\\\",\\\"action\\\":\\\"correct_request\\\"},\\\"status\\\":404,\\\"operati",
-      "prompt": "Look up the alias 'my-app.vercel.app' and tell me which deployment it points to."
-    },
-    {
-      "task": "F171",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"get_domain\\\":{\\\"error\\\":\\\"Error: {\\\\\\\"error\\\\\\\":{\\\\\\\"message\\\\\\\":\\\\\\\"Vercel API request failed (403: forbidden). You don't have access to \\\\\\\\\\\\\\\"example.com\\\\\\\\\\\\\\\"\\\\\\\",\\\\\\\"recovery\\\\\\\":\\\\\\\"Try an available mapped CLI fallback first for the same authorized action, with the same explic",
-      "prompt": "Show information about the domain 'example.com'."
-    },
-    {
-      "task": "F171",
-      "server": "vercel",
-      "category": "derived",
-      "type": "model_confusion",
-      "detail": "Here's what I could retrieve for **example.com**:\n\n**Availability**\n- `available: false` — the domain is already registered (not available for purchase).\n\n**DNS configuration**\n- Nameservers: `hera.ns.cloudflare.com`, `elliott.ns.cloudflare.com`\n- Service type: `external` (not managed by Vercel)\n- A",
-      "prompt": "Show information about the domain 'example.com'."
-    },
-    {
-      "task": "F172",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (403: forbidden). You don't have permission to list the domain record.\\\",\\\"recovery\\\":\\\"Try an available mapped CLI fallback first for the same authorized action, with the same explicit team/project and the CLI's own crede",
-      "prompt": "List all DNS records for 'example.com'."
-    },
-    {
-      "task": "F172",
-      "server": "vercel",
-      "category": "derived",
-      "type": "model_confusion",
-      "detail": "I couldn't list the DNS records: the Vercel API returned **403 Forbidden** — \"You don't have permission to list the domain record\" for `example.com` (requestId `iad1:sfo1:iad1:sfo1::mhgk4-1795204389433-1208b2bd22af`).\n\nThe call I made was:\n\n```js\ncodemode.vercel__get_records({ domain: \"example.com\",",
-      "prompt": "List all DNS records for 'example.com'."
-    },
-    {
-      "task": "F173",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404: not_found). File tree not found\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"actor\\\":\\\"agent\\\",\\\"action\\\":\\\"correct_requ",
-      "prompt": "List the files included in my latest deployment."
-    },
-    {
-      "task": "F173",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "List the files included in my latest deployment."
-    },
-    {
-      "task": "F175",
-      "server": "vercel",
+      "task": "F086",
+      "server": "notion",
       "category": "read",
-      "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "Show me deployments for my blog project"
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: calendar is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Prepare for my next accepted meeting in Notion."
     },
     {
-      "task": "F175",
-      "server": "vercel",
+      "task": "F086",
+      "server": "notion",
       "category": "read",
-      "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "Show me deployments for my blog project"
-    },
-    {
-      "task": "F177",
-      "server": "vercel",
-      "category": "derived",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404: cert_not_found). No certificates could be found for the record \\\\\\\"cert_123\\\\\\\".\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation",
-      "prompt": "Show the metadata for certificate ID 'cert_123'."
+      "detail": "{\"result\":\"execute error: {\\\"name\\\":\\\"APIResponseError\\\",\\\"code\\\":\\\"validation_error\\\",\\\"status\\\":400,\\\"headers\\\":{},\\\"body\\\":\\\"{\\\\\\\"object\\\\\\\":\\\\\\\"error\\\\\\\",\\\\\\\"status\\\\\\\":400,\\\\\\\"code\\\\\\\":\\\\\\\"validation_error\\\\\\\",\\\\\\\"message\\\\\\\":\\\\\\\"No calendar is connected for this Notion account and workspace, s",
+      "prompt": "Prepare for my next accepted meeting in Notion."
     },
     {
-      "task": "F178",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404: not_found). File tree not found\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"actor\\\":\\\"agent\\\",\\\"action\\\":\\\"correct_requ",
-      "prompt": "Show the contents of 'index.html' from my latest deployment."
-    },
-    {
-      "task": "F178",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404: not_found). File not found: index.html\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"actor\\\":\\\"agent\\\",\\\"action\\\":\\\"corre",
-      "prompt": "Show the contents of 'index.html' from my latest deployment."
-    },
-    {
-      "task": "F178",
-      "server": "vercel",
-      "category": "derived",
+      "task": "F086",
+      "server": "notion",
+      "category": "read",
       "type": "retry",
       "detail": "search called 4x with 4 different args",
-      "prompt": "Show the contents of 'index.html' from my latest deployment."
+      "prompt": "Prepare for my next accepted meeting in Notion."
     },
     {
-      "task": "F178",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 3x with 3 different args",
-      "prompt": "Show the contents of 'index.html' from my latest deployment."
-    },
-    {
-      "task": "F180",
-      "server": "vercel",
+      "task": "F086",
+      "server": "notion",
       "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404: not_found). Project not found.\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"actor\\\":\\\"agent\\\",\\\"action\\\":\\\"correct_reque",
-      "prompt": "Get details about my next-js-blog project"
-    },
-    {
-      "task": "F180",
-      "server": "vercel",
-      "category": "read",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Get details about my next-js-blog project"
-    },
-    {
-      "task": "F180",
-      "server": "vercel",
-      "category": "read",
-      "type": "retry",
-      "detail": "execute called 3x with 3 different args",
-      "prompt": "Get details about my next-js-blog project"
-    },
-    {
-      "task": "F181",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404: not_found). Project not found.\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"actor\\\":\\\"agent\\\",\\\"action\\\":\\\"correct_reque",
-      "prompt": "List all domains attached to my project 'my-app'."
-    },
-    {
-      "task": "F183",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Disable the AI Gateway rule named 'rate-limit' in my team."
-    },
-    {
-      "task": "F183",
-      "server": "vercel",
-      "category": "derived",
       "type": "retry",
       "detail": "execute called 2x with 2 different args",
-      "prompt": "Disable the AI Gateway rule named 'rate-limit' in my team."
+      "prompt": "Prepare for my next accepted meeting in Notion."
     },
     {
-      "task": "F184",
-      "server": "vercel",
-      "category": "derived",
+      "task": "F087",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: {\\\"name\\\":\\\"APIResponseError\\\",\\\"code\\\":\\\"validation_error\\\",\\\"status\\\":400,\\\"headers\\\":{},\\\"body\\\":\\\"{\\\\\\\"object\\\\\\\":\\\\\\\"error\\\\\\\",\\\\\\\"status\\\\\\\":400,\\\\\\\"code\\\\\\\":\\\\\\\"validation_error\\\\\\\",\\\\\\\"message\\\\\\\":\\\\\\\"No calendar is connected for this Notion account and workspace, s",
+      "prompt": "Prepare for my next accepted meeting in Notion."
+    },
+    {
+      "task": "F087",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Prepare for my next accepted meeting in Notion."
+    },
+    {
+      "task": "F088",
+      "server": "notion",
+      "category": "read",
       "type": "retry",
       "detail": "search called 2x with 2 different args",
-      "prompt": "Update my virtual model 'my-virtual-model' to route to 'openai/gpt-4o'."
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes."
     },
     {
-      "task": "F187",
-      "server": "vercel",
-      "category": "derived",
+      "task": "F089",
+      "server": "notion",
+      "category": "cross",
       "type": "retry",
       "detail": "search called 2x with 2 different args",
-      "prompt": "Create a virtual model named 'cheap-model' that routes to 'openai/gpt-4o-mini'."
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes."
     },
     {
-      "task": "F188",
-      "server": "vercel",
+      "task": "F090",
+      "server": "notion",
+      "category": "cross",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: {\\\"name\\\":\\\"APIResponseError\\\",\\\"code\\\":\\\"validation_error\\\",\\\"status\\\":400,\\\"headers\\\":{},\\\"body\\\":\\\"{\\\\\\\"object\\\\\\\":\\\\\\\"error\\\\\\\",\\\\\\\"status\\\\\\\":400,\\\\\\\"code\\\\\\\":\\\\\\\"validation_error\\\\\\\",\\\\\\\"message\\\\\\\":\\\\\\\"No calendar is connected for this Notion account and workspace, s",
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes."
+    },
+    {
+      "task": "F090",
+      "server": "notion",
+      "category": "cross",
+      "type": "retry",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes."
+    },
+    {
+      "task": "F091",
+      "server": "notion",
+      "category": "cross",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes."
+    },
+    {
+      "task": "F092",
+      "server": "notion",
+      "category": "read",
+      "type": "search_empty",
+      "detail": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources.",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F092",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F092",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F092",
+      "server": "notion",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F092",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F092",
+      "server": "notion",
+      "category": "read",
+      "type": "retry",
+      "detail": "execute called 4x with 3 different args",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources."
+    },
+    {
+      "task": "F093",
+      "server": "notion",
       "category": "derived",
       "type": "execute_error",
-      "detail": "{\"matches\":[{\"name\":\"vercel__fork_drive\",\"description\":\"Use this when copying an existing Vercel Drive into a new drive in the same project. Supply the source drive name, projectId, the owning team, and requestBody.name for the new drive. The fork inherits the source region and maximum size. Fails w",
-      "prompt": "Fork the Vercel Drive 'my-drive' into my team."
+      "detail": "{\"result\":\"execute error: {\\\"name\\\":\\\"APIResponseError\\\",\\\"code\\\":\\\"validation_error\\\",\\\"status\\\":400,\\\"headers\\\":{},\\\"body\\\":\\\"{\\\\\\\"object\\\\\\\":\\\\\\\"error\\\\\\\",\\\\\\\"status\\\\\\\":400,\\\\\\\"code\\\\\\\":\\\\\\\"validation_error\\\\\\\",\\\\\\\"message\\\\\\\":\\\\\\\"No calendar is connected for this Notion account and workspace, s",
+      "prompt": "Link my existing \"Launch review\" meeting note in Notion to tomorrow's calendar event, and list any other notes already attached to it."
     },
     {
-      "task": "F188",
-      "server": "vercel",
+      "task": "F093",
+      "server": "notion",
+      "category": "derived",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Link my existing \"Launch review\" meeting note in Notion to tomorrow's calendar event, and list any other notes already attached to it."
+    },
+    {
+      "task": "F094",
+      "server": "notion",
       "category": "derived",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404: not_found). Drive not found.\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"actor\\\":\\\"agent\\\",\\\"action\\\":\\\"correct_request",
-      "prompt": "Fork the Vercel Drive 'my-drive' into my team."
+      "detail": "{\"result\":\"execute error: ReferenceError: search is not defined\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
+      "prompt": "Convert my \"Meetings\" database in Notion into a Meetings database so its rows can be used as full-page meeting notes, keeping all existing rows."
     },
     {
-      "task": "F188",
-      "server": "vercel",
+      "task": "F094",
+      "server": "notion",
       "category": "derived",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404: not_found). Drive not found.\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"actor\\\":\\\"agent\\\",\\\"action\\\":\\\"correct_request",
-      "prompt": "Fork the Vercel Drive 'my-drive' into my team."
+      "detail": "{\"result\":\"{\\\"results\\\":[{\\\"id\\\":\\\"4081e795-caee-818d-ab33-eebb79e22d81\\\",\\\"title\\\":\\\"产品总监-杜群--DaimaRuge__aiFudi\\\",\\\"url\\\":\\\"https://app.notion.com/p/4081e795caee818dab33eebb79e22d81?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"Providing specialized AIoT strategies, product strategic planning, consum",
+      "prompt": "Convert my \"Meetings\" database in Notion into a Meetings database so its rows can be used as full-page meeting notes, keeping all existing rows."
     },
     {
-      "task": "F188",
-      "server": "vercel",
+      "task": "F094",
+      "server": "notion",
+      "category": "derived",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"results\\\":[{\\\"id\\\":\\\"4081e795-caee-818d-ab33-eebb79e22d81\\\",\\\"title\\\":\\\"产品总监-杜群--DaimaRuge__aiFudi\\\",\\\"url\\\":\\\"https://app.notion.com/p/4081e795caee818dab33eebb79e22d81?pvs=204\\\",\\\"type\\\":\\\"page\\\",\\\"highlight\\\":\\\"Providing specialized AIoT strategies, product strategic planning, consum",
+      "prompt": "Convert my \"Meetings\" database in Notion into a Meetings database so its rows can be used as full-page meeting notes, keeping all existing rows."
+    },
+    {
+      "task": "F094",
+      "server": "notion",
       "category": "derived",
       "type": "retry",
       "detail": "execute called 3x with 3 different args",
-      "prompt": "Fork the Vercel Drive 'my-drive' into my team."
+      "prompt": "Convert my \"Meetings\" database in Notion into a Meetings database so its rows can be used as full-page meeting notes, keeping all existing rows."
     },
     {
-      "task": "F189",
-      "server": "vercel",
-      "category": "derived",
-      "type": "model_confusion",
-      "detail": "Both domains are **already registered / unavailable**:\n\n| Domain | Available | Registration price |\n|---|---|---|\n| example.com | ❌ No | N/A (not available) |\n| example.org | ❌ No | N/A (not available) |\n\nThe lookup only returns registration/renewal prices (USD) for available domains, so no pricing ",
-      "prompt": "Check the availability and registration prices for 'example.com' and 'example.org'."
+      "task": "F095",
+      "server": "notion",
+      "category": "write",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: {\\\"name\\\":\\\"APIResponseError\\\",\\\"code\\\":\\\"validation_error\\\",\\\"status\\\":400,\\\"headers\\\":{},\\\"body\\\":\\\"{\\\\\\\"object\\\\\\\":\\\\\\\"error\\\\\\\",\\\\\\\"status\\\\\\\":400,\\\\\\\"code\\\\\\\":\\\\\\\"validation_error\\\\\\\",\\\\\\\"message\\\\\\\":\\\\\\\"No calendar is connected for this Notion account and workspace, s",
+      "prompt": "Prepare for my next accepted meeting in Notion."
     },
     {
-      "task": "F189",
-      "server": "vercel",
-      "category": "derived",
+      "task": "F095",
+      "server": "notion",
+      "category": "write",
       "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Check the availability and registration prices for 'example.com' and 'example.org'."
-    },
-    {
-      "task": "F191",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Set a default daily AI Gateway budget of $50 for all API keys in my team."
-    },
-    {
-      "task": "F191",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "Set a default daily AI Gateway budget of $50 for all API keys in my team."
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Prepare for my next accepted meeting in Notion."
     }
   ]
 }

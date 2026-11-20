@@ -56,7 +56,13 @@ for (const s of cfg.servers) {
 // gateway for the rotating grant and revokes it. Notion tasks are skipped here.
 const EXPLORE_SERVERS = (process.env.EXPLORE_SERVERS || 'github,linear,vercel').split(',');
 const activeCfg = cfg.servers.filter(s => EXPLORE_SERVERS.includes(s.name));
-const mgr = new UpstreamManager(activeCfg);
+// Static-token auth: exploration uses the env access token directly and NEVER
+// refreshes. Rotating a token locally would compete with the deployed gateway
+// for the same grant and revoke it. Access tokens last ~8h — plenty for a test.
+const staticAuth = {
+  getAccessToken: async (_server, { envToken } = {}) => envToken,
+};
+const mgr = new UpstreamManager(activeCfg, { auth: staticAuth });
 await mgr.connect();
 const [searchTool, executeTool] = createCodeModeTools(mgr);
 console.error('upstreams connected:', [...mgr._clients.keys()].join(','), '| failed:', (mgr.failedServers || []).join(',') || 'none');
