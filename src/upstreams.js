@@ -91,7 +91,11 @@ export class UpstreamManager {
 
   async connect() {
     const errors = [];
-    for (const config of this.configs) {
+    this.failedServers = [];
+    // Connect upstreams in parallel so one slow/failing server does not add its
+    // latency to every cold start, and a single failure cannot take down the
+    // whole gateway.
+    await Promise.all(this.configs.map(async (config) => {
       const name = config?.name ?? '<unnamed>';
       let client;
       let transport;
@@ -127,10 +131,17 @@ export class UpstreamManager {
         } catch {
           // Ignore cleanup failures; report the original error only.
         }
-        errors.push(upstreamError(name, '连接失败', err));
+        this.failedServers.push(name);
+        const e = upstreamError(name, '连接失败', err);
+        errors.push(e);
+        console.error(`[upstreams] ${e.message}`);
       }
+    }));
+    if (errors.length > 0) {
+      // Keep the gateway alive with whichever upstreams connected. A dead
+      // upstream must not make the whole MCP endpoint return 500.
+      console.error(`[upstreams] ${errors.length}/${this.configs.length} upstreams failed: ${this.failedServers.join(', ')}`);
     }
-    if (errors.length > 0) throw aggregate(errors);
   }
 
   getEntries() {
