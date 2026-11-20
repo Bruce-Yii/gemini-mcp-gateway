@@ -356,10 +356,10 @@ export function createOAuthHandlers(store, options = {}) {
     const redirectUri = str(params.redirect_uri);
     const state = str(params.state);
     const codeChallenge = str(params.code_challenge);
-    console.log(`[oauth] authorize method=${method} client_id=${clientId} redirect=${redirectUri.slice(0,90)} scope=${scope}`);
     const challengeMethod = str(params.code_challenge_method) || 'S256';
     const scope = str(params.scope);
     const responseType = str(params.response_type);
+    console.log(`[oauth] authorize method=${method} client_id=${clientId} redirect=${redirectUri.slice(0,90)} scope=${scope}`);
 
     // In locked mode, credentials come from env; build a synthetic client on the
     // fly so no KV write is needed. Anyone without the exact client_id is rejected.

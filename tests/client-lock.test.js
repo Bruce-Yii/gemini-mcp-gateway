@@ -25,11 +25,11 @@ function res() {
 }
 const CID = 'gmc_mysecretclient', SEC = 'supersecretvalue';
 
-test('locked: metadata hides registration_endpoint', async () => {
+test('locked: metadata still advertises registration_endpoint (Gemini requires it)', async () => {
   const o = createOAuthHandlers(fakeStore(), { allowedClientId: CID, allowedClientSecret: SEC, baseUrl: 'https://x' });
   const r = res(); await o.metadata({}, r);
   const doc = JSON.parse(r.body);
-  assert.equal(doc.registration_endpoint, undefined);
+  assert.ok(doc.registration_endpoint);
   assert.ok(doc.token_endpoint);
 });
 
