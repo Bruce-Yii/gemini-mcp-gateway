@@ -1,42 +1,34 @@
 {
-  "generatedAt": "2026-11-20T19:04:46.826Z",
+  "generatedAt": "2026-11-20T19:57:05.080Z",
   "model": "hy4",
   "totalTasks": 138,
   "anomalies": [
     {
-      "task": "D010",
-      "server": "github",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: failed to get commit: abc1234: No commit found for SHA: abc1234\",\"logs\":[],\"toolCalls\":[{\"name\":\"github__get_commit\",\"args\":{\"owner\":\"octocat\",\"repo\":\"Hello-World\",\"sha\":\"abc1234\",\"detail\":\"full_patch\"}}],\"isError\":true}",
-      "prompt": "Show me the full details and per-file changes of commit abc1234 in octocat/Hello-World."
-    },
-    {
-      "task": "D011",
-      "server": "github",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Failed to get file contents. The path does not point to a file or directory, or the file does not exist in the repository.\",\"logs\":[],\"toolCalls\":[{\"name\":\"github__get_file_contents\",\"args\":{\"owner\":\"octocat\",\"repo\":\"Hello-World\",\"path\":\"README.md\",\"ref\":\"main\"}}],\"isError\"",
-      "prompt": "Get the contents of README.md from the main branch of octocat/Hello-World."
-    },
-    {
-      "task": "D011",
-      "server": "github",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: validating \\\"arguments\\\": validating root: validating /properties/fields: validating /properties/fields/items: enum: content does not equal any of: [type name path size sha url git_url html_url download_url]\",\"logs\":[],\"toolCalls\":[{\"name\":\"github__get_file_contents\",\"args\"",
-      "prompt": "Get the contents of README.md from the main branch of octocat/Hello-World."
-    },
-    {
-      "task": "D011",
+      "task": "F001",
       "server": "github",
       "category": "derived",
       "type": "retry",
-      "detail": "execute called 5x with 5 different args",
-      "prompt": "Get the contents of README.md from the main branch of octocat/Hello-World."
+      "detail": "search called 2x with 2 different args",
+      "prompt": "In octocat/Hello-World, add a review comment on line 42 of src/app.js on my latest pending pull request review (#12) saying: 'Please handle the null case here.'"
     },
     {
-      "task": "D013",
+      "task": "F010",
+      "server": "github",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "What is the expected output of this commit?"
+    },
+    {
+      "task": "F011",
+      "server": "github",
+      "category": "read",
+      "type": "no_tool_call",
+      "detail": "model produced no tool call",
+      "prompt": "Explain this file."
+    },
+    {
+      "task": "F013",
       "server": "github",
       "category": "derived",
       "type": "execute_error",
@@ -44,7 +36,7 @@
       "prompt": "What is the latest release of octocat/Hello-World?"
     },
     {
-      "task": "D015",
+      "task": "F015",
       "server": "github",
       "category": "derived",
       "type": "execute_error",
@@ -52,23 +44,7 @@
       "prompt": "Get the release notes for tag v1.0.0 in octocat/Hello-World."
     },
     {
-      "task": "D015",
-      "server": "github",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: failed to get tag reference: GET https://api.github.com/repos/octocat/Hello-World/git/ref/tags/v1.0.0: 404 Not Found []\",\"logs\":[],\"toolCalls\":[{\"name\":\"github__get_tag\",\"args\":{\"owner\":\"octocat\",\"repo\":\"Hello-World\",\"tag\":\"v1.0.0\"}}],\"isError\":true}",
-      "prompt": "Get the release notes for tag v1.0.0 in octocat/Hello-World."
-    },
-    {
-      "task": "D015",
-      "server": "github",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "Get the release notes for tag v1.0.0 in octocat/Hello-World."
-    },
-    {
-      "task": "D016",
+      "task": "F016",
       "server": "github",
       "category": "derived",
       "type": "execute_error",
@@ -76,23 +52,23 @@
       "prompt": "Show me the details of the tag v1.0.0 in octocat/Hello-World."
     },
     {
-      "task": "D017",
+      "task": "F016",
       "server": "github",
       "category": "derived",
       "type": "execute_error",
-      "detail": "{\"result\":\"[{\\\"id\\\":683604835,\\\"body\\\":\\\"body\\\",\\\"html_url\\\":\\\"https://github.com/octocat/Hello-World/issues/42#issuecomment-683604835\\\",\\\"user\\\":{\\\"login\\\":\\\"krukow\\\",\\\"id\\\":3635,\\\"profile_url\\\":\\\"https://github.com/krukow\\\",\\\"avatar_url\\\":\\\"https://avatars.githubusercontent.com/u/3635?v=4\\\"},\\\"aut",
-      "prompt": "Get the details of issue #42 in octocat/Hello-World and then list its comments."
+      "detail": "{\"result\":\"execute error: failed to get release by tag: v1.0.0: GET https://api.github.com/repos/octocat/Hello-World/releases/tags/v1.0.0: 404 Not Found []\",\"logs\":[],\"toolCalls\":[{\"name\":\"github__get_release_by_tag\",\"args\":{\"owner\":\"octocat\",\"repo\":\"Hello-World\",\"tag\":\"v1.0.0\"}}],\"isError\":true}",
+      "prompt": "Show me the details of the tag v1.0.0 in octocat/Hello-World."
     },
     {
-      "task": "D017",
+      "task": "F016",
       "server": "github",
       "category": "derived",
       "type": "retry",
       "detail": "execute called 2x with 2 different args",
-      "prompt": "Get the details of issue #42 in octocat/Hello-World and then list its comments."
+      "prompt": "Show me the details of the tag v1.0.0 in octocat/Hello-World."
     },
     {
-      "task": "D020",
+      "task": "F020",
       "server": "github",
       "category": "derived",
       "type": "execute_error",
@@ -100,7 +76,7 @@
       "prompt": "List the most recent commits on the main branch of octocat/Hello-World since 2026-01-01."
     },
     {
-      "task": "D020",
+      "task": "F020",
       "server": "github",
       "category": "derived",
       "type": "retry",
@@ -108,7 +84,7 @@
       "prompt": "List the most recent commits on the main branch of octocat/Hello-World since 2026-01-01."
     },
     {
-      "task": "D021",
+      "task": "F021",
       "server": "github",
       "category": "derived",
       "type": "execute_error",
@@ -116,63 +92,31 @@
       "prompt": "List the custom issue fields defined for the octocat organization and for the repository octocat/Hello-World."
     },
     {
-      "task": "D023",
-      "server": "github",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: validating \\\"arguments\\\": validating root: validating /properties/fields: validating /properties/fields/items: enum: url does not equal any of: [number title body state user labels assignees comments created_at updated_at field_values]\",\"logs\":[],\"toolCalls\":[{\"name\":\"githu",
-      "prompt": "List the open issues labeled 'bug' in octocat/Hello-World."
-    },
-    {
-      "task": "D023",
+      "task": "F021",
       "server": "github",
       "category": "derived",
       "type": "retry",
       "detail": "execute called 2x with 2 different args",
-      "prompt": "List the open issues labeled 'bug' in octocat/Hello-World."
+      "prompt": "List the custom issue fields defined for the octocat organization and for the repository octocat/Hello-World."
     },
     {
-      "task": "D024",
+      "task": "F028",
       "server": "github",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"[{\\\"number\\\":11766,\\\"title\\\":\\\"Updated README with collaboration details\\\",\\\"body\\\":\\\"Added README changes to demonstrate the fork-and-pull request workflow.\\\",\\\"state\\\":\\\"open\\\",\\\"draft\\\":false,\\\"merged\\\":false,\\\"html_url\\\":\\\"https://github.com/octocat/Hello-World/pull/11766\\\",\\\"user\\\":{",
-      "prompt": "List the open pull requests in octocat/Hello-World."
-    },
-    {
-      "task": "D028",
-      "server": "github",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: failed to get pull request diff: GET https://api.github.com/repos/octocat/Hello-World/pulls/12: 404 Not Found []\",\"logs\":[],\"toolCalls\":[{\"name\":\"github__pull_request_read\",\"args\":{\"owner\":\"octocat\",\"repo\":\"Hello-World\",\"pullNumber\":12,\"method\":\"get\"}},{\"name\":\"github__pull",
-      "prompt": "Show me the details and the diff of pull request #12 in octocat/Hello-World, plus the list of files it changes."
-    },
-    {
-      "task": "D028",
-      "server": "github",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"get\\\":\\\"ERROR: failed to get pull request: GET https://api.github.com/repos/octocat/Hello-World/pulls/12: 404 Not Found []\\\",\\\"get_diff\\\":\\\"ERROR: failed to get pull request diff: GET https://api.github.com/repos/octocat/Hello-World/pulls/12: 404 Not Found []\\\",\\\"get_files\\\":\\\"ERROR: f",
-      "prompt": "Show me the details and the diff of pull request #12 in octocat/Hello-World, plus the list of files it changes."
-    },
-    {
-      "task": "D028",
-      "server": "github",
-      "category": "derived",
+      "category": "read",
       "type": "retry",
       "detail": "search called 2x with 2 different args",
-      "prompt": "Show me the details and the diff of pull request #12 in octocat/Hello-World, plus the list of files it changes."
+      "prompt": "Show me the diff for PR #123"
     },
     {
-      "task": "D028",
+      "task": "F029",
       "server": "github",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 3x with 3 different args",
-      "prompt": "Show me the details and the diff of pull request #12 in octocat/Hello-World, plus the list of files it changes."
+      "category": "write",
+      "type": "no_tool_call",
+      "detail": "model produced no tool call",
+      "prompt": "Help review this pull request."
     },
     {
-      "task": "D032",
+      "task": "F032",
       "server": "github",
       "category": "boundary",
       "type": "retry",
@@ -180,7 +124,7 @@
       "prompt": "Scan my current changes for exposed secrets and show me the files and lines I should update before I commit."
     },
     {
-      "task": "D033",
+      "task": "F033",
       "server": "github",
       "category": "read",
       "type": "retry",
@@ -188,23 +132,15 @@
       "prompt": "Search the code in the github organization's repositories for Go code that contains 'WithContext'."
     },
     {
-      "task": "D036",
+      "task": "F033",
       "server": "github",
-      "category": "derived",
-      "type": "model_confusion",
-      "detail": "Found **12 open PRs** in `octocat/Hello-World` matching \"login\" (search covers title/body/comments):\n\n| # | Title | Author |\n|---|---|---|\n| [11743](https://github.com/octocat/Hello-World/pull/11743) | login frag changes | rg1208004-coder |\n| [4554](https://github.com/octocat/Hello-World/pull/4554) ",
-      "prompt": "Find open pull requests in octocat/Hello-World that mention 'login'."
-    },
-    {
-      "task": "D036",
-      "server": "github",
-      "category": "derived",
+      "category": "read",
       "type": "retry",
       "detail": "execute called 2x with 2 different args",
-      "prompt": "Find open pull requests in octocat/Hello-World that mention 'login'."
+      "prompt": "Search the code in the github organization's repositories for Go code that contains 'WithContext'."
     },
     {
-      "task": "D039",
+      "task": "F039",
       "server": "github",
       "category": "derived",
       "type": "retry",
@@ -212,55 +148,23 @@
       "prompt": "Add issue #50 as a sub-issue of parent issue #42 in octocat/Hello-World."
     },
     {
-      "task": "D096",
+      "task": "F096",
       "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"Could not find referenced Issue.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d99b816b982aaf\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_issue\",\"args\":{\"id\":\"ENG-2844\",\"includeRelations\":true}}],\"isError\":true}",
-      "prompt": "Open ENG-2844 and fetch the attachment that shows the failed image upload, then tell me what the screenshot says."
-    },
-    {
-      "task": "D096",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"a\\\":{\\\"issues\\\":[{\\\"id\\\":\\\"YU-380\\\",\\\"uuid\\\":\\\"43a550c8-a06b-40a1-bc69-ebb94ad20ee8\\\",\\\"title\\\":\\\"Google ADK #7455 Phase 2｜Streaming lifecycle 跨层契约与 Conformance 缺口验证\\\",\\\"description\\\":\\\"> **最新授权 / 本地 Agent 立即执行（2026-11-06）**：用户已批准在上游 [Google ADK RFC #7455](<https://github.com/google/ad",
-      "prompt": "Open ENG-2844 and fetch the attachment that shows the failed image upload, then tell me what the screenshot says."
-    },
-    {
-      "task": "D096",
-      "server": "linear",
-      "category": "derived",
+      "category": "read",
       "type": "retry",
-      "detail": "search called 4x with 4 different args",
-      "prompt": "Open ENG-2844 and fetch the attachment that shows the failed image upload, then tell me what the screenshot says."
+      "detail": "search called 2x with 2 different args",
+      "prompt": "add retry handling for failed image uploads described in this issue"
     },
     {
-      "task": "D096",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 3x with 3 different args",
-      "prompt": "Open ENG-2844 and fetch the attachment that shows the failed image upload, then tell me what the screenshot says."
-    },
-    {
-      "task": "D097",
+      "task": "F097",
       "server": "linear",
       "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"Could not find referenced Issue.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d99c117bb8583a\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_issue\",\"args\":{\"id\":\"LIN-123\",\"includeRelations\":true}}],\"isError\":true}",
+      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"Could not find referenced Issue.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9e86079c37b5d\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_issue\",\"args\":{\"id\":\"LIN-123\",\"includeRelations\":true}}],\"isError\":true}",
       "prompt": "Start from issue LIN-123. Read the issue description and all its comments, then list what the team has already observed and hypothesized about the bug."
     },
     {
-      "task": "D097",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_issues: fields.1: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"title\\\"|\\\"description\\\"|\\\"projectMilestone\\\"|\\\"priority\\\"|\\\"estimate\\\"|\\\"url\\\"|\\\"gitBranchName\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"complete",
-      "prompt": "Start from issue LIN-123. Read the issue description and all its comments, then list what the team has already observed and hypothesized about the bug."
-    },
-    {
-      "task": "D097",
+      "task": "F097",
       "server": "linear",
       "category": "read",
       "type": "retry",
@@ -268,7 +172,7 @@
       "prompt": "Start from issue LIN-123. Read the issue description and all its comments, then list what the team has already observed and hypothesized about the bug."
     },
     {
-      "task": "D097",
+      "task": "F097",
       "server": "linear",
       "category": "read",
       "type": "retry",
@@ -276,7 +180,7 @@
       "prompt": "Start from issue LIN-123. Read the issue description and all its comments, then list what the team has already observed and hypothesized about the bug."
     },
     {
-      "task": "D098",
+      "task": "F098",
       "server": "linear",
       "category": "cross",
       "type": "no_tool_call",
@@ -284,7 +188,15 @@
       "prompt": "Turn these standup notes into updates on existing Linear issues. Match each note by ID, title, owner, or clear context; for every confident match add a concise comment capturing what changed, the current status or blocker, and the next step. Show me the issues and exact comments before applying them, then list any notes you skipped. Standup notes: [paste the raw text here]"
     },
     {
-      "task": "D099",
+      "task": "F099",
+      "server": "linear",
+      "category": "derived",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"Could not find referenced Issue.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9e8d06c765ea4\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_issue\",\"args\":{\"id\":\"ENG-2844\"}}],\"isError\":true}",
+      "prompt": "Delete the outdated comment I left on ENG-2844 that recommends the workaround we abandoned."
+    },
+    {
+      "task": "F099",
       "server": "linear",
       "category": "derived",
       "type": "execute_error",
@@ -292,15 +204,7 @@
       "prompt": "Delete the outdated comment I left on ENG-2844 that recommends the workaround we abandoned."
     },
     {
-      "task": "D099",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"Could not find referenced Issue.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d99c9b1a227ab3\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_issue\",\"args\":{\"id\":\"ENG-2844\",\"fields\":[\"id\",\"title\",\"url\"]}}],\"isError\":true}",
-      "prompt": "Delete the outdated comment I left on ENG-2844 that recommends the workaround we abandoned."
-    },
-    {
-      "task": "D099",
+      "task": "F099",
       "server": "linear",
       "category": "derived",
       "type": "retry",
@@ -308,7 +212,7 @@
       "prompt": "Delete the outdated comment I left on ENG-2844 that recommends the workaround we abandoned."
     },
     {
-      "task": "D099",
+      "task": "F099",
       "server": "linear",
       "category": "derived",
       "type": "retry",
@@ -316,23 +220,39 @@
       "prompt": "Delete the outdated comment I left on ENG-2844 that recommends the workaround we abandoned."
     },
     {
-      "task": "D100",
+      "task": "F100",
       "server": "linear",
       "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Error: Could not find team \\\"LIN\\\"\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_team\",\"args\":{\"query\":\"LIN\"}}],\"isError\":true}",
+      "detail": "{\"result\":\"execute error: Error: Could not find team \\\"LIN\\\" for teamId\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_cycles\",\"args\":{\"teamId\":\"LIN\"}},{\"name\":\"linear__list_cycles\",\"args\":{\"teamId\":\"FEA\"}}],\"isError\":true}",
       "prompt": "Identify the most recently completed cycle for teams LIN and FEA, gather the relevant issues, and produce a concise summary of what was actually completed, the main themes, and any notable patterns."
     },
     {
-      "task": "D100",
+      "task": "F100",
       "server": "linear",
       "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Error: Could not find team \\\"LIN\\\" for teamId\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_cycles\",\"args\":{\"teamId\":\"LIN\",\"type\":\"previous\"}}],\"isError\":true}",
+      "detail": "{\"result\":\"execute error: Error: Could not find team \\\"LIN\\\"\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_team\",\"args\":{\"query\":\"LIN\"}},{\"name\":\"linear__get_team\",\"args\":{\"query\":\"FEA\"}}],\"isError\":true}",
       "prompt": "Identify the most recently completed cycle for teams LIN and FEA, gather the relevant issues, and produce a concise summary of what was actually completed, the main themes, and any notable patterns."
     },
     {
-      "task": "D100",
+      "task": "F100",
+      "server": "linear",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_issues: fields.1: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"title\\\"|\\\"description\\\"|\\\"projectMilestone\\\"|\\\"priority\\\"|\\\"estimate\\\"|\\\"url\\\"|\\\"gitBranchName\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"complete",
+      "prompt": "Identify the most recently completed cycle for teams LIN and FEA, gather the relevant issues, and produce a concise summary of what was actually completed, the main themes, and any notable patterns."
+    },
+    {
+      "task": "F100",
+      "server": "linear",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "Identify the most recently completed cycle for teams LIN and FEA, gather the relevant issues, and produce a concise summary of what was actually completed, the main themes, and any notable patterns."
+    },
+    {
+      "task": "F100",
       "server": "linear",
       "category": "read",
       "type": "retry",
@@ -340,23 +260,23 @@
       "prompt": "Identify the most recently completed cycle for teams LIN and FEA, gather the relevant issues, and produce a concise summary of what was actually completed, the main themes, and any notable patterns."
     },
     {
-      "task": "D102",
+      "task": "F102",
       "server": "linear",
       "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_documents: fields.2: Invalid option: expected one of \\\"id\\\"|\\\"title\\\"|\\\"content\\\"|\\\"url\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"creator\\\"|\\\"updatedBy\\\"|\\\"project\\\"|\\\"initiative\\\"|\\\"team\\\"|\\\"issue\\\", fields.5: In",
+      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_documents: fields.2: Invalid option: expected one of \\\"id\\\"|\\\"title\\\"|\\\"content\\\"|\\\"url\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"creator\\\"|\\\"updatedBy\\\"|\\\"project\\\"|\\\"initiative\\\"|\\\"team\\\"|\\\"issue\\\", fields.6: In",
       "prompt": "How does notification grouping work today, and where should we change it? Read the relevant Linear documents and summarize the current behavior and the open questions."
     },
     {
-      "task": "D102",
+      "task": "F102",
       "server": "linear",
       "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"count\\\":37,\\\"hasNextPage\\\":false,\\\"docs\\\":[{\\\"id\\\":\\\"d35e599d-e339-46df-9883-10c23bf1eb73\\\",\\\"title\\\":\\\"Laya Control Plane｜Execution Bootstrap\\\",\\\"url\\\":\\\"https://linear.app/yi383775/document/laya-control-planeexecution-bootstrap-6dbbcc83d64e\\\",\\\"updatedAt\\\":\\\"2026-10-13T19:27:57.810Z\\",
+      "detail": "{\"result\":\"{\\\"documents\\\":[{\\\"id\\\":\\\"d35e599d-e339-46df-9883-10c23bf1eb73\\\",\\\"title\\\":\\\"Laya Control Plane｜Execution Bootstrap\\\",\\\"url\\\":\\\"https://linear.app/yi383775/document/laya-control-planeexecution-bootstrap-6dbbcc83d64e\\\",\\\"updatedAt\\\":\\\"2026-10-13T19:27:57.810Z\\\",\\\"project\\\":{\\\"id\\\":\\\"13465f",
       "prompt": "How does notification grouping work today, and where should we change it? Read the relevant Linear documents and summarize the current behavior and the open questions."
     },
     {
-      "task": "D102",
+      "task": "F102",
       "server": "linear",
       "category": "read",
       "type": "retry",
@@ -364,7 +284,7 @@
       "prompt": "How does notification grouping work today, and where should we change it? Read the relevant Linear documents and summarize the current behavior and the open questions."
     },
     {
-      "task": "D103",
+      "task": "F103",
       "server": "linear",
       "category": "derived",
       "type": "execute_error",
@@ -372,7 +292,7 @@
       "prompt": "List all Linear documents in my workspace with their titles and last-updated dates, and highlight any that are about the API launch."
     },
     {
-      "task": "D103",
+      "task": "F103",
       "server": "linear",
       "category": "derived",
       "type": "retry",
@@ -380,87 +300,55 @@
       "prompt": "List all Linear documents in my workspace with their titles and last-updated dates, and highlight any that are about the API launch."
     },
     {
-      "task": "D104",
+      "task": "F104",
       "server": "linear",
       "category": "write",
       "type": "retry",
-      "detail": "search called 4x with 4 different args",
+      "detail": "search called 2x with 2 different args",
       "prompt": "Draft a new document on this project that comprehensively outlines the feature."
     },
     {
-      "task": "D105",
+      "task": "F105",
       "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"Could not find referenced Issue.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d99edada50f00e\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_issue\",\"args\":{\"id\":\"ENG-2844\",\"includeRelations\":true}}],\"isError\":true}",
-      "prompt": "Extract the images embedded in ENG-2844's description and comments and transcribe any error text visible in them."
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "add retry handling for failed image uploads described in this issue"
     },
     {
-      "task": "D105",
+      "task": "F106",
       "server": "linear",
-      "category": "derived",
+      "category": "boundary",
+      "type": "retry",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "Investigate this issue using Sentry and summarize the likely cause."
+    },
+    {
+      "task": "F107",
+      "server": "linear",
+      "category": "read",
       "type": "execute_error",
       "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_issues: fields.1: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"title\\\"|\\\"description\\\"|\\\"projectMilestone\\\"|\\\"priority\\\"|\\\"estimate\\\"|\\\"url\\\"|\\\"gitBranchName\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"complete",
-      "prompt": "Extract the images embedded in ENG-2844's description and comments and transcribe any error text visible in them."
+      "prompt": "Review today's mobile triage and group the issues by what should happen next."
     },
     {
-      "task": "D105",
+      "task": "F107",
       "server": "linear",
-      "category": "derived",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"issues\\\":[{\\\"id\\\":\\\"LAJI-35\\\",\\\"title\\\":\\\"[Gateway Smoke Test] 写操作连通性验证\\\",\\\"description\\\":\\\"Automated write test via gemini-mcp-gateway (will be canceled immediately).\\\",\\\"status\\\":\\\"Canceled\\\",\\\"statusType\\\":\\\"canceled\\\",\\\"priority\\\":{\\\"value\\\":4,\\\"name\\\":\\\"Low\\\"},\\\"labels\\\":[],\\\"assi",
+      "prompt": "Review today's mobile triage and group the issues by what should happen next."
+    },
+    {
+      "task": "F107",
+      "server": "linear",
+      "category": "read",
       "type": "retry",
       "detail": "search called 3x with 3 different args",
-      "prompt": "Extract the images embedded in ENG-2844's description and comments and transcribe any error text visible in them."
-    },
-    {
-      "task": "D105",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 4x with 4 different args",
-      "prompt": "Extract the images embedded in ENG-2844's description and comments and transcribe any error text visible in them."
-    },
-    {
-      "task": "D106",
-      "server": "linear",
-      "category": "boundary",
-      "type": "search_empty",
-      "detail": "Investigate this issue using Sentry and summarize the likely cause.",
-      "prompt": "Investigate this issue using Sentry and summarize the likely cause."
-    },
-    {
-      "task": "D106",
-      "server": "linear",
-      "category": "boundary",
-      "type": "retry",
-      "detail": "search called 4x with 4 different args",
-      "prompt": "Investigate this issue using Sentry and summarize the likely cause."
-    },
-    {
-      "task": "D107",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_issues: fields.1: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"title\\\"|\\\"description\\\"|\\\"projectMilestone\\\"|\\\"priority\\\"|\\\"estimate\\\"|\\\"url\\\"|\\\"gitBranchName\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"complete",
       "prompt": "Review today's mobile triage and group the issues by what should happen next."
     },
     {
-      "task": "D107",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"issues\\\":[{\\\"id\\\":\\\"LAJI-35\\\",\\\"title\\\":\\\"[Gateway Smoke Test] 写操作连通性验证\\\",\\\"description\\\":\\\"Automated write test via gemini-mcp-gateway (will be canceled immediately).\\\",\\\"priority\\\":{\\\"value\\\":4,\\\"name\\\":\\\"Low\\\"},\\\"url\\\":\\\"https://linear.app/yi383775/issue/LAJI-35/gateway-smoke-test-写",
-      "prompt": "Review today's mobile triage and group the issues by what should happen next."
-    },
-    {
-      "task": "D107",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Review today's mobile triage and group the issues by what should happen next."
-    },
-    {
-      "task": "D107",
+      "task": "F107",
       "server": "linear",
       "category": "read",
       "type": "retry",
@@ -468,23 +356,7 @@
       "prompt": "Review today's mobile triage and group the issues by what should happen next."
     },
     {
-      "task": "D108",
-      "server": "linear",
-      "category": "cross",
-      "type": "search_empty",
-      "detail": "Design an implementation plan from the context below and treat it as a draft I can review and edit. Once I approve it, create a parent issue that captures the overall goal and create sub-issues for the concrete pieces of work needed to execute it. Context: [insert enough context to help orient the a",
-      "prompt": "Design an implementation plan from the context below and treat it as a draft I can review and edit. Once I approve it, create a parent issue that captures the overall goal and create sub-issues for the concrete pieces of work needed to execute it. Context: [insert enough context to help orient the agent]"
-    },
-    {
-      "task": "D108",
-      "server": "linear",
-      "category": "cross",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Design an implementation plan from the context below and treat it as a draft I can review and edit. Once I approve it, create a parent issue that captures the overall goal and create sub-issues for the concrete pieces of work needed to execute it. Context: [insert enough context to help orient the agent]"
-    },
-    {
-      "task": "D109",
+      "task": "F109",
       "server": "linear",
       "category": "read",
       "type": "execute_error",
@@ -492,7 +364,7 @@
       "prompt": "Review new and untriaged issues for our team. For each issue, recommend the next step, such as clarifying scope, assigning an owner, setting priority, linking related work, or closing it if it is no longer needed. Flag any duplicates, missing context, or risks."
     },
     {
-      "task": "D109",
+      "task": "F109",
       "server": "linear",
       "category": "read",
       "type": "execute_error",
@@ -500,15 +372,15 @@
       "prompt": "Review new and untriaged issues for our team. For each issue, recommend the next step, such as clarifying scope, assigning an owner, setting priority, linking related work, or closing it if it is no longer needed. Flag any duplicates, missing context, or risks."
     },
     {
-      "task": "D109",
+      "task": "F109",
       "server": "linear",
       "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"total\\\":100,\\\"counts\\\":{\\\"Canceled\\\":27,\\\"In Progress\\\":22,\\\"Done\\\":36,\\\"In Review\\\":5,\\\"Backlog\\\":4,\\\"Todo\\\":4,\\\"Waiting\\\":1,\\\"Blocked\\\":1},\\\"untriagedCount\\\":37,\\\"untriaged\\\":[{\\\"id\\\":\\\"YU-419\\\",\\\"title\\\":\\\"VIVIC｜队友 Private 仓库交接\\\",\\\"status\\\":\\\"In Progress\\\",\\\"priority\\\":\\\"High\\\",\\\"as",
+      "detail": "{\"result\":\"{\\\"total\\\":100,\\\"byStatus\\\":{\\\"Canceled\\\":27,\\\"In Progress\\\":22,\\\"Done\\\":36,\\\"In Review\\\":5,\\\"Backlog\\\":4,\\\"Todo\\\":4,\\\"Waiting\\\":1,\\\"Blocked\\\":1},\\\"untriagedCount\\\":100,\\\"untriaged\\\":[{\\\"id\\\":\\\"LAJI-35\\\",\\\"title\\\":\\\"[Gateway Smoke Test] 写操作连通性验证\\\",\\\"status\\\":\\\"Canceled\\\",\\\"priority\\\":\\\"Lo",
       "prompt": "Review new and untriaged issues for our team. For each issue, recommend the next step, such as clarifying scope, assigning an owner, setting priority, linking related work, or closing it if it is no longer needed. Flag any duplicates, missing context, or risks."
     },
     {
-      "task": "D109",
+      "task": "F109",
       "server": "linear",
       "category": "read",
       "type": "retry",
@@ -516,7 +388,7 @@
       "prompt": "Review new and untriaged issues for our team. For each issue, recommend the next step, such as clarifying scope, assigning an owner, setting priority, linking related work, or closing it if it is no longer needed. Flag any duplicates, missing context, or risks."
     },
     {
-      "task": "D109",
+      "task": "F109",
       "server": "linear",
       "category": "read",
       "type": "retry",
@@ -524,7 +396,7 @@
       "prompt": "Review new and untriaged issues for our team. For each issue, recommend the next step, such as clarifying scope, assigning an owner, setting priority, linking related work, or closing it if it is no longer needed. Flag any duplicates, missing context, or risks."
     },
     {
-      "task": "D110",
+      "task": "F110",
       "server": "linear",
       "category": "derived",
       "type": "execute_error",
@@ -532,175 +404,159 @@
       "prompt": "Look up the 'In Review' workflow status in the Engineering team and tell me its type, position in the workflow, and whether issues in it count as started or completed."
     },
     {
-      "task": "D110",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Error: Issue state not found\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__get_issue_status\",\"args\":{\"id\":\"\",\"name\":\"In Review\",\"team\":\"Engineering\"}}],\"isError\":true}",
-      "prompt": "Look up the 'In Review' workflow status in the Engineering team and tell me its type, position in the workflow, and whether issues in it count as started or completed."
-    },
-    {
-      "task": "D110",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "Look up the 'In Review' workflow status in the Engineering team and tell me its type, position in the workflow, and whether issues in it count as started or completed."
-    },
-    {
-      "task": "D110",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 3x with 3 different args",
-      "prompt": "Look up the 'In Review' workflow status in the Engineering team and tell me its type, position in the workflow, and whether issues in it count as started or completed."
-    },
-    {
-      "task": "D111",
-      "server": "linear",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Error: Could not find team \\\"Engineering\\\"\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_issue_labels\",\"args\":{\"limit\":100,\"includeGroups\":true}},{\"name\":\"linear__list_issue_labels\",\"args\":{\"limit\":100,\"team\":\"Engineering\",\"includeGroups\":true}}],\"isError\":true}",
-      "prompt": "List the issue labels available in my workspace and in the Engineering team, and tell me which ones are used for bug triage."
-    },
-    {
-      "task": "D111",
+      "task": "F110",
       "server": "linear",
       "category": "derived",
       "type": "retry",
       "detail": "search called 2x with 2 different args",
-      "prompt": "List the issue labels available in my workspace and in the Engineering team, and tell me which ones are used for bug triage."
+      "prompt": "Look up the 'In Review' workflow status in the Engineering team and tell me its type, position in the workflow, and whether issues in it count as started or completed."
     },
     {
-      "task": "D111",
+      "task": "F110",
       "server": "linear",
       "category": "derived",
-      "type": "retry",
-      "detail": "execute called 3x with 3 different args",
-      "prompt": "List the issue labels available in my workspace and in the Engineering team, and tell me which ones are used for bug triage."
-    },
-    {
-      "task": "D112",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Error: Initiative status updates are not enabled for this workspace. Pass `type: \\\"project\\\"` for project status updates, or enable roadmaps to use initiatives.\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"includeMilestones\":true}},{\"name\":\"li",
-      "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed."
-    },
-    {
-      "task": "D112",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 15879.999999999998. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9a1de3b47f7e3\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"include",
-      "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed."
-    },
-    {
-      "task": "D112",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_projects: fields.2: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"name\\\"|\\\"summary\\\"|\\\"description\\\"|\\\"url\\\"|\\\"trashed\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"startedAt\\\"|\\\"completedAt\\\"|\\\"canceledAt\\\"|\\\"startDate\\\"|\\\"star",
-      "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed."
-    },
-    {
-      "task": "D112",
-      "server": "linear",
-      "category": "read",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed."
-    },
-    {
-      "task": "D112",
-      "server": "linear",
-      "category": "read",
       "type": "retry",
       "detail": "execute called 4x with 4 different args",
+      "prompt": "Look up the 'In Review' workflow status in the Engineering team and tell me its type, position in the workflow, and whether issues in it count as started or completed."
+    },
+    {
+      "task": "F111",
+      "server": "linear",
+      "category": "derived",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: Error: Could not find team \\\"Engineering\\\"\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_teams\",\"args\":{\"query\":\"Engineering\"}},{\"name\":\"linear__list_issue_labels\",\"args\":{\"limit\":100,\"includeGroups\":true}},{\"name\":\"linear__list_issue_labels\",\"args\":{\"team\":\"Engineering\",\"l",
+      "prompt": "List the issue labels available in my workspace and in the Engineering team, and tell me which ones are used for bug triage."
+    },
+    {
+      "task": "F111",
+      "server": "linear",
+      "category": "derived",
+      "type": "retry",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "List the issue labels available in my workspace and in the Engineering team, and tell me which ones are used for bug triage."
+    },
+    {
+      "task": "F111",
+      "server": "linear",
+      "category": "derived",
+      "type": "retry",
+      "detail": "execute called 3x with 3 different args",
+      "prompt": "List the issue labels available in my workspace and in the Engineering team, and tell me which ones are used for bug triage."
+    },
+    {
+      "task": "F112",
+      "server": "linear",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_projects: limit: Too big: expected number to be <=50, fields.2: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"name\\\"|\\\"summary\\\"|\\\"description\\\"|\\\"url\\\"|\\\"trashed\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"startedAt\\\"|\\\"compl",
       "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed."
     },
     {
-      "task": "D113",
+      "task": "F112",
       "server": "linear",
       "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_projects: fields.2: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"name\\\"|\\\"summary\\\"|\\\"description\\\"|\\\"url\\\"|\\\"trashed\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"startedAt\\\"|\\\"completedAt\\\"|\\\"canceledAt\\\"|\\\"startDate\\\"|\\\"star",
-      "prompt": "Summarize the current status of this project with progress, risks, and next steps."
+      "detail": "{\"result\":\"execute error: Error: Initiative status updates are not enabled for this workspace. Pass `type: \\\"project\\\"` for project status updates, or enable roadmaps to use initiatives.\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"includeMilestones\":true,\"includeMembe",
+      "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed."
     },
     {
-      "task": "D113",
+      "task": "F112",
       "server": "linear",
       "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: TypeError: codemode.github__get_issue is not a function\",\"logs\":[],\"toolCalls\":[],\"isError\":true}",
-      "prompt": "Summarize the current status of this project with progress, risks, and next steps."
+      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 19005. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9edc6be50b5d4\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"includeMilestones\":t",
+      "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed."
     },
     {
-      "task": "D113",
+      "task": "F112",
       "server": "linear",
       "category": "read",
       "type": "retry",
-      "detail": "execute called 5x with 5 different args",
-      "prompt": "Summarize the current status of this project with progress, risks, and next steps."
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed."
     },
     {
-      "task": "D114",
+      "task": "F112",
       "server": "linear",
-      "category": "cross",
+      "category": "read",
       "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Turn the attached PRD into a new Linear project. Draft the project overview based on the PRD, create the issues needed to deliver it, and organize them into milestones that reflect the plan in the document. Keep the issues well scoped and call out anything ambiguous instead of filling in gaps on your own."
+      "detail": "execute called 3x with 3 different args",
+      "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed."
     },
     {
-      "task": "D116",
+      "task": "F113",
       "server": "linear",
       "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_projects: limit: Too big: expected number to be <=50\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_issues\",\"args\":{\"assignee\":\"me\",\"limit\":100,\"includeArchived\":false,\"fields\":[\"id\",\"identifier\",\"title\",\"description\",\"",
-      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
+      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 19130. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9edee5d32e9dd\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"orderBy\":\"updatedAt\"",
+      "prompt": "Summarize the current status of this project with progress, risks, and next steps."
     },
     {
-      "task": "D116",
+      "task": "F113",
       "server": "linear",
       "category": "read",
       "type": "execute_error",
       "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_issues: fields.1: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"title\\\"|\\\"description\\\"|\\\"projectMilestone\\\"|\\\"priority\\\"|\\\"estimate\\\"|\\\"url\\\"|\\\"gitBranchName\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"complete",
-      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
+      "prompt": "Summarize the current status of this project with progress, risks, and next steps."
     },
     {
-      "task": "D116",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 19130. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9a3457ef22ef1\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_issues\",\"args\":{\"assignee\":\"me\",\"limit\":100,\"inclu",
-      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
-    },
-    {
-      "task": "D116",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"issues\\\":[{\\\"id\\\":\\\"YU-419\\\",\\\"title\\\":\\\"VIVIC｜队友 Private 仓库交接\\\",\\\"status\\\":\\\"In Progress\\\",\\\"priority\\\":{\\\"value\\\":2,\\\"name\\\":\\\"High\\\"},\\\"dueDate\\\":null,\\\"updatedAt\\\":\\\"2026-11-16T16:07:20.850Z\\\",\\\"createdAt\\\":\\\"2026-11-16T07:46:59.390Z\\\",\\\"completedAt\\\":null,\\\"project\\\":\\\"VIVIC｜全双工实时",
-      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
-    },
-    {
-      "task": "D116",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 19130. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9a36dbdbd4311\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"member\":\"me\",\"limit\":50,\"includ",
-      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
-    },
-    {
-      "task": "D116",
+      "task": "F113",
       "server": "linear",
       "category": "read",
       "type": "retry",
-      "detail": "search called 4x with 4 different args",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "Summarize the current status of this project with progress, risks, and next steps."
+    },
+    {
+      "task": "F113",
+      "server": "linear",
+      "category": "read",
+      "type": "retry",
+      "detail": "execute called 4x with 4 different args",
+      "prompt": "Summarize the current status of this project with progress, risks, and next steps."
+    },
+    {
+      "task": "F116",
+      "server": "linear",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"gh\\\":{\\\"login\\\":\\\"Bruce-Yii\\\",\\\"id\\\":298228875,\\\"profile_url\\\":\\\"https://github.com/Bruce-Yii\\\",\\\"avatar_url\\\":\\\"https://avatars.githubusercontent.com/u/298228875?v=4\\\",\\\"details\\\":{\\\"email\\\":\\\"yuyi64906@gmail.com\\\",\\\"public_repos\\\":43,\\\"public_gists\\\":0,\\\"followers\\\":20,\\\"following\\\":",
       "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
     },
     {
-      "task": "D116",
+      "task": "F116",
+      "server": "linear",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 19130. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9eed60d3cb941\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"includeMilestones\":t",
+      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
+    },
+    {
+      "task": "F116",
+      "server": "linear",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 15879.999999999998. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9eeebd908b941\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"include",
+      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
+    },
+    {
+      "task": "F116",
+      "server": "linear",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"count\\\":34,\\\"active\\\":[{\\\"id\\\":\\\"YU-419\\\",\\\"title\\\":\\\"VIVIC｜队友 Private 仓库交接\\\",\\\"status\\\":\\\"In Progress\\\",\\\"priority\\\":\\\"High\\\",\\\"project\\\":\\\"VIVIC｜全双工实时交互与 Agent 协同\\\",\\\"dueDate\\\":null,\\\"updatedAt\\\":\\\"2026-11-16T16:07:20.850Z\\\",\\\"createdAt\\\":\\\"2026-11-16T07:46:59.390Z\\\",\\\"url\\\":\\\"https:",
+      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
+    },
+    {
+      "task": "F116",
+      "server": "linear",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
+    },
+    {
+      "task": "F116",
       "server": "linear",
       "category": "read",
       "type": "retry",
@@ -708,7 +564,7 @@
       "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale."
     },
     {
-      "task": "D117",
+      "task": "F117",
       "server": "linear",
       "category": "derived",
       "type": "execute_error",
@@ -716,15 +572,15 @@
       "prompt": "Open the 'Public Beta' milestone of the API launch project and tell me its target date, description, and current progress."
     },
     {
-      "task": "D117",
+      "task": "F117",
       "server": "linear",
       "category": "derived",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 15879.999999999998. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9a3a75f6c4311\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"include",
+      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 15879.999999999998. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9ef6ddba872d5\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"include",
       "prompt": "Open the 'Public Beta' milestone of the API launch project and tell me its target date, description, and current progress."
     },
     {
-      "task": "D117",
+      "task": "F117",
       "server": "linear",
       "category": "derived",
       "type": "retry",
@@ -732,7 +588,7 @@
       "prompt": "Open the 'Public Beta' milestone of the API launch project and tell me its target date, description, and current progress."
     },
     {
-      "task": "D117",
+      "task": "F117",
       "server": "linear",
       "category": "derived",
       "type": "retry",
@@ -740,15 +596,15 @@
       "prompt": "Open the 'Public Beta' milestone of the API launch project and tell me its target date, description, and current progress."
     },
     {
-      "task": "D118",
+      "task": "F118",
       "server": "linear",
       "category": "cross",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
+      "type": "no_tool_call",
+      "detail": "model produced no tool call",
       "prompt": "Turn this planning document into a well-structured Linear project. Read the document, create a project that reflects its objective, scope, and timeline, create the issues, and organize issues into milestones when the document clearly implies phases, deliverables, or checkpoints. Before creating anything, show me the proposed project, milestones, issues, and relationships."
     },
     {
-      "task": "D119",
+      "task": "F119",
       "server": "linear",
       "category": "derived",
       "type": "execute_error",
@@ -756,7 +612,7 @@
       "prompt": "Show me the unread notifications in my Linear inbox from the last two days, starting with the Priority tab items."
     },
     {
-      "task": "D120",
+      "task": "F120",
       "server": "linear",
       "category": "derived",
       "type": "execute_error",
@@ -764,23 +620,23 @@
       "prompt": "Mark all Linear notifications about ENG-2844 as read and snooze the one about the API launch until tomorrow."
     },
     {
-      "task": "D121",
+      "task": "F121",
       "server": "linear",
       "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_projects: fields.2: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"name\\\"|\\\"summary\\\"|\\\"description\\\"|\\\"url\\\"|\\\"trashed\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"startedAt\\\"|\\\"completedAt\\\"|\\\"canceledAt\\\"|\\\"startDate\\\"|\\\"star",
+      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_issues: fields.1: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"title\\\"|\\\"description\\\"|\\\"projectMilestone\\\"|\\\"priority\\\"|\\\"estimate\\\"|\\\"url\\\"|\\\"gitBranchName\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"archivedAt\\\"|\\\"complete",
       "prompt": "Summarize the progress of our team's current cycle and tell me which issues are at risk of rolling over. Start by identifying the right team in the workspace."
     },
     {
-      "task": "D121",
+      "task": "F121",
       "server": "linear",
       "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"6e1ac4ef-d588-4b37-94a7-9bc905d8b450\\\":{\\\"cycles\\\":[],\\\"projects\\\":{\\\"projects\\\":[{\\\"id\\\":\\\"P-YU-17\\\",\\\"name\\\":\\\"Recruitment OS｜Demo & Connector Validation\\\",\\\"status\\\":{\\\"id\\\":\\\"3146ae4a-901c-423c-a27d-7a5a06e8ab58\\\",\\\"name\\\":\\\"In Progress\\\",\\\"type\\\":\\\"started\\\"},\\\"updatedAt\\\":\\\"2026-",
+      "detail": "{\"result\":\"{\\\"issues\\\":[{\\\"id\\\":\\\"LAJI-35\\\",\\\"title\\\":\\\"[Gateway Smoke Test] 写操作连通性验证\\\",\\\"priority\\\":{\\\"value\\\":4,\\\"name\\\":\\\"Low\\\"},\\\"estimate\\\":null,\\\"url\\\":\\\"https://linear.app/yi383775/issue/LAJI-35/gateway-smoke-test-写操作连通性验证\\\",\\\"createdAt\\\":\\\"2026-11-20T16:25:30.457Z\\\",\\\"updatedAt\\\":\\\"2026-11-2",
       "prompt": "Summarize the progress of our team's current cycle and tell me which issues are at risk of rolling over. Start by identifying the right team in the workspace."
     },
     {
-      "task": "D121",
+      "task": "F121",
       "server": "linear",
       "category": "read",
       "type": "retry",
@@ -788,15 +644,15 @@
       "prompt": "Summarize the progress of our team's current cycle and tell me which issues are at risk of rolling over. Start by identifying the right team in the workspace."
     },
     {
-      "task": "D121",
+      "task": "F121",
       "server": "linear",
       "category": "read",
       "type": "retry",
-      "detail": "execute called 4x with 4 different args",
+      "detail": "execute called 5x with 5 different args",
       "prompt": "Summarize the progress of our team's current cycle and tell me which issues are at risk of rolling over. Start by identifying the right team in the workspace."
     },
     {
-      "task": "D122",
+      "task": "F122",
       "server": "linear",
       "category": "derived",
       "type": "execute_error",
@@ -804,15 +660,15 @@
       "prompt": "Look up the Mobile team and tell me its key, workflow statuses, and triage settings."
     },
     {
-      "task": "D122",
+      "task": "F122",
       "server": "linear",
       "category": "derived",
       "type": "retry",
-      "detail": "search called 3x with 3 different args",
+      "detail": "search called 2x with 2 different args",
       "prompt": "Look up the Mobile team and tell me its key, workflow statuses, and triage settings."
     },
     {
-      "task": "D122",
+      "task": "F122",
       "server": "linear",
       "category": "derived",
       "type": "retry",
@@ -820,7 +676,7 @@
       "prompt": "Look up the Mobile team and tell me its key, workflow statuses, and triage settings."
     },
     {
-      "task": "D124",
+      "task": "F124",
       "server": "linear",
       "category": "derived",
       "type": "execute_error",
@@ -828,7 +684,7 @@
       "prompt": "Show me the 'Bug Report' issue template, including the content it pre-fills, the default fields it applies, and any sub-issues."
     },
     {
-      "task": "D124",
+      "task": "F124",
       "server": "linear",
       "category": "derived",
       "type": "retry",
@@ -836,23 +692,7 @@
       "prompt": "Show me the 'Bug Report' issue template, including the content it pre-fills, the default fields it applies, and any sub-issues."
     },
     {
-      "task": "D125",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_projects: limit: Too big: expected number to be <=50\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_users\",\"args\":{\"limit\":100}},{\"name\":\"linear__list_projects\",\"args\":{\"limit\":100,\"orderBy\":\"updatedAt\",\"updatedAt\":\">=2",
-      "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved."
-    },
-    {
-      "task": "D125",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 19130. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9a665f9385f80\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_users\",\"args\":{\"limit\":50}},{\"name\":\"linear__list_",
-      "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved."
-    },
-    {
-      "task": "D125",
+      "task": "F125",
       "server": "linear",
       "category": "read",
       "type": "execute_error",
@@ -860,15 +700,39 @@
       "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved."
     },
     {
-      "task": "D125",
+      "task": "F125",
       "server": "linear",
       "category": "read",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"Variable \\\\\\\"$filter\\\\\\\" got invalid value \\\\\\\">-P14D\\\\\\\" at \\\\\\\"filter.updatedAt.gte\\\\\\\"; Expected type \\\\\\\"DateTimeOrDuration\\\\\\\". Unable to parse value '>-P14D' into a valid date\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9f1d0bb122a",
       "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved."
     },
     {
-      "task": "D125",
+      "task": "F125",
+      "server": "linear",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"gh\\\":{\\\"login\\\":\\\"Bruce-Yii\\\",\\\"id\\\":298228875,\\\"profile_url\\\":\\\"https://github.com/Bruce-Yii\\\",\\\"avatar_url\\\":\\\"https://avatars.githubusercontent.com/u/298228875?v=4\\\",\\\"details\\\":{\\\"email\\\":\\\"yuyi64906@gmail.com\\\",\\\"public_repos\\\":43,\\\"public_gists\\\":0,\\\"followers\\\":20,\\\"following\\\":",
+      "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved."
+    },
+    {
+      "task": "F125",
+      "server": "linear",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_projects: limit: Too big: expected number to be <=50\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_users\",\"args\":{\"limit\":100}},{\"name\":\"linear__list_projects\",\"args\":{\"updatedAt\":\"-P14D\",\"limit\":100,\"orderBy\":\"updated",
+      "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved."
+    },
+    {
+      "task": "F125",
+      "server": "linear",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved."
+    },
+    {
+      "task": "F125",
       "server": "linear",
       "category": "read",
       "type": "retry",
@@ -876,7 +740,7 @@
       "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved."
     },
     {
-      "task": "D126",
+      "task": "F126",
       "server": "linear",
       "category": "derived",
       "type": "execute_error",
@@ -884,7 +748,7 @@
       "prompt": "Look up the Linear user with email alex@example.com and tell me their display name, teams, and role."
     },
     {
-      "task": "D126",
+      "task": "F126",
       "server": "linear",
       "category": "derived",
       "type": "retry",
@@ -892,39 +756,23 @@
       "prompt": "Look up the Linear user with email alex@example.com and tell me their display name, teams, and role."
     },
     {
-      "task": "D126",
-      "server": "linear",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 4x with 4 different args",
-      "prompt": "Look up the Linear user with email alex@example.com and tell me their display name, teams, and role."
-    },
-    {
-      "task": "D128",
+      "task": "F126",
       "server": "linear",
       "category": "derived",
       "type": "retry",
       "detail": "execute called 3x with 3 different args",
+      "prompt": "Look up the Linear user with email alex@example.com and tell me their display name, teams, and role."
+    },
+    {
+      "task": "F128",
+      "server": "linear",
+      "category": "derived",
+      "type": "retry",
+      "detail": "execute called 2x with 2 different args",
       "prompt": "Search Linear's documentation to explain how cycles differ from project milestones, and link the relevant docs pages."
     },
     {
-      "task": "D129",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 15879.999999999998. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9a7a71b3f816b\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"include",
-      "prompt": "Draft a project update that summarizes progress, risks, blockers, and recent changes. First read this project's existing status updates so the draft does not repeat them, then show me the draft for review."
-    },
-    {
-      "task": "D129",
-      "server": "linear",
-      "category": "read",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_projects: fields.2: Invalid option: expected one of \\\"id\\\"|\\\"uuid\\\"|\\\"name\\\"|\\\"summary\\\"|\\\"description\\\"|\\\"url\\\"|\\\"trashed\\\"|\\\"createdAt\\\"|\\\"updatedAt\\\"|\\\"startedAt\\\"|\\\"completedAt\\\"|\\\"canceledAt\\\"|\\\"startDate\\\"|\\\"star",
-      "prompt": "Draft a project update that summarizes progress, risks, blockers, and recent changes. First read this project's existing status updates so the draft does not repeat them, then show me the draft for review."
-    },
-    {
-      "task": "D129",
+      "task": "F129",
       "server": "linear",
       "category": "read",
       "type": "retry",
@@ -932,7 +780,7 @@
       "prompt": "Draft a project update that summarizes progress, risks, blockers, and recent changes. First read this project's existing status updates so the draft does not repeat them, then show me the draft for review."
     },
     {
-      "task": "D129",
+      "task": "F129",
       "server": "linear",
       "category": "read",
       "type": "retry",
@@ -940,7 +788,7 @@
       "prompt": "Draft a project update that summarizes progress, risks, blockers, and recent changes. First read this project's existing status updates so the draft does not repeat them, then show me the draft for review."
     },
     {
-      "task": "D130",
+      "task": "F130",
       "server": "linear",
       "category": "write",
       "type": "execute_error",
@@ -948,15 +796,15 @@
       "prompt": "Draft a concise weekly update for this project. Call out any meaningful changes in scope or timeline, note work that appears off plan or drifting from the original goals, and base the update on evidence from project issues and activity. Share the draft with me in this chat first; once I approve it, post it to the project."
     },
     {
-      "task": "D130",
+      "task": "F130",
       "server": "linear",
       "category": "write",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 18935. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9a81cbdd379cf\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"includeMilestones\":t",
+      "detail": "{\"result\":\"execute error: {\\\"error\\\":\\\"invalid_request\\\",\\\"message\\\":\\\"The query is too complex. Complexity: 18940. Maximum allowed complexity: 10000.\\\",\\\"status\\\":400,\\\"requestId\\\":\\\"a5d9f3f5ca56c38a\\\"}\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":50,\"includeMilestones\":t",
       "prompt": "Draft a concise weekly update for this project. Call out any meaningful changes in scope or timeline, note work that appears off plan or drifting from the original goals, and base the update on evidence from project issues and activity. Share the draft with me in this chat first; once I approve it, post it to the project."
     },
     {
-      "task": "D130",
+      "task": "F130",
       "server": "linear",
       "category": "write",
       "type": "retry",
@@ -964,7 +812,7 @@
       "prompt": "Draft a concise weekly update for this project. Call out any meaningful changes in scope or timeline, note work that appears off plan or drifting from the original goals, and base the update on evidence from project issues and activity. Share the draft with me in this chat first; once I approve it, post it to the project."
     },
     {
-      "task": "D130",
+      "task": "F130",
       "server": "linear",
       "category": "write",
       "type": "retry",
@@ -972,7 +820,15 @@
       "prompt": "Draft a concise weekly update for this project. Call out any meaningful changes in scope or timeline, note work that appears off plan or drifting from the original goals, and base the update on evidence from project issues and activity. Share the draft with me in this chat first; once I approve it, post it to the project."
     },
     {
-      "task": "D131",
+      "task": "F131",
+      "server": "linear",
+      "category": "derived",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: Input validation error: Invalid arguments for tool list_projects: limit: Too big: expected number to be <=50\",\"logs\":[],\"toolCalls\":[{\"name\":\"linear__list_projects\",\"args\":{\"limit\":100,\"includeArchived\":true}}],\"isError\":true}",
+      "prompt": "Delete the obsolete status update I posted on the API launch project last month."
+    },
+    {
+      "task": "F131",
       "server": "linear",
       "category": "derived",
       "type": "retry",
@@ -980,15 +836,15 @@
       "prompt": "Delete the obsolete status update I posted on the API launch project last month."
     },
     {
-      "task": "D131",
+      "task": "F131",
       "server": "linear",
       "category": "derived",
       "type": "retry",
-      "detail": "execute called 3x with 3 different args",
+      "detail": "execute called 4x with 4 different args",
       "prompt": "Delete the obsolete status update I posted on the API launch project last month."
     },
     {
-      "task": "D132",
+      "task": "F132",
       "server": "vercel",
       "category": "read",
       "type": "search_empty",
@@ -996,15 +852,55 @@
       "prompt": "How do I configure custom domains in Vercel?"
     },
     {
-      "task": "D132",
+      "task": "F132",
       "server": "vercel",
       "category": "read",
       "type": "retry",
-      "detail": "search called 5x with 5 different args",
+      "detail": "search called 4x with 4 different args",
       "prompt": "How do I configure custom domains in Vercel?"
     },
     {
-      "task": "D135",
+      "task": "F133",
+      "server": "vercel",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 3x with 3 different args",
+      "prompt": "Which of my Git repositories already have Vercel projects?"
+    },
+    {
+      "task": "F133",
+      "server": "vercel",
+      "category": "read",
+      "type": "retry",
+      "detail": "execute called 2x with 2 different args",
+      "prompt": "Which of my Git repositories already have Vercel projects?"
+    },
+    {
+      "task": "F134",
+      "server": "vercel",
+      "category": "cross",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"me\\\":{\\\"login\\\":\\\"Bruce-Yii\\\",\\\"id\\\":298228875,\\\"profile_url\\\":\\\"https://github.com/Bruce-Yii\\\",\\\"avatar_url\\\":\\\"https://avatars.githubusercontent.com/u/298228875?v=4\\\",\\\"details\\\":{\\\"email\\\":\\\"yuyi64906@gmail.com\\\",\\\"public_repos\\\":43,\\\"public_gists\\\":0,\\\"followers\\\":20,\\\"following\\\":",
+      "prompt": "Show the deployment for the branch and commit I just pushed."
+    },
+    {
+      "task": "F134",
+      "server": "vercel",
+      "category": "cross",
+      "type": "retry",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "Show the deployment for the branch and commit I just pushed."
+    },
+    {
+      "task": "F134",
+      "server": "vercel",
+      "category": "cross",
+      "type": "retry",
+      "detail": "execute called 2x with 2 different args",
+      "prompt": "Show the deployment for the branch and commit I just pushed."
+    },
+    {
+      "task": "F135",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1012,23 +908,31 @@
       "prompt": "Show the latest build log lines from the deployments card for my most recent deployment."
     },
     {
-      "task": "D135",
+      "task": "F135",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
-      "detail": "execute called 4x with 4 different args",
+      "detail": "execute called 3x with 3 different args",
       "prompt": "Show the latest build log lines from the deployments card for my most recent deployment."
     },
     {
-      "task": "D137",
+      "task": "F137",
       "server": "vercel",
       "category": "read",
       "type": "execute_error",
-      "detail": "{\"result\":\"{\\\"prj_lo9xcadrDV0cEOFGbiDbV4awZ4Br\\\":{\\\"errors\\\":\\\"## Runtime Errors\\\\n\\\\n**Project:** prj_lo9xcadrDV0cEOFGbiDbV4awZ4Br\\\\n\\\\n7 error group(s), most frequent first:\\\\n\\\\n### [upstreams] [upstream:notion] 连接失败: Streamable HTTP error: Error POSTing to endpoint:\\\\ncount=16 users=6 routes=/ap",
+      "detail": "{\"result\":\"[{\\\"project\\\":\\\"gemini-mcp-gateway\\\",\\\"result\\\":\\\"## Runtime Errors\\\\n\\\\n**Project:** prj_lo9xcadrDV0cEOFGbiDbV4awZ4Br\\\\n\\\\n7 error group(s), most frequent first:\\\\n\\\\n### [upstreams] 1/4 upstreams failed: notion\\\\ncount=18 users=7 routes=/api/index\\\\nfirst=2026-11-20T13:34:24.000Z last=2",
       "prompt": "Why is my production app throwing errors?"
     },
     {
-      "task": "D137",
+      "task": "F137",
+      "server": "vercel",
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: ## Runtime Logs\\n\\n**Project:** prj_lo9xcadrDV0cEOFGbiDbV4awZ4Br\\n**Time range:** 2026-11-19T19:47:01.087Z → 2026-11-20T19:47:01.087Z\\n\\nThe runtime log query failed before returning results — this is an error from the logs API, not an absence of logs. See the details below",
+      "prompt": "Why is my production app throwing errors?"
+    },
+    {
+      "task": "F137",
       "server": "vercel",
       "category": "read",
       "type": "retry",
@@ -1036,31 +940,23 @@
       "prompt": "Why is my production app throwing errors?"
     },
     {
-      "task": "D137",
+      "task": "F137",
       "server": "vercel",
       "category": "read",
       "type": "retry",
-      "detail": "execute called 2x with 2 different args",
+      "detail": "execute called 4x with 4 different args",
       "prompt": "Why is my production app throwing errors?"
     },
     {
-      "task": "D139",
+      "task": "F140",
       "server": "vercel",
-      "category": "derived",
+      "category": "read",
       "type": "execute_error",
       "detail": "{\"result\":\"execute error: {\\n  \\\"success\\\": false,\\n  \\\"info\\\": \\\"The deployment could not be found, or your Vercel connection may not have access to it. Check the URL. If it is correct, ask the user to extend their Vercel authorization to include the deployment's project and team, then retry.\\\",\\n ",
-      "prompt": "Check whether I have access to the protected deployment URL https://my-app-git-main.vercel.app."
+      "prompt": "Make sure the content from my-app.vercel.app/api/status looks right"
     },
     {
-      "task": "D140",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\n  \\\"success\\\": false,\\n  \\\"info\\\": \\\"The deployment could not be found, or your Vercel connection may not have access to it. Check the URL. If it is correct, ask the user to extend their Vercel authorization to include the deployment's project and team, then retry.\\\",\\n ",
-      "prompt": "Fetch the page content from my deployment at https://my-app.vercel.app."
-    },
-    {
-      "task": "D141",
+      "task": "F141",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
@@ -1068,7 +964,7 @@
       "prompt": "List all virtual models configured in my Vercel AI Gateway."
     },
     {
-      "task": "D141",
+      "task": "F141",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
@@ -1076,7 +972,7 @@
       "prompt": "List all virtual models configured in my Vercel AI Gateway."
     },
     {
-      "task": "D142",
+      "task": "F142",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1084,7 +980,7 @@
       "prompt": "Show me the details of the virtual model named 'my-virtual-model' in AI Gateway."
     },
     {
-      "task": "D142",
+      "task": "F142",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
@@ -1092,7 +988,7 @@
       "prompt": "Show me the details of the virtual model named 'my-virtual-model' in AI Gateway."
     },
     {
-      "task": "D142",
+      "task": "F142",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
@@ -1100,7 +996,7 @@
       "prompt": "Show me the details of the virtual model named 'my-virtual-model' in AI Gateway."
     },
     {
-      "task": "D143",
+      "task": "F143",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
@@ -1108,7 +1004,7 @@
       "prompt": "List all rules configured in my Vercel AI Gateway."
     },
     {
-      "task": "D143",
+      "task": "F143",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
@@ -1116,7 +1012,7 @@
       "prompt": "List all rules configured in my Vercel AI Gateway."
     },
     {
-      "task": "D144",
+      "task": "F144",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
@@ -1124,15 +1020,15 @@
       "prompt": "List all AI Gateway budgets for my team."
     },
     {
-      "task": "D144",
+      "task": "F144",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
-      "detail": "execute called 2x with 2 different args",
+      "detail": "execute called 3x with 3 different args",
       "prompt": "List all AI Gateway budgets for my team."
     },
     {
-      "task": "D147",
+      "task": "F147",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1140,7 +1036,7 @@
       "prompt": "Get the DNS record with ID 'rec_123' for my domain."
     },
     {
-      "task": "D148",
+      "task": "F148",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1148,7 +1044,7 @@
       "prompt": "Show the details of the storage store with ID 'store_123'."
     },
     {
-      "task": "D149",
+      "task": "F149",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1156,23 +1052,23 @@
       "prompt": "Show me the details of my Vercel Drive."
     },
     {
-      "task": "D149",
+      "task": "F149",
       "server": "vercel",
       "category": "derived",
       "type": "model_confusion",
-      "detail": "I can call `vercel__get_drive`, but it requires a `nameOrId` and `projectId` (plus optionally `teamId`/`slug`). I don't have those from your request.\n\nCould you provide:\n- **Drive name or ID**\n- **Project ID or name**\n- **Team ID or slug** (if it's under a team)\n\nAlternatively, I can look for a tool",
+      "detail": "I can call `vercel__get_drive`, but it requires a `nameOrId` and `projectId` (plus optionally `teamId`/`slug`). I don't have those from your request.\n\nCould you provide:\n- **Drive name or ID**\n- **Project ID or name**\n- **Team ID or slug** (if it's under a team)\n\nOnce you give me those, the exact re",
       "prompt": "Show me the details of my Vercel Drive."
     },
     {
-      "task": "D151",
+      "task": "F151",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
-      "detail": "search called 2x with 2 different args",
+      "detail": "search called 3x with 3 different args",
       "prompt": "List all routing rules (rewrites and redirects) for my project."
     },
     {
-      "task": "D151",
+      "task": "F151",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
@@ -1180,95 +1076,55 @@
       "prompt": "List all routing rules (rewrites and redirects) for my project."
     },
     {
-      "task": "D152",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "List the versions of my project's routing configuration."
-    },
-    {
-      "task": "D153",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (400: web_analytics_not_enabled). Web Analytics is not enabled for this project\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"a",
-      "prompt": "Aggregate my project's analytics events over the last 7 days, grouped by event name."
-    },
-    {
-      "task": "D153",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "Aggregate my project's analytics events over the last 7 days, grouped by event name."
-    },
-    {
-      "task": "D153",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 4x with 4 different args",
-      "prompt": "Aggregate my project's analytics events over the last 7 days, grouped by event name."
-    },
-    {
-      "task": "D154",
+      "task": "F153",
       "server": "vercel",
       "category": "derived",
       "type": "model_confusion",
-      "detail": "I can answer this with `vercel__count_events`, but I need your **project ID** (and optionally team ID/slug) to target the right project. I also need to know the exact 24-hour window — I'll use the current time as `until` and 24 hours prior as `since`.\n\nCould you provide the project ID? If you don't ",
+      "detail": "I found the right tool, but I need two pieces of info before I can call it:\n\n1. **Which project?** — a project ID or name (e.g. `prj_...` or `my-app`).\n2. **Time window** — I'll use the last 7 days relative to now. Since I don't have a reliable current timestamp from the gateway, please confirm the ",
+      "prompt": "Aggregate my project's analytics events over the last 7 days, grouped by event name."
+    },
+    {
+      "task": "F154",
+      "server": "vercel",
+      "category": "derived",
+      "type": "model_confusion",
+      "detail": "I can answer this with `vercel__count_events`, but I need two pieces of information first:\n\n1. **Which project?** — the tool requires a `projectId` (and optionally `teamId`/`slug`). I don't have a project ID from you, and there's no \"current project\" context available.\n2. **Time window** — \"last 24 ",
       "prompt": "How many 'signup' events did my project record in the last 24 hours?"
     },
     {
-      "task": "D155",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Show daily pageviews for my project over the past week."
-    },
-    {
-      "task": "D156",
+      "task": "F157",
       "server": "vercel",
       "category": "derived",
       "type": "model_confusion",
-      "detail": "I can query Vercel Analytics, but I need two things first:\n\n1. **Which project?** `vercel__aggregate_pageviews` requires a `projectId` (and optionally `teamId`/`slug`). I don't know your site's project ID yet — I'd need to list projects or have you provide it.\n2. **\"Last month\"** — I'll interpret as",
-      "prompt": "How many pageviews did my site get last month?"
-    },
-    {
-      "task": "D157",
-      "server": "vercel",
-      "category": "derived",
-      "type": "model_confusion",
-      "detail": "`example.com` is **not available** to register (`available: false`). This was a read-only availability lookup — nothing was reserved or purchased.",
+      "detail": "`example.com` is **not available** to register (`available: false`). This was a read-only registry lookup — nothing was reserved or purchased.",
       "prompt": "Check whether the domain 'example.com' is available to register."
     },
     {
-      "task": "D158",
+      "task": "F158",
       "server": "vercel",
       "category": "read",
-      "type": "model_confusion",
-      "detail": "**example.com is not available** for registration — it's already registered, so there's no registration price to quote.\n\nI used a read-only lookup (`vercel__search_domains` with `{\"domains\":[\"example.com\"]}`), which returned `available: false`. No purchase or reservation was made. If you'd like, I c",
+      "type": "execute_error",
+      "detail": "{\"matches\":[{\"name\":\"vercel__search_domains\",\"description\":\"Get registration availability and pricing for 1-200 exact domain names. Returns results in input order, with registration and renewal prices in USD for available domains. No authentication required.\",\"params\":[\"teamId?: string\",\"requestBody",
       "prompt": "Is example.com available, and what does it cost to register?"
     },
     {
-      "task": "D159",
+      "task": "F158",
       "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "List all projects in my Vercel team."
+      "category": "read",
+      "type": "model_confusion",
+      "detail": "**example.com is not available** for registration — it's already registered, so there's no purchase price offered.\n\nI used a read-only lookup (`vercel__search_domains` with `{\"domains\":[\"example.com\"]}`), which returned `available: false` and no pricing (prices are only returned for available domain",
+      "prompt": "Is example.com available, and what does it cost to register?"
     },
     {
-      "task": "D161",
+      "task": "F159",
       "server": "vercel",
-      "category": "derived",
+      "category": "read",
       "type": "retry",
       "detail": "execute called 2x with 2 different args",
-      "prompt": "Show the status and details of my latest production deployment."
+      "prompt": "Show me projects in my team"
     },
     {
-      "task": "D162",
+      "task": "F162",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1276,7 +1132,7 @@
       "prompt": "List all aliases assigned to deployment ID 'dpl_123'."
     },
     {
-      "task": "D164",
+      "task": "F164",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1284,39 +1140,31 @@
       "prompt": "Show the details of my team 'my-team'."
     },
     {
-      "task": "D165",
+      "task": "F166",
       "server": "vercel",
-      "category": "derived",
-      "type": "search_empty",
-      "detail": "Who am I logged in as in Vercel?",
-      "prompt": "Who am I logged in as in Vercel?"
+      "category": "read",
+      "type": "execute_error",
+      "detail": "{\"result\":\"{\\\"result\\\":{\\\"deployments\\\":{\\\"pagination\\\":{\\\"count\\\":10,\\\"next\\\":1795189741907,\\\"prev\\\":1795201527097},\\\"deployments\\\":[{\\\"id\\\":\\\"dpl_Em325z7EaQGD5FnA2UCjBFUEt4W6\\\",\\\"name\\\":\\\"gemini-mcp-gateway\\\",\\\"url\\\":\\\"gemini-mcp-gateway-nxysaued5-yu-ac3a.vercel.app\\\",\\\"created\\\":1795201527097,\\\"s",
+      "prompt": "Show me the latest build logs for the failed deployment"
     },
     {
-      "task": "D165",
+      "task": "F166",
       "server": "vercel",
-      "category": "derived",
+      "category": "read",
+      "type": "model_confusion",
+      "detail": "I found the failed deployments. The latest one is **`dpl_4x4a6K6swPTCxVn5MppMmm3aEs7a`** (`ai-pm-portfolio`, commit `4934f10` \"update AI PM portfolio\", state `ERROR`).\n\nIts build logs (`bld_46i0yzvip`):\n\n```\nRunning build in Washington, D.C., USA (East) – iad1\nBuild machine configuration: 2 cores, 8",
+      "prompt": "Show me the latest build logs for the failed deployment"
+    },
+    {
+      "task": "F166",
+      "server": "vercel",
+      "category": "read",
       "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "Who am I logged in as in Vercel?"
+      "detail": "execute called 4x with 4 different args",
+      "prompt": "Show me the latest build logs for the failed deployment"
     },
     {
-      "task": "D166",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 3x with 3 different args",
-      "prompt": "List the events for my latest deployment."
-    },
-    {
-      "task": "D166",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "List the events for my latest deployment."
-    },
-    {
-      "task": "D168",
+      "task": "F168",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1324,7 +1172,7 @@
       "prompt": "List all aliases in my team."
     },
     {
-      "task": "D169",
+      "task": "F169",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1332,23 +1180,23 @@
       "prompt": "Look up the alias 'my-app.vercel.app' and tell me which deployment it points to."
     },
     {
-      "task": "D171",
+      "task": "F171",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
-      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (403: forbidden). You don't have access to \\\\\\\"example.com\\\\\\\"\\\",\\\"recovery\\\":\\\"Try an available mapped CLI fallback first for the same authorized action, with the same explicit team/project and the CLI's own credentials. ",
+      "detail": "{\"result\":\"{\\\"get_domain\\\":{\\\"error\\\":\\\"Error: {\\\\\\\"error\\\\\\\":{\\\\\\\"message\\\\\\\":\\\\\\\"Vercel API request failed (403: forbidden). You don't have access to \\\\\\\\\\\\\\\"example.com\\\\\\\\\\\\\\\"\\\\\\\",\\\\\\\"recovery\\\\\\\":\\\\\\\"Try an available mapped CLI fallback first for the same authorized action, with the same explic",
       "prompt": "Show information about the domain 'example.com'."
     },
     {
-      "task": "D171",
+      "task": "F171",
       "server": "vercel",
       "category": "derived",
       "type": "model_confusion",
-      "detail": "I couldn't retrieve information for `example.com`: the Vercel API returned **403 Forbidden** — \"You don't have access to `example.com`\".\n\nThe `get_domain` tool only returns domains registered in the authenticated account/team, so `example.com` isn't accessible there. The suggested CLI fallback (`ver",
+      "detail": "Here's what I could retrieve for **example.com**:\n\n**Availability**\n- `available: false` — the domain is already registered (not available for purchase).\n\n**DNS configuration**\n- Nameservers: `hera.ns.cloudflare.com`, `elliott.ns.cloudflare.com`\n- Service type: `external` (not managed by Vercel)\n- A",
       "prompt": "Show information about the domain 'example.com'."
     },
     {
-      "task": "D172",
+      "task": "F172",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1356,15 +1204,15 @@
       "prompt": "List all DNS records for 'example.com'."
     },
     {
-      "task": "D172",
+      "task": "F172",
       "server": "vercel",
       "category": "derived",
       "type": "model_confusion",
-      "detail": "I couldn't list the DNS records for `example.com`. The Vercel API returned **403 Forbidden**: \"You don't have permission to list the domain record.\"\n\nThe call I made was:\n\n```js\ncodemode.vercel__get_records({ domain: \"example.com\", limit: \"100\" })\n```\n\nThis is a read-only operation, but the authenti",
+      "detail": "I couldn't list the DNS records: the Vercel API returned **403 Forbidden** — \"You don't have permission to list the domain record\" for `example.com` (requestId `iad1:sfo1:iad1:sfo1::mhgk4-1795204389433-1208b2bd22af`).\n\nThe call I made was:\n\n```js\ncodemode.vercel__get_records({ domain: \"example.com\",",
       "prompt": "List all DNS records for 'example.com'."
     },
     {
-      "task": "D173",
+      "task": "F173",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1372,7 +1220,7 @@
       "prompt": "List the files included in my latest deployment."
     },
     {
-      "task": "D173",
+      "task": "F173",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
@@ -1380,7 +1228,7 @@
       "prompt": "List the files included in my latest deployment."
     },
     {
-      "task": "D175",
+      "task": "F175",
       "server": "vercel",
       "category": "read",
       "type": "retry",
@@ -1388,7 +1236,7 @@
       "prompt": "Show me deployments for my blog project"
     },
     {
-      "task": "D175",
+      "task": "F175",
       "server": "vercel",
       "category": "read",
       "type": "retry",
@@ -1396,7 +1244,7 @@
       "prompt": "Show me deployments for my blog project"
     },
     {
-      "task": "D177",
+      "task": "F177",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1404,7 +1252,7 @@
       "prompt": "Show the metadata for certificate ID 'cert_123'."
     },
     {
-      "task": "D178",
+      "task": "F178",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1412,7 +1260,7 @@
       "prompt": "Show the contents of 'index.html' from my latest deployment."
     },
     {
-      "task": "D178",
+      "task": "F178",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1420,15 +1268,15 @@
       "prompt": "Show the contents of 'index.html' from my latest deployment."
     },
     {
-      "task": "D178",
+      "task": "F178",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
-      "detail": "search called 3x with 3 different args",
+      "detail": "search called 4x with 4 different args",
       "prompt": "Show the contents of 'index.html' from my latest deployment."
     },
     {
-      "task": "D178",
+      "task": "F178",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
@@ -1436,15 +1284,31 @@
       "prompt": "Show the contents of 'index.html' from my latest deployment."
     },
     {
-      "task": "D180",
+      "task": "F180",
       "server": "vercel",
-      "category": "derived",
+      "category": "read",
       "type": "execute_error",
       "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404: not_found). Project not found.\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"actor\\\":\\\"agent\\\",\\\"action\\\":\\\"correct_reque",
-      "prompt": "Show the configuration of my project 'my-app'."
+      "prompt": "Get details about my next-js-blog project"
     },
     {
-      "task": "D181",
+      "task": "F180",
+      "server": "vercel",
+      "category": "read",
+      "type": "retry",
+      "detail": "search called 2x with 2 different args",
+      "prompt": "Get details about my next-js-blog project"
+    },
+    {
+      "task": "F180",
+      "server": "vercel",
+      "category": "read",
+      "type": "retry",
+      "detail": "execute called 3x with 3 different args",
+      "prompt": "Get details about my next-js-blog project"
+    },
+    {
+      "task": "F181",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1452,31 +1316,7 @@
       "prompt": "List all domains attached to my project 'my-app'."
     },
     {
-      "task": "D182",
-      "server": "vercel",
-      "category": "derived",
-      "type": "execute_error",
-      "detail": "{\"result\":\"[{\\\"id\\\":\\\"prj_lo9xcadrDV0cEOFGbiDbV4awZ4Br\\\",\\\"error\\\":\\\"Error: {\\\\\\\"error\\\\\\\":{\\\\\\\"message\\\\\\\":\\\\\\\"Vercel API request failed (404: not_found). Project Domain not found.\\\\\\\",\\\\\\\"recovery\\\\\\\":\\\\\\\"Check the API message, arguments, target team and resource state. Correct the request before ",
-      "prompt": "Show the details of the domain 'example.com' attached to my project."
-    },
-    {
-      "task": "D182",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 2x with 2 different args",
-      "prompt": "Show the details of the domain 'example.com' attached to my project."
-    },
-    {
-      "task": "D182",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "execute called 2x with 2 different args",
-      "prompt": "Show the details of the domain 'example.com' attached to my project."
-    },
-    {
-      "task": "D183",
+      "task": "F183",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
@@ -1484,7 +1324,7 @@
       "prompt": "Disable the AI Gateway rule named 'rate-limit' in my team."
     },
     {
-      "task": "D183",
+      "task": "F183",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
@@ -1492,7 +1332,7 @@
       "prompt": "Disable the AI Gateway rule named 'rate-limit' in my team."
     },
     {
-      "task": "D184",
+      "task": "F184",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
@@ -1500,7 +1340,7 @@
       "prompt": "Update my virtual model 'my-virtual-model' to route to 'openai/gpt-4o'."
     },
     {
-      "task": "D187",
+      "task": "F187",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
@@ -1508,7 +1348,7 @@
       "prompt": "Create a virtual model named 'cheap-model' that routes to 'openai/gpt-4o-mini'."
     },
     {
-      "task": "D188",
+      "task": "F188",
       "server": "vercel",
       "category": "derived",
       "type": "execute_error",
@@ -1516,15 +1356,39 @@
       "prompt": "Fork the Vercel Drive 'my-drive' into my team."
     },
     {
-      "task": "D189",
+      "task": "F188",
+      "server": "vercel",
+      "category": "derived",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404: not_found). Drive not found.\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"actor\\\":\\\"agent\\\",\\\"action\\\":\\\"correct_request",
+      "prompt": "Fork the Vercel Drive 'my-drive' into my team."
+    },
+    {
+      "task": "F188",
+      "server": "vercel",
+      "category": "derived",
+      "type": "execute_error",
+      "detail": "{\"result\":\"execute error: {\\\"error\\\":{\\\"message\\\":\\\"Vercel API request failed (404: not_found). Drive not found.\\\",\\\"recovery\\\":\\\"Check the API message, arguments, target team and resource state. Correct the request before retrying.\\\",\\\"remediation\\\":{\\\"actor\\\":\\\"agent\\\",\\\"action\\\":\\\"correct_request",
+      "prompt": "Fork the Vercel Drive 'my-drive' into my team."
+    },
+    {
+      "task": "F188",
+      "server": "vercel",
+      "category": "derived",
+      "type": "retry",
+      "detail": "execute called 3x with 3 different args",
+      "prompt": "Fork the Vercel Drive 'my-drive' into my team."
+    },
+    {
+      "task": "F189",
       "server": "vercel",
       "category": "derived",
       "type": "model_confusion",
-      "detail": "Both domains are **unavailable** for registration:\n\n| Domain | Available | Registration price |\n|---|---|---|\n| example.com | ❌ No | N/A (not available) |\n| example.org | ❌ No | N/A (not available) |\n\nThe lookup only returns pricing for available domains, so no registration or renewal prices were pr",
+      "detail": "Both domains are **already registered / unavailable**:\n\n| Domain | Available | Registration price |\n|---|---|---|\n| example.com | ❌ No | N/A (not available) |\n| example.org | ❌ No | N/A (not available) |\n\nThe lookup only returns registration/renewal prices (USD) for available domains, so no pricing ",
       "prompt": "Check the availability and registration prices for 'example.com' and 'example.org'."
     },
     {
-      "task": "D189",
+      "task": "F189",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
@@ -1532,23 +1396,15 @@
       "prompt": "Check the availability and registration prices for 'example.com' and 'example.org'."
     },
     {
-      "task": "D190",
+      "task": "F191",
       "server": "vercel",
       "category": "derived",
       "type": "retry",
       "detail": "search called 2x with 2 different args",
-      "prompt": "Set a $100 monthly AI Gateway budget for API key 'key_123'."
-    },
-    {
-      "task": "D191",
-      "server": "vercel",
-      "category": "derived",
-      "type": "retry",
-      "detail": "search called 3x with 3 different args",
       "prompt": "Set a default daily AI Gateway budget of $50 for all API keys in my team."
     },
     {
-      "task": "D191",
+      "task": "F191",
       "server": "vercel",
       "category": "derived",
       "type": "retry",

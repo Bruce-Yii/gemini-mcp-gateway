@@ -1,19 +1,23 @@
 # 探索式测试发现的问题清单（全覆盖版）
 
-> 2026-11-21。用四个 MCP 官网挖出的 **191 条任务**（覆盖全部 191 个暴露工具，59 条官方逐字 + 132 条基于官方 description），
+> 2026-11-21。用四个 MCP 官网挖出的 **191 条任务**（覆盖全部 191 个暴露工具；换用满额度 Firecrawl key 重挖后，
+> **105 条官方逐字示例 + 86 条基于官方 description**——官方确实没给后者的逐工具示例，不是没挖）。
 > 让 hy4 通过网关 search+execute 实际执行，捕捉"用着别扭/报错/重试"的地方。
-> 本轮跑了 138 条（GitHub 42 + Linear 36 + Vercel 60；Notion 53 条因 grant 坏了排除）。
-> 捕捉 194 个异常。**这不是打分，是找问题**——类比你让 Gemini"试用感受一下"，但规模大得多、且逐工具覆盖。
+> 跑了 138 条（GitHub 42 + Linear 36 + Vercel 60；Notion 53 条因 grant 坏了排除）。
+> 捕捉 176 个异常。**这不是打分，是找问题**——类比你让 Gemini"试用感受一下"，但规模大得多、且逐工具覆盖。
+>
+> 任务来源权威性：105/191（55%）是官方逐字 prompt（来自各 MCP 官方 docs 的 "Try a prompt"/"Sample prompt"、官方评测 JSON、Copilot cheat sheet 等）；
+> 86 条因官方无逐工具示例而基于官方 description 构造，已在任务集里用 `official: false` 标注。
 
 ## 数据概览
 
 | 指标 | 数值 |
 |---|---|
-| 任务集 | 191 条（GitHub 42 / Notion 53 / Linear 36 / Vercel 60），逐工具全覆盖 |
+| 任务集 | 191 条（GitHub 42 / Notion 53 / Linear 36 / Vercel 60），逐工具全覆盖；105 官方逐字 |
 | 本轮执行 | 138 条（排除 Notion） |
-| 捕捉异常 | 194 |
-| 按服务 | Linear 97 / Vercel 71 / GitHub 26 |
-| 按类型 | retry 96 / execute_error 84 / model_confusion 9 / search_empty 4 / no_tool_call 1 |
+| 捕捉异常 | 176 |
+| 按服务 | Linear 87 / Vercel 71 / GitHub 18 |
+| 按类型 | retry 89 / execute_error 73 / model_confusion 9 / no_tool_call 4 / search_empty 1 |
 
 ## ⚠️ 数据可信度说明（必须先读）
 
