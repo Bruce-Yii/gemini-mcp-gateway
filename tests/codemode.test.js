@@ -32,16 +32,15 @@ test('runInSandbox: console.log captured as logs, not result', async () => {
   assert.ok(out.logs.some((l) => l.includes('hello')));
 });
 
-test('runInSandbox: tool call limit enforced', async () => {
-  await assert.rejects(
-    runInSandbox({
-      code: `async () => { for (let i=0;i<10;i++) await codemode.t({}); return 'x'; }`,
-      tools: [{ name: 't', server: 'f', tool: 't', description: 't', inputSchema: {} }],
-      callTool: async () => ({}),
-      maxCalls: 3,
-    }),
-    /tool call limit/,
-  );
+test('runInSandbox: tool call limit enforced (returned as error result)', async () => {
+  const out = await runInSandbox({
+    code: `async () => { for (let i=0;i<10;i++) await codemode.t({}); return 'x'; }`,
+    tools: [{ name: 't', server: 'f', tool: 't', description: 't', inputSchema: {} }],
+    callTool: async () => ({}),
+    maxCalls: 3,
+  });
+  assert.equal(out.isError, true);
+  assert.match(out.result, /tool call limit/);
 });
 
 test('codemode server exposes only search + execute', async () => {

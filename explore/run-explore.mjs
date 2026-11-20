@@ -17,7 +17,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
-const DATASET = 'explore/tasks.json';
+const DATASET = process.env.EXPLORE_DATASET || 'explore/tasks.json';
 const MODEL_BASE = process.env.EXPLORE_MODEL_BASE || 'https://opencode.ai/zen/go/v1';
 const MODEL_KEY = process.env.EXPLORE_MODEL_KEY || readOpencodeKey();
 

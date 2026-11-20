@@ -68,15 +68,22 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
   const context = vm.createContext(sandbox, { codeGeneration: { strings: false, wasm: false } });
 
   const script = new vm.Script(`(async () => { const __fn = (${normalized}); return await __fn(); })()`, { timeout });
-  return script.runInContext(context, { timeout }).then((result) => {
-    let text;
-    try { text = typeof result === 'string' ? result : JSON.stringify(result ?? null); }
-    catch { text = String(result); }
-    if (text && text.length > maxResultChars) {
-      text = text.slice(0, maxResultChars) + `\n…[execute result truncated ${text.length - maxResultChars} chars]`;
-    }
-    return { result: text ?? '', logs, toolCalls };
-  });
+  return Promise.resolve(script.runInContext(context, { timeout }))
+    .then((result) => {
+      let text;
+      try { text = typeof result === 'string' ? result : JSON.stringify(result ?? null); }
+      catch { text = String(result); }
+      if (text && text.length > maxResultChars) {
+        text = text.slice(0, maxResultChars) + `\n…[execute result truncated ${text.length - maxResultChars} chars]`;
+      }
+      return { result: text ?? '', logs, toolCalls };
+    })
+    .catch((err) => {
+      // A tool throwing inside sandbox code (e.g. unwrapResult raising on
+      // isError) must become a normal execute result, not an unhandled
+      // rejection that kills the process. The model sees the error text.
+      return { result: `execute error: ${err instanceof Error ? err.message : String(err)}`, logs, toolCalls, isError: true };
+    });
 }
 
 /**
