@@ -8,8 +8,12 @@
  * 压成 `<string len=N>`，那样写今天就会误绿。真正的判据是审计字段整体
  * 不存在，连同它的摘要标记一起不进上下文。
  *
- * 本文件是测试草案：功能尚未实现，1/2 预期为红；第 3 个用例在
- * toModelOutput 未导出时 skip，保证文件今天就能编译运行。
+ * 状态（当前 HEAD 03c294b）：toModelOutput 已在 src/codemode.js:150 导出，
+ * 并在 execute handler 边界实际调用（src/codemode.js:449-450：先 unwrap
+ * makeOutput 的 toJSON，再投影，toolCalls + logs 不进模型上下文）。
+ * 因此本文件不再是"功能尚未实现、1/2 预期为红"的草案，而是现行行为的回归测试。
+ * 第 3 个用例里的 skip 分支（typeof mod.toModelOutput !== 'function'）现已不触发，
+ * 会真正执行投影断言；保留该分支只是历史兼容，并非功能缺失的证据。
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

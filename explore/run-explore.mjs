@@ -21,7 +21,8 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
   AnomalyCollector, DETECTOR_VERSION, detectPlaceholders,
-  isNotFound, isInfraError, toolNameMatches, truncate,
+  toolNameMatches, truncate, pickExecuteResult, classifyExecuteResult,
+  countToolsByServer, applyServerCoverage,
   gitSha, sha256File, writeTrace, writeManifest, writeMetrics,
 } from './trace.mjs';
 
@@ -76,6 +77,10 @@ const staticAuth = {
 };
 const mgr = new UpstreamManager(activeCfg, { auth: staticAuth });
 await mgr.connect();
+// #23: record how many tools each server actually exposed in THIS run. A
+// task whose server exposed 0 tools is an infra/config problem (the upstream
+// failed to connect or nothing was whitelisted), not a gateway defect.
+const serverToolCounts = countToolsByServer(mgr.getEntries());
 const gatewayTools = createCodeModeTools(mgr); // [search, execute_read, execute]
 // R0: index by name, never by position. Hard-fail on contract drift.
 const toolsByName = new Map(gatewayTools.map((t) => [t.name, t]));
@@ -86,6 +91,7 @@ for (const name of REQUIRED_TOOLS) {
 }
 console.error('gateway tools:', TOOL_NAMES.join(','));
 console.error('upstreams connected:', [...mgr._clients.keys()].join(','), '| failed:', (mgr.failedServers || []).join(',') || 'none');
+console.error('tools exposed per server:', JSON.stringify(serverToolCounts));
 
 // ---- LLM helpers ----
 async function llm(messages, tools) {
@@ -135,7 +141,12 @@ async function runToolCall(tc) {
 }
 
 const collector = new AnomalyCollector(DETECTOR_VERSION);
-const flag = (task, type, detail, meta) => collector.flag(task, type, detail, meta);
+// #23: every anomaly for a task whose server exposed 0 tools is downgraded
+// from gateway to infra (config/upstream failure), including search_empty.
+const flag = (task, type, detail, meta) => collector.flag(
+  task, type, detail,
+  applyServerCoverage(meta, task.server, serverToolCounts[task.server] ?? 0, type),
+);
 
 const allTasks = JSON.parse(fs.readFileSync(DATASET, 'utf8')).tasks;
 const tasks = allTasks.filter(t => EXPLORE_SERVERS.includes(t.server));
@@ -157,6 +168,7 @@ const manifest = {
   model: MODEL,
   modelBase: MODEL_BASE,
   servers: EXPLORE_SERVERS,
+  serverToolCounts,
   taskCount: selected.length,
   taskLimit: limit || null,
   toolContract: TOOL_NAMES,
@@ -174,6 +186,9 @@ for (const task of selected) {
   const turnRecords = [];
   const messageTrace = [];
   const calledSigs = [];
+  // #22: per-turn full tool results (name + text) used ONLY in memory for
+  // name-based execute selection; traces keep bounded previews as before.
+  let turnToolResults = [];
   const m = {
     task: task.id, server: task.server, category: task.category,
     official: task.official ?? null, expectedTool, fixtures,
@@ -199,6 +214,7 @@ for (const task of selected) {
     for (let turn = 0; turn < MAX_TURNS && !finished; turn++) {
       const llmOut = await llm(messages, TOOLS);
       const msg = llmOut.message;
+      turnToolResults = [];
       m.llmCalls += 1;
       m.promptTokens += llmOut.usage.prompt_tokens;
       m.completionTokens += llmOut.usage.completion_tokens;
@@ -228,6 +244,7 @@ for (const task of selected) {
         for (const tc of msg.tool_calls) {
           const toolName = tc.function.name;
           const out = await runToolCall(tc);
+          turnToolResults.push({ name: toolName, text: out.text, error: out.error });
           calledSigs.push({ name: toolName, argsKey: String(tc.function?.arguments ?? '{}') });
           m.toolCalls += 1;
           m.toolMs += out.latencyMs;
@@ -236,25 +253,6 @@ for (const task of selected) {
           if (toolName === 'execute' || toolName === 'execute_read') m.executeCalls += 1;
 
           if (out.error) flag(task, 'tool_error', out.error, { traceId, turnIndex: turn });
-
-          // R4: fixture 404s are synthetic, not gateway defects.
-          // Bare "404"/"403" are NOT an error signal (they appear in normal
-          // result text such as URLs or issue bodies); require an explicit
-          // error marker so successful results are not misclassified.
-          if (out.text && /"isError":true|ReferenceError|TypeError|invalid_grant|error_description|execute error|404\s+not\s+found|\bnot found\b|no commit found|does not exist|403\s+forbidden|unauthorized/i.test(out.text)) {
-            if (fixtures.length && isNotFound(out.text)) {
-              flag(task, 'execute_error', out.text, {
-                traceId, turnIndex: turn,
-                attribution: 'synthetic_data', syntheticData: true, isGatewayDefect: false,
-                subtype: 'placeholder_404', rootCause: 'not found (synthetic placeholder)',
-                note: `fixture tokens: ${fixtures.join(', ')}`,
-              });
-            } else if (isInfraError(out.text) && out.text.includes('429')) {
-              flag(task, 'infra_error', out.text, { traceId, turnIndex: turn, attribution: 'infra', note: 'upstream rate limit / server error' });
-            } else {
-              flag(task, 'execute_error', out.text, { traceId, turnIndex: turn });
-            }
-          }
 
           // tool-recall metrics (R6): compare search matches with expected tool.
           if (toolName === 'search') {
@@ -293,6 +291,15 @@ for (const task of selected) {
           messageTrace.push({ role: 'tool', tool_call_id: tc.id, name: toolName, contentChars: (out.text || out.error || '{}').length, contentPreview: truncate(out.text || out.error || '{}', 300) });
           messages.push({ role: 'assistant', tool_calls: [tc] });
           messages.push({ role: 'tool', tool_call_id: tc.id, content: out.text || out.error || '{}' });
+        }
+        // #22: classify execute errors from the execute/execute_read result
+        // ONLY, matched by tool name. A search result in the same turn (whose
+        // tool descriptions often contain "not found") must never become the
+        // detail of an execute_error anomaly.
+        const execResult = pickExecuteResult(turnToolResults);
+        if (execResult) {
+          const finding = classifyExecuteResult(execResult, fixtures);
+          if (finding) flag(task, finding.type, finding.detail, { traceId, turnIndex: turn, ...finding.meta });
         }
       } else {
         finalContent = msg.content || '';
