@@ -55,7 +55,12 @@ test('codemode server exposes only search + execute', async () => {
     await client.connect(clientTransport);
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
-    assert.deepEqual(names, ['execute', 'search']);
+    assert.deepEqual(names, ['execute', 'execute_read', 'search']);
+    // read-only tool must advertise readOnlyHint
+    const execRead = tools.find((t) => t.name === 'execute_read');
+    assert.equal(execRead.annotations.readOnlyHint, true);
+    const execFull = tools.find((t) => t.name === 'execute');
+    assert.equal(execFull.annotations.destructiveHint, true);
     await client.close();
     await mgr.close();
   } finally { child.kill(); }
