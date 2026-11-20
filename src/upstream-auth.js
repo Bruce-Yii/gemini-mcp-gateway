@@ -132,6 +132,23 @@ export class UpstreamAuth {
       return next.access_token;
     } catch (e) {
       console.error(`[upstream-auth] refresh ${server} failed: ${e.message}; using stored token`);
+      // If the stored grant is revoked/invalid (rotated-away or burned), rebuild
+      // from the env-injected token pair once. This self-heals a poisoned KV
+      // record without needing manual cache deletion.
+      const invalid = /invalid_grant|revoked|expired/i.test(String(e.message ?? ''));
+      if (invalid && envToken && envRefresh && envClientId) {
+        console.error(`[upstream-auth] ${server} grant invalid; rebootstrapping from env`);
+        const rebuilt = {
+          access_token: envToken,
+          refresh_token: envRefresh,
+          client_id: envClientId,
+          expires_at: 0,
+          envSeed: envToken,
+          bootstrapped: false, // do NOT force-refresh again -> avoid burning grant in a loop
+        };
+        await this._save(server, rebuilt);
+        return envToken;
+      }
       return rec.access_token;
     }
   }
