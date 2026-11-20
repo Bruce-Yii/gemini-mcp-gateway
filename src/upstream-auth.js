@@ -77,6 +77,7 @@ export class UpstreamAuth {
       refresh_token: j.refresh_token || rec.refresh_token, // rotate, fall back to old
       client_id: rec.client_id,
       expires_at: expiresIn > 0 ? now + expiresIn * 1000 : 0,
+      envSeed: rec.envSeed, // keep the seed marker so cold starts don't rebuild
     };
     await this._save(server, next);
     return next;
@@ -87,10 +88,11 @@ export class UpstreamAuth {
     if (!provider) return envToken; // GitHub/Vercel use long-lived tokens; no refresh.
 
     let rec = await this._load(server);
-    if (!rec && envToken) {
-      // Bootstrap from env. Compute the REAL expiry from when the token was
-      // obtained (if provided) instead of assuming "just now" — env tokens are
-      // often injected hours/days after they were minted.
+    // Env-injected tokens are the source of truth. Rebuild the record from env
+    // only when the env seed changes (i.e. a genuinely new token was deployed) —
+    // a stale KV record must not be reused, but a rotated token we produced must
+    // not be thrown away on every cold start either.
+    if (envToken && envRefresh && envClientId && rec?.envSeed !== envToken) {
       const expiresIn = Number(envExpiresIn ?? 0);
       const obtained = Number(envObtainedAt ?? 0);
       const expiresAt = obtained > 0 && expiresIn > 0
@@ -98,9 +100,10 @@ export class UpstreamAuth {
         : (expiresIn > 0 ? Date.now() + expiresIn * 1000 : 0);
       rec = {
         access_token: envToken,
-        refresh_token: envRefresh ?? '',
-        client_id: envClientId ?? '',
+        refresh_token: envRefresh,
+        client_id: envClientId,
         expires_at: expiresAt,
+        envSeed: envToken,
         bootstrapped: true,
       };
       await this._save(server, rec);
