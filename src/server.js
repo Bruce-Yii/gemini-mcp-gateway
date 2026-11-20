@@ -279,9 +279,11 @@ function readJsonBody(req) {
  * @returns {(req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => Promise<void>}
  */
 export function createMcpRequestHandler(upstreamManager, options = {}) {
-  /** @type {Map<string, {server: McpServer, transport: StreamableHTTPServerTransport}>} */
-  const sessions = new Map();
-
+  // Stateless by design: Vercel serverless may route each request to a different
+  // instance, so an in-memory session map cannot work. Every POST gets a fresh
+  // McpServer + StreamableHTTPServerTransport, which handles that one request
+  // and is discarded. sessionIdGenerator: undefined keeps the transport from
+  // requiring a sticky session. This matches Google's stateless-server guidance.
   return async (req, res) => {
     try {
       const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
@@ -294,37 +296,16 @@ export function createMcpRequestHandler(upstreamManager, options = {}) {
       const method = req.method;
       if (method === 'POST') {
         const body = await readJsonBody(req);
-        const sessionId = req.headers['mcp-session-id'];
-        const session = sessionId ? sessions.get(String(sessionId)) : undefined;
-
-        if (session) {
-          await session.transport.handleRequest(req, res, body);
-          return;
-        }
-        if (sessionId) {
-          sendJsonRpcError(res, 404, -32001, 'Session not found');
-          return;
-        }
-        if (!isInitializeRequest(body)) {
-          sendJsonRpcError(res, 400, -32000, 'Bad Request: expected an initialize request');
-          return;
-        }
-
         let gatewayServer;
         const transport = new StreamableHTTPServerTransport({
-          sessionIdGenerator: () => randomUUID(),
-          onsessioninitialized: (sid) => {
-            if (gatewayServer) sessions.set(sid, { server: gatewayServer, transport });
-          },
+          sessionIdGenerator: undefined, // stateless: no sticky session required
         });
-        transport.onclose = () => {
-          for (const [sid, entry] of sessions) {
-            if (entry.transport === transport) sessions.delete(sid);
-          }
-        };
         gatewayServer = createGatewayServer(upstreamManager, options);
         await gatewayServer.connect(transport);
         await transport.handleRequest(req, res, body);
+        // Close after the single request is answered.
+        try { await transport.close(); } catch {}
+        try { await gatewayServer.close(); } catch {}
         return;
       }
 
@@ -339,13 +320,9 @@ export function createMcpRequestHandler(upstreamManager, options = {}) {
       }
 
       if (method === 'DELETE') {
-        const sessionId = req.headers['mcp-session-id'];
-        const session = sessionId ? sessions.get(String(sessionId)) : undefined;
-        if (!session) {
-          sendJsonRpcError(res, 404, -32001, 'Session not found');
-          return;
-        }
-        await session.transport.handleRequest(req, res);
+        // Stateless mode: nothing to tear down. Acknowledge and move on.
+        res.writeHead(204);
+        res.end();
         return;
       }
 
