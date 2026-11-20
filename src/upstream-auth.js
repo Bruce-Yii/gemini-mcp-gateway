@@ -78,6 +78,10 @@ export class UpstreamAuth {
       client_id: rec.client_id,
       expires_at: expiresIn > 0 ? now + expiresIn * 1000 : 0,
       envSeed: rec.envSeed, // keep the seed marker so cold starts don't rebuild
+      // CRITICAL: clear the bootstrap flag. Leaving it set makes every cold
+      // start call refresh again; with rotating refresh tokens that burns the
+      // grant after a few requests and ends in invalid_grant / revoked grant.
+      bootstrapped: false,
     };
     await this._save(server, next);
     return next;
