@@ -77,8 +77,9 @@ export function unwrapResult(result) {
       let body = '';
       if (typeof res.text === 'string') body = res.text;
       else if (typeof res.blob === 'string') {
-        // base64 blob: decode if possible, keep raw otherwise
-        try { body = typeof atob === 'function' ? atob(res.blob) : Buffer.from(res.blob, 'base64').toString('utf8'); }
+        // Decode base64 as UTF-8. Do NOT use global atob() here — it returns a
+        // latin1 string and mangles non-ASCII text (Chinese/accented chars).
+        try { body = Buffer.from(res.blob, 'base64').toString('utf8'); }
         catch { body = res.blob; }
       }
       resources.push({ uri: res.uri, mimeType: res.mimeType, text: body });

@@ -102,10 +102,12 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
     JSON, Math, Date, Array, Object, String, Number, Boolean, Promise,
     Map, Set, Symbol, RegExp, Error, TypeError, RangeError,
     parseInt, parseFloat, isNaN, isFinite, encodeURIComponent, decodeURIComponent,
-    // Web standard APIs the model expects (were missing -> ReferenceError)
-    TextEncoder, TextDecoder, URL, URLSearchParams, Buffer,
-    atob: (s) => Buffer.from(String(s), 'base64').toString('binary'),
-    btoa: (s) => Buffer.from(String(s), 'binary').toString('base64'),
+    // Web standard APIs the model expects. NOTE: Buffer object is NOT exposed
+    // (its .constructor is host Function -> sandbox escape). Encoding helpers
+    // close over host Buffer but the object itself stays outside the sandbox.
+    TextEncoder, TextDecoder, URL, URLSearchParams,
+    atob: (s) => Buffer.from(String(s), 'base64').toString('utf8'),
+    btoa: (s) => Buffer.from(String(s), 'utf8').toString('base64'),
     setTimeout, clearTimeout,
   };
   const context = vm.createContext(sandbox, { codeGeneration: { strings: false, wasm: false } });
@@ -180,7 +182,7 @@ export function createCodeModeTools(upstreamManager, options = {}) {
   const makeExecute = (name, readOnly) => ({
     name,
     description: (readOnly
-      ? 'Write JavaScript to call READ-ONLY upstream tools (get/list/search/query) via codemode.<tool>(args). No approval needed. Only your return value enters the conversation. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'
+      ? 'Write JavaScript to call READ-ONLY upstream tools (get/list/search/query) via codemode.<tool>(args). This tool is annotated read-only so the client may prompt less; it runs the same sandbox as execute(). Only your return value enters the conversation. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'
       : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'),
     inputSchema: {
       type: 'object',

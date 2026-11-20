@@ -64,7 +64,9 @@ const staticAuth = {
 };
 const mgr = new UpstreamManager(activeCfg, { auth: staticAuth });
 await mgr.connect();
-const [searchTool, executeTool] = createCodeModeTools(mgr);
+const gatewayTools = createCodeModeTools(mgr); // [search, execute_read, execute]
+const toolsByName = new Map(gatewayTools.map((t) => [t.name, t]));
+console.error('gateway tools:', gatewayTools.map((t) => t.name).join(','));
 console.error('upstreams connected:', [...mgr._clients.keys()].join(','), '| failed:', (mgr.failedServers || []).join(',') || 'none');
 
 // ---- LLM helpers ----
@@ -84,12 +86,12 @@ async function llm(messages, tools) {
 function oaTool(t) {
   return { type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } };
 }
-const TOOLS = [oaTool(searchTool), oaTool(executeTool)];
+const TOOLS = gatewayTools.map(oaTool);
 
 async function runToolCall(tc) {
   const name = tc.function.name;
   let args = {}; try { args = JSON.parse(tc.function.arguments || '{}'); } catch {}
-  const tool = name === 'search' ? searchTool : name === 'execute' ? executeTool : null;
+  const tool = toolsByName.get(name);
   if (!tool) return { error: 'unknown tool ' + name };
   try {
     const res = await tool.handler(args);

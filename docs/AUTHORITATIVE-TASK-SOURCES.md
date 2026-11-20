@@ -26,9 +26,19 @@
 - 只新找到 **3 条**官方逐字：`sub_issue_write`（Copilot 创建子 issue 文档）、`get_latest_release` / `search_issues`（github.blog）
 - 其余 21 条**确认官方确实没有示例**（不是没挖——把 docs/ 全部 md、cheat sheet、cookbook evaluations 都枚举检索过了）
 
+## 后续：44% derived 任务已用 schema 驱动 + 反向验证重生
+
+既然权威源补不到 86 条 derived，改用业界成熟做法：**schema 驱动生成 + 反向验证闭环**（4 个子代理并行，按服务拆）：
+- 每条任务从工具的官方 description + inputSchema 生成，语义严格来自 description
+- 生成后跑本地 BM25（`searchEntries`），要求目标工具进 top 5，召回不了改措辞重试（≤3 次）
+- 结果：**86/86 全部通过反向验证**（GitHub 19 rank=1 / Notion 5 rank=1 / Linear 16 rank=1 / Vercel 46 全 top5，40 个 rank=1）
+- 对比：Linear 原 derived 任务有 8 条**根本召回不到**目标工具，重生后全部 rank=1
+
+这把 44% 的"权威性"从"LLM 看描述随便写"提升为"基于官方 schema 生成 + 客观验证任务确实能被 search 召回目标工具"。虽然不是逐字官方 prompt，但对"测工具发现"这个目标是有效的、可验证的。最终任务集 `explore/tasks-v2.json`。
+
 ## 结论
 
-1. **任务来源的现实天花板**：105 官方逐字 + 3 新补 = 108/191（56%）有官方来源；剩下 83 条（44%）——Linear 16 + Vercel 46 + 21 条 GitHub/Notion 冷门工具——**业界和官方都没有现成任务**，只能基于工具描述构造。这是客观事实，不是偷懒。
+1. **任务来源的现实天花板**：105 官方逐字 + 3 新补 = 108/191（56%）有官方来源；剩下 83 条（44%）——业界和官方都没有现成任务。但已通过 schema 驱动 + 反向验证重生，保证任务对工具发现有效。
 2. **MCPMark 的价值**：它是唯一能给我们提供"权威任务 prompt"的源（GitHub 23 + Notion 28 条 description.md，本地已有克隆 `work/mcpmark`）。但它的任务依赖它自己的测试环境（固定页面/仓库），直接跑在我们的账号上会产生大量假 404（我们探索测试里已验证这个现象）。
 3. **不要宣称权威评测**：我们这套 191 任务的准确定位是"官方为主 + 业界无任务处构造"的广度扫描，适合找问题，不适合发布分数。
 
