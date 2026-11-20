@@ -172,6 +172,7 @@ export function createAppHandler(options = {}) {
       let pathname = url.pathname;
       if (pathname.length > 1) pathname = pathname.replace(/\/+$/, '');
       const method = typeof req?.method === 'string' ? req.method.toUpperCase() : 'GET';
+      console.log(`[req] ${method} ${pathname}`);
 
       if (method === 'OPTIONS') {
         return sendNoContent(res, {

@@ -119,6 +119,7 @@ function sendHtml(res, status, markup, extra = {}) {
 }
 
 function oauthError(res, status, error, description) {
+  console.log(`[oauth-error] ${status} ${error}: ${description}`);
   sendJson(res, status, { error, error_description: description });
 }
 
@@ -383,6 +384,7 @@ export function createOAuthHandlers(store, options = {}) {
     }
 
     if (method !== 'POST') {
+      console.log('[oauth] consent page shown');
       sendHtml(
         res,
         200,
@@ -489,6 +491,7 @@ export function createOAuthHandlers(store, options = {}) {
       issuedAt: Date.now(),
     });
 
+    console.log('[oauth] token issued');
     sendJson(res, 200, {
       access_token: tokens.accessToken,
       token_type: 'Bearer',
@@ -522,6 +525,7 @@ export function createOAuthHandlers(store, options = {}) {
       refreshTokenHash: record.tokenHash ?? hashSecret(refreshToken),
       existingRefreshToken: refreshToken,
     });
+    console.log('[oauth] token issued');
     sendJson(res, 200, {
       access_token: tokens.accessToken,
       token_type: 'Bearer',
