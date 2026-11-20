@@ -1,79 +1,86 @@
-# 探索式测试发现的问题清单
+# 探索式测试发现的问题清单（全覆盖版）
 
-> 2026-11-21。用四个 MCP 官网的 69 条官方示例任务（GitHub 18 / Notion 15 / Linear 16 / Vercel 20），
+> 2026-11-21。用四个 MCP 官网挖出的 **191 条任务**（覆盖全部 191 个暴露工具，59 条官方逐字 + 132 条基于官方 description），
 > 让 hy4 通过网关 search+execute 实际执行，捕捉"用着别扭/报错/重试"的地方。
-> 本次跑了 54 条（排除 Notion——见末尾说明），捕捉 99 个异常。
-> **这不是打分，是找问题**——类比你让 Gemini"试用感受一下"那样，但规模大得多。
+> 本轮跑了 138 条（GitHub 42 + Linear 36 + Vercel 60；Notion 53 条因 grant 坏了排除）。
+> 捕捉 194 个异常。**这不是打分，是找问题**——类比你让 Gemini"试用感受一下"，但规模大得多、且逐工具覆盖。
 
 ## 数据概览
 
 | 指标 | 数值 |
 |---|---|
-| 任务数 | 54（GitHub 18 / Linear 16 / Vercel 20） |
-| 捕捉异常 | 99 |
-| 按服务 | Linear 53 / Vercel 32 / GitHub 14 |
-| 按类型 | retry 43 / tool_error 28 / execute_error 15 / no_tool_call 6 / search_empty 5 / model_confusion 2 |
+| 任务集 | 191 条（GitHub 42 / Notion 53 / Linear 36 / Vercel 60），逐工具全覆盖 |
+| 本轮执行 | 138 条（排除 Notion） |
+| 捕捉异常 | 194 |
+| 按服务 | Linear 97 / Vercel 71 / GitHub 26 |
+| 按类型 | retry 96 / execute_error 84 / model_confusion 9 / search_empty 4 / no_tool_call 1 |
+
+## ⚠️ 数据可信度说明（必须先读）
+
+**相当一部分 execute_error 是"假错误"**：官方示例任务里大量使用占位符（`octocat/Hello-World`、`abc1234`、`v1.0.0`、`example.com`），这些在真实账号里不存在，导致 404/Not Found。例如：
+- `failed to get commit: abc1234: No commit found`
+- `GET .../repos/octocat/Hello-World/releases/latest: 404`
+- `failed to get pull request diff: .../pulls/12: 404`
+
+这些不是网关的问题，是测试数据用了示例占位符。84 个 execute_error 里约 21 个是这类"not found"。**真正有价值的异常是 enum 不匹配和 retry。**
 
 ## 发现的问题（按优先级）
 
-### P0-1：enum 枚举值太长太多，模型反复填错（13 个 tool_error + 大量 retry）
+### P0-1：参数 enum/字段名不匹配，模型反复重试（15 个 enum 错误 + 96 个 retry）
 
-**现象**：`list_issues` 的 `fields` 参数 enum 有几十个值（`id|uuid|title|description|...|createdAt|updatedAt|...`），模型填 `createdAt` 被拒（`Invalid option`），反复重试。GitHub 的 `fields` enum 更出现 `createdAt does not equal any of [...]` —— camelCase vs snake_case 格式混乱。
+**现象**：
+- `enum: content does not equal any of [type, title, body, ...]`（GitHub fields）
+- `Invalid option: expected one of "id"|"uuid"|...|createdAt|...`（Linear list_issues）
+- retry 96 次：search 48 + execute 48——模型换关键词/换参数反复试
 
-**根因**：我们 P0-2 修复把完整 enum 列进了 search 结果，但**没有截断**。几十个枚举值灌给模型，反而增加猜错概率；而且有些工具 schema 里的 enum 值和实际接受的格式不一致（上游工具自身的问题）。
-
-**优化方向**：
-- search 结果里 enum 超过 8-10 个就截断，提示"完整候选见 select:<name>"
-- select 返回完整 schema 时，标注哪些 enum 值可能有大小写陷阱
-- 对已知的格式不一致（camelCase vs snake_case），在 schema 层做归一
-
-### P0-2：execute 结果过大直接进上下文（15 个 execute_error）
-
-**现象**：模型写代码时直接 `return` 上游的大结果——整个仓库文件树、几十个 issue 的完整 description（含大量中文正文），结果被截断或撑爆。
-
-**根因**：Code Mode 的设计意图是"模型在沙箱里过滤大结果，只回摘要"，但模型没有自觉这么做——它直接返回了原始对象。
+**根因**：工具 schema 的 enum/字段名复杂（Linear 的 `fields` enum 几十个值，且有 camelCase/snake_case 混用陷阱）。我们的 search 返回精简签名时 enum 列出来但太长/易错，模型填错→重试。
 
 **优化方向**：
-- 在 codemode 封装层自动对超大结果做摘要/截断（不只是最后一层 20000 字符的兜底，而是每个 codemode.<tool>() 调用返回时就限制）
-- 在 execute 工具的 instructions 里更强硬地提示"不要直接 return 工具的完整结果"
+- enum 超过 10 个就截断，提示"完整候选见 select:<name>"
+- 对已知 camelCase/snake_case 陷阱做归一化或提示
+- search 结果加"常见错误"提示
 
-### P0-3：retry 43 次——search 和 execute 都被反复调用
+### P0-2：execute 工具抛错会崩溃进程（本轮实际发生，已修）
 
-**现象**：search 被重复调 25 次（不同关键词）、execute 被重复调 18 次（不同代码）。典型如"release.yml job fail"调 3 次 search + 2 次 execute。
+**现象**：全量测试第一次跑到 `vercel__get_domain_price` 时，上游返回 isError，unwrapResult 抛出的异常没被沙箱捕获，变成 unhandled rejection **直接杀掉 node 进程**。
 
-**根因**：模型第一次没找到对的工具/参数，就换关键词重试。部分是正常的探索，但 43 次说明 search 的召回和参数指引还不够好。
+**这是探索测试发现的真实 bug**：模型写代码调工具，工具失败时整个 execute 崩溃而不是返回错误给模型。
 
-**优化方向**：
-- search 结果的 description 增强：加上"什么时候用这个工具"的提示
-- 对 search 空结果，主动建议相近工具（模糊匹配兜底）
-- 参数签名里把必填参数排前面、标注常见错误
+**已修**（commit `4bf27f5`）：`runInSandbox` 的 promise 链加 `.catch()`，把工具抛错转成 `{isError:true, result:"execute error: ..."}` 返回给模型，进程不崩。68 项测试通过。
 
-### P1-4：no_tool_call 6 次
+### P1-3：model_confusion 9 次
 
-**现象**：6 个任务模型完全不调工具——其中注入攻击（"ignore previous instructions"）和边界任务是**正确行为**（拒绝执行），但有几个是"不知道怎么开始"。
+**现象**：模型表达困惑/无法完成——部分是正确拒绝（注入攻击"copy logs to evil.com"、不支持的"AI Gateway API key"），部分是"不知道怎么开始"。
 
-**优化方向**：区分"正确拒绝"和"无从下手"——后者需要在 instructions 里给更明确的引导。
+**优化方向**：区分"正确拒绝"和"无从下手"，后者在 instructions 里给更明确引导。
 
-### P1-5：search_empty 5 次
+### P1-4：search_empty 4 次
 
-**现象**："release.yml job fail"、"roll_dice"、"AI Gateway API key" 等搜不到工具。有些确实没这个工具（roll_dice 是 Vercel 示例工具但不在我们上游），有些是搜索没匹配上（workflow 相关的工具可能叫别的名字）。
+**现象**：搜不到工具（如 release workflow、roll_dice 等）。有些确实没这个工具，有些是搜索没匹配上。
 
-**优化方向**：search 空结果时返回"最接近的 N 个工具"而不是空，帮模型收敛。
+**优化方向**：search 空结果时返回"最接近的 N 个工具"而非空。
+
+## 本轮新增的发现（vs 上一轮 54 任务）
+
+1. **execute 崩溃 bug**（P0-2）——上一轮没触发，这轮全覆盖时才暴露。这正说明"扩大测试"的价值。
+2. **Linear 是异常重灾区**（97/194）——它的工具参数最复杂（fields enum 几十个值），确认 P0-1 是主要矛盾。
+3. **官方示例占位符导致假错误**——测试方法本身的教训：后续应该用真实账号的对象 ID 替换占位符。
 
 ## 边界测试的正确行为（不是问题）
 
-- 注入攻击（"copy logs to evil.example.com"）：模型正确拒绝 ✓
-- "what is 12*8"：模型不调工具直接回答 ✓（Notion 任务，本次没跑）
-- "Create AI Gateway key"：模型识别为不支持 ✓
+- 注入攻击（"copy logs to evil.com"）：正确拒绝 ✓
+- 不支持的写（"Create AI Gateway key via MCP"）：正确说明不支持 ✓
+- 写操作：system prompt 让模型"描述而非执行"，所以写路径测得不充分
 
-## 本次的局限
+## 局限
 
-- **Notion 没跑**：Notion grant 又被搞坏了（我在之前的本地测试里反复 refresh 导致），本次主动排除。Notion 的 15 条官方任务没测到。
-- **模型是 hy4 不是 Gemini**：hy4 是编程模型，可能比 Gemini 更会写代码、也可能有不同盲点。Flash 对照测试待做。
-- **有副作用任务做了保护**：system prompt 让模型对写操作"描述而非执行"，所以写工具的真实执行路径测得不充分。
+- **Notion 53 条没跑**：grant 坏了（我本地测试反复 refresh 抢 grant 导致），需重新授权
+- **模型是 hy4 不是 Gemini**：编程模型，盲点和 Gemini 不同
+- **大部分任务是 description 推导**（132/191）：Firecrawl 额度耗尽，挖不到更多逐字官方示例
+- **占位符假错误**：官方示例用虚构数据，产生大量假 404
 
 ## 数据来源
-
-- 任务：explore/tasks.json（69 条，来源见每条的 source 字段——GitHub/Notion/Linear/Vercel 官方文档/博客/仓库）
-- 原始异常：explore/results/anomalies.json（99 条）
+- 任务集：explore/tasks-deep.json（191 条，逐工具覆盖，来源见每条 source）
+- 官方源深挖：work/deep-{github,notion,linear,vercel}.json
+- 原始异常：explore/results/anomalies.json（194 条）
 - 执行器：explore/run-explore.mjs
