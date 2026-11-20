@@ -250,10 +250,12 @@ export function createOAuthHandlers(store, options = {}) {
   const ALLOWED_CLIENT_SECRET = options.allowedClientSecret ?? process.env.ALLOWED_CLIENT_SECRET ?? '';
   const LOCKED = Boolean(ALLOWED_CLIENT_ID);
 
-  function clientAllowed(clientId, clientSecret) {
+  function clientAllowed(clientId, clientSecret, checkSecret = false) {
     if (!LOCKED) return true;
     if (str(clientId) !== ALLOWED_CLIENT_ID) return false;
-    if (ALLOWED_CLIENT_SECRET && !safeEqual(str(clientSecret), ALLOWED_CLIENT_SECRET)) return false;
+    // Only enforce the secret at token exchange / refresh, where the client
+    // actually supplies it. The authorize page has no client_secret yet.
+    if (checkSecret && ALLOWED_CLIENT_SECRET && !safeEqual(str(clientSecret), ALLOWED_CLIENT_SECRET)) return false;
     return true;
   }
 
@@ -463,7 +465,7 @@ export function createOAuthHandlers(store, options = {}) {
     }
 
     // Locked mode: the pre-registered client's secret must match the env value.
-    if (LOCKED && !clientAllowed(str(params.client_id), str(params.client_secret))) {
+    if (LOCKED && !clientAllowed(str(params.client_id), str(params.client_secret), true)) {
       return oauthError(res, 401, 'invalid_client', 'client credentials are invalid');
     }
     if (record.clientId) {
@@ -506,7 +508,7 @@ export function createOAuthHandlers(store, options = {}) {
       return oauthError(res, 400, 'invalid_grant', 'refresh_token expired');
     }
     const clientId = str(params.client_id);
-    if (LOCKED && !clientAllowed(clientId, str(params.client_secret))) {
+    if (LOCKED && !clientAllowed(clientId, str(params.client_secret), true)) {
       return oauthError(res, 401, 'invalid_client', 'client credentials are invalid');
     }
     if (clientId && record.clientId && clientId !== record.clientId) {
