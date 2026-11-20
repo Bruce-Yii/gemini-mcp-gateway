@@ -273,8 +273,9 @@ export function createOAuthHandlers(store, options = {}) {
       token_endpoint_auth_methods_supported: ['client_secret_post', 'none'],
       scopes_supported: [...SCOPES],
     };
-    // Hide registration_endpoint so clients fall back to pre-registered credentials.
-    if (!LOCKED) doc.registration_endpoint = `${base}/oauth/register`;
+    // Always advertise registration_endpoint. Gemini's client requires it even
+    // when pre-registered credentials are used; hiding it breaks connect.
+    doc.registration_endpoint = `${base}/oauth/register`;
     sendJson(res, 200, doc);
   }
 
@@ -355,6 +356,7 @@ export function createOAuthHandlers(store, options = {}) {
     const redirectUri = str(params.redirect_uri);
     const state = str(params.state);
     const codeChallenge = str(params.code_challenge);
+    console.log(`[oauth] authorize method=${method} client_id=${clientId} redirect=${redirectUri.slice(0,90)} scope=${scope}`);
     const challengeMethod = str(params.code_challenge_method) || 'S256';
     const scope = str(params.scope);
     const responseType = str(params.response_type);
@@ -544,6 +546,7 @@ export function createOAuthHandlers(store, options = {}) {
       return oauthError(res, 400, 'invalid_request', 'invalid token request body');
     }
     const grantType = str(params.grant_type);
+    console.log(`[oauth] token request grant=${grantType} client_id=${str(params.client_id)} has_secret=${!!params.client_secret} redirect=${str(params.redirect_uri).slice(0,80)}`);
     if (grantType === 'authorization_code') return handleCodeGrant(params, res);
     if (grantType === 'refresh_token') return handleRefreshGrant(params, res);
     return oauthError(res, 400, 'unsupported_grant_type', 'unsupported grant_type');
