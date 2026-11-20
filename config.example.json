@@ -1,5 +1,5 @@
 {
-  "mode": "whitelist",
+  "mode": "codemode",
   "maxWhitelistTools": 0,
   "servers": [
     {
