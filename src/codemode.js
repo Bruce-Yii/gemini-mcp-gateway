@@ -16,6 +16,7 @@
 import vm from 'node:vm';
 import { normalizeCode, sanitizeToolName } from './codemode-util.js';
 import { searchEntries } from './catalog.js';
+import { unwrapResult, formatToolSummary, formatToolDetail } from './tool-format.js';
 
 const DEFAULT_MAX_CALLS = 30; // max upstream tool calls per execute()
 const DEFAULT_MAX_RESULT_CHARS = 20000; // cap the execute() return value
@@ -41,18 +42,25 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
       calls += 1;
       if (calls > maxCalls) throw new Error(`tool call limit (${maxCalls}) exceeded`);
       toolCalls.push({ name: tool.name, args: args ?? null });
-      return callTool(tool.server, tool.tool, args ?? {});
+      const raw = await callTool(tool.server, tool.tool, args ?? {});
+      // Throw on upstream errors and auto-parse JSON results so model scripts
+      // can use the return value directly without JSON.parse(content[0].text).
+      return unwrapResult(raw);
     };
   }
-  // Discovery helpers available inside the sandbox.
+  // Discovery helpers available inside the sandbox — same shape as external search.
   codemode.listTools = () => tools.map((t) => ({ name: t.name, description: t.description }));
-  codemode.search = (query) => searchEntries(tools, String(query ?? ''), { limit: 5 }).matches.map((x) => ({ name: x.name, description: x.description }));
+  codemode.search = (query) => searchEntries(tools, String(query ?? ''), { limit: 5 }).matches.map(formatToolSummary);
 
+  const pushLog = (...a) => logs.push(a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' '));
   const sandbox = {
     codemode,
     console: {
-      log: (...a) => logs.push(a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ')),
-      error: (...a) => logs.push('ERROR ' + a.map(String).join(' ')),
+      log: pushLog,
+      info: pushLog,
+      debug: pushLog,
+      warn: (...a) => logs.push('WARN ' + a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ')),
+      error: (...a) => logs.push('ERROR ' + a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ')),
     },
     JSON, Math, Date, Array, Object, String, Number, Boolean, Promise,
     setTimeout, clearTimeout,
@@ -80,7 +88,7 @@ export function createCodeModeTools(upstreamManager, options = {}) {
 
   const searchTool = {
     name: 'search',
-    description: 'Search the catalog of available upstream tools. Returns tool names, descriptions and parameter names. Use before execute() to discover tool names.',
+    description: 'Search upstream tools. Returns name, description and compact param signatures (name!: required). Use query "select:<exact name>" to get the full inputSchema of one tool before calling it in execute(). Prefix a service name (e.g. "vercel ...") to focus on that service.',
     inputSchema: {
       type: 'object',
       properties: { query: { type: 'string', description: 'Keywords describing the capability you need' }, limit: { type: 'integer', minimum: 1, maximum: 10 } },
@@ -89,8 +97,16 @@ export function createCodeModeTools(upstreamManager, options = {}) {
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async (args) => {
       const limit = Number.isFinite(args?.limit) ? args.limit : 8;
-      const res = searchEntries(tools, String(args?.query ?? ''), { limit });
-      return { matches: res.matches.map((x) => ({ name: x.name, description: x.description, params: Object.keys(x.inputSchema?.properties ?? {}) })), total: res.total, hint: res.hint };
+      const query = String(args?.query ?? '');
+      const res = searchEntries(tools, query, { limit });
+      // select:<exact name> returns the full compact schema; plain search returns
+      // short signatures (name?: type, required!, enum choices).
+      const isSelect = /^select\s*:/i.test(query.trim());
+      return {
+        matches: res.matches.map(isSelect ? formatToolDetail : formatToolSummary),
+        total: res.total,
+        hint: res.hint,
+      };
     },
   };
 

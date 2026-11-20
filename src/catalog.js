@@ -161,24 +161,36 @@ export function searchEntries(entries, rawQuery, options = {}) {
   }
 
   const index = buildIndex(entries);
-  const serverFilter = query.server;
+  let serverFilter = query.server;
   const haystack = query.query.toLowerCase();
   const queryTokens = tokenize(query.query);
   const scored = [];
+
+  // Detect an explicit service prefix anywhere in the query (e.g. "vercel list
+  // deployments"). When present, restrict to that server — otherwise generic
+  // verbs like "create/update/delete" in other servers' long descriptions
+  // dominate the ranking (the reported search-precision bug).
+  const servers = new Set(entries.map((e) => String(e.server).toLowerCase()));
+  for (const tok of queryTokens) {
+    if (servers.has(tok) && !serverFilter) serverFilter = tok;
+  }
 
   for (const doc of index.docs) {
     if (serverFilter && doc.entry.server.toLowerCase() !== serverFilter) continue;
     let score = 0;
     for (const token of queryTokens) {
       const tokenIdf = idf(index, token);
-      score += 4 * bm25(doc.nameTf.get(token) ?? 0, doc.nameLen, index.avgNameLen, tokenIdf);
-      score += bm25(doc.descTf.get(token) ?? 0, doc.descLen, index.avgDescLen, tokenIdf);
+      // Strongly weight the tool/server name field; description is a weak tie-breaker.
+      score += 8 * bm25(doc.nameTf.get(token) ?? 0, doc.nameLen, index.avgNameLen, tokenIdf);
+      score += 0.5 * bm25(doc.descTf.get(token) ?? 0, doc.descLen, index.avgDescLen, tokenIdf);
     }
     if (query.query === '') {
       score = 1;
     } else {
-      if (doc.haystackName.includes(haystack)) score += 8;
-      if (doc.haystackDesc.includes(haystack)) score += 2;
+      if (doc.haystackName.includes(haystack)) score += 12;
+      // Exact tool-name token matches get a large boost.
+      const toolTokens = tokenize(doc.entry.tool ?? '');
+      for (const tok of queryTokens) if (toolTokens.includes(tok)) score += 4;
     }
     if (score > 0) scored.push({ ...doc.entry, score: Number(score.toFixed(4)) });
   }
