@@ -119,6 +119,9 @@ export class UpstreamManager {
             name: prefixedName,
             description: tool.description,
             inputSchema: tool.inputSchema,
+            // Preserve upstream annotations so execute_read can decide read-only
+            // from the authoritative hint instead of a fragile name regex.
+            annotations: tool.annotations,
             _client: client,
           };
           if (isAllowed(config, entry)) this.entries.push(entry);

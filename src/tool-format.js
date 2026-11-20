@@ -44,22 +44,193 @@ export function formatToolDetail(entry) {
   };
 }
 
+/* ------------------------------------------------------------------ *
+ * Structured result truncation
+ *
+ * Ported from @cloudflare/codemode (MIT, v0.5.6, dist/truncate-Dd-VZZYQ.js).
+ * The published package root cannot be imported from Node because it pulls
+ * in `cloudflare:workers`, so the algorithm lives here instead.
+ *
+ * Unlike a naive `slice()`, these helpers keep the output *valid JSON of the
+ * same shape*: strings end with a `--- TRUNCATED ---` marker, arrays get a
+ * trailing marker counting dropped items, and objects drop the largest values
+ * and name the omitted keys. The budget is shared by water-filling.
+ * ------------------------------------------------------------------ */
+
+const TRUNC_MARKER = '--- TRUNCATED ---';
+const MIN_SLOT = 128;
+
+function jsonSize(value) {
+  try { return JSON.stringify(value)?.length ?? 0; } catch { return 0; }
+}
+
+function shrinkable(value) {
+  return typeof value === 'string' || (typeof value === 'object' && value !== null);
+}
+
+function floorSize(value, maxChars) {
+  const full = jsonSize(value);
+  return shrinkable(value) ? Math.min(full, MIN_SLOT, Math.max(2, Math.floor(maxChars / 2))) : full;
+}
+
+/** Truncate a plain text response, appending a marker with the original size. */
+export function truncateResponseText(text, { maxChars = 24000 } = {}) {
+  if (typeof text !== 'string' || text.length <= maxChars) return text;
+  const suffix =
+    `\n\n${TRUNC_MARKER} ${text.length.toLocaleString()} chars omitted ` +
+    `(limit ${maxChars.toLocaleString()}). Narrow the request to reduce response size.`;
+  let keep = Math.max(0, maxChars - suffix.length);
+  let out = text.slice(0, keep) + suffix;
+  while (keep > 0 && out.length > maxChars) {
+    keep = Math.max(0, keep - (out.length - maxChars));
+    out = text.slice(0, keep) + suffix;
+  }
+  if (out.length <= maxChars) return out;
+  return text.slice(0, Math.max(0, maxChars - TRUNC_MARKER.length)) + TRUNC_MARKER;
+}
+
+function shrinkString(value, maxChars) {
+  const suffix = ` ${TRUNC_MARKER} ${value.length.toLocaleString()} chars`;
+  let keep = Math.max(0, maxChars - suffix.length - 2);
+  let out = value.slice(0, keep) + suffix;
+  while (keep > 0 && jsonSize(out) > maxChars) {
+    keep = Math.max(0, keep - (jsonSize(out) - maxChars));
+    out = value.slice(0, keep) + suffix;
+  }
+  return jsonSize(out) <= maxChars ? out : TRUNC_MARKER.slice(0, Math.max(0, maxChars - 2));
+}
+
+/** Share `available` chars across values by water-filling (smallest first). */
+function allocate(values, available) {
+  if (available <= 0) return values.map(() => 0);
+  const sizes = values.map(jsonSize);
+  const order = sizes.map((_, i) => i).sort((a, b) => sizes[a] - sizes[b]);
+  const allocation = new Array(values.length);
+  let remaining = available;
+  let count = values.length;
+  for (const i of order) {
+    const alloc = Math.min(sizes[i], Math.floor(remaining / count));
+    allocation[i] = alloc;
+    remaining -= alloc;
+    count -= 1;
+  }
+  return allocation;
+}
+
+function shrink(value, maxChars) {
+  if (jsonSize(value) <= maxChars) return value;
+  if (typeof value === 'string') return shrinkString(value, maxChars);
+  if (Array.isArray(value)) return shrinkArray(value, maxChars);
+  if (typeof value === 'object' && value !== null) return shrinkObject(value, maxChars);
+  return value;
+}
+
+function shrinkArray(items, maxChars) {
+  const marker = (dropped) => `${TRUNC_MARKER} ${dropped.toLocaleString()} more items`;
+  const floors = items.map((x) => floorSize(x, maxChars));
+  const skeleton = (count) => 2 + Math.max(0, count - 1);
+  let keep = items.length;
+  if (floors.reduce((n, f) => n + f, 0) + skeleton(keep) > maxChars) {
+    const tail = jsonSize(marker(items.length)) + 1;
+    let used = skeleton(0) + tail;
+    keep = 0;
+    while (keep < items.length && used + floors[keep] + 1 <= maxChars) {
+      used += floors[keep] + 1;
+      keep += 1;
+    }
+  }
+  const kept = items.slice(0, keep);
+  const dropped = items.length - keep;
+  const tail = dropped > 0 ? jsonSize(marker(dropped)) + (keep > 0 ? 1 : 0) : 0;
+  const allocation = allocate(kept, maxChars - skeleton(keep) - tail);
+  const out = kept.map((item, i) => shrink(item, allocation[i]));
+  if (dropped > 0 && jsonSize([...out, marker(dropped)]) <= maxChars) out.push(marker(dropped));
+  return out;
+}
+
+function shrinkObject(value, maxChars) {
+  const entries = Object.entries(value);
+  let markerKey = TRUNC_MARKER;
+  while (markerKey in value) markerKey += ' ';
+  const keyCost = (key) => jsonSize(key) + 1;
+  const floors = entries.map(([k, v]) => keyCost(k) + floorSize(v, maxChars));
+  const floorOf = (chars) => Math.min(chars, MIN_SLOT, Math.max(2, Math.floor(maxChars / 2)));
+  const byValueSize = entries.map((_, i) => i).sort((a, b) => jsonSize(entries[b][1]) - jsonSize(entries[a][1]));
+  const dropped = new Set();
+  let present = entries.length;
+  let floorsSum = floors.reduce((n, f) => n + f, 0);
+  let namesLength = 0;
+  const noteLength = () => `${dropped.size.toLocaleString()} keys omitted: `.length + namesLength + 2 * (dropped.size - 1);
+  const cost = () => {
+    const marker = dropped.size > 0 ? keyCost(markerKey) + floorOf(noteLength() + 2) : 0;
+    const count = present + (dropped.size > 0 ? 1 : 0);
+    return 2 + Math.max(0, count - 1) + floorsSum + marker;
+  };
+  for (const i of byValueSize) {
+    if (cost() <= maxChars) break;
+    dropped.add(i);
+    present -= 1;
+    floorsSum -= floors[i];
+    namesLength += jsonSize(entries[i][0]) - 2;
+  }
+  const kept = entries.filter((_, i) => !dropped.has(i));
+  const omitted = [...dropped].sort((a, b) => a - b).map((i) => entries[i][0]);
+  const note = `${omitted.length.toLocaleString()} keys omitted: ${omitted.join(', ')}`;
+  if (cost() > maxChars) {
+    const room = maxChars - 2 - keyCost(markerKey);
+    return room >= 2 ? { [markerKey]: shrink(note, room) } : {};
+  }
+  const all = [...kept];
+  if (omitted.length > 0) all.push([markerKey, note]);
+  const fixed = 2 + Math.max(0, all.length - 1) + all.reduce((n, [k]) => n + keyCost(k), 0);
+  const allocation = allocate(all.map(([, v]) => v), maxChars - fixed);
+  const out = {};
+  all.forEach(([k, v], i) => { out[k] = shrink(v, allocation[i]); });
+  return out;
+}
+
+/**
+ * Bound a value to `maxChars` of serialized JSON, keeping its shape valid.
+ * Strings are truncated as text; objects/arrays are shrunk structurally.
+ */
+export function truncateResultValue(value, { maxChars = 24000 } = {}) {
+  if (typeof value === 'string') return truncateResponseText(value, { maxChars });
+  let serialized;
+  try { serialized = JSON.stringify(value); } catch { return value; }
+  if (serialized === undefined) return value;
+  if (serialized.length <= maxChars) return value;
+  const shrunk = shrink(JSON.parse(serialized), maxChars);
+  return jsonSize(shrunk) <= maxChars ? shrunk : truncateResponseText(serialized, { maxChars });
+}
+
+/* ------------------------------------------------------------------ */
+
+function pickMeta(source, keys) {
+  const out = {};
+  for (const key of keys) if (source[key] !== undefined) out[key] = source[key];
+  return out;
+}
+
 /**
  * Unwrap an upstream MCP tool result, preserving ALL content blocks.
  *
- * MCP results are a `content` array that may mix:
+ * MCP results are a `content` array that may mix five block types:
  *   - { type:'text', text }
  *   - { type:'resource', resource:{ uri, text?, blob?, mimeType? } }  (embedded)
  *   - { type:'image', data, mimeType }
+ *   - { type:'audio', data, mimeType }
+ *   - { type:'resource_link', uri, name?, mimeType?, description? }
+ * plus a result-level `structuredContent` object.
  * Some servers (e.g. GitHub get_file_contents) put a status string in the first
  * text block and the ACTUAL FILE CONTENT in a resource block. Dropping the
  * resource block loses the data — this was a real P0 bug.
  *
- * Rules:
+ * Rules (following Cloudflare Code Mode / MCP spec):
  *  - isError -> throw with all error text
- *  - extract text from text blocks AND resource blocks (resource.text/blob)
+ *  - structuredContent -> expose directly as an object (highest priority)
  *  - single text block holding JSON -> parse to object (convenience)
- *  - multiple blocks -> return { text, resources, ... } so nothing is lost
+ *  - multiple / mixed blocks -> return a structured object; audio and
+ *    resource_link keep their metadata instead of being silently dropped.
  */
 export function unwrapResult(result) {
   const r = result && typeof result === 'object' ? result : {};
@@ -68,26 +239,49 @@ export function unwrapResult(result) {
   const texts = [];
   const resources = [];
   const images = [];
+  const audios = [];
+  const resourceLinks = [];
+
   for (const c of contents) {
     if (!c || typeof c !== 'object') continue;
-    if (c.type === 'text' && typeof c.text === 'string') {
-      texts.push(c.text);
-    } else if (c.type === 'resource' && c.resource && typeof c.resource === 'object') {
-      const res = c.resource;
-      let body = '';
-      if (typeof res.text === 'string') body = res.text;
-      else if (typeof res.blob === 'string') {
-        // Decode base64 as UTF-8. Do NOT use global atob() here — it returns a
-        // latin1 string and mangles non-ASCII text (Chinese/accented chars).
-        try { body = Buffer.from(res.blob, 'base64').toString('utf8'); }
-        catch { body = res.blob; }
+    switch (c.type) {
+      case 'text':
+        if (typeof c.text === 'string') texts.push(c.text);
+        break;
+      case 'resource': {
+        const res = c.resource && typeof c.resource === 'object' ? c.resource : {};
+        let body = '';
+        if (typeof res.text === 'string') body = res.text;
+        else if (typeof res.blob === 'string') {
+          // Decode base64 as UTF-8. Do NOT use global atob() here — it returns
+          // a latin1 string and mangles non-ASCII text (Chinese/accented chars).
+          try { body = Buffer.from(res.blob, 'base64').toString('utf8'); }
+          catch { body = res.blob; }
+        }
+        resources.push({ uri: res.uri, mimeType: res.mimeType, text: body });
+        if (body) texts.push(body);
+        break;
       }
-      resources.push({ uri: res.uri, mimeType: res.mimeType, text: body });
-      if (body) texts.push(body);
-    } else if (c.type === 'image') {
-      images.push({ data: c.data, mimeType: c.mimeType });
-    } else if (typeof c.text === 'string') {
-      texts.push(c.text);
+      case 'image':
+        // Keep the block but do not concatenate base64 into `text` (it would
+        // dump binary into the model context on `return result`).
+        images.push(pickMeta(c, ['data', 'mimeType']));
+        break;
+      case 'audio':
+        // MCP 2025-06-18 content type. Preserve metadata; keep only the
+        // payload *length* so the model knows audio was present without
+        // pushing raw base64 into its context.
+        audios.push({
+          ...pickMeta(c, ['mimeType', 'name']),
+          ...(typeof c.data === 'string' ? { dataLength: c.data.length } : {}),
+        });
+        break;
+      case 'resource_link':
+        // MCP 2025-06-18 content type: a link to a resource, no inline data.
+        resourceLinks.push(pickMeta(c, ['uri', 'name', 'mimeType', 'description', 'size']));
+        break;
+      default:
+        if (typeof c.text === 'string') texts.push(c.text);
     }
   }
 
@@ -96,14 +290,28 @@ export function unwrapResult(result) {
     throw new Error(allText || 'upstream tool returned an error');
   }
 
-  // Single text block (no resources/images) holding JSON -> parse for convenience.
-  if (contents.length === 1 && texts.length === 1 && resources.length === 0 && images.length === 0) {
+  // Cloudflare contract: structuredContent is exposed directly and takes
+  // priority over the text content blocks.
+  if (r.structuredContent !== undefined) return r.structuredContent;
+
+  // Single text block (no other blocks) holding JSON -> parse for convenience.
+  if (contents.length === 1 && texts.length === 1 &&
+      resources.length === 0 && images.length === 0 &&
+      audios.length === 0 && resourceLinks.length === 0) {
     try { return JSON.parse(texts[0]); } catch { return texts[0]; }
   }
 
-  // Multiple blocks: return structured object so no content is silently dropped.
-  if (resources.length > 0 || images.length > 0 || texts.length > 1) {
-    return { text: allText, resources, images, ...(resources.length ? { content: resources.map((x) => x.text).join('\n') } : {}) };
+  // Multiple / mixed blocks: return structured object so nothing is dropped.
+  if (resources.length > 0 || images.length > 0 || audios.length > 0 ||
+      resourceLinks.length > 0 || texts.length > 1) {
+    return {
+      text: allText,
+      resources,
+      images,
+      ...(audios.length > 0 ? { audios } : {}),
+      ...(resourceLinks.length > 0 ? { resourceLinks } : {}),
+      ...(resources.length > 0 ? { content: resources.map((x) => x.text).join('\n') } : {}),
+    };
   }
   return allText || r;
 }

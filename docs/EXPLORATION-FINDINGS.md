@@ -93,8 +93,28 @@
 
 这进一步印证了 `docs/GEMINI-REAL-TASK-FEEDBACK.md` 里的 P1 改造（沙箱补齐 Web 标准 API + execute 描述讲清楚沙箱全局）是高优先级。
 
+## v2 干净基线（修复框架 + 重生任务后，第一次可信结果）
+
+> 用修好的框架（异常归因/去重/trace/manifest/指标）+ v2 任务集（86 条 derived 经反向验证重生）重跑。
+> 注意：manifest 的 gitSha=937b2e7，是测试期间代码陆续合入前的基线，**结果不代表最新代码**。
+
+- 跑了 **138 条**（v2 里 191 条，当前配置暴露的工具只有 138 个——Vercel 禁用后工具减少，runner 过滤掉不存在的）
+- 异常 **215**（raw 222，去重 7）
+- **归因**：gateway 73 / model 136 / synthetic_data 5 / infra 1 —— **大部分（63%）是模型行为，不是网关问题**
+- gateway 缺陷 73 个：search_empty 19 + execute_error 54
+- 指标：平均 3.72 轮、平均 8256 tokens/task、工具召回 searchHitRate 75.4% / searchHitAt3Rate 70.9% / toolHitRate 59.4%
+
+**新发现的具体问题**：
+1. `codemode.github__pull_request_read is not a function` —— 工具名 sanitize（连字符→下划线 `pull_request_read`）与模型写的名字对不上；或模型跨服务混淆（在 Linear 任务里调 GitHub 工具）
+2. `TypeError: t.includes is not a function` —— execute 脚本里对非字符串调用了 includes，可能是结构化截断/解包后值类型变化引入的回归，需复现定位
+3. search_empty 19 —— 多是长任务（多意图）搜不到单一工具；部分是任务里点名了外部服务（Sentry/Datadog）我们没有对应工具（这类应标为 expected_behavior）
+4. execute_error 54 —— 混合了：上游 404（真实数据没有）、参数 validation_error（模型填错）、以及上面 1/2 两个真 bug
+
+**结论**：这次终于有了带归因的可信基线。网关自身的确定性缺陷主要是 **工具名 sanitize 一致性**（问题 1）和 **可能的类型回归**（问题 2）——这两个值得修。其余大多是模型行为或测试数据问题，不是网关缺陷。
+
 ## 数据来源
-- 最终任务集：explore/tasks-final.json（191 条，105 官方逐字，逐工具覆盖）
+- 最终任务集：explore/tasks-v2.json（191 条，105 官方逐字 + 86 反向验证重生）
+- v2 干净基线结果：explore/results/anomalies.json（215 条，含归因）+ manifest.json + metrics.json + traces/
 - 四服务官方源深挖：work/deep-*.json + work/re*.json
-- 原始异常：explore/results/anomalies.json（Notion 跑完后的最终结果，184 条）
-- 执行器：explore/run-explore.mjs（静态 token auth，不碰 refresh）
+- 执行器：explore/run-explore.mjs（静态 token auth + 三工具契约自检）
+- 框架改进依据：work/harness-improvements.md

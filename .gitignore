@@ -6,3 +6,6 @@ work/
 !.env.example
 .DS_Store
 .vercel
+explore/results/traces/
+explore/results/manifest.json
+explore/results/metrics.json
