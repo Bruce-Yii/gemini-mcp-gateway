@@ -1,0 +1,1728 @@
+{
+  "generatedAt": "2026-11-20T19:32:24.168Z",
+  "description": "Final task set. Official verbatim prompts prioritized; derived-from-description only where official has no per-tool prompt. Full per-tool coverage.",
+  "count": 191,
+  "officialCount": 105,
+  "derivedCount": 86,
+  "tasks": [
+    {
+      "id": "F001",
+      "server": "github",
+      "tool": "add_comment_to_pending_review",
+      "prompt": "In octocat/Hello-World, add a review comment on line 42 of src/app.js on my latest pending pull request review (#12) saying: 'Please handle the null case here.'",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F002",
+      "server": "github",
+      "tool": "add_issue_comment",
+      "prompt": "Add a comment to PR #123: 'LGTM, approved'",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-codex.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F003",
+      "server": "github",
+      "tool": "add_reply_to_pull_request_comment",
+      "prompt": "Reply to pull request review comment #123456 on PR #7 in octocat/Hello-World with: 'Good catch — fixed in the latest commit.'",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F004",
+      "server": "github",
+      "tool": "create_branch",
+      "prompt": "Create a new branch called feature/new-login in the repository octocat/Hello-World.",
+      "source": "https://docs.github.com/en/copilot/reference/chat-cheat-sheet",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F005",
+      "server": "github",
+      "tool": "create_or_update_file",
+      "prompt": "Add a new file named hello-world.md to my feature/new-login branch of octocat/Hello-World with the content: \"Hello, world! This file was created from Copilot Chat in GitHub!\"",
+      "source": "https://docs.github.com/en/copilot/reference/chat-cheat-sheet",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F006",
+      "server": "github",
+      "tool": "create_pull_request",
+      "prompt": "Create a pull request with the changes we have made",
+      "source": "https://github.blog/ai-and-ml/github-copilot-cli-101-how-to-use-github-copilot-from-the-command-line/",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F007",
+      "server": "github",
+      "tool": "create_repository",
+      "prompt": "Can you create a repository for this project called teenyhost?",
+      "source": "https://github.blog/ai-and-ml/generative-ai/gpt-5-in-github-copilot-how-i-built-a-game-in-60-seconds/",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F008",
+      "server": "github",
+      "tool": "delete_file",
+      "prompt": "Delete the file docs/old-notes.md from the main branch of octocat/Hello-World with the commit message 'Remove obsolete notes'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F009",
+      "server": "github",
+      "tool": "fork_repository",
+      "prompt": "Fork the repository octocat/Hello-World into my personal account.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F010",
+      "server": "github",
+      "tool": "get_commit",
+      "prompt": "What is the expected output of this commit?",
+      "source": "https://docs.github.com/en/copilot/how-tos/copilot-on-github/chat-with-copilot/get-started-with-chat",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F011",
+      "server": "github",
+      "tool": "get_file_contents",
+      "prompt": "Explain this file.",
+      "source": "https://docs.github.com/en/copilot/how-tos/copilot-on-github/chat-with-copilot/get-started-with-chat",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F012",
+      "server": "github",
+      "tool": "get_label",
+      "prompt": "Show me the details of the 'bug' label in octocat/Hello-World.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F013",
+      "server": "github",
+      "tool": "get_latest_release",
+      "prompt": "What is the latest release of octocat/Hello-World?",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F014",
+      "server": "github",
+      "tool": "get_me",
+      "prompt": "Tell me about myself.",
+      "source": "https://docs.github.com/en/copilot/reference/chat-cheat-sheet",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F015",
+      "server": "github",
+      "tool": "get_release_by_tag",
+      "prompt": "Get the release notes for tag v1.0.0 in octocat/Hello-World.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F016",
+      "server": "github",
+      "tool": "get_tag",
+      "prompt": "Show me the details of the tag v1.0.0 in octocat/Hello-World.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F017",
+      "server": "github",
+      "tool": "issue_read",
+      "prompt": "Show the content of issue #4",
+      "source": "https://github.blog/ai-and-ml/github-copilot-cli-101-how-to-use-github-copilot-from-the-command-line/",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F018",
+      "server": "github",
+      "tool": "issue_write",
+      "prompt": "Create a new issue in [owner/repo] titled 'Bug: fix login'",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-codex.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F019",
+      "server": "github",
+      "tool": "list_branches",
+      "prompt": "List all branches in octocat/Hello-World.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F020",
+      "server": "github",
+      "tool": "list_commits",
+      "prompt": "List the most recent commits on the main branch of octocat/Hello-World since 2026-01-01.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F021",
+      "server": "github",
+      "tool": "list_issue_fields",
+      "prompt": "List the custom issue fields defined for the octocat organization and for the repository octocat/Hello-World.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F022",
+      "server": "github",
+      "tool": "list_issue_types",
+      "prompt": "List the available issue types for the repository octocat/Hello-World.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F023",
+      "server": "github",
+      "tool": "list_issues",
+      "prompt": "Show me recent issues in [owner/repo]",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-codex.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F024",
+      "server": "github",
+      "tool": "list_pull_requests",
+      "prompt": "List open pull requests in [owner/repo]",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-codex.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F025",
+      "server": "github",
+      "tool": "list_releases",
+      "prompt": "List all releases of octocat/Hello-World.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F026",
+      "server": "github",
+      "tool": "list_tags",
+      "prompt": "List all tags in octocat/Hello-World.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F027",
+      "server": "github",
+      "tool": "merge_pull_request",
+      "prompt": "Merge pull request #12 in octocat/Hello-World.",
+      "source": "https://docs.github.com/en/copilot/reference/chat-cheat-sheet",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F028",
+      "server": "github",
+      "tool": "pull_request_read",
+      "prompt": "Show me the diff for PR #123",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-codex.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F029",
+      "server": "github",
+      "tool": "pull_request_review_write",
+      "prompt": "Help review this pull request.",
+      "source": "https://docs.github.com/en/copilot/tutorials/explore-pull-requests",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F030",
+      "server": "github",
+      "tool": "push_files",
+      "prompt": "Push the files test.md with the content \"This is a test file\" and test-again.md with the content \"This is another test file\" to the feature/new-login branch in octocat/Hello-World.",
+      "source": "https://docs.github.com/en/copilot/reference/chat-cheat-sheet",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F031",
+      "server": "github",
+      "tool": "request_copilot_review",
+      "prompt": "Request a Copilot code review for pull request #12 in octocat/Hello-World.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F032",
+      "server": "github",
+      "tool": "run_secret_scanning",
+      "prompt": "Scan my current changes for exposed secrets and show me the files and lines I should update before I commit.",
+      "source": "https://docs.github.com/en/code-security/how-tos/use-ghas-with-ai-coding-agents/scan-for-secrets-with-github-mcp-server",
+      "category": "boundary",
+      "official": true
+    },
+    {
+      "id": "F033",
+      "server": "github",
+      "tool": "search_code",
+      "prompt": "Search the code in the github organization's repositories for Go code that contains 'WithContext'.",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/README.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F034",
+      "server": "github",
+      "tool": "search_commits",
+      "prompt": "Find commits in octocat/Hello-World whose messages mention 'fix panic'.",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/README.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F035",
+      "server": "github",
+      "tool": "search_issues",
+      "prompt": "Search the issues in octocat/Hello-World for reports about a 'memory leak'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F036",
+      "server": "github",
+      "tool": "search_pull_requests",
+      "prompt": "What was the last merged PR by USERNAME",
+      "source": "https://docs.github.com/en/copilot/how-tos/copilot-on-github/chat-with-copilot/get-started-with-chat",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F037",
+      "server": "github",
+      "tool": "search_repositories",
+      "prompt": "Search GitHub for machine learning repositories written in Python with more than 1000 stars.",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/README.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F038",
+      "server": "github",
+      "tool": "search_users",
+      "prompt": "Search for users with the name \"Mona Octocat\".",
+      "source": "https://docs.github.com/en/copilot/reference/chat-cheat-sheet",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F039",
+      "server": "github",
+      "tool": "sub_issue_write",
+      "prompt": "Add issue #50 as a sub-issue of parent issue #42 in octocat/Hello-World.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F040",
+      "server": "github",
+      "tool": "update_issue_comment",
+      "prompt": "Update comment #987654 on issue #42 in octocat/Hello-World to say: 'Confirmed fixed in v1.2.0.'",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F041",
+      "server": "github",
+      "tool": "update_pull_request",
+      "prompt": "Update pull request #12 in octocat/Hello-World: change its title to 'Add login page (updated)', set its base branch to 'develop', and mark it as ready for review.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F042",
+      "server": "github",
+      "tool": "update_pull_request_branch",
+      "prompt": "Update the branch for pull request #12 in octocat/Hello-World with the latest changes from the base branch.",
+      "source": "https://docs.github.com/en/copilot/reference/chat-cheat-sheet",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F043",
+      "server": "notion",
+      "tool": "notion-search",
+      "prompt": "What did the product team decide this month about the rollout? Answer in chat.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/research-documentation/evaluations/restricted-search.json",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F044",
+      "server": "notion",
+      "tool": "notion-memory-search",
+      "prompt": "What do my Notion memories say about how I prefer project updates?",
+      "source": "https://developers.notion.com/guides/mcp/overview.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F045",
+      "server": "notion",
+      "tool": "notion-fetch",
+      "prompt": "In two sentences, what is the launch date in https://notion.so/launch? Answer here; do not save.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/research-documentation/evaluations/quick-answer.json",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F046",
+      "server": "notion",
+      "tool": "notion-create-attachment",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary.",
+      "source": "https://developers.notion.com/guides/mcp/tools-files.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F047",
+      "server": "notion",
+      "tool": "notion-create-file-upload",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary.",
+      "source": "https://developers.notion.com/guides/mcp/tools-files.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F048",
+      "server": "notion",
+      "tool": "notion-download-attachment",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary.",
+      "source": "https://developers.notion.com/guides/mcp/tools-files.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F049",
+      "server": "notion",
+      "tool": "notion-get-file-download-urls",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary.",
+      "source": "https://developers.notion.com/guides/mcp/tools-files.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F050",
+      "server": "notion",
+      "tool": "notion-create-pages",
+      "prompt": "Save our deployment discussion to the team wiki.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/knowledge-capture/evaluations/conversation-to-wiki.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F051",
+      "server": "notion",
+      "tool": "notion-update-page",
+      "prompt": "Update https://notion.so/deploy-guide with this correction: verify /ready returns 200 instead of /health. Keep the rest.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/knowledge-capture/evaluations/update-existing.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F052",
+      "server": "notion",
+      "tool": "notion-delete-pages",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents.",
+      "source": "https://developers.notion.com/guides/mcp/tools-pages.md",
+      "category": "boundary",
+      "official": true
+    },
+    {
+      "id": "F053",
+      "server": "notion",
+      "tool": "notion-delete-databases",
+      "prompt": "Create a content calendar in Notion for the campaign we discussed. Add draft ideas with owners, publish dates, and statuses, then create a calendar view and a view of content ready for review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-databases.md",
+      "category": "boundary",
+      "official": true
+    },
+    {
+      "id": "F054",
+      "server": "notion",
+      "tool": "notion-restore-pages",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F055",
+      "server": "notion",
+      "tool": "notion-move-pages",
+      "prompt": "Use Product projects. I am working with Maya on design and Eli on engineering. I lead product; Maya should review the interaction spec.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/set-up-my-project/evaluations/refine-team-and-placement.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F056",
+      "server": "notion",
+      "tool": "notion-duplicate-page",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents.",
+      "source": "https://developers.notion.com/guides/mcp/tools-pages.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F057",
+      "server": "notion",
+      "tool": "notion-create-database",
+      "prompt": "Create a simple equipment checkout database under https://notion.so/lab. Use one row per item, with item name, borrower, due date, and available or checked-out status. Add an overdue view if supported. Do not add sample items.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/database-designer/evaluations/create-with-limited-tools.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F058",
+      "server": "notion",
+      "tool": "notion-create-folder",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary.",
+      "source": "https://developers.notion.com/guides/mcp/tools-files.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F059",
+      "server": "notion",
+      "tool": "notion-update-folder",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary.",
+      "source": "https://developers.notion.com/guides/mcp/tools-files.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F060",
+      "server": "notion",
+      "tool": "notion-update-data-source",
+      "prompt": "Our team tracker at https://notion.so/deliverables is hard to scan. Add a simple progress field so we can quickly see what is planned, underway, or finished. Fill it in from what is already there, and keep our original labels and notes.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/database-designer/evaluations/lossless-migration.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F061",
+      "server": "notion",
+      "tool": "notion-create-comment",
+      "prompt": "Comment \"Hello MCP\" on page \"Getting started\"",
+      "source": "https://github.com/makenotion/notion-mcp-server#examples",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F062",
+      "server": "notion",
+      "tool": "notion-get-comments",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F063",
+      "server": "notion",
+      "tool": "notion-update-comment",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F064",
+      "server": "notion",
+      "tool": "notion-delete-comment",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "boundary",
+      "official": true
+    },
+    {
+      "id": "F065",
+      "server": "notion",
+      "tool": "notion-set-discussion-resolved",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F066",
+      "server": "notion",
+      "tool": "notion-set-comment-reaction",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F067",
+      "server": "notion",
+      "tool": "notion-create-suggested-edit",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F068",
+      "server": "notion",
+      "tool": "notion-get-suggested-edit",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F069",
+      "server": "notion",
+      "tool": "notion-resolve-suggested-edit",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "boundary",
+      "official": true
+    },
+    {
+      "id": "F070",
+      "server": "notion",
+      "tool": "notion-get-async-task",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents.",
+      "source": "https://developers.notion.com/guides/mcp/tools-pages.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F071",
+      "server": "notion",
+      "tool": "notion-query-data-sources",
+      "prompt": "Give me a brief weekly update for https://notion.so/pilot for September 28–October 4, 2026. Tell me how much progress we made.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/weekly-project-digest/evaluations/first-snapshot.json",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F072",
+      "server": "notion",
+      "tool": "notion-query-meeting-notes",
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes.",
+      "source": "https://developers.notion.com/guides/mcp/tools-calendars.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F073",
+      "server": "notion",
+      "tool": "notion-list-private-pages",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources.",
+      "source": "https://developers.notion.com/guides/mcp/tools-search.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F074",
+      "server": "notion",
+      "tool": "notion-list-shared-pages",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources.",
+      "source": "https://developers.notion.com/guides/mcp/tools-search.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F075",
+      "server": "notion",
+      "tool": "notion-list-favorite-pages",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources.",
+      "source": "https://developers.notion.com/guides/mcp/tools-search.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F076",
+      "server": "notion",
+      "tool": "notion-list-recent-pages",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources.",
+      "source": "https://developers.notion.com/guides/mcp/tools-search.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F077",
+      "server": "notion",
+      "tool": "notion-create-view",
+      "prompt": "Create a private weekly planner with a task board and example tasks. I want to see the board immediately when I open the page, with notes and ideas below it. Open in the side panel.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/database-designer/evaluations/board-first-layout.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F078",
+      "server": "notion",
+      "tool": "notion-update-view",
+      "prompt": "Set up our marketing workspace in Notion from these campaign notes. Use a new private workspace; don't search existing company information.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/plan-marketing-campaigns/evaluations/connected-campaign-workspace.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F079",
+      "server": "notion",
+      "tool": "notion-get-version-changes",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F080",
+      "server": "notion",
+      "tool": "notion-view-version",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F081",
+      "server": "notion",
+      "tool": "notion-restore-version",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "boundary",
+      "official": true
+    },
+    {
+      "id": "F082",
+      "server": "notion",
+      "tool": "notion-list-page-backlinks",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources.",
+      "source": "https://developers.notion.com/guides/mcp/tools-search.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F083",
+      "server": "notion",
+      "tool": "notion-get-sidebar-tabs",
+      "prompt": "Show me the current tab and sidebar layout of my Notion workspace, including which tabs and sections are visible.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F084",
+      "server": "notion",
+      "tool": "notion-update-sidebar-tabs",
+      "prompt": "In my Notion sidebar, pin the \"Projects\" page and hide the \"Templates\" section, leaving everything else as it is.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F085",
+      "server": "notion",
+      "tool": "notion-update-page-favorites",
+      "prompt": "Add the \"Launch proposal\" page to my Notion favorites and remove the old \"2024 roadmap\" page from favorites.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F086",
+      "server": "notion",
+      "tool": "notion-calendar-list-calendars",
+      "prompt": "Prepare for my next accepted meeting in Notion.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/meeting-prep/evaluations/calendar-connection.json",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F087",
+      "server": "notion",
+      "tool": "notion-calendar-list-events",
+      "prompt": "Prepare for my next accepted meeting in Notion.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/meeting-prep/evaluations/calendar-connection.json",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F088",
+      "server": "notion",
+      "tool": "notion-calendar-list-contacts",
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes.",
+      "source": "https://developers.notion.com/guides/mcp/tools-calendars.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F089",
+      "server": "notion",
+      "tool": "notion-calendar-create-events",
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes.",
+      "source": "https://developers.notion.com/guides/mcp/tools-calendars.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F090",
+      "server": "notion",
+      "tool": "notion-calendar-update-events",
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes.",
+      "source": "https://developers.notion.com/guides/mcp/tools-calendars.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F091",
+      "server": "notion",
+      "tool": "notion-calendar-cancel-events",
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes.",
+      "source": "https://developers.notion.com/guides/mcp/tools-calendars.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F092",
+      "server": "notion",
+      "tool": "notion-get-self",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources.",
+      "source": "https://developers.notion.com/guides/mcp/tools-search.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F093",
+      "server": "notion",
+      "tool": "notion-link-meeting-note-to-calendar-event",
+      "prompt": "Link my existing \"Launch review\" meeting note in Notion to tomorrow's calendar event, and list any other notes already attached to it.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F094",
+      "server": "notion",
+      "tool": "notion-convert-to-meetings-database",
+      "prompt": "Convert my \"Meetings\" database in Notion into a Meetings database so its rows can be used as full-page meeting notes, keeping all existing rows.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F095",
+      "server": "notion",
+      "tool": "notion-create-meeting-note",
+      "prompt": "Prepare for my next accepted meeting in Notion.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/meeting-prep/evaluations/next-accepted-meeting.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F096",
+      "server": "linear",
+      "tool": "get_attachment",
+      "prompt": "add retry handling for failed image uploads described in this issue",
+      "source": "https://linear.app/agents.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F097",
+      "server": "linear",
+      "tool": "list_comments",
+      "prompt": "Start from issue LIN-123. Read the issue description and all its comments, then list what the team has already observed and hypothesized about the bug.",
+      "source": "https://linear.app/docs/mcp#common-use-cases",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F098",
+      "server": "linear",
+      "tool": "save_comment",
+      "prompt": "Turn these standup notes into updates on existing Linear issues. Match each note by ID, title, owner, or clear context; for every confident match add a concise comment capturing what changed, the current status or blocker, and the next step. Show me the issues and exact comments before applying them, then list any notes you skipped. Standup notes: [paste the raw text here]",
+      "source": "https://linear.app/docs/mcp#common-use-cases",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F099",
+      "server": "linear",
+      "tool": "delete_comment",
+      "prompt": "Delete the outdated comment I left on ENG-2844 that recommends the workaround we abandoned.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F100",
+      "server": "linear",
+      "tool": "list_cycles",
+      "prompt": "Identify the most recently completed cycle for teams LIN and FEA, gather the relevant issues, and produce a concise summary of what was actually completed, the main themes, and any notable patterns.",
+      "source": "https://linear.app/docs/mcp#common-use-cases",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F101",
+      "server": "linear",
+      "tool": "list_custom_views",
+      "prompt": "List all saved issue, project, and initiative views I can access, separating my personal views from team and workspace views.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F102",
+      "server": "linear",
+      "tool": "get_document",
+      "prompt": "How does notification grouping work today, and where should we change it? Read the relevant Linear documents and summarize the current behavior and the open questions.",
+      "source": "https://linear.app/agents.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F103",
+      "server": "linear",
+      "tool": "list_documents",
+      "prompt": "List all Linear documents in my workspace with their titles and last-updated dates, and highlight any that are about the API launch.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F104",
+      "server": "linear",
+      "tool": "save_document",
+      "prompt": "Draft a new document on this project that comprehensively outlines the feature.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F105",
+      "server": "linear",
+      "tool": "extract_images",
+      "prompt": "add retry handling for failed image uploads described in this issue",
+      "source": "https://linear.app/agents.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F106",
+      "server": "linear",
+      "tool": "get_issue",
+      "prompt": "Investigate this issue using Sentry and summarize the likely cause.",
+      "source": "https://linear.app/docs/connect-mcp-servers.md",
+      "category": "boundary",
+      "official": true
+    },
+    {
+      "id": "F107",
+      "server": "linear",
+      "tool": "list_issues",
+      "prompt": "Review today's mobile triage and group the issues by what should happen next.",
+      "source": "https://linear.app/agents.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F108",
+      "server": "linear",
+      "tool": "save_issue",
+      "prompt": "Design an implementation plan from the context below and treat it as a draft I can review and edit. Once I approve it, create a parent issue that captures the overall goal and create sub-issues for the concrete pieces of work needed to execute it. Context: [insert enough context to help orient the agent]",
+      "source": "https://linear.app/docs/mcp#common-use-cases",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F109",
+      "server": "linear",
+      "tool": "list_issue_statuses",
+      "prompt": "Review new and untriaged issues for our team. For each issue, recommend the next step, such as clarifying scope, assigning an owner, setting priority, linking related work, or closing it if it is no longer needed. Flag any duplicates, missing context, or risks.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F110",
+      "server": "linear",
+      "tool": "get_issue_status",
+      "prompt": "Look up the 'In Review' workflow status in the Engineering team and tell me its type, position in the workflow, and whether issues in it count as started or completed.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F111",
+      "server": "linear",
+      "tool": "list_issue_labels",
+      "prompt": "List the issue labels available in my workspace and in the Engineering team, and tell me which ones are used for bug triage.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F112",
+      "server": "linear",
+      "tool": "list_projects",
+      "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed.",
+      "source": "https://linear.app/ai.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F113",
+      "server": "linear",
+      "tool": "get_project",
+      "prompt": "Summarize the current status of this project with progress, risks, and next steps.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F114",
+      "server": "linear",
+      "tool": "save_project",
+      "prompt": "Turn the attached PRD into a new Linear project. Draft the project overview based on the PRD, create the issues needed to deliver it, and organize them into milestones that reflect the plan in the document. Keep the issues well scoped and call out anything ambiguous instead of filling in gaps on your own.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F115",
+      "server": "linear",
+      "tool": "list_project_labels",
+      "prompt": "List all project labels available in my workspace so I can tag the API launch project correctly.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F116",
+      "server": "linear",
+      "tool": "list_milestones",
+      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F117",
+      "server": "linear",
+      "tool": "get_milestone",
+      "prompt": "Open the 'Public Beta' milestone of the API launch project and tell me its target date, description, and current progress.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F118",
+      "server": "linear",
+      "tool": "save_milestone",
+      "prompt": "Turn this planning document into a well-structured Linear project. Read the document, create a project that reflects its objective, scope, and timeline, create the issues, and organize issues into milestones when the document clearly implies phases, deliverables, or checkpoints. Before creating anything, show me the proposed project, milestones, issues, and relationships.",
+      "source": "https://linear.app/docs/mcp#common-use-cases",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F119",
+      "server": "linear",
+      "tool": "get_notifications",
+      "prompt": "Show me the unread notifications in my Linear inbox from the last two days, starting with the Priority tab items.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F120",
+      "server": "linear",
+      "tool": "mark_notification",
+      "prompt": "Mark all Linear notifications about ENG-2844 as read and snooze the one about the API launch until tomorrow.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F121",
+      "server": "linear",
+      "tool": "list_teams",
+      "prompt": "Summarize the progress of our team's current cycle and tell me which issues are at risk of rolling over. Start by identifying the right team in the workspace.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F122",
+      "server": "linear",
+      "tool": "get_team",
+      "prompt": "Look up the Mobile team and tell me its key, workflow statuses, and triage settings.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F123",
+      "server": "linear",
+      "tool": "list_templates",
+      "prompt": "List the issue, project, and document templates available to me in Linear.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F124",
+      "server": "linear",
+      "tool": "get_template",
+      "prompt": "Show me the 'Bug Report' issue template, including the content it pre-fills, the default fields it applies, and any sub-issues.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F125",
+      "server": "linear",
+      "tool": "list_users",
+      "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F126",
+      "server": "linear",
+      "tool": "get_user",
+      "prompt": "Look up the Linear user with email alex@example.com and tell me their display name, teams, and role.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F127",
+      "server": "linear",
+      "tool": "get_workspace",
+      "prompt": "Tell me which Linear workspace I am connected to, its URL, and my role in it.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F128",
+      "server": "linear",
+      "tool": "search_documentation",
+      "prompt": "Search Linear's documentation to explain how cycles differ from project milestones, and link the relevant docs pages.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F129",
+      "server": "linear",
+      "tool": "get_status_updates",
+      "prompt": "Draft a project update that summarizes progress, risks, blockers, and recent changes. First read this project's existing status updates so the draft does not repeat them, then show me the draft for review.",
+      "source": "https://linear.app/ai.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F130",
+      "server": "linear",
+      "tool": "save_status_update",
+      "prompt": "Draft a concise weekly update for this project. Call out any meaningful changes in scope or timeline, note work that appears off plan or drifting from the original goals, and base the update on evidence from project issues and activity. Share the draft with me in this chat first; once I approve it, post it to the project.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F131",
+      "server": "linear",
+      "tool": "delete_status_update",
+      "prompt": "Delete the obsolete status update I posted on the API launch project last month.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F132",
+      "server": "vercel",
+      "tool": "search_vercel_documentation",
+      "prompt": "How do I configure custom domains in Vercel?",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/documentation/search_vercel_documentation",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F133",
+      "server": "vercel",
+      "tool": "get_git_deployment_context",
+      "prompt": "Which of my Git repositories already have Vercel projects?",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments/get_git_deployment_context",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F134",
+      "server": "vercel",
+      "tool": "open_deployments",
+      "prompt": "Show the deployment for the branch and commit I just pushed.",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F135",
+      "server": "vercel",
+      "tool": "ui_get_build_log_excerpt",
+      "prompt": "Show the latest build log lines from the deployments card for my most recent deployment.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F136",
+      "server": "vercel",
+      "tool": "get_runtime_logs",
+      "prompt": "Show me the runtime error logs for my project from the last hour",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/observability/get_runtime_logs",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F137",
+      "server": "vercel",
+      "tool": "get_runtime_errors",
+      "prompt": "Why is my production app throwing errors?",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/observability/get_runtime_errors",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F138",
+      "server": "vercel",
+      "tool": "get_project_trace",
+      "prompt": "Find the trace for request ID 'req_abc123' in my project.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F139",
+      "server": "vercel",
+      "tool": "get_access_to_vercel_url",
+      "prompt": "myapp.vercel.app is protected by auth. Please create a shareable link for it",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments/get_access_to_vercel_url",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F140",
+      "server": "vercel",
+      "tool": "web_fetch_vercel_url",
+      "prompt": "Make sure the content from my-app.vercel.app/api/status looks right",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments/web_fetch_vercel_url",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F141",
+      "server": "vercel",
+      "tool": "list_ai_gateway_virtual_models",
+      "prompt": "List all virtual models configured in my Vercel AI Gateway.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F142",
+      "server": "vercel",
+      "tool": "get_ai_gateway_virtual_model",
+      "prompt": "Show me the details of the virtual model named 'my-virtual-model' in AI Gateway.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F143",
+      "server": "vercel",
+      "tool": "list_ai_gateway_rules",
+      "prompt": "List all rules configured in my Vercel AI Gateway.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F144",
+      "server": "vercel",
+      "tool": "list_ai_gateway_budgets",
+      "prompt": "List all AI Gateway budgets for my team.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F145",
+      "server": "vercel",
+      "tool": "list_ai_gateway_models",
+      "prompt": "List the AI models available through Vercel AI Gateway and their prices.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F146",
+      "server": "vercel",
+      "tool": "get_ai_gateway_model",
+      "prompt": "Show me the details, pricing, and usage guidance for the AI Gateway model 'anthropic/claude-sonnet-4.5'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F147",
+      "server": "vercel",
+      "tool": "get_domains_records_by_record_id",
+      "prompt": "Get the DNS record with ID 'rec_123' for my domain.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F148",
+      "server": "vercel",
+      "tool": "get_storage_stores_by_id",
+      "prompt": "Show the details of the storage store with ID 'store_123'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F149",
+      "server": "vercel",
+      "tool": "get_drive",
+      "prompt": "Show me the details of my Vercel Drive.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F150",
+      "server": "vercel",
+      "tool": "get_project_env",
+      "prompt": "Show me the value of the environment variable 'DATABASE_URL' in my project.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F151",
+      "server": "vercel",
+      "tool": "list_project_routes",
+      "prompt": "List all routing rules (rewrites and redirects) for my project.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F152",
+      "server": "vercel",
+      "tool": "list_project_route_versions",
+      "prompt": "List the versions of my project's routing configuration.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F153",
+      "server": "vercel",
+      "tool": "aggregate_events",
+      "prompt": "Aggregate my project's analytics events over the last 7 days, grouped by event name.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F154",
+      "server": "vercel",
+      "tool": "count_events",
+      "prompt": "How many 'signup' events did my project record in the last 24 hours?",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F155",
+      "server": "vercel",
+      "tool": "aggregate_pageviews",
+      "prompt": "Show daily pageviews for my project over the past week.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F156",
+      "server": "vercel",
+      "tool": "count_pageviews",
+      "prompt": "How many pageviews did my site get last month?",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F157",
+      "server": "vercel",
+      "tool": "get_domain_availability",
+      "prompt": "Check whether the domain 'example.com' is available to register.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F158",
+      "server": "vercel",
+      "tool": "get_domain_price",
+      "prompt": "Is example.com available, and what does it cost to register?",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/domains",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F159",
+      "server": "vercel",
+      "tool": "list_projects",
+      "prompt": "Show me projects in my team",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/projects/list_projects",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F160",
+      "server": "vercel",
+      "tool": "filter_project_envs",
+      "prompt": "Show all environment variables in my project whose names start with 'NEXT_PUBLIC_'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F161",
+      "server": "vercel",
+      "tool": "get_deployment",
+      "prompt": "Get details about my latest production deployment",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments/get_deployment",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F162",
+      "server": "vercel",
+      "tool": "list_deployment_aliases",
+      "prompt": "List all aliases assigned to deployment ID 'dpl_123'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F163",
+      "server": "vercel",
+      "tool": "list_teams",
+      "prompt": "Show me all the teams I'm part of",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/teams/list_teams",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F164",
+      "server": "vercel",
+      "tool": "get_team",
+      "prompt": "Show the details of my team 'my-team'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F165",
+      "server": "vercel",
+      "tool": "get_auth_user",
+      "prompt": "Who am I logged in as in Vercel?",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F166",
+      "server": "vercel",
+      "tool": "list_deployment_events",
+      "prompt": "Show me the latest build logs for the failed deployment",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments/list_deployment_events",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F167",
+      "server": "vercel",
+      "tool": "list_user_events",
+      "prompt": "Show my recent Vercel account activity events.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F168",
+      "server": "vercel",
+      "tool": "list_aliases",
+      "prompt": "List all aliases in my team.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F169",
+      "server": "vercel",
+      "tool": "get_alias",
+      "prompt": "Look up the alias 'my-app.vercel.app' and tell me which deployment it points to.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F170",
+      "server": "vercel",
+      "tool": "list_domains",
+      "prompt": "List all domains in my Vercel account.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F171",
+      "server": "vercel",
+      "tool": "get_domain",
+      "prompt": "Show information about the domain 'example.com'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F172",
+      "server": "vercel",
+      "tool": "get_records",
+      "prompt": "List all DNS records for 'example.com'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F173",
+      "server": "vercel",
+      "tool": "list_deployment_files",
+      "prompt": "List the files included in my latest deployment.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F174",
+      "server": "vercel",
+      "tool": "get_domain_config",
+      "prompt": "Show the DNS configuration for 'example.com'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F175",
+      "server": "vercel",
+      "tool": "list_deployments",
+      "prompt": "Show me deployments for my blog project",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments/list_deployments",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F176",
+      "server": "vercel",
+      "tool": "list_certs",
+      "prompt": "List all SSL certificates in my account.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F177",
+      "server": "vercel",
+      "tool": "get_cert_by_id",
+      "prompt": "Show the metadata for certificate ID 'cert_123'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F178",
+      "server": "vercel",
+      "tool": "get_deployment_file_contents",
+      "prompt": "Show the contents of 'index.html' from my latest deployment.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F179",
+      "server": "vercel",
+      "tool": "get_domain_verification_record",
+      "prompt": "What TXT record do I need to add to verify ownership of 'example.com'?",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F180",
+      "server": "vercel",
+      "tool": "get_project",
+      "prompt": "Get details about my next-js-blog project",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/projects/get_project",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F181",
+      "server": "vercel",
+      "tool": "list_project_domains",
+      "prompt": "List all domains attached to my project 'my-app'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F182",
+      "server": "vercel",
+      "tool": "get_project_domain",
+      "prompt": "Show the details of the domain 'example.com' attached to my project.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F183",
+      "server": "vercel",
+      "tool": "update_ai_gateway_rule",
+      "prompt": "Disable the AI Gateway rule named 'rate-limit' in my team.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F184",
+      "server": "vercel",
+      "tool": "update_ai_gateway_virtual_model",
+      "prompt": "Update my virtual model 'my-virtual-model' to route to 'openai/gpt-4o'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F185",
+      "server": "vercel",
+      "tool": "cancel_deployment",
+      "prompt": "Cancel the deployment 'dpl_123' that is currently building.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F186",
+      "server": "vercel",
+      "tool": "create_ai_gateway_rule",
+      "prompt": "Create an AI Gateway rule that blocks requests once my team's daily spend exceeds $10.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F187",
+      "server": "vercel",
+      "tool": "create_ai_gateway_virtual_model",
+      "prompt": "Create a virtual model named 'cheap-model' that routes to 'openai/gpt-4o-mini'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F188",
+      "server": "vercel",
+      "tool": "fork_drive",
+      "prompt": "Fork the Vercel Drive 'my-drive' into my team.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F189",
+      "server": "vercel",
+      "tool": "search_domains",
+      "prompt": "Check the availability and registration prices for 'example.com' and 'example.org'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F190",
+      "server": "vercel",
+      "tool": "upsert_ai_gateway_budget",
+      "prompt": "Set a $100 monthly AI Gateway budget for API key 'key_123'.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    },
+    {
+      "id": "F191",
+      "server": "vercel",
+      "tool": "upsert_ai_gateway_budget_default",
+      "prompt": "Set a default daily AI Gateway budget of $50 for all API keys in my team.",
+      "source": "derived-from-official-description",
+      "category": "derived",
+      "official": false
+    }
+  ]
+}
