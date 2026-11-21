@@ -477,7 +477,7 @@ export function createCodeModeTools(upstreamManager, options = {}) {
 
   const searchTool = {
     name: 'search',
-    description: 'Search upstream tools. Returns name, description and compact param signatures (name!: required). Use query "select:<exact name>" to get the full inputSchema of one tool before calling it in execute(). Prefix a service name (e.g. "vercel ...") to focus on that service.',
+    description: 'Search upstream tools. Two modes: (1) Plain keywords -> a ranked list of matching tools with compact param signatures (name!: required). (2) To see one tool\'s full inputSchema, pass EXACTLY "select:<name>" where <name> is a tool name copied from a search result (e.g. "select:github__issue_write"). Do NOT put task descriptions or phrases after "select:" — only an exact tool name works; for anything else use plain keyword search. Prefix a service name (e.g. "vercel ...") to focus on that service.',
     inputSchema: {
       type: 'object',
       properties: { query: { type: 'string', description: 'Keywords describing the capability you need' }, limit: { type: 'integer', minimum: 1, maximum: 10 } },
