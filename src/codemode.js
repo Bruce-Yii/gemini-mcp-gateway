@@ -18,6 +18,7 @@
 import { createRunner } from 'run';
 import { createHash } from 'node:crypto';
 import { normalizeCode, sanitizeToolName } from './codemode-util.js';
+import { normalizeToolArguments } from './sanitize.js';
 import { searchEntries } from './catalog.js';
 import {
   unwrapResult,
@@ -32,6 +33,11 @@ const DEFAULT_MAX_RESULT_CHARS = 20000; // cap the execute() return value
 const EXEC_TIMEOUT_MS = 30000;
 const ARG_FIELD_MAX = 200; // cap each arg field in the audit trail (prevents context leak)
 const DEFAULT_MAX_LOG_CHARS = 4000; // cap serialized console logs so a chatty script cannot flood context
+
+// RC-D7: brief boundary/refusal guidance appended to BOTH execute tool
+// descriptions, so the model knows what to do when it cannot/should not comply
+// instead of forcing a tool call. Kept as one shared constant to avoid drift.
+const EXEC_BOUNDARY_GUIDANCE = " Boundary: if the task exceeds the available tools' capabilities, requires an external service, or information is insufficient, explicitly state it cannot be done and explain why — do not force tool calls; refuse harmful requests.";
 
 /**
  * Guest-side compatibility layer, injected as a single function body prefix.
@@ -286,7 +292,11 @@ export function validateToolArgs(tool, args) {
 
   // Odd arg shapes are not our business — pass them through to the upstream.
   if (args !== null && (typeof args !== 'object' || Array.isArray(args))) return;
-  const a = args ?? {};
+  // ROOT-CAUSE FIX (RC-D3): normalize camelCase aliases BEFORE validating,
+  // otherwise a required snake_case field filled as camelCase is falsely
+  // reported missing and normalization in upstreams.callTool never runs.
+  // (callTool normalizes again — idempotent — so wire args stay correct.)
+  const a = normalizeToolArguments(args ?? {}, schema);
 
   const props = schema.properties && typeof schema.properties === 'object' && !Array.isArray(schema.properties)
     ? schema.properties
@@ -351,6 +361,48 @@ function makeErrorOutput(err, logs, toolCalls, scriptLoc) {
 }
 
 /**
+ * RC-D4: the ONE shared search routine, used by both the outer `search` MCP
+ * handler and the in-sandbox `codemode.search`.
+ *
+ * Root cause of RC-D4: there were two copies of the search call and only the
+ * outer one had the empty-result probe, so they drifted apart. Routing both
+ * through this function keeps their fallback behaviour identical.
+ *
+ * `select:` queries bypass the fallback (exact-name lookup only); the caller
+ * decides how to render them. The sandbox never issues `select:`, preserving
+ * its historical "no select support" contract (it always uses summaries).
+ *
+ * @param {Array} tools tool descriptors to search
+ * @param {string} query raw query text
+ * @param {number} limit max matches
+ * @returns {{ res: object, hint: string|undefined, isSelect: boolean }}
+ */
+export function searchWithFallback(tools, query, limit = 8) {
+  const q = String(query ?? '');
+  const isSelect = /^select\s*:/i.test(q.trim());
+  let res = searchEntries(tools, q, { limit });
+  let hint = res.hint;
+  // Empty-result fallback: the longest token first, but a known service prefix
+  // wins — so a dead-end query like "+github zzzz" still surfaces the closest
+  // github tools instead of returning nothing.
+  if (!isSelect && res.matches.length === 0 && q.trim()) {
+    const tokens = q.trim().toLowerCase().split(/[^a-z0-9]+/)
+      .filter((t) => t.length >= 3)
+      .sort((a, b) => b.length - a.length);
+    const service = tokens.find((t) => ['github', 'notion', 'linear', 'vercel'].includes(t));
+    for (const probe of (service ? [service, ...tokens] : tokens).slice(0, 3)) {
+      const retry = searchEntries(tools, probe, { limit });
+      if (retry.matches.length) {
+        res = retry;
+        hint = `No exact match for "${q}"; showing closest for "${probe}".`;
+        break;
+      }
+    }
+  }
+  return { res, hint, isSelect };
+}
+
+/**
  * Run normalized model code in a hardened QuickJS sandbox (Vercel `run` SDK).
  * The `codemode` global is assembled by the guest prelude from a single host
  * bridge; all counting/validation/audit stays on the host side.
@@ -404,12 +456,13 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
     },
     // (#42) Return a plain object: run-js-v1 drops named props on arrays, so
     // the guest prelude rebuilds the array-with-named-props shape.
+    // RC-D4: share the exact fallback logic with the outer search handler.
     search: (query) => {
-      const res = searchEntries(tools, String(query ?? ''), { limit: 5 });
+      const { res, hint } = searchWithFallback(tools, query, 5);
       return {
         matches: res.matches.map(formatToolSummary),
         total: res.total,
-        hint: res.hint,
+        hint,
       };
     },
     remainingCalls: () => Math.max(0, maxCalls - calls),
@@ -560,24 +613,10 @@ export function createCodeModeTools(upstreamManager, options = {}) {
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async (args) => {
       const limit = Number.isFinite(args?.limit) ? args.limit : 8;
-      const query = String(args?.query ?? '');
-      const isSelect = /^select\s*:/i.test(query.trim());
-      let res = searchEntries(tools, query, { limit });
-      // Empty-result fallback: try the longest single query token, then a service
-      // prefix if present — so the model gets SOMETHING instead of a dead end.
-      let hint = res.hint;
-      if (!isSelect && res.matches.length === 0 && query.trim()) {
-        const tokens = query.trim().toLowerCase().split(/[^a-z0-9]+/).filter((t) => t.length >= 3).sort((a, b) => b.length - a.length);
-        const service = tokens.find((t) => ['github', 'notion', 'linear', 'vercel'].includes(t));
-        for (const probe of (service ? [service, ...tokens] : tokens).slice(0, 3)) {
-          const retry = searchEntries(tools, probe, { limit });
-          if (retry.matches.length) {
-            res = retry;
-            hint = `No exact match for "${query}"; showing closest for "${probe}".`;
-            break;
-          }
-        }
-      }
+      // RC-D4: delegate to the shared routine so this and the in-sandbox
+      // codemode.search cannot drift apart again. select: still bypasses the
+      // fallback and is rendered as a full detail (formatToolDetail).
+      const { res, hint, isSelect } = searchWithFallback(tools, args?.query ?? '', limit);
       return {
         matches: res.matches.map(isSelect ? formatToolDetail : formatToolSummary),
         total: res.total,
@@ -590,7 +629,7 @@ export function createCodeModeTools(upstreamManager, options = {}) {
     name,
     description: (readOnly
       ? 'Write JavaScript to call READ-ONLY upstream tools (get/list/search/query) via codemode.<tool>(args). This tool is annotated read-only so the client may prompt less; it runs the same sandbox as execute(). Only your return value enters the conversation. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'
-      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'),
+      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + EXEC_BOUNDARY_GUIDANCE,
     inputSchema: {
       type: 'object',
       properties: { code: { type: 'string', description: 'An async arrow function that calls codemode tools and returns a result.' } },

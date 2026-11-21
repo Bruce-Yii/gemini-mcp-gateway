@@ -1,6 +1,6 @@
 # Gemini 后续建议（两条均已实施；保留原始记录备查）
 
-> 来源：Gemini 在 UI 验收后给的两条建议。原文写于实施前，标"未实施"；当前 HEAD `03c294b` 已把两条都落地。
+> 来源：Gemini 在 UI 验收后给的两条建议。原文写于实施前，标"未实施"；两条在 commit `03c294b` 已落地，其后主线继续推进（真隔离 `633cb6f` 等）。
 > 本文件保留原始问题描述与实现位置，供后来者核对。状态以文末表格为准。
 
 ## 建议 1：图片透传通道（MCP image content block 旁路）
@@ -32,11 +32,13 @@
 
 ## 状态：两条均已实施
 
-旧文案"两条都**未实施**"已过期。依据当前源码与 commit `03c294b`，两条都已落地并配了真测试：
+旧文案"两条都**未实施**"已过期。依据当前源码与 commit `03c294b`（及后续 B0/B2 修复），两条都已落地并配了真测试：
 
 | 建议 | 状态 | commit / 代码位置 | 测试 |
 |---|---|---|---|
 | 建议 1 图片透传通道 | ✅ 已实施 | `03c294b`（`feat: image passthrough + lightweight arg validation + free-model guard + v2 triage corrections`）；`src/server.js:83-126` `collectImages` / `textResult`（detach 成原生 `{type:'image'}` block，文本里只留 `{__imageRef, mimeType}`）、`src/tool-format.js:192-235`（images detach/reattach） | `tests/image-passthrough.test.js`（InMemoryTransport 端到端断言原生 image block） |
 | 建议 2 沙箱内入参轻量校验 | ✅ 已实施 | 同一 commit `03c294b`；`src/codemode.js:173-235` `validateToolArgs`（必填字段 + 顶层基础类型，跨 realm 安全的类型名），`src/codemode.js:271` 在上游调用前执行 | `tests/arg-validation.test.js` |
 
-> 注明范围：这里说的"均已实施"**仅指这两条建议**，不代表全部历史问题已修。`work/full-audit.md` 对账结果是还有 17 条明确未修项（含沙箱逃逸、探测器误标），不要据此宣称"全部修完"。
+> 注明范围（2026-11-21 更新）：这里说的"均已实施"**仅指这两条建议**。旧文案"`work/full-audit.md` 对账还有 17 条明确未修项（含沙箱逃逸、探测器误标）"已过期，勿再引用。
+> 按 B2 根因追溯（`docs/ledger/batch-2-rootcause.md`）当前状态：沙箱逃逸（SBX-1）随 `633cb6f` 换 Vercel run SDK QuickJS 已修（线上探活 `Function constructor is not allowed`，回归测试 `tests/true-isolation.test.js`）；探测器误标已在 B0-14 修复；两条真 bug 也已补修——归一化时序（`validateToolArgs` 先跑 `normalizeToolArguments`，`tests/normalization-order.test.js` 4/4）与 `structuredContent` 吞块（`tool-format.js` 仅当无其它内容块时才提前返回，`tests/structured-content-blocks.test.js`）。
+> 仍有少量 L1/L2 残留（search 排序 v2 命中率 75.4%、`select:` 接口设计、execute_read annotations L3、30 次上限整轮作废、沙箱内 `search_empty` 兜底、Notion 操作层双根因、GitHub 凭据流程、lock+CAS 双花窗口）——已逐条决定"补修 or 接受（登记 DEC）"，见 ledger 的"L1/L2 残留处置决定"，不再笼统写"17 条未修"。lead 认知 L3（RC-F）已制度化进 `docs/ledger/README.md` 的证据规则。

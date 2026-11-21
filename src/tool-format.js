@@ -321,9 +321,12 @@ export function unwrapResult(result) {
     throw new Error(allText || 'upstream tool returned an error');
   }
 
-  // Cloudflare contract: structuredContent is exposed directly and takes
-  // priority over the text content blocks.
-  if (r.structuredContent !== undefined) return r.structuredContent;
+  // Cloudflare contract: structuredContent is exposed directly — but ONLY when
+  // it is the sole payload. RC-A3 root cause: an unconditional early return
+  // swallowed image/resource/audio blocks present in the SAME result.
+  const hasOtherBlocks = resources.length > 0 || images.length > 0 ||
+    audios.length > 0 || resourceLinks.length > 0;
+  if (r.structuredContent !== undefined && !hasOtherBlocks) return r.structuredContent;
 
   // Single text block (no other blocks) holding JSON -> parse for convenience.
   if (contents.length === 1 && texts.length === 1 &&
@@ -336,6 +339,7 @@ export function unwrapResult(result) {
   if (resources.length > 0 || images.length > 0 || audios.length > 0 ||
       resourceLinks.length > 0 || texts.length > 1) {
     return {
+      ...(r.structuredContent !== undefined ? { structuredContent: r.structuredContent } : {}),
       text: allText,
       resources,
       images,
@@ -344,5 +348,6 @@ export function unwrapResult(result) {
       ...(resources.length > 0 ? { content: resources.map((x) => x.text).join('\n') } : {}),
     };
   }
+  if (r.structuredContent !== undefined) return r.structuredContent;
   return allText || r;
 }

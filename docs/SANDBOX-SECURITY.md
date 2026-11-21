@@ -1,41 +1,63 @@
 # 沙箱安全说明（诚实版）
 
-> 2026-11-21。基于一次子代理 review 的发现，并按当前 HEAD `03c294b` 与 `work/full-audit.md` 校正。
-> 旧版把下面第 1 条写成"已加固"属于夸大——**只挡了 Buffer 一条路径，其余宿主函数仍可逃逸**，见下文。
+> 2026-11-21 更新。当前状态基于 commit `633cb6f`（真隔离：Vercel `run` SDK / QuickJS）、
+> `5ab2e47`（非法 runtime 字段修复），以及 `tests/true-isolation.test.js`、
+> `docs/ledger/batch-0-history.md` TEST-H3 的线上探活证据。
+> 旧版写的"vm 不是安全边界 / 真隔离尚未引入 / 只挡了 Buffer"是 node:vm 时代的历史状态，已过期，见文末对照表。
 
-## 结论：vm 沙箱不是安全边界
+## 结论：真隔离已落地（引擎级边界）
 
-一次实测发现：`runInSandbox` 里 `Buffer.constructor("return process.version")()` 能逃逸拿到宿主 process（返回 `v24.16.0`）。
+旧结论"vm 沙箱不是安全边界"在 node:vm 时代成立：注入的宿主函数 `.constructor` 指向宿主 `Function`，
+`fn.constructor("return process.version")()` 能逃逸拿到宿主 process（旧实测 `v24.16.0`），
+`codeGeneration: {strings:false}` 挡不住这条路径。
 
-**根因**：Node 的 `vm` 模块官方文档明确说 "The `vm` module is not a security mechanism"。任何注入到沙箱的宿主函数（console.log、atob、crypto.digest 等），其 `.constructor` 都指向宿主 `Function`，沙箱代码可通过 `fn.constructor("...")()` 执行宿主代码。`codeGeneration: {strings:false}` 挡不住这条路径。
+当前 `src/codemode.js` 已迁移 Vercel `run` SDK（依赖 `run`，commit `633cb6f`）：guest 代码在 worker 线程内的
+独立 QuickJS 引擎中执行，没有 `process` / `require` / `fetch` / Node 全局，内建原型被冻结，
+`.constructor` 无法跨 realm 拿到宿主 `Function`。这是**引擎级真隔离**，不是 node:vm 那种"同一 V8 realm 里的伪沙箱"：
 
-Cloudflare Code Mode 用的是隔离 Worker（`globalOutbound: null`），Anthropic 用无网络容器——那才是真隔离。我们这个 Node vm 做不到。
+- 线上探活（`docs/ledger/batch-0-history.md` TEST-H3，`work/probe`）实测逃逸被挡：`Function constructor is not allowed`。
+- 回归测试 `tests/true-isolation.test.js`：① 17 个注入值的 `.constructor` 全部无法执行宿主代码（40+2 哨兵）；
+  ② guest 里 `process/require/Buffer/module/global/fetch` 与动态 `Function()` 全为 undefined / 失败；
+  ③ 正常功能（工具调用、只读去重、Web API、crypto、错误结构）不变。
+- 宿主侧还有额外约束：`createRunner` limits（timeout / cpuTimeout / `maxResultBytes` 16MB / `maxBridgeRequests` 2048）、
+  wall-clock deadline（`withDeadline`）、调用上限 50 + 只读去重。
 
-## 做了哪些改动（**不等于**"已加固"）
+## 边界在哪：guest 隔离，host function 仍在宿主 realm 执行
 
-> 关键更正：下面 3 项里只有第 1 项与安全沾边，而且它**只挡住了 Buffer 这一条路径**。
-> 不能据此宣称沙箱"已加固"，也不能把 `readOnlyHint` 当隔离边界。
+引擎边界只挡"guest 代码直接摸到宿主能力"；guest 唯一能触达宿主的路径是 `__bridge.invoke`（`syncHostFunctions`）。
+这个 bridge 背后的 `registry`（`log`/`atob`/`btoa`/`encode`/`decode`/`digest`/`listTools`/`search`/`remainingCalls`/`stub`/`tool`，
+`src/codemode.js:388-445`）**全部在宿主进程里执行**——包括 `callTool()` 真正调用上游 MCP、参数校验、计数、去重、审计。
 
-1. **移除 `Buffer` 这一条逃逸路径（仅此一条）**——沙箱对象里不再暴露 `Buffer`，`typeof Buffer === 'undefined'`（已测试）；编码辅助函数（atob/btoa）在闭包里用宿主 Buffer，但对象本身不进沙箱。
-   **但 `src/codemode.js:316-337` 注入的其它宿主函数仍是普通对象字面量**：`TextEncoder`、`console.log`、`atob`、`URL`、`codemode.*` 的 `.constructor` 依旧指向宿主 `Function`，`fn.constructor("...")()` 仍可执行宿主代码（`work/final-review-report.md:148` 实测 5 条路径全通）。`codeGeneration: {strings:false}` 挡不住这条路径。
-2. **修复 base64 乱码**（非安全项）：`unwrapResult` 里资源 blob 用 `Buffer.toString('utf8')` 解码，不再用会变 latin1 的全局 `atob`（已测试中文正确）。
-3. **移除误导性安全承诺**（仅文案项）：`execute_read` 描述不再说 "No approval needed"，改为"This tool is annotated read-only so the client may prompt less; it runs the same sandbox as execute()"。
+因此以下告诫在真隔离落地后依然成立，不能删：
 
-## 正在加固 / 尚未落地（别写成"已修"）
-
-- **Proxy 止血**：`work/full-audit.md` #47 指出 `src/codemode.js:316` 目前仍是普通 `sandbox` 对象，无 `harden()` / Proxy。若 `fix-codemode-rest` 那条代理已经把 Proxy 止血合入，以当前源码为准重新核对——**在确认合入且补上回归测试之前，不要写成"已挡住 constructor 逃逸"**；未合入则状态就是"正在加固中"。
-- **无逃逸回归测试**：`work/full-audit.md` #59 —— `tests/` 下没有任何断言 `.constructor → process` 被挡住的用例；`tests/security-fixes.test.js` 只覆盖其它安全项。
-- **真正的隔离边界尚未引入**：Cloudflare Worker / 容器 / isolated-vm（`package.json` 目前未引入相关依赖）；Node vm 做不到真隔离。
+- **沙箱隔离 ≠ 授权边界**：隔离负责"代码逃不出去"，授权必须宿主把门。工具可见性（`allowTools`/`denyTools`）、
+  `validateToolArgs`（入参）、50 次上限、deadline、审计日志都在宿主侧完成（`src/codemode.js:424-444, 491-503`）。
+- **注入到沙箱的 host function 是被信任的**：它们由宿主实现、按宿主规则受限，不要假设"进了沙箱就自动安全"。
+  新增 bridge 能力等于新增宿主权限面，必须同步在宿主侧做校验与限额。
+- **annotations 不可信**：`readOnlyHint` 等 tool annotation 来自上游，只影响客户端是否少弹确认框，**不是安全边界**。
+  `execute_read` 把非只读工具换成 stub（抛 "use execute() instead"）；即使模型写了恶意代码，annotation 也不能把写工具变成只读，
+  真正拦写的是宿主侧的工具过滤与 `stub`。不要因为某个工具标了 `readOnlyHint:true` 就跳过宿主的授权检查。
 
 ## 现实定位（不隐瞒）
 
-- 这个网关是**个人工具**，execute 里跑的是**你自己（或你信任的 Gemini）写的代码**，不是攻击者输入。
-- 沙箱的价值是**防意外**（脚本写错不会污染主进程、工具调用有上限、结果有界），**不防恶意逃逸**。
-- `execute_read` 的读写分离价值在于 **annotations 让客户端少弹确认框**（readOnlyHint:true），不是安全隔离——如果模型真写了恶意代码，read 工具集也能被逃逸绕过。
-- 如果这个网关将来要给不受信任的用户用，必须换成真隔离（Cloudflare Worker / 容器 / isolated-vm），不能靠 Node vm。
+- 这个网关是个人工具，execute 里跑的是你自己（或你信任的 Gemini）写的代码；引擎隔离防的是逃逸与误伤，
+  但完整的宿主侧授权/限额仍然保留，两者是纵深防御的两层，不能互相替代。
+- `execute_read` 的价值是减少客户端审批摩擦，不是安全隔离——这条告诫在真隔离落地后依然成立。
+- 如果将来要给不受信任的用户用，引擎级隔离只是必要基础，仍要逐项审查 bridge 暴露的宿主能力（见上"host function 受信任"），
+  不能只靠"有个沙箱"就宣称安全。
+
+## 历史状态对照（旧版结论为何过期）
+
+| 旧文案 | 当时的依据 | 现在 |
+|---|---|---|
+| "vm 不是安全边界 / 只挡了 Buffer 一条路径" | node:vm 时代 `4bf27f5`：移除 Buffer，其余注入函数 `.constructor` 仍可逃逸 | 已换 QuickJS 引擎，所有注入值 `.constructor` 探针全灭（`tests/true-isolation.test.js` ①） |
+| "真正的隔离边界尚未引入" | 旧 `package.json` 无隔离依赖 | `run` SDK 已引入（`633cb6f`），线上探活 `Function constructor is not allowed` |
+| "无逃逸回归测试" | `work/full-audit.md` #59 | `tests/true-isolation.test.js` 三个用例覆盖逃逸 / 宿主能力缺失 / 功能不变 |
 
 ## 参考
-- Node vm 官方警告：https://nodejs.org/api/vm.html
-- Cloudflare Code Mode SDK（隔离 Worker）：https://github.com/cloudflare/agents/tree/main/packages/codemode
-- Anthropic Code execution with MCP：https://www.anthropic.com/research/code-execution-with-mcp
-- Review 原始报告：work/review-fixes.md
+
+- Vercel `run` SDK（QuickJS 隔离）：https://www.npmjs.com/package/run
+- 历史对照：Node vm 官方警告 https://nodejs.org/api/vm.html
+- 线上探活证据：`docs/ledger/batch-0-history.md` TEST-H3（`work/probe`）
+- 回归测试：`tests/true-isolation.test.js`
+- 根因追溯：`docs/ledger/batch-2-rootcause.md`（SBX-1）

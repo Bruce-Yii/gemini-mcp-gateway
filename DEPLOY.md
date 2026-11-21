@@ -4,7 +4,7 @@
 
 ## 一句话背景
 
-Gemini 通过 OAuth + DCR 连本网关的 `/mcp`，网关把 GitHub（只读）等上游 MCP 的几十个工具收敛成"白名单工具 + gateway_call 兜底"。GitHub token 由网关代持，从环境变量读，不进文件。
+Gemini 通过 OAuth + DCR 连本网关的 `/mcp`，网关把 GitHub 等上游 MCP 的几十个工具收敛成"白名单工具 + gateway_call 兜底"。GitHub token 由网关代持，从环境变量读，不进文件。
 
 ## 部署步骤
 
@@ -30,7 +30,7 @@ Gemini 的 OAuth 授权需要持久化 client/code/token。用 Vercel Marketplac
 
 | 变量 | 值 | 说明 |
 |---|---|---|
-| `GITHUB_TOKEN` | GitHub token | 网关代持的 GitHub 凭证。**从我这个窗口给的临时值填入**（或你自己生成一个 fine-grained PAT）。只读端点只需 repo 读权限。 |
+| `GITHUB_TOKEN` | GitHub token | 网关代持的 GitHub 凭证。**从我这个窗口给的临时值填入**（或你自己生成一个 fine-grained PAT）。注意 GitHub 现用全读写端点（与 `config.example.json` 一致），PAT 需带**写权限**（如 fine-grained PAT 的 Contents/Issues 读写）；旧文案"只读端点只需 repo 读权限"已过期。 |
 | `PUBLIC_BASE_URL` | 部署后的域名 | 如 `https://xxx.vercel.app`（不带尾斜杠）。若留空，代码会从请求 host 推导。建议显式填。 |
 | `GATEWAY_CONFIG` | 可选 | 若不用仓库里的 `config.example.json`，可传一段 JSON 字符串覆盖 server 配置。一般不用填。 |
 | `UPSTREAMS_JSON` | 可选 | 直接传 server 配置数组 JSON。一般不用填。 |
@@ -61,7 +61,7 @@ Gemini 的 OAuth 授权需要持久化 client/code/token。用 Vercel Marketplac
 ## 已知约束 / 注意
 
 - 要求个人 Google 账号、18+、美国、History 开启、英文界面——这是 Gemini 侧限制，与部署无关。
-- GitHub 用只读端点 `https://api.githubcopilot.com/mcp/readonly`，网关白名单只放行读工具。
+- GitHub 用全读写端点 `https://api.githubcopilot.com/mcp/`（与 `config.example.json:8` 一致），不再是 `/mcp/readonly`；工具可见性由配置里的 `denyTools` 黑名单（+ 可选 `allowTools`）控制，不假设"只读端点 + 只读白名单"。对应 token 需有写权限的 PAT。
 - Notion 暂未接入（缺 token + 需单独 OAuth），后续再加。
 - 网关工具列表是静态快照，Gemini 不消费 `notifications/tools/list_changed`；改工具要换新版本路径（如 `/mcp/v2`）。
 
