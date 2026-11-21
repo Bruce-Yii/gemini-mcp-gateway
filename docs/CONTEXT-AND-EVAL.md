@@ -19,8 +19,8 @@
 
 这是 Anthropic spill 机制的轻量版，也是 CData harness 采用的业界标准（其工具结果截断阈值就是 8000 字符）。网关单边可控，不需要 Gemini 配合。
 
-### 仍未做的（取决于实测需求）
-完整 Code Mode（结果在沙箱里处理、只回摘要）——Cloudflare codemode SDK（MIT）可复用，但引入代码执行沙箱，复杂度高。**先看截断够不够，不够再上。**
+### 状态更新（2026-11-22）
+完整 Code Mode **已实现并上线**：`search` + `execute`/`execute_read`，结果在沙箱里处理只回摘要。沙箱用 Vercel `run` SDK（QuickJS，真隔离，非 Node vm）。此段旧文字"仍未做"已过期，保留仅作历史。详见 `docs/ledger/batch-0-history.md`、`docs/SANDBOX-SECURITY.md`。
 
 ## 关切二：准确性
 
