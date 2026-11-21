@@ -170,7 +170,7 @@ export function createAppHandler(options = {}) {
       builtAt: BUILD.builtAt,
       env: process.env.VERCEL_ENV || 'development',
       deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null,
-      bootMs: uptimeMs,
+      uptimeMs,
       startedAt: new Date(Date.now() - uptimeMs).toISOString(),
       ...configInfo,
     });

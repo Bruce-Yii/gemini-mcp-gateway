@@ -41,9 +41,12 @@ function sourceHash() {
   const hash = createHash('sha256');
   for (const file of listRuntimeFiles()) {
     const rel = path.relative(root, file).split(path.sep).join('/');
+    // Normalize CRLF -> LF: the local checkout (core.autocrlf) and the Vercel
+    // Linux build must produce the same hash for the same commit.
+    const content = Buffer.from(fs.readFileSync(file).toString('utf8').replace(/\r\n/g, '\n'), 'utf8');
     hash.update(rel);
     hash.update('\0');
-    hash.update(fs.readFileSync(file));
+    hash.update(content);
     hash.update('\0');
   }
   return hash.digest('hex').slice(0, 40);

@@ -75,8 +75,8 @@ test('GET /healthz reports build identity and config without touching upstreams 
   assert.deepEqual(body.servers, ['github', 'notion']);
   assert.equal(body.configLoaded, true);
   assert.equal(body.env, 'development');
-  assert.equal(typeof body.bootMs, 'number');
-  assert.ok(body.bootMs >= 0);
+  assert.equal(typeof body.uptimeMs, 'number');
+  assert.ok(body.uptimeMs >= 0);
   assert.ok(!Number.isNaN(Date.parse(body.startedAt)));
 });
 
