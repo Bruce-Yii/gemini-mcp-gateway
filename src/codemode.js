@@ -46,6 +46,12 @@ const RETURN_SHAPE_GUIDANCE = ' Results differ by service: Notion/Linear mostly 
 // Gemini feedback #2: tell the model which identifier is actually callable.
 const CALLNAME_GUIDANCE = ' Each result carries "callName": pass that exact identifier to codemode (the "name" field may contain hyphens — do not copy it literally into codemode["..."]).';
 
+// 2026-11-22 residual feedback: tool calls used to resolve synchronously at the
+// bridge, so `.then()/.catch()` were "not a function". They are native Promises
+// now; spell out which helpers stay synchronous so models neither await a plain
+// object nor chain on one.
+const ASYNC_GUIDANCE = ' Upstream tool calls return native Promises — await them, or chain .then()/.catch() (e.g. Promise.all(items.map((x) => codemode.github__issue_read(x).catch(() => null)))). Helpers codemode.search(), codemode.listTools(), codemode.remainingCalls() and codemode.services() are synchronous.';
+
 // Gemini new feedback #3: a read-only, in-sandbox service status helper. Kept
 // out of the MCP tool schemas on purpose — changing those requires the client
 // to reconnect, whereas a sandbox helper is available immediately.
@@ -552,8 +558,15 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
   // (underscores) and its original name (may contain hyphens). A model that
   // copies either the `callName` or the literal `name` from a search hit now
   // gets a working codemode[…] function instead of "not a function".
-  const bind = (key, invokeExpr) => {
-    toolLines.push(`codemode[${JSON.stringify(key)}] = __dshHide((args) => ${invokeExpr});`);
+  //
+  // 2026-11-22 residual feedback: the bridge returns already-resolved values, so
+  // tool methods were not Promises and `.then()/.catch()` threw "not a function".
+  // Real tool calls are now guest `async` functions (native Promises) so
+  // `p.catch(...)`, `p.then(...)` and `Promise.all(map(...))` work. Stubs stay
+  // synchronous on purpose: an un-awaited write attempt in execute_read must
+  // still fail the script with the actionable "use execute()" error.
+  const bind = (key, invokeExpr, asPromise = false) => {
+    toolLines.push(`codemode[${JSON.stringify(key)}] = __dshHide(${asPromise ? 'async ' : ''}(args) => ${invokeExpr});`);
   };
   for (const tool of unavailableTools ?? []) {
     const ident = sanitizeToolName(tool.name);
@@ -565,8 +578,8 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
   }
   for (const [ident, tool] of byIdent) {
     const expr = `__dshInvoke("tool", [${JSON.stringify(ident)}, args])`;
-    bind(ident, expr);
-    if (tool.name !== ident) bind(tool.name, expr);
+    bind(ident, expr, true);
+    if (tool.name !== ident) bind(tool.name, expr, true);
   }
 
   // Keep the sentinel on prelude line 1 and the model function immediately
@@ -886,7 +899,7 @@ export function createCodeModeTools(upstreamManager, options = {}) {
     name,
     description: (readOnly
       ? 'Write JavaScript to call READ-ONLY upstream tools (get/list/search/query) via codemode.<tool>(args). This tool is annotated read-only so the client may prompt less; it runs the same sandbox as execute(). Only your return value enters the conversation. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'
-      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
+      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + ASYNC_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
     inputSchema: {
       type: 'object',
       properties: { code: { type: 'string', description: 'An async arrow function that calls codemode tools and returns a result.' } },

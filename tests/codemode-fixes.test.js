@@ -76,3 +76,51 @@ test('P1-4: explicit service prefix filters other services', async () => {
   assert.ok(data.matches.every((m) => m.name.startsWith('vercel__')), `all results should be vercel, got ${data.matches.map((m) => m.name).join(',')}`);
   await c.close();
 });
+
+// ---------- 2026-11-22 residual Gemini feedback: Promise chaining ----------
+
+test('sandbox tool calls are native Promises: .then/.catch/Promise.all work', async () => {
+  const echo = { server: 'fake', tool: 'echo', name: 'fake__echo', description: 'echo', inputSchema: { type: 'object', properties: { v: { type: 'number' } }, required: ['v'] } };
+  const failing = { server: 'fake', tool: 'fail', name: 'fake__fail', description: 'fail', inputSchema: { type: 'object', properties: {} } };
+  const callTool = async (_server, tool, args) => {
+    if (tool === 'fail') throw new Error('upstream boom');
+    return { content: [{ type: 'text', text: JSON.stringify({ v: args.v, doubled: args.v * 2 }) }] };
+  };
+  const out = await runInSandbox({
+    code: `async () => {
+      const chained = await codemode.fake__echo({ v: 2 }).then((r) => r.doubled);
+      const caught = await codemode.fake__fail({}).catch((e) => 'caught:' + e.message);
+      const batch = await Promise.all([1, 2, 3].map((v) => codemode.fake__echo({ v }).then((r) => r.v)));
+      return { chained, caught, batch };
+    }`,
+    tools: [echo, failing],
+    callTool,
+  });
+  assert.equal(out.isError, undefined);
+  assert.deepEqual(JSON.parse(out.result), { chained: 4, caught: 'caught:upstream boom', batch: [1, 2, 3] });
+});
+
+test('sandbox helpers stay synchronous (documented contract)', async () => {
+  const out = await runInSandbox({
+    code: `async () => ({
+      services: typeof codemode.services().services,
+      remaining: typeof codemode.remainingCalls(),
+      listed: Array.isArray(codemode.listTools()),
+      searched: Array.isArray(codemode.search('anything').matches),
+    })`,
+    tools: [],
+    callTool: async () => ({}),
+  });
+  assert.deepEqual(JSON.parse(out.result), { services: 'object', remaining: 'number', listed: true, searched: true });
+});
+
+test('execute_read write-stubs still throw synchronously when un-awaited', async () => {
+  const out = await runInSandbox({
+    code: `async () => { codemode.github__issue_write({}); return 'should not reach'; }`,
+    tools: [],
+    unavailableTools: [{ server: 'github', tool: 'issue_write', name: 'github__issue_write' }],
+    callTool: async () => ({}),
+  });
+  assert.equal(out.isError, true);
+  assert.match(out.result, /write tool|execute\(\)/);
+});

@@ -52,7 +52,7 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 这个项目大量使用并行子代理。做过的方式是：**按文件写权限拆分**，每个代理只改自己的文件，避免互相覆盖。有一次多个代理并行时跨会话中断，成果丢失，之后改成盯着每个代理落地。
 
 ### 测试与部署
-- `npm test`（本地纯单测，零成本）当前 272 项全绿
+- `npm test`（本地纯单测，零成本）当前 279 项全绿
 - 探索测试用免费模型 `hy4-flash-free` @ `https://opencode.ai/zen/go/v1`，runner 有硬 guard 拒绝扣费端点
   （历史上误用过付费的 hy4 跑大规模测试，用户对此明确不满）
 - 部署用 Vercel CLI，token 在会话里临时注入；Vercel 配了 Git 自动部署（push main 即部署）
@@ -87,6 +87,16 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 - **部署非法 runtime 字段**：凭印象加了 `"runtime": "nodejs22.x"`，Vercel 直接 ERROR。
 - **副作用不说**：提优化方案时只讲收益，副作用等用户问才讲。用户原话"我要是不问你，不就炸了吗"。
 这几条的共同 L3 被归纳为"有权威依据可支配却没去用 / 选择性诚实"，台账 evidence rules 里有记录。
+
+### 2026-11-22 Gemini 残留反馈处置（3 条）
+
+> 来源：Gemini 网页端上一轮的实测反馈（用户转述）。逐条复现/测量后处置如下，数字是本地实测（2026-11-22）。
+
+| 反馈 | 结论 | 证据 / 处置 |
+|---|---|---|
+| 沙箱内 `codemode.<tool>()` 不支持 `.then()` / `.catch()`，报 `not a function` | **真 bug，已修** | 复现：工具方法返回桥接层已解析的值，不是 Promise（`typeof .then === "undefined"`，`await` 却能过）。修法：真实工具方法在 guest 侧包成 `async (args) => ...`（原生 Promise），`.then/.catch/Promise.all` 可用；`search/listTools/remainingCalls/services` 保持同步。写工具 stub 保持同步抛错（un-awaited 也会失败，避免静默）。新增 3 个测试，exec 描述补一句 Promise 语义 |
+| BM25 对 deployments/deployment 词形与长名工具偏差，`vercel list deployments projects` 前 5 没有 `vercel__list_deployments` | **症状已不复现；两个底层建议实测不采纳（DEC）** | 当前目录下该查询 top1 就是 `vercel__list_deployments`（search 排序重构已修）。词干化实验：top1 56.5%→53.4%（-3.1）、top5 72.3%→73.8%（+1.5），且 `get deployment files` 排序被打乱；服务名 token 剔除：top1 -0.5 / top5 +0.5，是噪声。两项都不做 |
+| `@cloudflare/codemode` 声明 `^0.5.6`，但 `codemode-util.js` 映射混淆单字母导出 | **已修** | package.json + package-lock 改为精确 `0.5.6`；理由：minor 升级可能重打包混淆导出，运行时静默错位。`run` 未 pin（用公开 API，不涉及混淆映射），需要时再定 |
 
 ### 文档过期
 多次出现"代码已改但文档还写旧状态"的情况（SANDBOX-SECURITY 写"真隔离未引入"但实际已引入、CONTEXT-AND-EVAL 写"Code Mode 未做"但实际早做了）。看文档结论时建议对照源码。
@@ -135,5 +145,5 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 ---
 
 ## 最后
-这份文档写于 2026-11-22，当时项目状态：276 项测试全绿，本地/仓库/线上三者同步。
+这份文档写于 2026-11-22，当时项目状态：279 项测试全绿，本地/仓库/线上三者同步。
 它只描述当时看到的事实和判断过程。新窗口请独立判断，包括判断这份文档里哪些已经过期。
