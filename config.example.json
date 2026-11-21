@@ -231,7 +231,6 @@
         "approve_rolling_release_stage",
         "complete_rolling_release",
         "start_rolling_release",
-        "create_project",
         "create_git_project",
         "update_project",
         "pause_project",

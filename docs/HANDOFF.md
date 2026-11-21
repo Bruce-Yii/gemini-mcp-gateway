@@ -151,6 +151,10 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 
 处置：**中英混合的 ASCII 缩写提升为全权重 token**（`expandAsciiAbbrev`：issue→issues、dns→record(s)、pr→pull/request(s)、commit→commits、repo→repositories、readme→file/contents，仅中文查询生效），并补 记录/未完成/分配 映射。中文 19 条用例：top1 79%→84%、top5 84%→95%；英文 191 任务不变（56.5%/72.3%）。残余：`"Linear 查看 issue 评论"` 的 list_comments 仍在 top5 外，换英文成本 1 次 search，暂不调（再调会引入 ad-hoc 权重）。
 
+### 2026-11-22 写操作测试的临时配置
+
+为跑真实写操作测试，`config.example.json` 的 Vercel deny 列表临时移除 `create_project`（213→212），测试结束后撤回；其余 Vercel 写工具仍禁用。GitHub / Notion / Linear 的写工具本来就在启用列表里，测试会在对应服务里留下 `mcp-probe-20261122` 这类测试资源，用户已同意。
+
 ### 文档过期
 多次出现"代码已改但文档还写旧状态"的情况（SANDBOX-SECURITY 写"真隔离未引入"但实际已引入、CONTEXT-AND-EVAL 写"Code Mode 未做"但实际早做了）。看文档结论时建议对照源码。
 
