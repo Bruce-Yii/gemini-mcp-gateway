@@ -153,7 +153,7 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 
 ### 2026-11-22 写操作测试的临时配置
 
-为跑真实写操作测试，`config.example.json` 的 Vercel deny 列表临时移除 `create_project`（213→212），测试结束后撤回；其余 Vercel 写工具仍禁用。GitHub / Notion / Linear 的写工具本来就在启用列表里，测试会在对应服务里留下 `mcp-probe-20261122` 这类测试资源，用户已同意。
+为跑真实写操作测试，`config.example.json` 的 Vercel deny 列表曾临时移除 `create_project`（213→212）；**测试已完成，deny 已恢复 213**。GitHub / Notion / Linear 的写工具本来就在启用列表里，测试留下了 `mcp-probe-20261122` 这类测试资源（用户已同意）。
 
 ### 2026-11-22 写操作探针（真实写，用户授权）
 
