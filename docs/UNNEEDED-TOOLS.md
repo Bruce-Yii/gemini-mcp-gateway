@@ -1,7 +1,7 @@
 # 四个 MCP 里"基本用不上"的工具（调研报告）
 
-> 日期 2026-11-20。基于实际工具清单（442 个工具的 name+description）逐项分析。
-> **本报告只做标注，没有砍任何工具。** 当前配置仍是全量放行。
+> 日期 2026-11-20。基于当时的实际工具清单（442 个工具的 name+description）逐项分析；该清单现已增至 456 个（Vercel 259→273），新增工具未逐项标注。
+> **本报告的标注已落到配置**：`config.example.json` 的 `denyTools` 现为 GitHub 4 / Notion 24 / Linear 24 / Vercel 213——**当前不是全量放行**，不要按"全量"理解现状。
 > 场景锚点：个人用户，通过 Gemini 网页版对 GitHub / Notion / Linear / Vercel 做日常查看与管理。
 
 ## 总览
@@ -85,8 +85,8 @@ Vercel 的 259 个工具里绝大多数是细碎底层 API 和企业运维功能
 2. **GitHub 几乎全能用**（只 4 个用不上）——它本来就是面向个人开发者的工具集。
 3. **Notion/Linear 的"用不上"主要是内部机制**（agent session、skill、团队管理、发布管理），不是核心文档/issue 能力。
 4. **写操作全部保留**——本轮没有任何工具因为"是写操作"被判用不上。
-5. 这些工具**当前全部仍在线上放行**（全量 442），本报告只是标注，供你决定要不要收敛。
+5. 本报告的"明确用不上"已按服务写入 `config.example.json` 的 `denyTools`（GitHub 4 / Notion 24 / Linear 24 / Vercel 213；本报告写 Vercel 212，快照后该服务工具数从 259 变为 273）；"存疑"项仍全部放行，未逐项收敛。
 
 ## 来源
-- 工具清单：`data/tool-dataset.json`（442 个工具的 name+description，实测抓取）
+- 工具清单：`data/tool-dataset.json`（分析时 442 个工具的 name+description，实测抓取；当前文件为 456 个）
 - 四个服务的逐项分析由子代理基于清单完成
