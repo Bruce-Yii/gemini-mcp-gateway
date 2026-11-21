@@ -138,6 +138,11 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 - Vercel 返回形状确认：`Object.keys(r)=["result"]`、`Object.keys(r.result)=["deployments"]`；上游 structuredContent 包装，不做通用 normalize。
 - 本轮未触发配额。
 
+**修复后的验证对话（2026-11-22，3 任务 / 7 次调用，无配额截断）**：
+- `"Vercel 项目 运行时 错误 日志"` → 第 1 次 search 命中 `get_runtime_errors` + `get_runtime_logs`（修复前同义查询返回 fork_drive 等无关工具）✅
+- `"Notion 搜索 页面 最近修改"` → 第 1 次命中 `notion-search` ✅
+- `"Linear 查看 issue 评论"` → 第 1 次 search 没返回 `list_comments`（它排第 6，score 26.5 vs 第 5 名 34.9），换英文 `"linear list comments"` 后命中。残余：中文"查看…评论"的扩展权重不足；加权重会回归页面类查询（实测过 `查看→view/get/list` 反而更差），暂不调——模型自己换英文的成本是 1 次 search。
+
 ### 文档过期
 多次出现"代码已改但文档还写旧状态"的情况（SANDBOX-SECURITY 写"真隔离未引入"但实际已引入、CONTEXT-AND-EVAL 写"Code Mode 未做"但实际早做了）。看文档结论时建议对照源码。
 
