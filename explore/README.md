@@ -40,3 +40,26 @@ execute 的 detail 抓错、缺 Linear 工具被归到 gateway），原始 anoma
 
 - hy4（OpenCode Go，主）：大规模自动跑
 - 反重力 flash（对照）：跑一部分，对比不同模型的坑
+
+## MCPMark 金标（`golden-mcpmark.mjs`）
+
+背景调研见 `work/authoritative-sources.md`。MCPMark（eval-sys，Apache-2.0）是权威 MCP 任务源，本地克隆在
+`work/mcpmark`（被 gitignore，缺失时需人工从 `https://github.com/eval-sys/mcpmark` 重新克隆；**本工具永不连上游，不会自动拉取**）。
+
+**能做什么 / 不能做什么（先读结论，别高估）：**
+
+| 能力 | 结论 |
+|---|---|
+| 拿 `description.md` 当权威 prompt 来源 | ✅ 可以。MCPMark 文档明确「`description.md` 全文会被喂给模型」，是纯用户口吻指令，可替换/补充 derived 任务 |
+| 跑 `verify.py` 给我方任务自动打分（pass/fail 金标） | ❌ **不可以**。verify.py 是终态检查，直接调 `api.github.com` / `notion_client`，靠 `MCP_GITHUB_TOKEN` / `GITHUB_EVAL_ORG` 指向 MCPMark 自建的**临时 eval org / eval hub**，检查被预置的仓库（如 issue #49/#51、特定分支/文件）和页面（特定 block 结构）。我们的账号没有这套预置环境，也不连上游，所以 verifier 跑不通。硬跑只会得到全 fail 的假金标 |
+| 工具名一一对应 | ❌ 权威 benchmark 钉住 GitHub MCP `v0.15.0` / Notion MCP `@1.9.1`；新增/特有工具（如 `sub_issue_write`、`notion-update-sidebar-tabs`）无同名任务。可移植的是 prompt（用户意图），不是工具调用标签 |
+
+**`golden-mcpmark.mjs` 纯本地做三件事（不调模型、不连上游、不写文件、不执行 Python）：**
+
+1. **盘点**：扫描 `work/mcpmark/tasks/{github,notion}/{standard,easy}/*/*/`，读三件套，导出 `description.md` 原文作为权威 prompt。实测 71 条（GitHub 33 = 23 standard + 10 easy；Notion 38 = 28 standard + 10 easy）。
+2. **判定**：静态读 `verify.py` 源码 + `meta.json` 的固定环境 URL，给出 `runnableAgainstOurAccount:false / goldScoringAvailable:false` 与证据，**不尝试运行 verifier**。
+3. **映射**：把 `tasks-final.json` 的 86 条 derived 任务映射到 MCPMark 权威 prompt 候选——GitHub 19 + Notion 5 共 24 条有同服务话题级候选（标 `matchKind:'topic-only'`，非逐工具 gold，特有工具另附等价性警告）；Linear 16 + Vercel 46 共 62 条权威源 0 覆盖，如实标 `no_authoritative_source`，不编造。
+
+用法：`node explore/golden-mcpmark.mjs`（stdout 打印 JSON 报告）；单测 `node --test tests/golden-mcpmark.test.js`。
+导出的纯函数（`discoverAuthoritativeTasks` / `classifyVerifier` / `loadDerivedTasks` /
+`mapDerivedToAuthoritative` / `buildGoldenReport`）可供其它脚本复用。报告无时间戳，结果确定可复现。

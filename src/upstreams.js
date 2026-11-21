@@ -14,6 +14,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { isAllowed } from './catalog.js';
 import { UpstreamAuth } from './upstream-auth.js';
+import { normalizeToolArguments } from './sanitize.js';
 
 const CLIENT_INFO = { name: 'gemini-mcp-gateway', version: '0.1.0' };
 /** Upstreams whose OAuth access tokens expire and need auto-refresh. */
@@ -165,8 +166,14 @@ export class UpstreamManager {
     if (!record) {
       throw new Error(`[upstream:${server}] 未连接或未配置的上游`);
     }
+    // Normalize camelCase aliases against the upstream's ORIGINAL inputSchema
+    // (never the Gemini-sanitized one). Every call path funnels through here:
+    // Code Mode's codemode.<tool> (codemode.js) AND the direct whitelist /
+    // gateway_call handlers (server.js) both call UpstreamManager.callTool.
+    const entry = this.entries.find((e) => e.server === server && e.tool === tool);
+    const finalArgs = normalizeToolArguments(args, entry?.inputSchema) ?? {};
     try {
-      return await record.client.callTool({ name: tool, arguments: args ?? {} });
+      return await record.client.callTool({ name: tool, arguments: finalArgs });
     } catch (err) {
       throw upstreamError(`${server}/${tool}`, '调用失败', err);
     }

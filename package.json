@@ -13,10 +13,11 @@
     "check": "node --check src/server.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19.0"
   },
   "dependencies": {
     "@cloudflare/codemode": "^0.5.6",
-    "@modelcontextprotocol/sdk": "^1.32.2"
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "run": "^2.1.13"
   }
 }

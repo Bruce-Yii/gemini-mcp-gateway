@@ -19,7 +19,26 @@ import { execFileSync } from 'node:child_process';
 
 const RESULTS_DIR = 'explore/results';
 const TRACES_DIR = path.join(RESULTS_DIR, 'traces');
+const ANOMALIES_DIR = path.join(RESULTS_DIR, 'anomalies');
 export const DETECTOR_VERSION = '2.1';
+
+/* ------------------------------------------------------------------ *
+ * Parallel-run settings (R8)
+ *
+ * The runner uses a worker pool: every worker owns its OWN UpstreamManager
+ * and its OWN AnomalyCollector. These are pure config helpers (no I/O) so the
+ * scheduling contract can be unit-tested without touching the model or an
+ * upstream connection.
+ * ------------------------------------------------------------------ */
+export const DEFAULT_CONCURRENCY = 3;
+export const MAX_CONCURRENCY = 5;
+
+/** Parse EXPLORE_CONCURRENCY: >=1 integer, clamped to MAX_CONCURRENCY. */
+export function readConcurrency(raw = DEFAULT_CONCURRENCY) {
+  const v = Number(raw);
+  if (!Number.isFinite(v) || v < 1) return DEFAULT_CONCURRENCY;
+  return Math.min(MAX_CONCURRENCY, Math.floor(v));
+}
 
 /* ------------------------------------------------------------------ *
  * Provenance
@@ -294,12 +313,34 @@ export function severityFor(attribution, type) {
  * ------------------------------------------------------------------ */
 function ensureDirs() {
   fs.mkdirSync(TRACES_DIR, { recursive: true });
+  fs.mkdirSync(ANOMALIES_DIR, { recursive: true });
+}
+
+/** Sanitize a task id for use as a filename (parallel workers must not collide). */
+export function safeTaskKey(taskId) {
+  return String(taskId ?? '').replace(/[^\w.-]/g, '_') || 'unnamed';
+}
+
+/** Deterministic, task-scoped artifact path — distinct taskIds => distinct files. */
+export function taskArtifactPath(taskId, kind = 'trace') {
+  const key = safeTaskKey(taskId);
+  return kind === 'anomalies'
+    ? path.join(ANOMALIES_DIR, `${key}.json`)
+    : path.join(TRACES_DIR, `${key}.json`);
 }
 
 export function writeTrace(taskId, trace) {
   ensureDirs();
-  const file = path.join(TRACES_DIR, `${String(taskId).replace(/[^\w.-]/g, '_')}.json`);
+  const file = taskArtifactPath(taskId, 'trace');
   fs.writeFileSync(file, JSON.stringify(trace, null, 2));
+  return file;
+}
+
+/** R8: per-task anomaly file so concurrent workers never overwrite each other. */
+export function writeTaskAnomalies(taskId, anomalies) {
+  ensureDirs();
+  const file = taskArtifactPath(taskId, 'anomalies');
+  fs.writeFileSync(file, JSON.stringify({ taskId, anomalies }, null, 2));
   return file;
 }
 
@@ -311,4 +352,130 @@ export function writeManifest(manifest) {
 export function writeMetrics(metrics) {
   ensureDirs();
   fs.writeFileSync(path.join(RESULTS_DIR, 'metrics.json'), JSON.stringify(metrics, null, 2));
+}
+
+/* ------------------------------------------------------------------ *
+ * R8 — worker pool, collector merge, 429 backoff
+ *
+ * run-explore.mjs uses runWorkerPool() to replace the serial `for` loop. Each
+ * worker gets exactly one context from initWorker() (its OWN UpstreamManager,
+ * tool map, TOOLS and AnomalyCollector) and processes tasks from a shared
+ * index one at a time, so a mgr is never used concurrently. Results come back
+ * in the original task order; local collectors are merged on the main thread.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Run `items` through a fixed-size pool of independent workers.
+ *
+ * @param items[]       work items
+ * @param opts.concurrency  worker count (clamped by readConcurrency)
+ * @param opts.initWorker   async (workerIndex) => ctx — called once per worker;
+ *                          each ctx owns an independent UpstreamManager + collector.
+ * @param opts.onReady      async (contexts) => void — runs after all contexts
+ *                          are created but before any task is dispatched.
+ * @param opts.worker       async (item, ctx, index) => result — runs serially
+ *                          within one ctx (no shared mgr concurrency).
+ * @param opts.onWorkerDone async (ctx) => void — always called in cleanup.
+ * @returns { results, contexts } — results aligned to `items` by index.
+ */
+export async function runWorkerPool(items, {
+  concurrency = DEFAULT_CONCURRENCY,
+  initWorker = async () => ({}),
+  onReady = async () => {},
+  worker = async (item, ctx, index) => item,
+  onWorkerDone = async () => {},
+} = {}) {
+  const list = Array.isArray(items) ? items : [];
+  const n = Math.max(1, Math.min(list.length || 1, readConcurrency(concurrency)));
+
+  // Create all worker contexts before dispatch; if any init fails, close the
+  // ones that succeeded so no connections leak.
+  // Defer each init into a microtask so a synchronous throw also becomes a
+  // settled rejection (otherwise cleanup below would be skipped entirely).
+  const settled = await Promise.allSettled(
+    Array.from({ length: n }, (_, i) => Promise.resolve().then(() => initWorker(i))),
+  );
+  const failed = settled.find((s) => s.status === 'rejected');
+  if (failed) {
+    await Promise.allSettled(settled.filter((s) => s.status === 'fulfilled').map((s) => onWorkerDone(s.value)));
+    throw failed.reason;
+  }
+  const contexts = settled.map((s) => s.value);
+
+  const results = new Array(list.length);
+  // Single-threaded event loop makes `next++` an atomic claim — no item is
+  // ever handed to two workers, so task-scoped files cannot be clobbered.
+  let next = 0;
+  const loop = async (ctx) => {
+    for (;;) {
+      const i = next++;
+      if (i >= list.length) return;
+      results[i] = await worker(list[i], ctx, i);
+    }
+  };
+  try {
+    await onReady(contexts);
+    // Wait for ALL workers to finish before cleanup. Using allSettled here
+    // prevents closing a mgr while another worker is still mid-tool-call.
+    const outcomes = await Promise.allSettled(contexts.map(loop));
+    const taskError = outcomes.find((o) => o.status === 'rejected');
+    if (taskError) throw taskError.reason;
+  } finally {
+    await Promise.allSettled(contexts.map((ctx) => onWorkerDone(ctx)));
+  }
+  return { results, contexts };
+}
+
+/**
+ * Merge per-worker collectors into one. Keys include task.id and each task is
+ * processed by exactly one worker, so a plain concatenation is dedup-safe;
+ * dedupCount (suppressed duplicate flags) is summed across workers.
+ */
+export function mergeCollectors(collectors) {
+  const list = (collectors ?? []).filter(Boolean);
+  const merged = new AnomalyCollector(list[0]?.detectorVersion ?? DETECTOR_VERSION);
+  for (const c of list) {
+    for (const item of c.items ?? []) {
+      merged.items.push(item);
+      merged.byKey.set(`${item.task}|${item.type}|${String(item.detail ?? '').slice(0, 80)}`, item);
+    }
+    merged.dedupCount += Number(c.dedupCount) || 0;
+  }
+  return merged;
+}
+
+/* ---------------- LLM 429 backoff (testable, no real sleeping in tests) --- */
+
+export const LLM_MAX_RETRIES = 3;
+
+/** Exponential backoff: attempt 0 -> 1000ms, 1 -> 2000ms, 2 -> 4000ms. */
+export function llmBackoffDelayMs(attempt) {
+  const a = Math.max(0, Math.floor(Number(attempt) || 0));
+  return Math.pow(2, a) * 1000;
+}
+
+/**
+ * Retry an async `fn` when `shouldRetry(err, attempt)` says so, sleeping
+ * `delayMs(attempt)` between tries. `sleep` is injectable so tests pass a
+ * no-op. `attempt` is the 0-based count of retries already performed.
+ */
+export async function withRetries(fn, {
+  retries = LLM_MAX_RETRIES,
+  shouldRetry = () => false,
+  delayMs = llmBackoffDelayMs,
+  sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
+  onRetry,
+} = {}) {
+  let attempt = 0;
+  for (;;) {
+    try {
+      return await fn(attempt);
+    } catch (err) {
+      if (attempt >= retries || !shouldRetry(err, attempt)) throw err;
+      const ms = delayMs(attempt);
+      if (onRetry) onRetry(err, attempt, ms);
+      await sleep(ms);
+      attempt += 1;
+    }
+  }
 }

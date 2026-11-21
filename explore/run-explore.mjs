@@ -11,6 +11,8 @@
  *   R4  placeholder (fixture) 404s -> synthetic_data, not gateway defects
  *   R5  extra detectors: direct_answer / max_turns_exceeded / token_anomaly
  *   R6  tool-recall metrics from the task's `tool` field vs search results
+ *   R8  worker pool: one UpstreamManager + one AnomalyCollector PER WORKER,
+ *       task-scoped trace/anomaly files, 429 backoff, manifest records concurrency
  *
  * No secrets or full raw token text are printed or persisted. Tokens are read
  * from local credential stores; traces only keep bounded structural previews.
@@ -23,7 +25,8 @@ import {
   AnomalyCollector, DETECTOR_VERSION, detectPlaceholders,
   toolNameMatches, truncate, pickExecuteResult, classifyExecuteResult,
   countToolsByServer, applyServerCoverage,
-  gitSha, sha256File, writeTrace, writeManifest, writeMetrics,
+  gitSha, sha256File, writeTrace, writeTaskAnomalies, writeManifest, writeMetrics,
+  readConcurrency, runWorkerPool, mergeCollectors, withRetries, LLM_MAX_RETRIES,
 } from './trace.mjs';
 
 const DATASET = process.env.EXPLORE_DATASET || 'explore/tasks.json';
@@ -75,55 +78,95 @@ const activeCfg = cfg.servers.filter(s => EXPLORE_SERVERS.includes(s.name));
 const staticAuth = {
   getAccessToken: async (_server, { envToken } = {}) => envToken,
 };
-const mgr = new UpstreamManager(activeCfg, { auth: staticAuth });
-await mgr.connect();
-// #23: record how many tools each server actually exposed in THIS run. A
-// task whose server exposed 0 tools is an infra/config problem (the upstream
-// failed to connect or nothing was whitelisted), not a gateway defect.
-const serverToolCounts = countToolsByServer(mgr.getEntries());
-const gatewayTools = createCodeModeTools(mgr); // [search, execute_read, execute]
-// R0: index by name, never by position. Hard-fail on contract drift.
-const toolsByName = new Map(gatewayTools.map((t) => [t.name, t]));
-const TOOL_NAMES = gatewayTools.map((t) => t.name);
 const REQUIRED_TOOLS = ['search', 'execute_read', 'execute'];
-for (const name of REQUIRED_TOOLS) {
-  if (!toolsByName.has(name)) throw new Error(`harness contract broken: ${name} missing (got: ${TOOL_NAMES.join(',')})`);
+const CONCURRENCY = readConcurrency(process.env.EXPLORE_CONCURRENCY);
+console.error('explore concurrency:', CONCURRENCY);
+
+// R8: one context PER WORKER. A worker owns its UpstreamManager, tool map,
+// OpenAI tool list and AnomalyCollector; no mgr is ever shared across workers.
+// `SHARED.serverToolCounts` is filled once in onReady and read-only afterwards,
+// so task attribution is identical regardless of which worker picks it up.
+const SHARED = { serverToolCounts: {} };
+
+async function createWorkerContext(workerIndex) {
+  const mgr = new UpstreamManager(activeCfg, { auth: staticAuth });
+  await mgr.connect();
+  const gatewayTools = createCodeModeTools(mgr); // [search, execute_read, execute]
+  // R0: index by name, never by position. Hard-fail on contract drift.
+  const toolsByName = new Map(gatewayTools.map((t) => [t.name, t]));
+  const toolNames = gatewayTools.map((t) => t.name);
+  for (const name of REQUIRED_TOOLS) {
+    if (!toolsByName.has(name)) throw new Error(`harness contract broken: ${name} missing (got: ${toolNames.join(',')})`);
+  }
+  // #23: how many tools this worker's servers exposed. Dominant/first worker
+  // value is published via SHARED for consistent per-task attribution.
+  const serverToolCounts = countToolsByServer(mgr.getEntries());
+  const collector = new AnomalyCollector(DETECTOR_VERSION);
+  const flag = (task, type, detail, meta) => collector.flag(
+    task, type, detail,
+    applyServerCoverage(meta, task.server, SHARED.serverToolCounts[task.server] ?? 0, type),
+  );
+  if (workerIndex === 0) {
+    console.error('gateway tools:', toolNames.join(','));
+    console.error('upstreams connected:', [...mgr._clients.keys()].join(','), '| failed:', (mgr.failedServers || []).join(',') || 'none');
+    console.error('tools exposed per server:', JSON.stringify(serverToolCounts));
+  }
+  return { mgr, toolsByName, TOOLS: gatewayTools.map(oaTool), collector, flag, serverToolCounts };
 }
-console.error('gateway tools:', TOOL_NAMES.join(','));
-console.error('upstreams connected:', [...mgr._clients.keys()].join(','), '| failed:', (mgr.failedServers || []).join(',') || 'none');
-console.error('tools exposed per server:', JSON.stringify(serverToolCounts));
 
 // ---- LLM helpers ----
-async function llm(messages, tools) {
+const RETRYABLE_LLM_STATUS = new Set([429, 500, 502, 503, 504]);
+
+/**
+ * Free models are rate-limited. Retry 429/5xx with exponential backoff
+ * (2^n seconds, n = 0..2, at most LLM_MAX_RETRIES retries). Retries are
+ * tracked in `stats.infraRetries` and are NOT flagged as anomalies.
+ */
+async function llm(messages, tools, stats) {
   const started = Date.now();
-  const r = await fetch(MODEL_BASE + '/chat/completions', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${MODEL_KEY}`, 'x-opencode-session': randomUUID(), 'User-Agent': 'gateway-explore/2.0' },
-    body: JSON.stringify({
-      model: MODEL, messages, tools,
-      tool_choice: 'auto', max_tokens: 2000, temperature: 0, reasoning_effort: 'none',
-    }),
-  });
-  const j = await r.json();
-  if (!r.ok) throw new Error('LLM ' + r.status + ': ' + (j?.error?.message ?? '').slice(0, 120));
-  const usage = j.usage ?? {};
-  return {
-    message: j.choices?.[0]?.message ?? {},
-    usage: {
-      prompt_tokens: usage.prompt_tokens ?? usage.promptTokens ?? 0,
-      completion_tokens: usage.completion_tokens ?? usage.completionTokens ?? 0,
-      total_tokens: usage.total_tokens ?? usage.totalTokens ?? 0,
+  return withRetries(async () => {
+    const r = await fetch(MODEL_BASE + '/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${MODEL_KEY}`, 'x-opencode-session': randomUUID(), 'User-Agent': 'gateway-explore/2.0' },
+      body: JSON.stringify({
+        model: MODEL, messages, tools,
+        tool_choice: 'auto', max_tokens: 2000, temperature: 0, reasoning_effort: 'none',
+      }),
+    });
+    let j = {};
+    try { j = await r.json(); } catch {}
+    if (!r.ok) {
+      const e = new Error('LLM ' + r.status + ': ' + String(j?.error?.message ?? '').slice(0, 120));
+      e.status = r.status;
+      e.retryable = RETRYABLE_LLM_STATUS.has(r.status);
+      throw e;
+    }
+    const usage = j.usage ?? {};
+    return {
+      message: j.choices?.[0]?.message ?? {},
+      usage: {
+        prompt_tokens: usage.prompt_tokens ?? usage.promptTokens ?? 0,
+        completion_tokens: usage.completion_tokens ?? usage.completionTokens ?? 0,
+        total_tokens: usage.total_tokens ?? usage.totalTokens ?? 0,
+      },
+      finishReason: j.choices?.[0]?.finish_reason ?? null,
+      latencyMs: Date.now() - started,
+    };
+  }, {
+    retries: LLM_MAX_RETRIES,
+    shouldRetry: (err) => err?.retryable === true,
+    onRetry: (_err, attempt, ms) => {
+      if (stats) stats.infraRetries += 1;
+      console.error(`[llm] retry ${attempt + 1}/${LLM_MAX_RETRIES} after ${ms}ms`);
     },
-    finishReason: j.choices?.[0]?.finish_reason ?? null,
-    latencyMs: Date.now() - started,
-  };
+  });
 }
 function oaTool(t) {
   return { type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } };
 }
-const TOOLS = gatewayTools.map(oaTool);
+// R8: TOOLS and toolsByName are per-worker now (see createWorkerContext).
 
-async function runToolCall(tc) {
+async function runToolCall(tc, toolsByName) {
   const name = tc.function.name;
   let args = {}; try { args = JSON.parse(tc.function.arguments || '{}'); } catch {}
   const tool = toolsByName.get(name);
@@ -140,13 +183,7 @@ async function runToolCall(tc) {
   }
 }
 
-const collector = new AnomalyCollector(DETECTOR_VERSION);
-// #23: every anomaly for a task whose server exposed 0 tools is downgraded
-// from gateway to infra (config/upstream failure), including search_empty.
-const flag = (task, type, detail, meta) => collector.flag(
-  task, type, detail,
-  applyServerCoverage(meta, task.server, serverToolCounts[task.server] ?? 0, type),
-);
+// R8: collector + flag now live in each worker context (createWorkerContext).
 
 const allTasks = JSON.parse(fs.readFileSync(DATASET, 'utf8')).tasks;
 const tasks = allTasks.filter(t => EXPLORE_SERVERS.includes(t.server));
@@ -168,16 +205,23 @@ const manifest = {
   model: MODEL,
   modelBase: MODEL_BASE,
   servers: EXPLORE_SERVERS,
-  serverToolCounts,
+  serverToolCounts: {}, // filled from the first worker in onReady (R8)
   taskCount: selected.length,
   taskLimit: limit || null,
-  toolContract: TOOL_NAMES,
+  toolContract: REQUIRED_TOOLS,
   detectorVersion: DETECTOR_VERSION,
+  // R8: record the configured parallelism in the run manifest.
+  concurrency: CONCURRENCY,
 };
 
-const metricsPerTask = [];
-
-for (const task of selected) {
+/**
+ * Process ONE task inside one worker. All mutable state is either local or
+ * owned by `ctx` (its own mgr / collector), so workers never interfere.
+ */
+async function runTask(task, ctx) {
+  // Local aliases keep the detector body below unchanged while binding every
+  // shared-looking name to this worker's private context.
+  const { flag, collector, toolsByName, TOOLS } = ctx;
   const taskStart = Date.now();
   const traceId = `${runId}:${task.id}`;
   const isBoundary = task.category === 'boundary';
@@ -198,6 +242,8 @@ for (const task of selected) {
     finished: false, finishReason: null,
     searchHit: null, searchHitAt3: null, toolHit: null,
     anomalyCount: 0,
+    // R8: LLM 429/5xx retries (infra, never an anomaly).
+    infraRetries: 0,
   };
 
   const messages = [
@@ -212,7 +258,7 @@ for (const task of selected) {
   const MAX_TURNS = 6;
   try {
     for (let turn = 0; turn < MAX_TURNS && !finished; turn++) {
-      const llmOut = await llm(messages, TOOLS);
+      const llmOut = await llm(messages, TOOLS, m);
       const msg = llmOut.message;
       turnToolResults = [];
       m.llmCalls += 1;
@@ -243,7 +289,7 @@ for (const task of selected) {
       if (msg.tool_calls?.length) {
         for (const tc of msg.tool_calls) {
           const toolName = tc.function.name;
-          const out = await runToolCall(tc);
+          const out = await runToolCall(tc, toolsByName);
           turnToolResults.push({ name: toolName, text: out.text, error: out.error });
           calledSigs.push({ name: toolName, argsKey: String(tc.function?.arguments ?? '{}') });
           m.toolCalls += 1;
@@ -369,9 +415,11 @@ for (const task of selected) {
 
   m.anomalyCount = collector.items.filter((a) => a.task === task.id).length;
   m.wallMs = Date.now() - taskStart;
-  metricsPerTask.push(m);
 
-  // R1: per-task trace (structure only, bounded previews).
+  // R1/R8: per-task trace + per-task anomaly file, keyed by taskId. Parallel
+  // workers write distinct files, so nothing is clobbered.
+  const taskAnomalies = collector.items.filter((a) => a.task === task.id)
+    .map((a) => ({ type: a.type, attribution: a.attribution, occurrences: a.occurrences }));
   const trace = {
     traceId, runId, taskId: task.id, server: task.server, category: task.category,
     official: task.official ?? null, expectedTool, fixtures,
@@ -382,24 +430,43 @@ for (const task of selected) {
       llmCalls: m.llmCalls, toolCalls: m.toolCalls, searchCalls: m.searchCalls,
       executeCalls: m.executeCalls, totalTokens: m.totalTokens,
       searchHit: m.searchHit, searchHitAt3: m.searchHitAt3, toolHit: m.toolHit,
+      infraRetries: m.infraRetries,
     },
     messages: messageTrace,
     turns: turnRecords,
     finalAnswer: { chars: finalContent.length, preview: truncate(finalContent, 600) },
-    anomalies: collector.items.filter((a) => a.task === task.id).map((a) => ({ type: a.type, attribution: a.attribution, occurrences: a.occurrences })),
+    anomalies: taskAnomalies,
   };
   writeTrace(task.id, trace);
+  writeTaskAnomalies(task.id, taskAnomalies);
 
-  console.error(`[${task.id}] ${task.server}/${task.category} tools=${m.toolCalls} tokens=${m.totalTokens} turns=${m.turns} anomalies=${m.anomalyCount}`);
+  console.error(`[${task.id}] ${task.server}/${task.category} tools=${m.toolCalls} tokens=${m.totalTokens} turns=${m.turns} anomalies=${m.anomalyCount}${m.infraRetries ? ` retries=${m.infraRetries}` : ''}`);
+  return { m, trace };
 }
 
+// ---- R8: dispatch all tasks through the worker pool (replaces serial for) ----
+const { results: taskResults, contexts: workers } = await runWorkerPool(selected, {
+  concurrency: CONCURRENCY,
+  initWorker: (workerIndex) => createWorkerContext(workerIndex),
+  onReady: (contexts) => {
+    // Publish coverage once, before any task starts, so every worker's flag()
+    // applies identical server-coverage attribution.
+    SHARED.serverToolCounts = contexts[0]?.serverToolCounts ?? {};
+    manifest.serverToolCounts = SHARED.serverToolCounts;
+    manifest.workerCount = contexts.length;
+  },
+  worker: (task, ctx) => runTask(task, ctx),
+  onWorkerDone: async (ctx) => { await ctx.mgr.close(); },
+});
+
 // ---- aggregate metrics (R3/R6) ----
+const metricsPerTask = taskResults.filter(Boolean).map((r) => r.m);
 const summary = summarizeMetrics(metricsPerTask);
 const metrics = { runId, generatedAt: new Date().toISOString(), perTask: metricsPerTask, summary };
 
 // ---- final artifacts ----
 fs.mkdirSync('explore/results', { recursive: true });
-const collected = collector.toJSON();
+const collected = mergeCollectors(workers.map((c) => c.collector));
 manifest.finishedAt = new Date().toISOString();
 manifest.anomalyRawCount = collected.rawCount;
 manifest.anomalyDedupCount = collected.dedupCount;
@@ -420,10 +487,11 @@ fs.writeFileSync('explore/results/anomalies.json', JSON.stringify(out, null, 2))
 console.error('\nDONE. anomalies:', collected.anomalies.length, '| deduped:', collected.dedupCount, '| raw:', collected.rawCount);
 const byType = {}; collected.anomalies.forEach(a => byType[a.type] = (byType[a.type] || 0) + 1);
 const byAttr = {}; collected.anomalies.forEach(a => byAttr[a.attribution] = (byAttr[a.attribution] || 0) + 1);
+const infraRetries = metricsPerTask.reduce((s, r) => s + (r.infraRetries || 0), 0);
 console.error('byType', JSON.stringify(byType));
 console.error('byAttribution', JSON.stringify(byAttr));
+console.error('infraRetries', infraRetries);
 console.error('metrics', JSON.stringify(summary));
-await mgr.close();
 
 /* ---------------- helpers (hoisted function declarations) ---------------- */
 function summarizeMetrics(rows) {
@@ -444,6 +512,8 @@ function summarizeMetrics(rows) {
       totalTokens: { sum: num('totalTokens'), mean: avg('totalTokens') },
     },
     latencyMs: { llmMs: num('llmMs'), toolMs: num('toolMs'), maxSingleToolMs: Math.max(0, ...rows.map((r) => r.maxSingleToolMs)), wallMs: num('wallMs') },
+    // R8: LLM 429/5xx retries are infra signals, not anomalies.
+    infraRetries: num('infraRetries'),
     toolRecall: {
       tasksWithExpectedTool: withTool.length,
       searchHitRate: searchHitRows.length ? Math.round((searchHitRows.filter((r) => r.searchHit).length / searchHitRows.length) * 1000) / 10 : null,

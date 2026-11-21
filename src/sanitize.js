@@ -247,3 +247,94 @@ export function sanitizeTool(tool) {
     annotations,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Tool argument normalization (camelCase aliases -> declared snake_case keys)
+// ---------------------------------------------------------------------------
+// Ported from taylorwilsdon/google_workspace_mcp's
+// `core/camel_case_middleware.py::CamelCaseArgumentsMiddleware`. Cloudflare's
+// `@cloudflare/codemode` has NO such function (its `normalizeCode()` only
+// normalises generated code text), so this is a purpose-built, schema-aware
+// alias mapper. It runs on the ORIGINAL upstream inputSchema at call time,
+// never on the Gemini-sanitized schema, and never touches nested values.
+
+/**
+ * Convert a camelCase/PascalCase key to snake_case.
+ *
+ * Boundary rules mirror the Python middleware: split lower/digit -> Upper and
+ * Upper -> Upper+lower (so both `iCalUid` and `iCalUID` become `i_cal_uid`).
+ * Implemented with two replace passes rather than lookbehind so it also works
+ * on older Node runtimes.
+ */
+export function toSnakeCase(name) {
+  return String(name)
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/([A-Z])([A-Z][a-z])/g, '$1_$2')
+    .toLowerCase();
+}
+
+const hasOwn = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
+
+/**
+ * Rename camelCase argument keys to the snake_case names declared by the
+ * upstream's original inputSchema. Rename only; never add defaults, coerce
+ * values, drop unknown keys, or recurse into nested objects/arrays.
+ *
+ * Rules (in priority order):
+ *  1. A key that is itself declared in the schema is left alone — Notion's
+ *     native camelCase params (`pageId`, `isInline`) are never mis-touched.
+ *  2. A key whose snake_case form is declared is renamed to that form
+ *     (`createdAt` -> `created_at`).
+ *  3. If the caller already passed the explicit snake_case key, the camelCase
+ *     alias is NOT renamed (explicit key wins, never overwritten).
+ *  4. If two different keys normalize to the same target, NONE of them are
+ *     renamed; the upstream schema validation decides what to reject.
+ *
+ * Missing / non-object `inputSchema` (or non-object `args`) returns `args`
+ * unchanged. No-op calls return the original `args` reference. Neither input
+ * is mutated.
+ */
+export function normalizeToolArguments(args, inputSchema) {
+  if (args === null || typeof args !== 'object' || Array.isArray(args)) return args;
+
+  const props = inputSchema !== null
+    && typeof inputSchema === 'object'
+    && !Array.isArray(inputSchema)
+    ? inputSchema.properties
+    : undefined;
+  if (props === null || typeof props !== 'object' || Array.isArray(props)) return args;
+
+  const argKeys = Object.keys(args);
+  const argKeySet = new Set(argKeys);
+  /** @type {Record<string,string>} argument key -> declared snake_case key */
+  const renames = Object.create(null);
+
+  for (const key of argKeys) {
+    if (hasOwn(props, key)) continue; // rule 1: declared key (incl. native camelCase)
+    const snake = toSnakeCase(key);
+    if (snake !== key && hasOwn(props, snake) && !argKeySet.has(snake)) {
+      renames[key] = snake; // rules 2 + 3
+    }
+  }
+  if (Object.keys(renames).length === 0) return args;
+
+  // Rule 4: a target claimed by more than one source key is not applied.
+  const counts = Object.create(null);
+  for (const target of Object.values(renames)) {
+    counts[target] = (counts[target] ?? 0) + 1;
+  }
+
+  const out = {};
+  for (const [key, value] of Object.entries(args)) {
+    const target = renames[key];
+    const finalKey = target && counts[target] === 1 ? target : key;
+    // defineProperty sidesteps the __proto__ setter for untrusted keys.
+    Object.defineProperty(out, finalKey, {
+      value,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  }
+  return out;
+}

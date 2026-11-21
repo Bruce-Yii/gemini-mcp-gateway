@@ -43,6 +43,7 @@ entry 形状：`{ server, tool, name, description?, inputSchema?, transport?, _c
 ```js
 export function sanitizeInputSchema(schema) -> object
 export function sanitizeTool(tool) -> {name, description, inputSchema, annotations}
+export function normalizeToolArguments(args, inputSchema) -> object  // camelCase -> schema-declared snake_case, top-level only
 ```
 规则：
 - 递归保证每个 `type:"array"` 节点都有 `items`（缺失补 `{type:"string"}`），含 `anyOf`/`oneOf` 分支内

@@ -9,11 +9,13 @@
  * Big upstream results never enter the model context directly: the model can
  * process/filter them inside the sandbox and return only a summary.
  *
- * Sandbox: node:vm context with ONLY `codemode` injected — no process/require/
- * fetch/Node globals. Not a hard security boundary (vm is not a security
- * mechanism), but sufficient for model-authored code that only needs our tools.
+ * Sandbox: Vercel `run` SDK — a hardened QuickJS context inside a worker
+ * thread. Guest code has no process/require/fetch/Node globals and its built-in
+ * prototypes are frozen; only the host functions declared below are reachable.
+ * This is a real engine-level boundary (unlike node:vm), so `.constructor`
+ * cannot reach the host realm.
  */
-import vm from 'node:vm';
+import { createRunner } from 'run';
 import { createHash } from 'node:crypto';
 import { normalizeCode, sanitizeToolName } from './codemode-util.js';
 import { searchEntries } from './catalog.js';
@@ -30,6 +32,49 @@ const DEFAULT_MAX_RESULT_CHARS = 20000; // cap the execute() return value
 const EXEC_TIMEOUT_MS = 30000;
 const ARG_FIELD_MAX = 200; // cap each arg field in the audit trail (prevents context leak)
 const DEFAULT_MAX_LOG_CHARS = 4000; // cap serialized console logs so a chatty script cannot flood context
+
+/**
+ * Guest-side compatibility layer, injected as a single function body prefix.
+ *
+ * QuickJS has no TextEncoder/TextDecoder/URL/atob/crypto/timers, `console`
+ * only implements `log`, and run-js-v1 drops named properties on arrays
+ * (which would break codemode.search's array-with-named-props contract).
+ * All of that is reconstructed here. Every exposed value is passed through
+ * __dshHide() so `.constructor` never resolves to the guest Function either
+ * — the isolation is real, but this also keeps the historical probes green.
+ *
+ * Line 1 deliberately creates a sentinel Error: its `run.js:N` frame lets the
+ * host calibrate the SDK's internal wrapper offset for error line numbers.
+ */
+const GUEST_PRELUDE = [
+  'const __dshCal = (() => { const m = /run\\.js:(\\d+)/.exec(String(new Error().stack || "")); return m ? Number(m[1]) : 1; })();',
+  'const __dshHide = (f) => { try { Object.defineProperty(f, "constructor", { value: undefined, configurable: true }); } catch (_) {} return f; };',
+  'const __dshInvoke = (name, args) => { const r = __bridge.invoke(name, args); if (r && r.__hostError) { const e = new Error(r.message); e.name = r.type; e.__dshHostOrigin = true; throw e; } return r.value; };',
+  'const __dshStr = (x) => { if (typeof x === "string") return x; try { const s = JSON.stringify(x); return s === undefined ? "" : s; } catch (_) { return String(x); } };',
+  'const console = __dshHide({ log: __dshHide((...a) => __dshInvoke("log", ["", a.map(__dshStr)])), info: __dshHide((...a) => __dshInvoke("log", ["", a.map(__dshStr)])), debug: __dshHide((...a) => __dshInvoke("log", ["", a.map(__dshStr)])), warn: __dshHide((...a) => __dshInvoke("log", ["WARN", a.map(__dshStr)])), error: __dshHide((...a) => __dshInvoke("log", ["ERROR", a.map(__dshStr)])) });',
+  'const atob = __dshHide((s) => __dshInvoke("atob", [s]));',
+  'const btoa = __dshHide((s) => __dshInvoke("btoa", [s]));',
+  'const crypto = __dshHide({ digest: __dshHide((algo, data, enc) => __dshInvoke("digest", [algo, data, enc === undefined ? "hex" : enc])), createHash: __dshHide((algo) => { const parts = []; return { update(d) { parts.push(d); return this; }, digest(enc) { return __dshInvoke("digest", [algo, parts.map(__dshStr).join(""), enc === undefined ? "hex" : enc]); } }; }) });',
+  'class TextEncoder { encode(s) { return new Uint8Array(__dshInvoke("encode", [String(s)])); } }',
+  'class TextDecoder { decode(bytes) { return __dshInvoke("decode", [Array.from(bytes || [])]); } }',
+  '__dshHide(TextEncoder); __dshHide(TextDecoder); __dshHide(TextEncoder.prototype); __dshHide(TextDecoder.prototype);',
+  'class URLSearchParams { constructor(init) { this._p = {}; if (typeof init === "string") { const q = init.charAt(0) === "?" ? init.slice(1) : init; for (const pair of q.split("&")) { if (!pair) continue; const i = pair.indexOf("="); const k = i < 0 ? pair : pair.slice(0, i); const v = i < 0 ? "" : pair.slice(i + 1); try { this._p[decodeURIComponent(k.replace(/\\+/g, " "))] = decodeURIComponent(v.replace(/\\+/g, " ")); } catch (_) { this._p[k] = v; } } } else if (init && typeof init === "object") { for (const k of Object.keys(init)) this._p[k] = String(init[k]); } } get(k) { return Object.prototype.hasOwnProperty.call(this._p, k) ? this._p[k] : null; } has(k) { return Object.prototype.hasOwnProperty.call(this._p, k); } set(k, v) { this._p[k] = String(v); } toString() { return Object.keys(this._p).map((k) => encodeURIComponent(k) + "=" + encodeURIComponent(this._p[k])).join("&"); } }',
+  'class URL { constructor(input) { const s = String(input); const m = /^([A-Za-z][A-Za-z0-9+.-]*):\\/\\/([^/?#]*)([^?#]*)(\\?[^#]*)?(#.*)?$/.exec(s); if (m) { this.protocol = m[1] + ":"; this.host = m[2]; this.pathname = m[3] || "/"; this.search = m[4] || ""; this.hash = m[5] || ""; } else { this.protocol = ""; this.host = ""; this.pathname = s; this.search = ""; this.hash = ""; } this.href = s; this.searchParams = new URLSearchParams(this.search); } toString() { return this.href; } }',
+  '__dshHide(URLSearchParams); __dshHide(URL); __dshHide(URLSearchParams.prototype); __dshHide(URL.prototype);',
+  'const __dshSearch = __dshHide((q) => { const raw = __dshInvoke("search", [q == null ? "" : String(q)]); const matches = raw.matches.slice(); matches.matches = matches.slice(); matches.total = raw.total; matches.hint = raw.hint; return __dshHide(matches); });',
+  'const search = __dshSearch;',
+  'const codemode = __dshHide({});',
+  'codemode.listTools = __dshHide((options) => __dshInvoke("listTools", [options]));',
+  'codemode.search = __dshSearch;',
+  'codemode.remainingCalls = __dshHide(() => __dshInvoke("remainingCalls", []));',
+  // QuickJS has no event loop/timers. A microtask-based shim keeps the common
+  // `await new Promise(r => setTimeout(r, 0))` pattern working without blocking
+  // the host event loop (a host-side sleep would freeze the whole MCP server).
+  'const __dshTimerIds = {}; let __dshTimerSeq = 0;',
+  'const setTimeout = __dshHide((fn, ms, ...args) => { const id = ++__dshTimerSeq; __dshTimerIds[id] = true; Promise.resolve().then(() => { if (__dshTimerIds[id]) { try { fn(...args); } catch (_) {} } }); return id; });',
+  'const clearTimeout = __dshHide((id) => { delete __dshTimerIds[id]; });',
+].join('\n');
+const GUEST_PREFIX_LINES = GUEST_PRELUDE.split('\n').length;
 
 const READ_ONLY_TOOL_RE =
   /^(get|list|search|query|read|fetch|view|describe|find|count|aggregate|check)_|^notion-(get|list|search|query|memory)/i;
@@ -110,28 +155,34 @@ function boundLogs(logs, maxChars = DEFAULT_MAX_LOG_CHARS) {
 
 /**
  * Describe a thrown value cross-realm-safe: vm errors fail `instanceof Error`.
- * (#12) Also lift the script location out of a vm stack (`evalmachine.<anonymous>:
- * LINE:COL`). `line`/`column` are defined non-enumerable so the legacy
+ * (#12) Also lift the script location out of the guest error stack. The `run`
+ * SDK reports `run.js:LINE:COL`; the guest prelude resolves it to the original
+ * model-code line before it reaches here (the vm-era fallback is kept for
+ * compatibility). `line`/`column` are defined non-enumerable so the legacy
  * `{message, type}` shape stays byte-identical for direct callers and for
  * `JSON.stringify(wire.error)`; the catch path surfaces the location in the
  * human-readable `result` string, which is what the model actually reads.
  */
-function errorInfo(err) {
+function errorInfo(err, scriptLoc) {
   const errLike = err && typeof err === 'object' &&
     typeof err.message === 'string' && typeof err.name === 'string';
   const info = (err instanceof Error || errLike)
     ? { message: err.message, type: err.name || err.constructor?.name || 'Error' }
     : { message: String(err), type: 'UnknownError' };
-  const stack = typeof err?.stack === 'string' ? err.stack : '';
-  // Only attribute a *script* location when the throw site itself is in the vm
-  // script. Host-side errors (arg validation, tool-call budget, upstream
-  // failures) merely pass through a vm frame in their call stack; tagging
-  // those would change their legacy message and break callers/tests.
-  const firstFrame = stack.split('\n').find((line) => line.trim().startsWith('at ')) ?? '';
-  const loc = /evalmachine\.<anonymous>:(\d+):(\d+)/.exec(firstFrame);
+  // Only attribute a *script* location when the throw site itself is in guest
+  // code. Host-side errors (arg validation, tool-call budget, upstream
+  // failures) are marked by the guest bridge wrapper and carry no location;
+  // tagging those would change their legacy message and break callers/tests.
+  const loc = scriptLoc ?? (() => {
+    const stack = typeof err?.stack === 'string' ? err.stack : '';
+    const firstFrame = stack.split('\n').find((line) => line.trim().startsWith('at ')) ?? '';
+    return /evalmachine\.<anonymous>:(\d+):(\d+)/.exec(firstFrame) ?? null;
+  })();
   if (loc) {
-    Object.defineProperty(info, 'line', { value: Number(loc[1]), enumerable: false, configurable: true });
-    Object.defineProperty(info, 'column', { value: Number(loc[2]), enumerable: false, configurable: true });
+    const line = Array.isArray(loc) ? loc[1] : loc.line;
+    const column = Array.isArray(loc) ? loc[2] : loc.column;
+    Object.defineProperty(info, 'line', { value: Number(line), enumerable: false, configurable: true });
+    Object.defineProperty(info, 'column', { value: Number(column), enumerable: false, configurable: true });
   }
   return info;
 }
@@ -262,44 +313,24 @@ export function validateToolArgs(tool, args) {
  * Sandbox hardening helpers
  * ------------------------------------------------------------------ */
 
-/**
- * (#47/#59) Lightweight stopgap for injected host values. `node:vm` is NOT a
- * security boundary, and `codeGeneration.strings:false` does not stop a model
- * that has a host-realm function: `fn.constructor` is the host `Function`, so
- * `fn.constructor('return process')()` hands over `process`. Wrap every value
- * we inject with a Proxy that hides `constructor` on `get`. Calls, `new`,
- * `.prototype`, and every other property forward to the original, so
- * TextEncoder/URL/console/codemode keep working exactly as before.
- *
- * This is deliberately narrow: see docs/SANDBOX-SECURITY.md — the sandbox is
- * "防意外不防恶意". It cuts the trivial `.constructor('return process')()`
- * path, not every possible cross-realm gadget.
- */
-function safeHostValue(value) {
-  if (value === null || (typeof value !== 'function' && typeof value !== 'object')) return value;
-  return new Proxy(value, {
-    get(target, prop, receiver) {
-      if (prop === 'constructor') return undefined;
-      return Reflect.get(target, prop, receiver);
-    },
-  });
-}
-
 /** (#46) Host-side wall-clock deadline; the vm `timeout` only bounds the
  * synchronous slice, while `await callTool()` runs in the host realm with no
  * deadline of its own. The timer is always cleared so tests never hang. */
-function withDeadline(promise, ms, message) {
+function withDeadline(promise, ms, message, onTimeout) {
   let timer;
   const deadline = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new Error(message)), ms);
+    timer = setTimeout(() => {
+      try { onTimeout?.(); } catch { /* never let cancellation mask the error */ }
+      reject(new Error(message));
+    }, ms);
   });
   return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
 }
 
-/** Uniform structured error output, shared by the vm error path and the
+/** Uniform structured error output, shared by the sandbox error path and the
  * (#46) host deadline path. */
-function makeErrorOutput(err, logs, toolCalls) {
-  const info = errorInfo(err);
+function makeErrorOutput(err, logs, toolCalls, scriptLoc) {
+  const info = errorInfo(err, scriptLoc);
   // Keep the legacy message prefix byte-for-byte for existing callers/tests;
   // append the caught script location only when a vm stack provided one.
   const rawMessage = err instanceof Error ? err.message : String(err);
@@ -320,8 +351,10 @@ function makeErrorOutput(err, logs, toolCalls) {
 }
 
 /**
- * Run normalized model code in a VM with a `codemode` proxy whose methods call
- * upstream tools. @returns { result, logs, toolCalls }.
+ * Run normalized model code in a hardened QuickJS sandbox (Vercel `run` SDK).
+ * The `codemode` global is assembled by the guest prelude from a single host
+ * bridge; all counting/validation/audit stays on the host side.
+ * @returns { result, logs, toolCalls } with the unchanged legacy output shape.
  */
 export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CALLS, maxResultChars = DEFAULT_MAX_RESULT_CHARS, timeout = EXEC_TIMEOUT_MS, totalTimeout, unavailableTools = [] }) {
   const normalized = normalizeCode(code);
@@ -337,20 +370,55 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
   const byIdent = new Map();
   for (const t of tools) byIdent.set(sanitizeToolName(t.name), t);
 
-  const codemode = {};
-  // Tools excluded by execute_read's filter are registered as stubs that throw
-  // an actionable message — otherwise the model gets a cryptic "not a function"
-  // even though search() showed the tool. (Real regression from v2 exploration.)
-  for (const tool of unavailableTools ?? []) {
-    const ident = sanitizeToolName(tool.name);
-    if (!byIdent.has(ident)) {
-      codemode[ident] = safeHostValue(async () => {
-        throw new Error(`${tool.name} is a write tool and unavailable in execute_read; use execute() instead`);
-      });
-    }
-  }
-  for (const [ident, tool] of byIdent) {
-    codemode[ident] = safeHostValue(async (args) => {
+  const hostErrorMessage = (err) => (err instanceof Error || (err && typeof err.message === 'string'))
+    ? String(err.message) : String(err);
+  const hostErrorType = (err) => (err instanceof Error || (err && typeof err.name === 'string'))
+    ? String(err.name || 'Error') : 'UnknownError';
+
+  // Every capability the guest can reach is a member of this one registry.
+  // Errors are returned as DATA (not thrown) because `run` redacts host error
+  // messages to "Host function failed."; the guest wrapper reconstructs a real
+  // guest Error with the original message so try/catch and errorInfo() keep
+  // their historical, actionable text.
+  const registry = {
+    log: (prefix, parts) => {
+      logs.push(`${prefix ? prefix + ' ' : ''}${parts.join(' ')}`);
+    },
+    atob: (s) => Buffer.from(String(s), 'base64').toString('utf8'),
+    btoa: (s) => Buffer.from(String(s), 'utf8').toString('base64'),
+    encode: (s) => Array.from(Buffer.from(String(s), 'utf8')),
+    decode: (bytes) => Buffer.from(Array.from(bytes ?? [])).toString('utf8'),
+    digest: (algo, data, encoding = 'hex') =>
+      createHash(String(algo).toLowerCase())
+        .update(typeof data === 'string' ? data : Buffer.from(data))
+        .digest(encoding),
+    listTools: (options) => {
+      const opts = options && typeof options === 'object' ? options : {};
+      let list = tools;
+      if (typeof opts.service === 'string' && opts.service) {
+        list = list.filter((t) => (t.server ?? '') === opts.service);
+      }
+      const entries = list.map(listSummary);
+      // brief:true -> name + service only; default -> name/service/readOnly/summary.
+      return opts.brief ? entries.map(({ name, service }) => ({ name, service })) : entries;
+    },
+    // (#42) Return a plain object: run-js-v1 drops named props on arrays, so
+    // the guest prelude rebuilds the array-with-named-props shape.
+    search: (query) => {
+      const res = searchEntries(tools, String(query ?? ''), { limit: 5 });
+      return {
+        matches: res.matches.map(formatToolSummary),
+        total: res.total,
+        hint: res.hint,
+      };
+    },
+    remainingCalls: () => Math.max(0, maxCalls - calls),
+    stub: (name) => {
+      throw new Error(`${name} is a write tool and unavailable in execute_read; use execute() instead`);
+    },
+    tool: async (ident, args) => {
+      const tool = byIdent.get(ident);
+      if (!tool) throw new Error(`unknown tool: ${ident}`);
       // Pre-flight before any budget/audit/dedup bookkeeping or upstream call:
       // cheap, actionable errors beat an upstream 400 + another model round.
       validateToolArgs(tool, args);
@@ -368,104 +436,110 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
       const value = unwrapResult(raw);
       if (dedupeKey !== null) cache.set(dedupeKey, value);
       return value;
-    });
-  }
-  // Discovery helpers available inside the sandbox.
-  codemode.listTools = safeHostValue((options) => {
-    const opts = options && typeof options === 'object' ? options : {};
-    let list = tools;
-    if (typeof opts.service === 'string' && opts.service) {
-      list = list.filter((t) => (t.server ?? '') === opts.service);
-    }
-    const entries = list.map(listSummary);
-    // brief:true -> name + service only; default -> name/service/readOnly/summary.
-    return opts.brief ? entries.map(({ name, service }) => ({ name, service })) : entries;
-  });
-  // (#42) One shape everywhere: also expose the outer search tool's
-  // {matches,total,hint} fields inside the sandbox. We keep it a real Array
-  // (with named props) so pre-existing scripts using Array.isArray()/.length
-  // keep working; JSON on the wire still serializes it as the matches array.
-  codemode.search = safeHostValue((query) => {
-    const res = searchEntries(tools, String(query ?? ''), { limit: 5 });
-    const matches = res.matches.map(formatToolSummary);
-    matches.matches = matches.slice();
-    matches.total = res.total;
-    matches.hint = res.hint;
-    return matches;
-  });
-  // Expose remaining budget so model scripts can batch/paginate safely.
-  codemode.remainingCalls = safeHostValue(() => Math.max(0, maxCalls - calls));
-
-  const pushLog = (...a) => logs.push(a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' '));
-  // Lightweight crypto helper: digest(algo, data) -> hex. Models often need
-  // SHA-1/SHA-256 for content hashing and previously hand-rolled JS SHA impls.
-  const crypto = safeHostValue({
-    digest: safeHostValue((algo, data, encoding = 'hex') =>
-      createHash(String(algo).toLowerCase())
-        .update(typeof data === 'string' ? data : Buffer.from(data))
-        .digest(encoding)),
-    createHash: safeHostValue((algo) => createHash(String(algo).toLowerCase())), // Node hash object: .update().digest()
-  });
-  // global search alias: models often write search() instead of codemode.search()
-  // (already constructor-shielded via safeHostValue above).
-  const search = codemode.search;
-
-  // (#47) Every value crossing into the sandbox is wrapped so `.constructor`
-  // never resolves to the host Function. Normal calls/`new` are unaffected.
-  // Buffer itself is still NOT exposed: encoding helpers close over it.
-  const sandbox = {
-    codemode: safeHostValue(codemode),
-    search,
-    crypto,
-    console: safeHostValue({
-      log: safeHostValue(pushLog),
-      info: safeHostValue(pushLog),
-      debug: safeHostValue(pushLog),
-      warn: safeHostValue((...a) => logs.push('WARN ' + a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' '))),
-      error: safeHostValue((...a) => logs.push('ERROR ' + a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' '))),
-    }),
-    JSON: safeHostValue(JSON), Math: safeHostValue(Math),
-    Date: safeHostValue(Date), Array: safeHostValue(Array), Object: safeHostValue(Object),
-    String: safeHostValue(String), Number: safeHostValue(Number), Boolean: safeHostValue(Boolean),
-    Promise: safeHostValue(Promise), Map: safeHostValue(Map), Set: safeHostValue(Set),
-    Symbol: safeHostValue(Symbol), RegExp: safeHostValue(RegExp),
-    Error: safeHostValue(Error), TypeError: safeHostValue(TypeError), RangeError: safeHostValue(RangeError),
-    parseInt: safeHostValue(parseInt), parseFloat: safeHostValue(parseFloat),
-    isNaN: safeHostValue(isNaN), isFinite: safeHostValue(isFinite),
-    encodeURIComponent: safeHostValue(encodeURIComponent), decodeURIComponent: safeHostValue(decodeURIComponent),
-    // Web standard APIs the model expects. Wrapped above; the object itself
-    // stays outside the sandbox. Encoding helpers close over host Buffer but
-    // Buffer is not reachable from sandbox code.
-    TextEncoder: safeHostValue(TextEncoder), TextDecoder: safeHostValue(TextDecoder),
-    URL: safeHostValue(URL), URLSearchParams: safeHostValue(URLSearchParams),
-    atob: safeHostValue((s) => Buffer.from(String(s), 'base64').toString('utf8')),
-    btoa: safeHostValue((s) => Buffer.from(String(s), 'utf8').toString('base64')),
-    setTimeout: safeHostValue(setTimeout), clearTimeout: safeHostValue(clearTimeout),
+    },
   };
-  const context = vm.createContext(sandbox, { codeGeneration: { strings: false, wasm: false } });
 
-  const script = new vm.Script(`(async () => { const __fn = (${normalized}); return await __fn(); })()`, { timeout });
-  const run = Promise.resolve(script.runInContext(context, { timeout }))
-    .then((sandboxReturn) => {
-      // Model-facing value: structured truncation keeps the result valid JSON
-      // of the same shape, with `--- TRUNCATED ---` markers at the cut points.
-      const structuredResult = truncateResultValue(sandboxReturn, { maxChars: maxResultChars });
-      // Legacy string view kept for direct callers of runInSandbox().
-      let legacy;
-      try { legacy = typeof sandboxReturn === 'string' ? sandboxReturn : JSON.stringify(sandboxReturn ?? null); }
-      catch { legacy = String(sandboxReturn); }
-      const legacyResult = truncateResponseText(legacy ?? '', { maxChars: maxResultChars });
-      return makeOutput({ legacyResult, structuredResult, logs: boundLogs(logs), toolCalls });
-    });
-  // (#46) A hung host-side callTool() would otherwise keep the whole round
-  // open forever (the vm timeout only covers synchronous script execution).
-  // 2x the vm timeout is generous enough not to race normal runs; the timer
-  // is always cleared, and any error becomes the same structured result as a
-  // sandbox throw. A tool throwing inside sandbox code (e.g. unwrapResult on
-  // isError) must stay a normal execute result, not kill the process.
+  const invoke = (name, args) => {
+    try {
+      const fn = registry[name];
+      if (!fn) throw new Error(`unknown bridge function: ${name}`);
+      return Promise.resolve()
+        .then(() => fn(...(Array.isArray(args) ? args : [])))
+        .then(
+          (value) => ({ value }),
+          (err) => ({ __hostError: 1, message: hostErrorMessage(err), type: hostErrorType(err) }),
+        );
+    } catch (err) {
+      return { __hostError: 1, message: hostErrorMessage(err), type: hostErrorType(err) };
+    }
+  };
+
+  // Tools excluded by execute_read's filter are registered as stubs that throw
+  // an actionable message — otherwise the model gets a cryptic "not a function"
+  // even though search() showed the tool. (Real regression from v2 exploration.)
+  const toolLines = [];
+  for (const tool of unavailableTools ?? []) {
+    const ident = sanitizeToolName(tool.name);
+    if (!byIdent.has(ident)) {
+      toolLines.push(`codemode[${JSON.stringify(ident)}] = __dshHide((args) => __dshInvoke("stub", [${JSON.stringify(tool.name)}]));`);
+    }
+  }
+  for (const ident of byIdent.keys()) {
+    toolLines.push(`codemode[${JSON.stringify(ident)}] = __dshHide((args) => __dshInvoke("tool", [${JSON.stringify(ident)}, args]));`);
+  }
+
+  // Keep the sentinel on prelude line 1 and the model function immediately
+  // after the prelude: code line L therefore lives on source line
+  // GUEST_PREFIX_LINES + L (before the SDK's constant wrapper offset).
+  const source = [
+    GUEST_PRELUDE,
+    ...toolLines,
+    `const __dshFn = (${normalized});`,
+    'return Promise.resolve().then(() => __dshFn()).then(',
+    '  (v) => ({ __ok: true, v: v, cal: __dshCal }),',
+    '  (e) => ({ __ok: false, cal: __dshCal, err: { message: e != null && e.message !== undefined ? String(e.message) : String(e), type: (e instanceof Error) ? String(e.name || "Error") : "UnknownError", hostOrigin: !!(e && e.__dshHostOrigin), stack: e && e.stack ? String(e.stack) : "" } })',
+    ');',
+  ].join('\n');
+
   const totalMs = totalTimeout ?? Math.max(timeout * 2, 1000);
-  return withDeadline(run, totalMs, `execute overall timeout (${totalMs}ms)`)
-    .catch((err) => makeErrorOutput(err, logs, toolCalls));
+  const controller = new AbortController();
+  const runner = createRunner({
+    limits: {
+      // withDeadline owns the legacy timeout message; give the SDK a little
+      // extra wall time so its own RUN_TIMEOUT cannot win that race.
+      timeoutMs: totalMs + 100,
+      cpuTimeoutMs: Math.max(1, Math.min(timeout, totalMs)),
+      maxResultBytes: 16 * 1024 * 1024,
+      maxBridgeRequests: 2048,
+    },
+    syncHostFunctions: { __bridge: { invoke } },
+  });
+
+  const run = runner.run({ source, abortSignal: controller.signal }).then((res) => {
+    if (res.status !== 'completed') throw new Error(`sandbox run ${res.status}`);
+    const env = res.value && typeof res.value === 'object' ? res.value : {};
+    const cal = Number(env.cal);
+    // The sentinel Error is created on source line 1; its reported line minus
+    // one is the SDK's internal wrapper offset (self-calibrating across versions).
+    const wrapperOffset = Number.isFinite(cal) && cal > 0 ? cal - 1 : 2;
+    if (!env.__ok) {
+      const e = env.err && typeof env.err === 'object' ? env.err : {};
+      let scriptLoc;
+      if (!e.hostOrigin && typeof e.stack === 'string') {
+        const m = /run\.js:(\d+):(\d+)/.exec(e.stack);
+        if (m) {
+          const line = Number(m[1]) - wrapperOffset - GUEST_PREFIX_LINES;
+          const column = Number(m[2]);
+          if (line > 0 && Number.isFinite(column)) scriptLoc = { line, column };
+        }
+      }
+      const err = new Error(String(e.message ?? ''));
+      err.name = String(e.type || 'Error');
+      throw Object.assign(err, { __dshScriptLoc: scriptLoc });
+    }
+    return env.v;
+  }).then((sandboxReturn) => {
+    // Model-facing value: structured truncation keeps the result valid JSON
+    // of the same shape, with `--- TRUNCATED ---` markers at the cut points.
+    const structuredResult = truncateResultValue(sandboxReturn, { maxChars: maxResultChars });
+    // Legacy string view kept for direct callers of runInSandbox().
+    let legacy;
+    try { legacy = typeof sandboxReturn === 'string' ? sandboxReturn : JSON.stringify(sandboxReturn ?? null); }
+    catch { legacy = String(sandboxReturn); }
+    const legacyResult = truncateResponseText(legacy ?? '', { maxChars: maxResultChars });
+    return makeOutput({ legacyResult, structuredResult, logs: boundLogs(logs), toolCalls });
+  });
+
+  // (#46) A hung host-side callTool() would otherwise keep the whole round
+  // open forever. The wall-clock race is unchanged; aborting also lets `run`
+  // retire the blocked worker. Any error becomes the same structured result
+  // as a sandbox throw, keeping tool calls/logs in the audit trail.
+  return withDeadline(run, totalMs, `execute overall timeout (${totalMs}ms)`, () => controller.abort())
+    .catch((err) => {
+      const scriptLoc = err?.__dshScriptLoc;
+      const e = err?.code === 'RUN_TIMEOUT' ? new Error(`execute overall timeout (${totalMs}ms)`) : err;
+      return makeErrorOutput(e, logs, toolCalls, scriptLoc);
+    });
 }
 
 /**
