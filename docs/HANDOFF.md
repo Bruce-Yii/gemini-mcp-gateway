@@ -172,6 +172,14 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 - 待用户确认：GitHub 第一次弹窗时是否点过"始终允许"；Connected Apps → 本 app 的权限/工具列表里 `execute` 是否显示已允许。
 - 结论：网关无法控制确认行为，也不应通过改 `destructiveHint` 伪造；写操作按 execute 调用建单，批量写只会在一次 execute 上触发确认。
 
+### 2026-11-22 写操作错误恢复探针
+
+- 非法 GitHub `issue_write`：`404 Not Found` + 完整请求 URL。能定位 owner/repo；但 GitHub 对"不存在"和"无权限"统一 404，无法自行区分（上游行为）。
+- 非法 Notion `create-pages`：结构化 `404 object_not_found` + 具体 page_id + `tool_error_retryable:"false"`，最清楚；缺点是 body 与外层重复序列化、没直接给参数路径 `parent.page_id`。
+- 非法 Linear `save_issue`：`Error: Error: Could not find team "no-such-team-id"`；缺状态码与期望格式（UUID/team key/name），双前缀是上游错误文本 + 网关包装叠加。
+- `vercel__create_project` 已从关键词搜索和 `select:` 中彻底消失，确认临时放行已回滚生效。
+- 结论：错误质量基本由上游决定，网关透明透传是对的；唯一能修的是双 `Error:` 前缀（装饰性，ROI 低，登记 DEC 不做）。写路径 + 错误恢复两条覆盖完成。
+
 ### 文档过期
 多次出现"代码已改但文档还写旧状态"的情况（SANDBOX-SECURITY 写"真隔离未引入"但实际已引入、CONTEXT-AND-EVAL 写"Code Mode 未做"但实际早做了）。看文档结论时建议对照源码。
 
