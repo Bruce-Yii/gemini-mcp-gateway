@@ -23,7 +23,10 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const GENERATED = path.join(root, 'src', 'build-info.js');
-const STATIC_INPUTS = ['package.json', 'config.example.json', 'vercel.json', path.join('api', 'index.js')];
+// vercel.json is deliberately NOT hashed: Vercel normalizes (minifies) it in the
+// build sandbox, so its bytes differ from the checkout even for the same commit.
+// The deployment's git commit already covers that file.
+const STATIC_INPUTS = ['package.json', 'config.example.json', path.join('api', 'index.js')];
 
 function listRuntimeFiles() {
   const files = STATIC_INPUTS.map((rel) => path.join(root, rel)).filter((file) => fs.existsSync(file));
@@ -38,29 +41,18 @@ function listRuntimeFiles() {
 }
 
 function sourceHash() {
-  const contentHash = createHash('sha256');
-  const pathHash = createHash('sha256');
-  const fileHashes = {};
-  const files = listRuntimeFiles();
-  for (const file of files) {
+  const hash = createHash('sha256');
+  for (const file of listRuntimeFiles()) {
     const rel = path.relative(root, file).split(path.sep).join('/');
-    pathHash.update(rel);
-    pathHash.update('\n');
     // Normalize CRLF -> LF: the local checkout (core.autocrlf) and the Vercel
     // Linux build must produce the same hash for the same commit.
     const content = Buffer.from(fs.readFileSync(file).toString('utf8').replace(/\r\n/g, '\n'), 'utf8');
-    fileHashes[rel] = createHash('sha256').update(content).digest('hex').slice(0, 8);
-    contentHash.update(rel);
-    contentHash.update('\0');
-    contentHash.update(content);
-    contentHash.update('\0');
+    hash.update(rel);
+    hash.update('\0');
+    hash.update(content);
+    hash.update('\0');
   }
-  return {
-    buildHash: contentHash.digest('hex').slice(0, 40),
-    pathHash: pathHash.digest('hex').slice(0, 40),
-    fileHashes,
-    files: files.map((file) => path.relative(root, file).split(path.sep).join('/')),
-  };
+  return hash.digest('hex').slice(0, 40);
 }
 
 function gitCommit() {
@@ -77,22 +69,15 @@ function gitCommit() {
 
 let info;
 try {
-  const hash = sourceHash();
   info = {
     commit: process.env.VERCEL_GIT_COMMIT_SHA || gitCommit() || 'unknown',
-    buildHash: hash.buildHash,
-    pathHash: hash.pathHash,
-    fileHashes: hash.fileHashes,
-    files: hash.files,
+    buildHash: sourceHash(),
     builtAt: new Date().toISOString(),
   };
 } catch (error) {
   info = {
     commit: 'unknown',
     buildHash: 'unknown',
-    pathHash: 'unknown',
-    fileHashes: {},
-    files: [],
     builtAt: null,
     error: error instanceof Error ? error.message : String(error),
   };
