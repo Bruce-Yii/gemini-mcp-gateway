@@ -98,6 +98,17 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 | BM25 对 deployments/deployment 词形与长名工具偏差，`vercel list deployments projects` 前 5 没有 `vercel__list_deployments` | **症状已不复现；两个底层建议实测不采纳（DEC）** | 当前目录下该查询 top1 就是 `vercel__list_deployments`（search 排序重构已修）。词干化实验：top1 56.5%→53.4%（-3.1）、top5 72.3%→73.8%（+1.5），且 `get deployment files` 排序被打乱；服务名 token 剔除：top1 -0.5 / top5 +0.5，是噪声。两项都不做 |
 | `@cloudflare/codemode` 声明 `^0.5.6`，但 `codemode-util.js` 映射混淆单字母导出 | **已修** | package.json + package-lock 改为精确 `0.5.6`；理由：minor 升级可能重打包混淆导出，运行时静默错位。`run` 未 pin（用公开 API，不涉及混淆映射），需要时再定 |
 
+### 2026-11-22 Gemini 探针第一轮（对话 1，线上 d4077ad）
+
+结果：4 条读任务全部**单次 search 命中**（github/notion/linear/vercel），全程用 `execute_read`，没触发截断，也没用 `select:`。四项自评：找工具 4.5 / 写代码 4 / 结果可读性 4 / 省上下文 4.5。
+
+| 观察 | 判断 | 处置 |
+|---|---|---|
+| Vercel `list_deployments({ teamId, limit: 3 })` 返回空数组 | **待证**：teamId 来源/令牌可见范围/账号确实无部署，三者之一；不是网关确定性 bug（同一调用路径下其他 Vercel 工具正常） | 已把追问卷写进 `docs/GEMINI-PROBE.md`（不带 teamId → list_projects → 按 projectId 再查 → 追 teamId 来源），等 Gemini 回报 |
+| Linear issue 实际字段是 `status` / `statusType`，不是 `state?.name`；模型先用 `limit:1` 探字段才对 | 真实摩擦但不是网关 bug：上游 Linear API 的字段命名；模型自愈多花 1 次调用。风险在"静默空结果"——按错字段过滤会得到空列表，可能误答"没有数据" | 不改代码：统一返回结构要么重写上游数据（有损、破坏 raw 访问），要么维护字段映射表（易过期）。先观察下一轮是否重复出现；重复再考虑按服务的字段提示 |
+| Notion 搜索第 5 条与「项目」语义不符 | 上游 `notion-search` 的模糊匹配，不是网关排序 | 不处理 |
+| 4/4 单次命中、不用 `select:` | 和离线评测 top1 56.5% 不矛盾（真实查询是关键词式，比任务集口语化 prompt 好命中）；也说明"TS 类型签名"不是当前瓶颈 | 维持不做类型签名实验的优先级 |
+
 ### 文档过期
 多次出现"代码已改但文档还写旧状态"的情况（SANDBOX-SECURITY 写"真隔离未引入"但实际已引入、CONTEXT-AND-EVAL 写"Code Mode 未做"但实际早做了）。看文档结论时建议对照源码。
 

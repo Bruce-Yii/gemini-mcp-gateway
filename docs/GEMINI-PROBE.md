@@ -7,8 +7,8 @@
 > （`octocat/Hello-World`、`#123`、`abc1234` 这类在真实账号里必然 404），改成"我"的真实账号任务；
 > 同时刻意覆盖：search 发现、select 取 schema、大结果沙箱过滤、跨服务编排、读写判断、无法完成时的拒绝。
 >
-> 版本：2026-11-22，对应线上 commit `79203bb`。跑之前有空可以打开
-> `https://gemini-mcp-gateway-yu-ac3a.vercel.app/healthz` 看一眼 commit，贴回来时附上更好；没有也能跑。
+> 版本：2026-11-22。线上运行时以 `https://gemini-mcp-gateway-yu-ac3a.vercel.app/healthz` 的 commit 为准，
+> 贴回来时附上更好；没有也能跑。
 
 ## 怎么跑
 
@@ -44,6 +44,20 @@
 6. 返回结果有没有被截断、或者太长到挤占上下文？举一个具体例子。
 7. 按 1-5 分评价四项：找工具 / 写代码 / 结果可读性 / 省上下文感受。
 8. 如果只能改一件事，你改哪件？只说一件。
+9. 有没有因为返回字段名和预期不一致（比如以为是 `state.name`，实际是 `status`）而先探字段、多花调用？哪个工具、几次？
+
+## 追问：对话 1 第 4 条（Vercel 部署返回空）
+
+把下面整段粘给同一个对话；只要原始返回，不要总结：
+
+```text
+第 4 条 Vercel 部署返回了空数组，先别下结论，按顺序执行并贴原始返回：
+1. 调 vercel__list_deployments({ limit: 3 })，不带 teamId，贴出原始返回。
+2. 调 vercel__list_projects()，贴出你看到的项目和 projectId。
+3. 如果第 1 步还是空：用第 2 步任一 projectId 调 vercel__list_deployments({ projectId, limit: 3 })，贴原始返回。
+4. 你之前传的 teamId（team_...）是从哪个工具拿到的？再调一次 vercel__get_git_deployment_context，贴出你看到的 team 列表。
+5. 任何一步如果报错，把错误原文一起贴出来。
+```
 
 ## 回收后的处理（lead 侧）
 
