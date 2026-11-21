@@ -84,10 +84,8 @@ const CJK_SYNONYMS = [
   ['优先级', ['priority']], ['截止日期', ['due']], ['内容', ['content', 'contents']],
   ['读取内容', ['content', 'contents']], ['读取', ['read']], ['分配给我', ['assignee']],
   ['指派', ['assignee']], ['账号', ['account']], ['文件夹', ['folder']], ['视图', ['view']],
-  ['环境', ['environment']], ['变量', ['variable']],
-  // ASCII abbreviations are only expanded when the query also contains CJK.
-  ['pr', ['pull', 'request', 'requests']], ['dns', ['domain', 'record']],
-  ['readme', ['file', 'contents']],
+  ['环境', ['environment']], ['变量', ['variable']], ['记录', ['record', 'records']],
+  ['未完成', ['open', 'todo']], ['分配', ['assignee']],
 ].sort((a, b) => b[0].length - a[0].length);
 
 /** Expand a Chinese query with English catalog terms (no-op for non-CJK text). */
@@ -115,6 +113,31 @@ export function expandCjkQuery(text, existing = []) {
     }
   }
   return [...out].filter((token) => !existing.includes(token));
+}
+
+/**
+ * English abbreviations inside a Chinese query (e.g. "Linear 分配给我的 issue")
+ * are query-signal, not fuzzy synonyms: they are promoted to full-weight tokens
+ * so the plural identifier ("issues") can compete with the singular ("save_issue").
+ * Non-CJK queries are never touched, so English ranking stays byte-identical.
+ */
+export function expandAsciiAbbrev(text) {
+  if (typeof text !== 'string' || !CJK.test(text)) return [];
+  const lower = text.toLowerCase();
+  const out = new Set();
+  const pairs = [
+    ['issue', ['issues']],
+    ['commit', ['commits']],
+    ['repo', ['repositories']],
+    ['pr', ['pull', 'request', 'requests']],
+    ['dns', ['domain', 'record', 'records']],
+    ['readme', ['file', 'contents']],
+  ];
+  for (const [key, terms] of pairs) {
+    const re = new RegExp(`(?<![a-z0-9])${key}(?![a-z0-9])`, 'g');
+    if (re.test(lower)) for (const term of terms) out.add(term);
+  }
+  return [...out];
 }
 
 function termFreq(tokens) {
@@ -320,7 +343,12 @@ export function searchEntries(entries, rawQuery, options = {}) {
   }
 
   const normalizedQuery = query.query.trim().toLowerCase();
-  const scoringTokens = contentTokens(queryTokens);
+  const baseContentTokens = contentTokens(queryTokens);
+  const asciiExtra = expandAsciiAbbrev(query.query);
+  // Dedupe only when abbreviations were added, so English ranking is unchanged.
+  const scoringTokens = asciiExtra.length > 0
+    ? [...new Set([...baseContentTokens, ...asciiExtra])]
+    : baseContentTokens;
   const expandedTokens = expandCjkQuery(query.query, scoringTokens);
   const descScoringTokens = [...scoringTokens, ...expandedTokens];
   const queryBigrams = bigrams(scoringTokens);

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { expandCjkQuery, searchEntries } from '../src/catalog.js';
+import { expandAsciiAbbrev, expandCjkQuery, searchEntries } from '../src/catalog.js';
 
 // Real production catalog: these tests pin the 2026-11-22 Gemini probe cases.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -18,9 +18,10 @@ const names = (query, limit = 5) => searchEntries(enabled, query, { limit }).mat
 test('CJK map: longest term wins; ASCII abbreviations only expand for CJK queries', () => {
   const openOnly = expandCjkQuery('未合并的 PR');
   assert.ok(openOnly.includes('open'));
-  assert.ok(openOnly.includes('pull'));
   assert.ok(!openOnly.includes('merge'), '未合并 must not also expand to merge');
+  assert.ok(expandAsciiAbbrev('未合并的 PR').includes('pull'));
   assert.deepEqual(expandCjkQuery('plain english query'), []);
+  assert.deepEqual(expandAsciiAbbrev('plain english query'), []);
 });
 
 test('中文 Vercel 运行时错误/日志查询命中 get_runtime_errors + get_runtime_logs', () => {
@@ -49,6 +50,21 @@ test('中文读文件查询命中 github get_file_contents', () => {
 test('中文 Linear 评论查询命中 list_comments', () => {
   const top = names('Linear 评论 issue comments');
   assert.ok(top.includes('linear__list_comments'), top.join(','));
+});
+
+test('中英混合的 issue 查询把 list_issues 排进前 5（复数扩展）', () => {
+  assert.ok(expandAsciiAbbrev('Linear 分配给我的 issue').includes('issues'));
+  assert.deepEqual(expandAsciiAbbrev('list issues'), []);
+  const top = names('Linear 分配给我的 issue 未完成');
+  assert.ok(top.includes('linear__list_issues'), top.join(','));
+});
+
+test('中文域名 + DNS 查询能召回 list_domains 或 get_records', () => {
+  const top = names('Vercel 域名 DNS 记录');
+  assert.ok(
+    top.includes('vercel__list_domains') || top.includes('vercel__get_records'),
+    top.join(','),
+  );
 });
 
 test('纯英文查询不会被中文同义词表污染', () => {

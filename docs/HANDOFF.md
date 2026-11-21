@@ -52,7 +52,7 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 这个项目大量使用并行子代理。做过的方式是：**按文件写权限拆分**，每个代理只改自己的文件，避免互相覆盖。有一次多个代理并行时跨会话中断，成果丢失，之后改成盯着每个代理落地。
 
 ### 测试与部署
-- `npm test`（本地纯单测，零成本）当前 286 项全绿
+- `npm test`（本地纯单测，零成本）当前 288 项全绿
 - 探索测试用免费模型 `hy4-flash-free` @ `https://opencode.ai/zen/go/v1`，runner 有硬 guard 拒绝扣费端点
   （历史上误用过付费的 hy4 跑大规模测试，用户对此明确不满）
 - 部署用 Vercel CLI，token 在会话里临时注入；Vercel 配了 Git 自动部署（push main 即部署）
@@ -143,6 +143,14 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 - `"Notion 搜索 页面 最近修改"` → 第 1 次命中 `notion-search` ✅
 - `"Linear 查看 issue 评论"` → 第 1 次 search 没返回 `list_comments`（它排第 6，score 26.5 vs 第 5 名 34.9），换英文 `"linear list comments"` 后命中。残余：中文"查看…评论"的扩展权重不足；加权重会回归页面类查询（实测过 `查看→view/get/list` 反而更差），暂不调——模型自己换英文的成本是 1 次 search。
 
+### 2026-11-22 Gemini 探针第四轮（确认机制 + 跨服务 + 中文第二批）
+
+**对话 A（写操作确认）**：模型看不到客户端确认弹窗，所以这题只能由用户在屏幕侧观察。模型侧观察：`execute_read` 与 `execute`（跑只读代码）都正常返回，没有模型可感知的阻塞。结论仍是 Gemini 侧策略：Google 对自定义 app 明确"写操作需要手动确认"，且很多 MCP 客户端会把 `destructiveHint: true` 的工具从 blanket allow 里豁免。我们的 `execute` 注解是 `readOnlyHint:false, destructiveHint:true`（语义正确），`execute_read`/`search` 只读所以不弹。**不建议**为少弹框而改注解；确需零确认应先在 Gemini 连接器的工具权限里找 per-tool "always allow"。
+
+**对话 B（跨服务 + 中文第二批）**：跨 Vercel→GitHub→Notion 的 3 服务任务在 **1 次 execute_read** 内完成，整轮 12 次调用（10 search + 2 execute）。中文 3/5 一次命中，2 条换英文："Linear 分配给我的 issue 未完成"、"Vercel 域名 DNS 记录"。
+
+处置：**中英混合的 ASCII 缩写提升为全权重 token**（`expandAsciiAbbrev`：issue→issues、dns→record(s)、pr→pull/request(s)、commit→commits、repo→repositories、readme→file/contents，仅中文查询生效），并补 记录/未完成/分配 映射。中文 19 条用例：top1 79%→84%、top5 84%→95%；英文 191 任务不变（56.5%/72.3%）。残余：`"Linear 查看 issue 评论"` 的 list_comments 仍在 top5 外，换英文成本 1 次 search，暂不调（再调会引入 ad-hoc 权重）。
+
 ### 文档过期
 多次出现"代码已改但文档还写旧状态"的情况（SANDBOX-SECURITY 写"真隔离未引入"但实际已引入、CONTEXT-AND-EVAL 写"Code Mode 未做"但实际早做了）。看文档结论时建议对照源码。
 
@@ -190,5 +198,5 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 ---
 
 ## 最后
-这份文档写于 2026-11-22，当时项目状态：286 项测试全绿，本地/仓库/线上三者同步。
+这份文档写于 2026-11-22，当时项目状态：288 项测试全绿，本地/仓库/线上三者同步。
 它只描述当时看到的事实和判断过程。新窗口请独立判断，包括判断这份文档里哪些已经过期。
