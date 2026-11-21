@@ -91,6 +91,22 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 ### 文档过期
 多次出现"代码已改但文档还写旧状态"的情况（SANDBOX-SECURITY 写"真隔离未引入"但实际已引入、CONTEXT-AND-EVAL 写"Code Mode 未做"但实际早做了）。看文档结论时建议对照源码。
 
+### 交接后的追加发现与当时的判断（2026-11-22，新窗口接手时列出）
+新窗口读完后发现 6 处文档/源码不一致，当时的收口判断记录如下（供参考，不是指令）：
+
+| 发现 | 当时的判断 | 理由 / 副作用 |
+|---|---|---|
+| CONTRACT.md 只覆盖 whitelist+OAuth，没有 Code Mode；但 AGENTS.md 写"契约是唯一真相" | **改 AGENTS.md 的指针，不补 CONTRACT.md** | Code Mode 还在演进（search 排序刚重构过），写进契约会僵化；Cloudflare 官方自己都标 Experimental。副作用：指令文件变更触发一次刷新，可接受 |
+| AGENTS.md 写"MVP 只做本地，不实现 OAuth/DCR/Vercel"，与代码相反 | 同上，一起改 | 持续误导后续 agent |
+| `src/server.js` initialize instructions 写 "two tools: search and execute"，实际注册 3 个 | **修**（改成三个或别数数） | 模型会建立错误预期。副作用：description 文字变化，已确认不需要重连 |
+| UNNEEDED-TOOLS.md 写"全量放行"，实际有 deny 清单 | **修** | 后续可能据此改 config 意外放行 213 个 Vercel 工具。纯文档，低风险 |
+| ledger/README.md 指向不存在的 ledger.json | 记为已知，暂不动 | 不影响正确性 |
+| DEPLOY.md 仍是 whitelist 部署说明 | 记为已知，暂不动 | 不影响正确性，等真要按它部署时再修 |
+
+另：探索 runner 读的是 `OPENCODE_GO_API_KEY`（旧 key），panel 上另有 `opencode-go-openai-key2`。当时判断先不切——"要不要再跑探索测试"本身未定，真要跑时再切一行，避免为改而改。
+
+> 这里记录的是"当时为什么这样取舍"的过程。后续窗口若判断不同，按自己的判断走。
+
 ---
 
 ## 四、未做 / 待决策（描述现状，不替你定）
