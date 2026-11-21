@@ -161,8 +161,9 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 - **Linear**：`list_teams`（选中「垃圾堆」LAJI）→ `save_issue`（**LAJI-36**）→ `save_comment` → `save_issue` 更新描述。全部成功。
 - **Vercel**：临时放行 `create_project` 后成功创建 `mcp-probe-20261122`（`prj_UNPvlONqgCLBdHiXJJd0S75F2Ggn`）；测试后已恢复 deny（213）。
 - **关键观察**：10 个上游写操作只用了 **2 次 `execute`**（模型把每个服务的写步骤批量塞进一次 execute）。所以 Gemini 的确认粒度是"一次 execute 工具调用"，不是"每个上游写操作"——一次确认会放行一批写操作。这是 Code Mode 的固有权衡，用户侧若要逐动作审批需要另做机制。
-- **Notion 写测试**（建页→追加→评论→回收站）**未回报**，待补。
-- 遗留测试数据：GitHub 仓库 `Bruce-Yii/mcp-probe-20261122`（issue #1 已关闭）、Linear `LAJI-36`、Vercel 项目 `mcp-probe-20261122`（MCP 无删除工具，需面板删）。
+- **Notion**：先 `select:` 取 4 个写入工具的 schema（一次命中），再在草稿页「历史重复草稿｜上城 OPC 超级个体｜2026」下：建页《MCP 探针测试 2026-11-22》（`allow_async:false`）→ `notion-update-page` 追加一行（`command:"insert_content"`）→ `notion-create-comment` → `notion-delete-pages`（`user_confirmed:true`）移入回收站。5 步全部一次成功，页面已在 Trash；共 6 次网关调用（4 search + 1 execute_read + 1 execute）。
+- **写路径覆盖结论**：GitHub / Linear / Vercel / Notion 四个服务的真实写操作全部验证通过，无参数错误、无重试；四组测试里模型都是把同一服务的多个写操作批量放进一次 `execute`。
+- 遗留测试数据：GitHub 仓库 `Bruce-Yii/mcp-probe-20261122`（issue #1 已关闭）、Linear `LAJI-36`、Vercel 项目 `mcp-probe-20261122`（MCP 无删除工具，需面板删）；Notion 测试页已进回收站。
 
 ### 文档过期
 多次出现"代码已改但文档还写旧状态"的情况（SANDBOX-SECURITY 写"真隔离未引入"但实际已引入、CONTEXT-AND-EVAL 写"Code Mode 未做"但实际早做了）。看文档结论时建议对照源码。
