@@ -52,6 +52,71 @@ export function tokenizeIdentifier(text) {
   return tokens;
 }
 
+/**
+ * High-frequency Chinese domain terms -> English counterparts.
+ *
+ * The catalog (tool names/descriptions) is English, so a pure-Chinese query only
+ * matches the service token and returns unrelated tools — e.g. "Vercel 运行时
+ * 错误 日志" used to return fork_drive/get_drive (Gemini real-world probe,
+ * 2026-11-22). These terms are scored at half weight and without the flat
+ * identifier bonus, which rescues unknown-tool queries without letting a generic
+ * term (页面/page) outrank a real name match. Sorted longest-first so "未合并"
+ * wins over the "合并" substring (consumed ranges prevent double-mapping).
+ */
+const CJK_SYNONYMS = [
+  ['运行时', ['runtime']], ['错误日志', ['error', 'log', 'logs']], ['错误', ['error', 'errors']],
+  ['报错', ['error']], ['日志', ['log', 'logs']], ['部署', ['deployment', 'deployments']],
+  ['项目', ['project', 'projects']], ['页面', ['page', 'pages']], ['评论', ['comment', 'comments']],
+  ['仓库', ['repository', 'repositories', 'repo']], ['分支', ['branch', 'branches']],
+  ['提交', ['commit', 'commits']], ['未合并', ['open']], ['没合并', ['open']], ['合并', ['merge']],
+  ['拉取请求', ['pull', 'request', 'requests']], ['数据库', ['database', 'databases']],
+  ['数据源', ['data', 'sources']], ['表格', ['table', 'tables']], ['文档', ['document', 'documents']],
+  ['工作区', ['workspace']], ['团队', ['team', 'teams']], ['域名', ['domain', 'domains']],
+  ['账单', ['billing']], ['用量', ['usage']], ['密钥', ['secret', 'secrets']],
+  ['环境变量', ['environment', 'variable', 'env']], ['通知', ['notification', 'notifications']],
+  ['标签', ['label', 'labels']], ['里程碑', ['milestone']], ['周期', ['cycle']],
+  ['发布', ['release', 'releases']], ['文件', ['file', 'files']], ['图片', ['image', 'images']],
+  ['附件', ['attachment', 'attachments']], ['搜索', ['search']], ['搜一下', ['search']],
+  ['查找', ['search']], ['找一下', ['search']], ['列表', ['list']], ['创建', ['create']],
+  ['新建', ['create']], ['更新', ['update']], ['修改', ['update']], ['删除', ['delete']],
+  ['成员', ['member', 'members']], ['用户', ['user', 'users']], ['最近', ['recent', 'latest']],
+  ['最新', ['latest', 'recent']], ['失败', ['failed', 'error']], ['状态', ['state', 'status']],
+  ['优先级', ['priority']], ['截止日期', ['due']], ['内容', ['content', 'contents']],
+  ['读取内容', ['content', 'contents']], ['读取', ['read']], ['分配给我', ['assignee']],
+  ['指派', ['assignee']], ['账号', ['account']], ['文件夹', ['folder']], ['视图', ['view']],
+  ['环境', ['environment']], ['变量', ['variable']],
+  // ASCII abbreviations are only expanded when the query also contains CJK.
+  ['pr', ['pull', 'request', 'requests']], ['dns', ['domain', 'record']],
+  ['readme', ['file', 'contents']],
+].sort((a, b) => b[0].length - a[0].length);
+
+/** Expand a Chinese query with English catalog terms (no-op for non-CJK text). */
+export function expandCjkQuery(text, existing = []) {
+  if (typeof text !== 'string' || !CJK.test(text)) return [];
+  const lower = text.toLowerCase();
+  const out = new Set();
+  const consumed = [];
+  for (const [key, terms] of CJK_SYNONYMS) {
+    if (/^[a-z0-9]+$/.test(key)) {
+      const re = new RegExp(`(?<![a-z0-9])${key}(?![a-z0-9])`, 'g');
+      if (re.test(lower)) for (const term of terms) out.add(term);
+      continue;
+    }
+    let from = 0;
+    for (;;) {
+      const idx = lower.indexOf(key, from);
+      if (idx < 0) break;
+      const end = idx + key.length;
+      if (!consumed.some(([start, stop]) => idx < stop && end > start)) {
+        consumed.push([idx, end]);
+        for (const term of terms) out.add(term);
+      }
+      from = end;
+    }
+  }
+  return [...out].filter((token) => !existing.includes(token));
+}
+
 function termFreq(tokens) {
   const tf = new Map();
   for (const token of tokens) tf.set(token, (tf.get(token) ?? 0) + 1);
@@ -256,12 +321,20 @@ export function searchEntries(entries, rawQuery, options = {}) {
 
   const normalizedQuery = query.query.trim().toLowerCase();
   const scoringTokens = contentTokens(queryTokens);
+  const expandedTokens = expandCjkQuery(query.query, scoringTokens);
+  const descScoringTokens = [...scoringTokens, ...expandedTokens];
   const queryBigrams = bigrams(scoringTokens);
   for (const doc of index.docs) {
     if (serverFilter && String(doc.entry.server).toLowerCase() !== serverFilter) continue;
     let score = 0;
     for (const token of scoringTokens) {
       score += NAME_WEIGHT * bm25(doc.nameTf.get(token) ?? 0, doc.nameLen, index.avgNameLen, idf(index, token));
+    }
+    // CJK expansion gets BM25 only at half weight — no flat identifier bonus, so
+    // it can rescue an otherwise-unmatched Chinese query without beating a real
+    // name match.
+    for (const token of expandedTokens) {
+      score += 0.5 * NAME_WEIGHT * bm25(doc.nameTf.get(token) ?? 0, doc.nameLen, index.avgNameLen, idf(index, token));
     }
     if (query.query === '') {
       score = 1;
@@ -291,7 +364,7 @@ export function searchEntries(entries, rawQuery, options = {}) {
       // DESC_TIE_CAP, and multi-word overlap is rewarded so a long description
       // cannot win by piling up unrelated single words.
       let descScore = 0;
-      for (const tok of scoringTokens) {
+      for (const tok of descScoringTokens) {
         descScore += Math.min(
           DESC_PER_TERM_CAP * bm25(doc.descTf.get(tok) ?? 0, doc.descLen, index.avgDescLen, idf(index, tok)),
           DESC_PER_TERM_CAP,

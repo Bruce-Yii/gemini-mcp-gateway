@@ -7,7 +7,7 @@
 ## 当前状态：已上线
 
 - [x] catalog / sanitize / upstreams / server / codemode / oauth / store 模块
-- [x] 单元 + 集成测试（279 项通过）
+- [x] 单元 + 集成测试（286 项通过）
 - [x] OAuth 2.1 DCR + PKCE + Vercel 部署，线上全链路验证通过（6 redirect URI / PKCE / state / token / MCP 握手）
 - [x] 四个上游接入：GitHub / Notion / Linear / Vercel（refresh token 轮换 + 失效自愈）
 - [x] Code Mode 沙箱：Vercel `run` SDK（QuickJS + worker thread）真隔离，有逃逸回归测试
@@ -80,7 +80,7 @@ node scripts/write-build-info.mjs --print  # 当前 checkout 的 commit/buildHas
 | `CONTRACT.md` / `CONTRACT.vercel.md` | 历史阶段契约（whitelist / Vercel-OAuth）；Code Mode 以 `src/` + `tests/` 为准 |
 | `DEPLOY.md` | 部署交接文档（whitelist 时代，待刷新） |
 | `src/` | catalog / sanitize / upstreams / server / codemode / tool-format / oauth / store / vercel-app |
-| `tests/` | 单元 + 集成测试（279 项） |
+| `tests/` | 单元 + 集成测试（286 项） |
 | `harness/` | 假上游 MCP server |
 | `scripts/` | 冒烟 / 真实 GitHub 验证 / 工具采集 / 上下文与搜索评测 / build 信息 |
 | `data/tool-dataset.json` | 4 个上游真实工具 schema（456 个，测量依据） |

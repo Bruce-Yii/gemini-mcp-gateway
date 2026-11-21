@@ -52,7 +52,7 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 这个项目大量使用并行子代理。做过的方式是：**按文件写权限拆分**，每个代理只改自己的文件，避免互相覆盖。有一次多个代理并行时跨会话中断，成果丢失，之后改成盯着每个代理落地。
 
 ### 测试与部署
-- `npm test`（本地纯单测，零成本）当前 279 项全绿
+- `npm test`（本地纯单测，零成本）当前 286 项全绿
 - 探索测试用免费模型 `hy4-flash-free` @ `https://opencode.ai/zen/go/v1`，runner 有硬 guard 拒绝扣费端点
   （历史上误用过付费的 hy4 跑大规模测试，用户对此明确不满）
 - 部署用 Vercel CLI，token 在会话里临时注入；Vercel 配了 Git 自动部署（push main 即部署）
@@ -125,6 +125,19 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 
 **新发现的操作约束**：Gemini 侧对**单轮**工具调用有上限（本轮措辞是"本轮工具调用次数配额已用尽"，约 16 个任务 / 20 次调用后触发；疑似单轮约 20 次，待用同一对话发"继续任务 17"验证是按轮重置还是按对话封顶）。**不是网关限制**：网关 `/mcp` 是无状态设计（`src/server.js` 每次 POST 新建 transport，无跨请求计数），唯一的上限是单次 `execute` 内 50 次工具调用，错误文本固定为 `tool call limit (50) exceeded`，本轮所有工具结果里都没有这条。以后一个对话/一轮最多放 8-10 条任务，跑完开新对话。
 
+### 2026-11-22 Gemini 探针第三轮（中文搜索 + 追查）
+
+**对话 2（E 组，5 条任务 / 12 次调用）**：中文查询 4/5 一次命中；纯中文 `"Vercel 运行时 错误 日志"` 没命中 `get_runtime_errors` / `get_runtime_logs`（返回 fork_drive 等无关工具），换成 `vercel runtime logs errors` 后命中。第 5 条被 Gemini 客户端预算截断，限流原文：`You have exceeded the maximum number of tool and search calls (0 remaining). Synthesize your final response to the user...` —— **Gemini 侧预算**，不是网关（网关唯一限制是单次 execute 50 次，错误文本是 `tool call limit (50) exceeded`）。
+
+处置：**加中文查询扩展**（`src/catalog.js` 的 `CJK_SYNONYMS` + `expandCjkQuery()`）：中文域名词映射为英文 token，半权重、无 flat identifier bonus；`未合并/合并` 用最长匹配 + consumed range 防重叠，`PR/DNS/README` 只在查询含中文时展开。自建 16 条中文用例：top1 25%→88%、top5 38%→88%；英文离线 191 任务不变（56.5% / 72.3%）。新增 `tests/search-cjk.test.js`。
+
+**对话 3（追查）**：
+- `not a function` **未复现**（同一路径正常返回 `d.meta.githubCommitSha`）；按不可复现关闭，再出现再查。
+- GitHub Notifications：上游工具清单里根本没有该工具（不在 deny 列表），模型正确停手——能力缺口，不是配置问题。
+- `notion__notion_query_data_sources`：select 拿到 schema 后调用仍失败，原因是需要 `data:{...}` 顶层包装、`mode:"view"` 且要视图 URL（模型用了库 URL，触发 PERMISSION_DENIED）。上游参数设计问题，网关不改；select 确实减少了盲猜。
+- Vercel 返回形状确认：`Object.keys(r)=["result"]`、`Object.keys(r.result)=["deployments"]`；上游 structuredContent 包装，不做通用 normalize。
+- 本轮未触发配额。
+
 ### 文档过期
 多次出现"代码已改但文档还写旧状态"的情况（SANDBOX-SECURITY 写"真隔离未引入"但实际已引入、CONTEXT-AND-EVAL 写"Code Mode 未做"但实际早做了）。看文档结论时建议对照源码。
 
@@ -172,5 +185,5 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 ---
 
 ## 最后
-这份文档写于 2026-11-22，当时项目状态：279 项测试全绿，本地/仓库/线上三者同步。
+这份文档写于 2026-11-22，当时项目状态：286 项测试全绿，本地/仓库/线上三者同步。
 它只描述当时看到的事实和判断过程。新窗口请独立判断，包括判断这份文档里哪些已经过期。
