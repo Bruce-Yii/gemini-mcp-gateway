@@ -7,5 +7,6 @@ work/
 .DS_Store
 .vercel
 explore/results/traces/
+explore/results/anomalies/
 explore/results/manifest.json
 explore/results/metrics.json
