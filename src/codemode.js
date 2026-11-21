@@ -49,7 +49,12 @@ const CALLNAME_GUIDANCE = ' Each result carries "callName": pass that exact iden
 // Gemini new feedback #3: a read-only, in-sandbox service status helper. Kept
 // out of the MCP tool schemas on purpose — changing those requires the client
 // to reconnect, whereas a sandbox helper is available immediately.
-const SERVICES_GUIDANCE = ' Use codemode.services() to check connected-service online status (name/toolCount/online/needsReauth); it reads local state only and makes no network call.';
+//
+// Honesty fix: the old wording ("check connected-service online status") made a
+// cold-start snapshot look like a live health check. The guidance now says
+// explicitly that services() is point-in-time evidence, that credentials can
+// expire at any moment, and what to do when the provider rejects a token.
+const SERVICES_GUIDANCE = ' Use codemode.services() for a cold-start snapshot of locally known services (name/toolCount/status/verifiedAt/note); it reads local state only and makes no network call. status is point-in-time evidence ("observed" = mounted with no recorded failure, "offline" = connection failed at cold start), NOT a live health check — credentials can expire at any moment and the legacy `online` flag only means "mounted at cold start". If a tool call returns invalid_token/unauthorized, the upstream needs re-auth; treat that service as stale until it is reconnected.';
 
 /**
  * Guest-side compatibility layer, injected as a single function body prefix.
@@ -708,10 +713,77 @@ function withCallName(entry, formatter, { compact = false } = {}) {
 }
 
 /**
- * Gemini new feedback #3: aggregate local upstream state into a tiny status
- * list. No network calls — reads only getEntries() and failedServers. A server
- * with >=1 entry counts as online; a server in failedServers is offline and
- * gets a needsReauth note (an auth failure is the most common cause).
+ * Conservative freshness window (1 hour). Used ONLY when an upstream manager
+ * actually exposes a local observation/expiry timestamp — we never infer
+ * freshness from "has entries", because a token can expire at any moment.
+ */
+const SERVICE_FRESHNESS_WINDOW_MS = 60 * 60 * 1000;
+
+/**
+ * Best-effort, zero-network read of local freshness evidence for one server.
+ * The real UpstreamManager exposes no observation/expiry timestamp today, so
+ * every source here is an OPTIONAL seam: missing or unreadable values return
+ * null and the caller falls back to the honest "observed" status. Never reads
+ * the auth store, never performs I/O, never throws at the caller.
+ *
+ * @returns {{observedAtMs: number|null, expiresAtMs: number|null}|null}
+ */
+function readServiceFreshness(upstreamManager, name) {
+  if (!upstreamManager || typeof upstreamManager !== 'object') return null;
+  const toMs = (v) => {
+    if (typeof v === 'number' && Number.isFinite(v) && v > 0) {
+      // Accept unix seconds (10 digits) or milliseconds (13 digits).
+      return v < 1e11 ? v * 1000 : v;
+    }
+    if (typeof v === 'string') {
+      const t = Date.parse(v);
+      return Number.isFinite(t) ? t : null;
+    }
+    return null;
+  };
+  let observedAtMs = null;
+  for (const candidate of [
+    upstreamManager.lastConnectAtByServer?.[name],
+    upstreamManager.connectedAtByServer?.[name],
+    upstreamManager.lastConnectAt,
+    upstreamManager.connectedAt,
+    upstreamManager.coldStartAt,
+  ]) {
+    observedAtMs = toMs(candidate);
+    if (observedAtMs != null) break;
+  }
+  let expiresAtMs = null;
+  try {
+    if (typeof upstreamManager.getTokenExpiresAt === 'function') {
+      expiresAtMs = toMs(upstreamManager.getTokenExpiresAt(name));
+    }
+  } catch (_) { /* an optional seam must never break the snapshot */ }
+  if (expiresAtMs == null) {
+    const map = upstreamManager.tokenExpiresAt ?? upstreamManager.serverTokenExpiry;
+    if (map && typeof map === 'object') expiresAtMs = toMs(map[name]);
+  }
+  if (observedAtMs == null && expiresAtMs == null) return null;
+  return { observedAtMs, expiresAtMs };
+}
+
+/**
+ * Honest, time-aware view of locally known services. Zero network calls: only
+ * getEntries()/failedServers and optional local timestamps are read.
+ *
+ * A mounted upstream has NO live liveness signal here — its token can expire a
+ * minute after cold start. So the default is the conservative downgrade:
+ *   - status "observed"  = mounted at cold start, no recorded failure, NOT
+ *                          live-verified (never "healthy" without evidence);
+ *   - status "offline"   = present in failedServers;
+ *   - every service carries `verifiedAt` (when the snapshot was produced) and
+ *     a `note` stating it is a cold-start snapshot, not a live health check.
+ * "healthy"/"stale" are emitted only when real local evidence exists, and even
+ * then the note keeps the snapshot caveat. Claiming "healthy" from "has
+ * entries" alone is exactly the false sense of security this fix removes.
+ *
+ * `online`/`needsReauth` are retained as legacy compatibility fields only:
+ * `online:true` means "mounted at cold start with no recorded failure", never
+ * "verified working now". status/verifiedAt/note are the authoritative fields.
  */
 export function servicesSnapshot(upstreamManager) {
   const rawEntries = upstreamManager?.getEntries?.();
@@ -725,18 +797,49 @@ export function servicesSnapshot(upstreamManager) {
     if (!name) continue;
     byServer.set(name, (byServer.get(name) ?? 0) + 1);
   }
-  const note = '连接失败，可能是 token 失效 / 需要重新授权';
+  const now = Date.now();
+  const snapshotAt = new Date(now).toISOString();
+  const observedNote = `Observed at cold-start snapshot ${snapshotAt}; not live-verified. Mounted with no recorded failure only — the credential can expire at any time; if a tool call returns invalid_token/unauthorized the upstream needs re-auth.`;
+  const offlineNote = `Observed at cold-start snapshot ${snapshotAt}; connection failed — token may have expired / needs re-auth. Not live-verified.`;
+  const reauthNote = '连接失败，可能是 token 失效 / 需要重新授权'; // legacy field, kept verbatim
   const services = [];
   for (const [name, toolCount] of byServer) {
-    const offline = failedSet.has(name);
-    const svc = { name, toolCount, online: toolCount > 0 && !offline };
-    if (offline) { svc.needsReauth = note; }
-    services.push(svc);
+    if (failedSet.has(name)) {
+      services.push({
+        name, toolCount, status: 'offline', verifiedAt: snapshotAt,
+        note: offlineNote, online: false, needsReauth: reauthNote,
+      });
+      continue;
+    }
+    const evidence = readServiceFreshness(upstreamManager, name);
+    if (!evidence) {
+      // Honest downgrade: no expiry/observation data -> "observed", not "healthy".
+      services.push({
+        name, toolCount, status: 'observed', verifiedAt: snapshotAt,
+        note: observedNote, online: true,
+      });
+      continue;
+    }
+    const observedAtMs = evidence.observedAtMs ?? now;
+    const expiresAtMs = evidence.expiresAtMs;
+    const nearExpiry = expiresAtMs != null && expiresAtMs - now <= SERVICE_FRESHNESS_WINDOW_MS;
+    const oldObservation = now - observedAtMs > SERVICE_FRESHNESS_WINDOW_MS;
+    const verifiedAt = new Date(observedAtMs).toISOString();
+    services.push({
+      name, toolCount,
+      status: (nearExpiry || oldObservation) ? 'stale' : 'healthy',
+      verifiedAt,
+      note: `Local snapshot observed at ${verifiedAt}${expiresAtMs != null ? `; credential expires ${new Date(expiresAtMs).toISOString()}` : ''}; not a live health check — invalid_token/unauthorized means the upstream needs re-auth.`,
+      online: true,
+    });
   }
   // A server that failed before exposing any tool must still show up as offline.
   for (const name of failedSet) {
     if (!byServer.has(name)) {
-      services.push({ name, toolCount: 0, online: false, needsReauth: note });
+      services.push({
+        name, toolCount: 0, status: 'offline', verifiedAt: snapshotAt,
+        note: offlineNote, online: false, needsReauth: reauthNote,
+      });
     }
   }
   services.sort((a, b) => String(a.name).localeCompare(String(b.name)));

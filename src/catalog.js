@@ -27,10 +27,39 @@ export function tokenize(text) {
   return tokens;
 }
 
+/**
+ * Tokenize an identifier-rich field (server / tool / name) into both whole
+ * identifiers and their word parts. Natural-language queries ("create a
+ * branch") can then match `create_branch` on the name itself instead of
+ * piggybacking on a long, noisy description. `tokenize` is intentionally left
+ * unchanged so its public contract stays intact.
+ */
+export function tokenizeIdentifier(text) {
+  if (typeof text !== 'string' || text === '') return [];
+  const tokens = [];
+  const lower = text.toLowerCase();
+  for (const part of lower.split(/[^a-z0-9_\u3400-\u9fff]+/u)) {
+    if (part === '') continue;
+    if (CJK.test(part)) {
+      tokens.push(...tokenize(part));
+      continue;
+    }
+    tokens.push(part); // whole identifier: keeps "select:server__tool" style queries working
+    for (const word of part.split(/[_\-]+/)) {
+      if (word.length >= 2) tokens.push(word);
+    }
+  }
+  return tokens;
+}
+
 function termFreq(tokens) {
   const tf = new Map();
   for (const token of tokens) tf.set(token, (tf.get(token) ?? 0) + 1);
   return tf;
+}
+
+function normalizeServer(value) {
+  return typeof value === 'string' && value.trim() ? value.trim().toLowerCase() : null;
 }
 
 /**
@@ -39,14 +68,19 @@ function termFreq(tokens) {
  */
 export function buildIndex(entries) {
   const docs = entries.map((entry) => {
-    const nameTokens = tokenize(`${entry.server} ${entry.tool} ${entry.name}`);
+    const nameTokens = [...new Set(tokenizeIdentifier(`${entry.server} ${entry.tool} ${entry.name}`))];
     const descTokens = tokenize(entry.description ?? '');
+    const identParts = new Set(nameTokens.filter((token) => !token.includes('__')));
     return {
       entry,
+      // Main scoring signal: server + tool + name, split into identifier parts.
       nameTf: termFreq(nameTokens),
+      // Held separate on purpose: description only feeds a capped tie-break.
       descTf: termFreq(descTokens),
+      descBigrams: bigrams(descTokens),
       nameLen: nameTokens.length,
       descLen: descTokens.length,
+      identParts,
       haystackName: `${entry.name} ${entry.tool} ${entry.server}`.toLowerCase(),
       haystackDesc: (entry.description ?? '').toLowerCase(),
     };
@@ -130,23 +164,70 @@ function sortByName(a, b) {
   return a.entry.name.localeCompare(b.entry.name);
 }
 
+// Scoring constants. The main signal is the name/identifier field; description
+// is confined to a small CAPPED tie-break (term score and total are both
+// bounded, so a long description cannot accumulate its way to the top).
+const NAME_WEIGHT = 6;           // BM25 over server/tool/name identifier parts
+const EXACT_NAME_BONUS = 50;     // query equals name or tool literally
+const SUBSTRING_NAME_BONUS = 25; // query is contained in name or tool
+const IDENT_TOKEN_BONUS = 6;     // query token equals an identifier word part
+const IDENT_PARTIAL_BONUS = 2;   // query token is a prefix/substring of a part
+const DESC_PER_TERM_CAP = 0.5;   // max description contribution of one term
+const DESC_TIE_CAP = 10;         // total description ceiling (tie-break only)
+const PHRASE_BONUS = 2;          // reward multi-word description overlap, not word count
+const PHRASE_CAP = 12;
+const STRONG_MATCH_SCORE = 30;   // exact/substring hits are exempt from the diversity cap
+const DIVERSITY_CAP = 2;         // max results per server when no server filter is known
+
+// Function words add noise to lexical matching ("list the issues" == "list issues").
+const STOPWORDS = new Set([
+  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'in', 'on', 'at', 'to', 'of',
+  'for', 'with', 'and', 'or', 'this', 'that', 'it', 'please', 'can', 'you',
+  'i', 'my', 'by', 'from', 'as', 'be', 'do', 'does', 'did', 'have', 'has',
+  'will', 'would', 'should', 'using', 'use',
+]);
+
+function contentTokens(tokens) {
+  return tokens.filter((token) => !STOPWORDS.has(token));
+}
+
+function bigrams(tokens) {
+  const result = new Set();
+  for (let i = 0; i + 1 < tokens.length; i++) result.add(`${tokens[i]} ${tokens[i + 1]}`);
+  return result;
+}
+
 /**
  * Search the catalog.
+ *
+ * Ranking is structured in three layers:
+ *   1. service attribution — `options.server`, `+server`, or a server token in
+ *      the query becomes a hard filter, so same-named tools from other
+ *      services cannot compete;
+ *   2. name/identifier matching — BM25 over split identifiers plus explicit
+ *      exact/substring bonuses. Descriptions never accumulate score here;
+ *   3. diversity — with no service attribution, cap each server's share of the
+ *      top results so one large service (e.g. 273 Vercel tools) cannot crowd
+ *      out the others. Strong exact matches are never demoted by this cap.
+ *
  * @param {{server: string, tool: string, name: string, description?: string, inputSchema?: object}[]} entries
  * @param {string} rawQuery
- * @param {{limit?: number, maxLimit?: number}} [options]
+ * @param {{limit?: number, maxLimit?: number, server?: string, diversityCap?: number}} [options]
  * @returns {{matches: object[], total: number, hint?: string}}
  */
 export function searchEntries(entries, rawQuery, options = {}) {
   const limit = Math.max(1, Math.min(options.limit ?? 5, options.maxLimit ?? 10));
   const query = parseQuery(rawQuery);
+  const explicitServer = normalizeServer(options.server);
 
   if (query.kind === 'select') {
     const matched = [];
     const seen = new Set();
     for (const name of query.names) {
       const exact = entries.find(
-        (entry) => entry.name.toLowerCase() === name.toLowerCase() || entry.tool.toLowerCase() === name.toLowerCase(),
+        (entry) =>
+          (!explicitServer || String(entry.server).toLowerCase() === explicitServer) &&
+          (entry.name.toLowerCase() === name.toLowerCase() || entry.tool.toLowerCase() === name.toLowerCase()),
       );
       if (exact && !seen.has(exact.name)) {
         seen.add(exact.name);
@@ -161,42 +242,91 @@ export function searchEntries(entries, rawQuery, options = {}) {
   }
 
   const index = buildIndex(entries);
-  let serverFilter = query.server;
+  let serverFilter = explicitServer ?? query.server;
   const haystack = query.query.toLowerCase();
   const queryTokens = tokenize(query.query);
   const scored = [];
 
-  // Detect an explicit service prefix anywhere in the query (e.g. "vercel list
-  // deployments"). When present, restrict to that server — otherwise generic
-  // verbs like "create/update/delete" in other servers' long descriptions
-  // dominate the ranking (the reported search-precision bug).
+  // Detect a service name anywhere in the query (e.g. "create a notion page").
+  // Preserves the original auto-filter behaviour; an explicit option wins.
   const servers = new Set(entries.map((e) => String(e.server).toLowerCase()));
   for (const tok of queryTokens) {
     if (servers.has(tok) && !serverFilter) serverFilter = tok;
   }
 
+  const normalizedQuery = query.query.trim().toLowerCase();
+  const scoringTokens = contentTokens(queryTokens);
+  const queryBigrams = bigrams(scoringTokens);
   for (const doc of index.docs) {
-    if (serverFilter && doc.entry.server.toLowerCase() !== serverFilter) continue;
+    if (serverFilter && String(doc.entry.server).toLowerCase() !== serverFilter) continue;
     let score = 0;
-    for (const token of queryTokens) {
-      const tokenIdf = idf(index, token);
-      // Strongly weight the tool/server name field; description is a weak tie-breaker.
-      score += 8 * bm25(doc.nameTf.get(token) ?? 0, doc.nameLen, index.avgNameLen, tokenIdf);
-      score += 0.5 * bm25(doc.descTf.get(token) ?? 0, doc.descLen, index.avgDescLen, tokenIdf);
+    for (const token of scoringTokens) {
+      score += NAME_WEIGHT * bm25(doc.nameTf.get(token) ?? 0, doc.nameLen, index.avgNameLen, idf(index, token));
     }
     if (query.query === '') {
       score = 1;
     } else {
+      const nameLower = doc.entry.name.toLowerCase();
+      const toolLower = String(doc.entry.tool ?? '').toLowerCase();
+      if (normalizedQuery && (nameLower === normalizedQuery || toolLower === normalizedQuery)) {
+        score += EXACT_NAME_BONUS;
+      } else if (normalizedQuery.length >= 3 && (nameLower.includes(normalizedQuery) || toolLower.includes(normalizedQuery))) {
+        score += SUBSTRING_NAME_BONUS;
+      }
       if (doc.haystackName.includes(haystack)) score += 12;
-      // Exact tool-name token matches get a large boost.
-      const toolTokens = tokenize(doc.entry.tool ?? '');
-      for (const tok of queryTokens) if (toolTokens.includes(tok)) score += 4;
+      for (const tok of scoringTokens) {
+        if (doc.identParts.has(tok)) {
+          score += IDENT_TOKEN_BONUS;
+        } else if (tok.length >= 3) {
+          for (const part of doc.identParts) {
+            if (part.length >= 3 && (part.startsWith(tok) || part.includes(tok))) {
+              score += IDENT_PARTIAL_BONUS;
+              break;
+            }
+          }
+        }
+      }
+      // Description is a capped tie-break, never the main ranking signal:
+      // each term contributes at most DESC_PER_TERM_CAP, the total at most
+      // DESC_TIE_CAP, and multi-word overlap is rewarded so a long description
+      // cannot win by piling up unrelated single words.
+      let descScore = 0;
+      for (const tok of scoringTokens) {
+        descScore += Math.min(
+          DESC_PER_TERM_CAP * bm25(doc.descTf.get(tok) ?? 0, doc.descLen, index.avgDescLen, idf(index, tok)),
+          DESC_PER_TERM_CAP,
+        );
+      }
+      score += Math.min(descScore, DESC_TIE_CAP);
+      let phraseScore = 0;
+      for (const phrase of queryBigrams) if (doc.descBigrams.has(phrase)) phraseScore += PHRASE_BONUS;
+      score += Math.min(phraseScore, PHRASE_CAP);
     }
     if (score > 0) scored.push({ ...doc.entry, score: Number(score.toFixed(4)) });
   }
 
   scored.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
-  const matches = scored.slice(0, limit);
+  let pool = scored;
+  // Diversity applies only when no service attribution is known, to real
+  // keyword searches, and only when more than one service actually matched.
+  if (!serverFilter && query.query !== '' && scored.length > 0) {
+    const presentServers = new Set(scored.map((s) => String(s.server).toLowerCase()));
+    if (presentServers.size > 1) {
+      const cap = Math.max(1, Math.min(options.diversityCap ?? DIVERSITY_CAP, limit));
+      const perServer = new Map();
+      const picked = [];
+      for (const item of scored) {
+        const server = String(item.server).toLowerCase();
+        const used = perServer.get(server) ?? 0;
+        if (used >= cap && item.score < STRONG_MATCH_SCORE) continue;
+        perServer.set(server, used + 1);
+        picked.push(item);
+        if (picked.length >= limit) break;
+      }
+      pool = picked;
+    }
+  }
+  const matches = pool.slice(0, limit);
   let hint;
   if (matches.length === 0) {
     hint =
