@@ -126,27 +126,39 @@ test('search-rework⑤: select: 精确名仍排第一且保持 1000 分与接口
   assert.match(missing.hint, /No exact name matched/);
 });
 
-// ---------- offline recall guard (real dataset, disposable measurement) ----------
+// ---------- offline recall guard (real dataset, production catalog) ----------
 
-test('search-rework: 离线 191 任务工具召回率不低于重构基线', () => {
+test('search-rework: 离线工具召回率不低于基线（只测线上实际暴露的工具）', () => {
   const here = path.dirname(fileURLToPath(import.meta.url));
   const root = path.resolve(here, '..');
   const tasks = JSON.parse(readFileSync(path.join(root, 'explore', 'tasks-v2.json'), 'utf8')).tasks;
-  const tools = JSON.parse(readFileSync(path.join(root, 'data', 'tool-dataset.json'), 'utf8'));
-  const nameMatches = (actual, expected) => {
-    const a = String(actual ?? '').toLowerCase();
-    const e = String(expected ?? '').toLowerCase();
-    return a === e || a.includes('__' + e) || a.includes(e);
-  };
+  const allTools = JSON.parse(readFileSync(path.join(root, 'data', 'tool-dataset.json'), 'utf8'));
+  const config = JSON.parse(readFileSync(path.join(root, 'config.example.json'), 'utf8'));
+
+  // Production catalog = dataset minus the deny lists. The old guard indexed all
+  // 456 dataset tools (including the 265 denied ones), so it counted results the
+  // gateway can never expose: top1 52.9% / top5 68.6%. On the real catalog the
+  // same queries score top1 56.5% / top5 72.3%.
+  const denyByServer = new Map((config.servers ?? []).map((s) => [s.name, new Set(s.denyTools ?? [])]));
+  const enabled = allTools.filter((t) => !denyByServer.get(t.server)?.has(t.tool));
+  assert.ok(enabled.length > 0 && enabled.length < allTools.length, '生产目录应是非空且经过 deny 过滤的子集');
+  const enabledNames = new Set(enabled.map((t) => t.name));
+
+  const matchesTarget = (entryName, tool) =>
+    String(entryName).toLowerCase().endsWith(`__${String(tool).toLowerCase()}`);
+
   let top1 = 0;
   let top5 = 0;
   for (const task of tasks) {
-    const names = searchEntries(tools, task.prompt, { limit: 5 }).matches.map((m) => m.name);
-    const rank = names.findIndex((name) => nameMatches(name, task.tool));
+    const names = searchEntries(enabled, task.prompt, { limit: 5 }).matches.map((m) => m.name);
+    const rank = names.findIndex((name) => matchesTarget(name, task.tool));
     if (rank === 0) top1++;
     if (rank >= 0) top5++;
+    // Denied tools must never leak into the production search path.
+    assert.ok(names.every((name) => enabledNames.has(name)), `denied tool leaked into results for "${task.prompt}"`);
   }
-  // 基线（重构前）为 top1 48.2% / top5 60.2%；阈值留有余量以容忍无关改动。
-  assert.ok(top1 / tasks.length >= 0.50, `top1 召回率 ${(top1 / tasks.length * 100).toFixed(1)}% 低于 50%`);
-  assert.ok(top5 / tasks.length >= 0.63, `top5 召回率 ${(top5 / tasks.length * 100).toFixed(1)}% 低于 63%`);
+  // Baseline on the production catalog (2026-11-22): 56.5% / 72.3%.
+  // Thresholds keep ~2.5 points of headroom against unrelated refactors.
+  assert.ok(top1 / tasks.length >= 0.54, `top1 召回率 ${(top1 / tasks.length * 100).toFixed(1)}% 低于 54%`);
+  assert.ok(top5 / tasks.length >= 0.69, `top5 召回率 ${(top5 / tasks.length * 100).toFixed(1)}% 低于 69%`);
 });
