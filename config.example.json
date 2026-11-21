@@ -232,6 +232,7 @@
         "complete_rolling_release",
         "start_rolling_release",
         "create_git_project",
+        "create_project",
         "update_project",
         "pause_project",
         "unpause_project",

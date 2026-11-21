@@ -155,6 +155,15 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 
 为跑真实写操作测试，`config.example.json` 的 Vercel deny 列表临时移除 `create_project`（213→212），测试结束后撤回；其余 Vercel 写工具仍禁用。GitHub / Notion / Linear 的写工具本来就在启用列表里，测试会在对应服务里留下 `mcp-probe-20261122` 这类测试资源，用户已同意。
 
+### 2026-11-22 写操作探针（真实写，用户授权）
+
+- **GitHub**：`create_repository`（`mcp-probe-20261122`，私有）→ `create_or_update_file`（README，commit d503517）→ `issue_write` create（#1）→ `add_issue_comment`（7068123308）→ `issue_write` update（closed）。5 步全部成功。
+- **Linear**：`list_teams`（选中「垃圾堆」LAJI）→ `save_issue`（**LAJI-36**）→ `save_comment` → `save_issue` 更新描述。全部成功。
+- **Vercel**：临时放行 `create_project` 后成功创建 `mcp-probe-20261122`（`prj_UNPvlONqgCLBdHiXJJd0S75F2Ggn`）；测试后已恢复 deny（213）。
+- **关键观察**：10 个上游写操作只用了 **2 次 `execute`**（模型把每个服务的写步骤批量塞进一次 execute）。所以 Gemini 的确认粒度是"一次 execute 工具调用"，不是"每个上游写操作"——一次确认会放行一批写操作。这是 Code Mode 的固有权衡，用户侧若要逐动作审批需要另做机制。
+- **Notion 写测试**（建页→追加→评论→回收站）**未回报**，待补。
+- 遗留测试数据：GitHub 仓库 `Bruce-Yii/mcp-probe-20261122`（issue #1 已关闭）、Linear `LAJI-36`、Vercel 项目 `mcp-probe-20261122`（MCP 无删除工具，需面板删）。
+
 ### 文档过期
 多次出现"代码已改但文档还写旧状态"的情况（SANDBOX-SECURITY 写"真隔离未引入"但实际已引入、CONTEXT-AND-EVAL 写"Code Mode 未做"但实际早做了）。看文档结论时建议对照源码。
 
