@@ -1,6 +1,6 @@
 # gemini-mcp-gateway
 
-标准远程 MCP 网关：**核心目的是省上下文**——把 4 个上游 MCP 的 456 个工具定义（约 217,601 tokens）压成固定的 3 个 Code Mode 工具（约 1,216 tokens，省 99.4%），供 Gemini 网页版自定义连接器使用。详见 `docs/WHY.md`。
+标准远程 MCP 网关：**核心目的是省上下文**——把 4 个上游 MCP 的 456 个工具定义（约 217,601 tokens）压成固定的 3 个 Code Mode 工具（约 1,286 tokens，省 99.4%），供 Gemini 网页版自定义连接器使用。详见 `docs/WHY.md`。
 
 模型先 `search` 找到工具，再写一段 JS 用 `execute_read` / `execute` 在沙箱里编排上游工具；只有脚本的 `return` 值进入对话上下文。上游工具本身仍在网关内可调用（当前配置启用 191 个），只是定义不常驻上下文。
 
@@ -11,7 +11,7 @@
 - [x] OAuth 2.1 DCR + PKCE + Vercel 部署，线上全链路验证通过（6 redirect URI / PKCE / state / token / MCP 握手）
 - [x] 四个上游接入：GitHub / Notion / Linear / Vercel（refresh token 轮换 + 失效自愈）
 - [x] Code Mode 沙箱：Vercel `run` SDK（QuickJS + worker thread）真隔离，有逃逸回归测试
-- [x] 上下文节省实测（`scripts/measure-context.mjs`：217,601 → 1,216 tokens，-99.4%）
+- [x] 上下文节省实测（`scripts/measure-context.mjs`：217,601 → 1,286 tokens，-99.4%）
 - [x] 在 Gemini 网页版实际连接并用真实任务反馈迭代（见 `docs/GEMINI-REAL-TASK-FEEDBACK.md`）
 - [x] 部署校验：`GET /healthz` 返回 commit / buildHash / mode / servers；本地用 `node scripts/write-build-info.mjs --print` 对照 buildHash
 

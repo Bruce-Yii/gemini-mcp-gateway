@@ -4,7 +4,7 @@
 
 **省上下文。** 工具定义（name + description + inputSchema）是常驻占用模型上下文的。在 Gemini 里直连 GitHub、Notion、Linear、Vercel 四个官方 MCP，会把 456 个工具的完整 schema 一次性塞进上下文，约 **217,601 tokens**——挤掉对话历史、文档内容和推理空间。
 
-网关只暴露 3 个固定的 Code Mode 工具（`search` / `execute_read` / `execute`），约 **1,216 tokens**，**省 99.4%**。上游工具的定义不进上下文；需要时模型先用 `search` 按需发现，再在沙箱里调用。
+网关只暴露 3 个固定的 Code Mode 工具（`search` / `execute_read` / `execute`），约 **1,286 tokens**，**省 99.4%**。上游工具的定义不进上下文；需要时模型先用 `search` 按需发现，再在沙箱里调用。
 
 ## 实测数据
 
@@ -13,7 +13,7 @@
 | | 工具数 | 定义大小 | 约 tokens |
 |---|---|---|---|
 | 直连 4 个 MCP（全量） | 456 | 870,402 B | ~217,601 |
-| 本网关（Code Mode 工具面） | 3 | 4,864 B | ~1,216 |
+| 本网关（Code Mode 工具面） | 3 | 5,142 B | ~1,286 |
 | **节省** | | | **99.4%** |
 
 上游工具分布：GitHub 46 / Notion 77 / Linear 60 / Vercel 273。当前配置 deny 后启用 **191** 个（GitHub 42 / Notion 53 / Linear 36 / Vercel 60），它们可在沙箱内调用，但定义不进上下文。
