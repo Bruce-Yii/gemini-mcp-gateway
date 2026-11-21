@@ -116,6 +116,10 @@ test('write-build-info --print is deterministic and does not modify the checkout
   const second = run();
   assert.equal(first.buildHash, second.buildHash);
   assert.match(first.buildHash, /^[0-9a-f]{40}$/);
+  assert.match(first.pathHash, /^[0-9a-f]{40}$/);
+  assert.ok(Array.isArray(first.files) && first.files.length > 10);
+  assert.ok(first.files.includes('src/vercel-app.js'));
+  assert.ok(!first.files.includes('src/build-info.js'), 'the generated file must not hash itself');
   assert.equal(typeof first.commit, 'string');
   assert.ok(first.commit.length > 0);
   assert.ok(!Number.isNaN(Date.parse(first.builtAt)));

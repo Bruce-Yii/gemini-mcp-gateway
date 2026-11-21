@@ -167,6 +167,8 @@ export function createAppHandler(options = {}) {
       ok: true,
       commit: process.env.VERCEL_GIT_COMMIT_SHA || BUILD.commit,
       buildHash: BUILD.buildHash,
+      buildPathHash: BUILD.pathHash ?? null,
+      buildFiles: BUILD.files ?? null,
       builtAt: BUILD.builtAt,
       env: process.env.VERCEL_ENV || 'development',
       deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null,
