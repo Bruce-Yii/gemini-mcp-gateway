@@ -24,6 +24,34 @@ function messageOf(err) {
   return err instanceof Error ? err.message : String(err);
 }
 
+/** True when an upstream rejected our credentials (HTTP 401 / invalid_token).
+ * The MCP SDK surfaces provider errors in different places (message, status,
+ * response, cause), so inspect them all. Deliberately strict: a generic failure
+ * must NOT trigger a refresh — only a provider-side auth rejection may. */
+function isAuthError(err) {
+  if (!err) return false;
+  const seen = new Set();
+  const parts = [];
+  const walk = (e, depth) => {
+    if (!e || depth > 4 || seen.has(e)) return;
+    if (typeof e !== 'object') { parts.push(messageOf(e)); return; }
+    seen.add(e);
+    parts.push(messageOf(e));
+    for (const key of ['status', 'statusCode', 'code']) {
+      if (e[key] === 401) parts.push('401');
+    }
+    if (typeof e.error === 'string') parts.push(e.error);
+    if (e.response && typeof e.response === 'object') {
+      if (e.response.status === 401 || e.response.statusCode === 401) parts.push('401');
+      if (typeof e.response.error === 'string') parts.push(e.response.error);
+    }
+    if (e.data && typeof e.data === 'object') walk(e.data, depth + 1);
+    if (e.cause) walk(e.cause, depth + 1);
+  };
+  walk(err, 0);
+  return parts.some((p) => /\b401\b|invalid_token|invalid access token|unauthorized/i.test(p));
+}
+
 /** Wrap any failure with the upstream name so logs point at the right server. */
 function upstreamError(name, action, err) {
   const error = new Error(`[upstream:${name}] ${action}: ${messageOf(err)}`);
@@ -44,23 +72,26 @@ export class UpstreamManager {
     this._clients = new Map();
     this._closed = new Set();
     this._auth = options.auth ?? new UpstreamAuth();
+    // Test seam: inject a fake MCP client without touching the real SDK.
+    this._clientFactory = options.clientFactory ?? (() => new Client(CLIENT_INFO));
   }
 
-  async _resolveToken(config) {
+  async _resolveToken(config, { force = false } = {}) {
     if (!config.tokenEnv) return undefined;
     const envToken = process.env[config.tokenEnv];
     if (!PROVIDER_REFRESH_SERVERS.has(config.name)) return envToken; // long-lived token
-    // Notion/Linear: go through the refresh-aware lifecycle.
+    // Notion/Linear: go through the refresh-aware lifecycle. `force` is set only
+    // after the provider itself rejected the token with 401/invalid_token.
     return this._auth.getAccessToken(config.name, {
       envToken,
       envRefresh: config.refreshEnv ? process.env[config.refreshEnv] : undefined,
       envClientId: config.clientIdEnv ? process.env[config.clientIdEnv] : undefined,
       envExpiresIn: config.expiresInEnv ? Number(process.env[config.expiresInEnv]) : undefined,
       envObtainedAt: config.obtainedAtEnv ? Number(process.env[config.obtainedAtEnv]) : undefined,
-    });
+    }, { force });
   }
 
-  async _createTransport(config) {
+  async _createTransport(config, tokenOverride) {
     if (config.transport === 'stdio') {
       if (!config.command) throw new Error('stdio 上游缺少 command');
       const params = { command: config.command, args: config.args ?? [] };
@@ -75,7 +106,9 @@ export class UpstreamManager {
       // secret never lands in config files, git, or logs. For Notion/Linear the
       // token goes through the auto-refresh lifecycle before being used.
       if (config.tokenEnv) {
-        const token = await this._resolveToken(config);
+        // On an auth-retry we already forced a fresh token; do not resolve
+        // (and possibly refresh) a second time for the same reconnect.
+        const token = tokenOverride !== undefined ? tokenOverride : await this._resolveToken(config);
         if (!token) {
           throw new Error(`http 上游环境变量 ${config.tokenEnv} 未设置`);
         }
@@ -101,14 +134,41 @@ export class UpstreamManager {
       let client;
       let transport;
       try {
-        transport = await this._createTransport(config);
-        client = new Client(CLIENT_INFO);
-        await client.connect(transport);
+        const establish = async (tokenOverride) => {
+          transport = await this._createTransport(config, tokenOverride);
+          client = this._clientFactory();
+          await client.connect(transport);
+          const { tools } = await client.listTools();
+          return tools ?? [];
+        };
 
-        const { tools } = await client.listTools();
+        let tools;
+        try {
+          tools = await establish();
+        } catch (err) {
+          // A 401/invalid_token is the provider telling us our locally "fresh"
+          // token is actually dead. This feedback loop is the only reliable
+          // liveness signal — local expiry timestamps cannot be trusted. Force
+          // exactly one refresh (through UpstreamAuth's lock/CAS/needsReauth
+          // guards) and reconnect exactly once. invalid_grant / other errors
+          // never take this path, so a dead grant cannot be burned by retries.
+          if (!isAuthError(err) || !PROVIDER_REFRESH_SERVERS.has(name)) throw err;
+          console.error(`[upstreams] ${name} 上游拒绝 token (401/invalid_token)，强制刷新一次并重连`);
+          try {
+            if (client) await client.close();
+            else if (transport) await transport.close();
+          } catch {
+            // Ignore cleanup failures; the refresh/reconnect result is what matters.
+          }
+          client = undefined;
+          transport = undefined;
+          const freshToken = await this._resolveToken(config, { force: true });
+          tools = await establish(freshToken); // second (and final) attempt
+        }
+
         this._clients.set(name, { client, transport, config });
 
-        for (const tool of tools ?? []) {
+        for (const tool of tools) {
           // Some upstreams already prefix their tool names with the server name
           // (e.g. a fake fixture exposing `github__get_file_contents`). Do not
           // stack a second prefix — that would produce `github__github__...`.

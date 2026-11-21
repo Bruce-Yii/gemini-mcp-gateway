@@ -23,6 +23,7 @@
       "refreshEnv": "NOTION_REFRESH_TOKEN",
       "clientIdEnv": "NOTION_CLIENT_ID",
       "expiresInEnv": "NOTION_EXPIRES_IN",
+      "obtainedAtEnv": "NOTION_OBTAINED_AT",
       "allowTools": [],
       "denyTools": [
         "notion-search-agents",
@@ -59,6 +60,7 @@
       "refreshEnv": "LINEAR_REFRESH_TOKEN",
       "clientIdEnv": "LINEAR_CLIENT_ID",
       "expiresInEnv": "LINEAR_EXPIRES_IN",
+      "obtainedAtEnv": "LINEAR_OBTAINED_AT",
       "allowTools": [],
       "denyTools": [
         "prepare_attachment_upload",

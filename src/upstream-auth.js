@@ -136,7 +136,7 @@ export class UpstreamAuth {
     return next;
   }
 
-  async getAccessToken(server, { envToken, envRefresh, envClientId, envExpiresIn, envObtainedAt } = {}) {
+  async getAccessToken(server, { envToken, envRefresh, envClientId, envExpiresIn, envObtainedAt } = {}, { force = false } = {}) {
     const provider = PROVIDERS[server];
     if (!provider) return envToken; // GitHub/Vercel use long-lived tokens; no refresh.
 
@@ -148,9 +148,14 @@ export class UpstreamAuth {
     if (envToken && envRefresh && envClientId && rec?.envSeed !== envToken) {
       const expiresIn = Number(envExpiresIn ?? 0);
       const obtained = Number(envObtainedAt ?? 0);
+      // Use the REAL authorization time when available. Never pretend an
+      // env-injected token was just issued (`Date.now() + expiresIn`) — that
+      // fakes a future expiry for an already-dead token and silently disables
+      // the time-based refresh trigger. When the authorization time is unknown,
+      // record 0 (unknown) instead of inventing a deadline.
       const expiresAt = obtained > 0 && expiresIn > 0
         ? obtained + expiresIn * 1000
-        : (expiresIn > 0 ? Date.now() + expiresIn * 1000 : 0);
+        : 0;
       rec = {
         access_token: envToken,
         refresh_token: envRefresh,
@@ -180,7 +185,11 @@ export class UpstreamAuth {
     const nearExpiry = exp > 0 && exp - REFRESH_SKEW_MS <= now;
     // A freshly bootstrapped token is treated as stale on first use: env-injected
     // tokens may already be expired, so verify by refreshing once when possible.
-    const shouldRefresh = nearExpiry || rec.bootstrapped === true;
+    // `force` comes from an upstream 401/invalid_token: the provider is the
+    // authority on token liveness, so a locally "fresh" timestamp must not stop
+    // us from refreshing. The needsReauth guard above still applies — a dead
+    // grant (invalid_grant) is NEVER retried here, which prevents burning it.
+    const shouldRefresh = force || nearExpiry || rec.bootstrapped === true;
     if (!shouldRefresh) return rec.access_token;
 
     if (!rec.refresh_token) {
@@ -251,12 +260,16 @@ export class UpstreamAuth {
     }
   }
 
-  /** Seed KV with initial tokens from env (used by a one-time setup script). */
-  async seed(server, { accessToken, refreshToken, clientId, expiresIn, expiresAt }) {
-    const now = Date.now();
+  /** Seed KV with initial tokens from env (used by a one-time setup script).
+   *  Callers should pass `obtainedAt` (the provider's real issuance time) or an
+   *  explicit `expiresAt`. Without either we store 0 (unknown) rather than
+   *  `now + expiresIn`, which would disguise an already-expired token as fresh. */
+  async seed(server, { accessToken, refreshToken, clientId, expiresIn, expiresAt, obtainedAt }) {
+    const obtained = Number(obtainedAt ?? 0);
+    const expires = Number(expiresIn ?? 0);
     const resolvedExpiry = Number.isFinite(expiresAt)
       ? expiresAt
-      : (expiresIn > 0 ? now + expiresIn * 1000 : 0);
+      : (obtained > 0 && expires > 0 ? obtained + expires * 1000 : 0);
     await this._save(server, {
       access_token: accessToken,
       refresh_token: refreshToken,

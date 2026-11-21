@@ -39,6 +39,13 @@ const DEFAULT_MAX_LOG_CHARS = 4000; // cap serialized console logs so a chatty s
 // instead of forcing a tool call. Kept as one shared constant to avoid drift.
 const EXEC_BOUNDARY_GUIDANCE = " Boundary: if the task exceeds the available tools' capabilities, requires an external service, or information is insufficient, explicitly state it cannot be done and explain why — do not force tool calls; refuse harmful requests.";
 
+// Gemini feedback #3: upstreams do not share one result shape. One short line
+// nudges the model to defend before field access instead of crashing mid-script.
+const RETURN_SHAPE_GUIDANCE = ' Results differ by service: Notion/Linear mostly return objects, GitHub often JSON text or arrays, Vercel mostly objects — guard with Array.isArray(x) / typeof x === "string" before reading fields; safeAll(tasks) keeps a batch alive when one sub-task fails.';
+
+// Gemini feedback #2: tell the model which identifier is actually callable.
+const CALLNAME_GUIDANCE = ' Each result carries "callName": pass that exact identifier to codemode (the "name" field may contain hyphens — do not copy it literally into codemode["..."]).';
+
 /**
  * Guest-side compatibility layer, injected as a single function body prefix.
  *
@@ -79,6 +86,13 @@ const GUEST_PRELUDE = [
   'const __dshTimerIds = {}; let __dshTimerSeq = 0;',
   'const setTimeout = __dshHide((fn, ms, ...args) => { const id = ++__dshTimerSeq; __dshTimerIds[id] = true; Promise.resolve().then(() => { if (__dshTimerIds[id]) { try { fn(...args); } catch (_) {} } }); return id; });',
   'const clearTimeout = __dshHide((id) => { delete __dshTimerIds[id]; });',
+  // Gemini feedback #3: concurrency helper. One rejected sub-task must not
+  // throw away the whole batch (that used to cost a full retry round). Each
+  // slot is {ok, value}; on failure `value` carries the error text, because
+  // the tool bridge already reifies tool errors as data. Tasks may be promises
+  // or thunks (thunks also catch *synchronous* throws during construction).
+  'const __dshSafeAll = (tasks) => Promise.all((Array.isArray(tasks) ? tasks : []).map((task) => Promise.resolve().then(() => (typeof task === "function" ? task() : task)).then((value) => ({ ok: true, value }), (err) => ({ ok: false, value: err && err.message !== undefined ? String(err.message) : String(err) }))));',
+  'const safeAll = __dshHide(__dshSafeAll); codemode.safeAll = safeAll;',
 ].join('\n');
 const GUEST_PREFIX_LINES = GUEST_PRELUDE.split('\n').length;
 
@@ -460,7 +474,7 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
     search: (query) => {
       const { res, hint } = searchWithFallback(tools, query, 5);
       return {
-        matches: res.matches.map(formatToolSummary),
+        matches: res.matches.map((e) => withCallName(e, formatToolSummary)),
         total: res.total,
         hint,
       };
@@ -511,14 +525,25 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
   // an actionable message — otherwise the model gets a cryptic "not a function"
   // even though search() showed the tool. (Real regression from v2 exploration.)
   const toolLines = [];
+  // Gemini feedback #2: bind every tool under BOTH its sanitized identifier
+  // (underscores) and its original name (may contain hyphens). A model that
+  // copies either the `callName` or the literal `name` from a search hit now
+  // gets a working codemode[…] function instead of "not a function".
+  const bind = (key, invokeExpr) => {
+    toolLines.push(`codemode[${JSON.stringify(key)}] = __dshHide((args) => ${invokeExpr});`);
+  };
   for (const tool of unavailableTools ?? []) {
     const ident = sanitizeToolName(tool.name);
     if (!byIdent.has(ident)) {
-      toolLines.push(`codemode[${JSON.stringify(ident)}] = __dshHide((args) => __dshInvoke("stub", [${JSON.stringify(tool.name)}]));`);
+      const expr = `__dshInvoke("stub", [${JSON.stringify(tool.name)}])`;
+      bind(ident, expr);
+      if (tool.name !== ident) bind(tool.name, expr);
     }
   }
-  for (const ident of byIdent.keys()) {
-    toolLines.push(`codemode[${JSON.stringify(ident)}] = __dshHide((args) => __dshInvoke("tool", [${JSON.stringify(ident)}, args]));`);
+  for (const [ident, tool] of byIdent) {
+    const expr = `__dshInvoke("tool", [${JSON.stringify(ident)}, args])`;
+    bind(ident, expr);
+    if (tool.name !== ident) bind(tool.name, expr);
   }
 
   // Keep the sentinel on prelude line 1 and the model function immediately
@@ -596,15 +621,40 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
 }
 
 /**
+ * Gemini feedback #1: build a tiny "Connected services: ..." suffix from the
+ * ACTUAL upstream entries (deduped by server, sorted for stability). One line,
+ * near-zero tokens, so a cold-starting model already knows what is mounted.
+ */
+function connectedServicesSuffix(entries) {
+  const servers = [...new Set(
+    (Array.isArray(entries) ? entries : [])
+      .map((e) => (e && typeof e.server === 'string' ? e.server : ''))
+      .filter(Boolean),
+  )].sort();
+  return servers.length ? ` Connected services: ${servers.join(', ')}.` : '';
+}
+
+/**
+ * Gemini feedback #2: attach the exact sandbox-callable identifier to a
+ * formatted search hit. Kept here (not in tool-format.js) so the shared format
+ * helpers and their file ownership stay untouched.
+ */
+function withCallName(entry, formatter) {
+  const hit = formatter(entry);
+  return { ...hit, callName: sanitizeToolName(entry.name) };
+}
+
+/**
  * Build the two Code Mode MCP tools bound to an UpstreamManager.
  */
 export function createCodeModeTools(upstreamManager, options = {}) {
   const tools = upstreamManager.getEntries?.() ?? [];
   const sanitized = tools.map((t) => ({ ...t, ident: sanitizeToolName(t.name) }));
+  const servicesSuffix = connectedServicesSuffix(tools);
 
   const searchTool = {
     name: 'search',
-    description: 'Search upstream tools. Two modes: (1) Plain keywords -> a ranked list of matching tools with compact param signatures (name!: required). (2) To see one tool\'s full inputSchema, pass EXACTLY "select:<name>" where <name> is a tool name copied from a search result (e.g. "select:github__issue_write"). Do NOT put task descriptions or phrases after "select:" — only an exact tool name works; for anything else use plain keyword search. Prefix a service name (e.g. "vercel ...") to focus on that service.',
+    description: 'Search upstream tools. Two modes: (1) Plain keywords -> a ranked list of matching tools with compact param signatures (name!: required). (2) To see one tool\'s full inputSchema, pass EXACTLY "select:<name>" where <name> is a tool name copied from a search result (e.g. "select:github__issue_write"). Do NOT put task descriptions or phrases after "select:" — only an exact tool name works; for anything else use plain keyword search. Prefix a service name (e.g. "vercel ...") to focus on that service.' + CALLNAME_GUIDANCE + servicesSuffix,
     inputSchema: {
       type: 'object',
       properties: { query: { type: 'string', description: 'Keywords describing the capability you need' }, limit: { type: 'integer', minimum: 1, maximum: 10 } },
@@ -617,8 +667,9 @@ export function createCodeModeTools(upstreamManager, options = {}) {
       // codemode.search cannot drift apart again. select: still bypasses the
       // fallback and is rendered as a full detail (formatToolDetail).
       const { res, hint, isSelect } = searchWithFallback(tools, args?.query ?? '', limit);
+      const formatter = isSelect ? formatToolDetail : formatToolSummary;
       return {
-        matches: res.matches.map(isSelect ? formatToolDetail : formatToolSummary),
+        matches: res.matches.map((e) => withCallName(e, formatter)),
         total: res.total,
         hint,
       };
@@ -629,7 +680,7 @@ export function createCodeModeTools(upstreamManager, options = {}) {
     name,
     description: (readOnly
       ? 'Write JavaScript to call READ-ONLY upstream tools (get/list/search/query) via codemode.<tool>(args). This tool is annotated read-only so the client may prompt less; it runs the same sandbox as execute(). Only your return value enters the conversation. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'
-      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + EXEC_BOUNDARY_GUIDANCE,
+      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), safeAll(tasks), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
     inputSchema: {
       type: 'object',
       properties: { code: { type: 'string', description: 'An async arrow function that calls codemode tools and returns a result.' } },

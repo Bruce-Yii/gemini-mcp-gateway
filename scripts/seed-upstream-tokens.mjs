@@ -30,6 +30,9 @@ for (const server of ['notion', 'linear']) {
     refreshToken: t.refresh_token,
     clientId: t.client_id,
     expiresIn: Number(t.expires_in ?? 0),
+    // ROOT-CAUSE FIX: use the real authorization timestamp so expires_at is
+    // computed from when the token was actually issued, not from seed time.
+    obtainedAt: t.obtained_at ? Date.parse(t.obtained_at) : undefined,
   });
   console.log(`${server}: seeded (expires_in=${t.expires_in ?? 'n/a'}s)`);
 }
