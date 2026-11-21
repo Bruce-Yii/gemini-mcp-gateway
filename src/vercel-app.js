@@ -14,6 +14,7 @@ import { TokenStore } from './store.js';
 import { createOAuthHandlers, resolveBaseUrl } from './oauth.js';
 import { UpstreamManager } from './upstreams.js';
 import { createMcpRequestHandler } from './server.js';
+import { BUILD } from './build-info.js';
 
 const DEFAULT_CONFIG_PATH = fileURLToPath(new URL('../config.example.json', import.meta.url));
 
@@ -136,6 +137,45 @@ export function createAppHandler(options = {}) {
     );
   }
 
+  /**
+   * Public build/deploy identity. Deliberately does NOT touch the token store or
+   * connect upstreams: it must answer instantly on a cold start and must not
+   * turn a health check into upstream traffic.
+   *
+   * buildHash is computed over the runtime source files by
+   * scripts/write-build-info.mjs at build time, so `node
+   * scripts/write-build-info.mjs --print` on a local checkout can be compared
+   * with this endpoint to prove production runs the same code.
+   */
+  async function healthz(req, res) {
+    let configInfo = { configLoaded: false };
+    try {
+      const config = await loadConfig(options);
+      configInfo = {
+        configLoaded: true,
+        mode: config.mode ?? 'whitelist',
+        servers: (config.servers ?? []).map((server) => server.name),
+      };
+    } catch (error) {
+      configInfo = {
+        configLoaded: false,
+        configError: error instanceof Error ? error.message : String(error),
+      };
+    }
+    const uptimeMs = Math.round(process.uptime() * 1000);
+    sendJson(res, 200, {
+      ok: true,
+      commit: process.env.VERCEL_GIT_COMMIT_SHA || BUILD.commit,
+      buildHash: BUILD.buildHash,
+      builtAt: BUILD.builtAt,
+      env: process.env.VERCEL_ENV || 'development',
+      deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null,
+      bootMs: uptimeMs,
+      startedAt: new Date(Date.now() - uptimeMs).toISOString(),
+      ...configInfo,
+    });
+  }
+
   async function handleMcp(req, res) {
     const metadataUrl = `${resolveBaseUrl(options, req)}/.well-known/oauth-protected-resource`;
     const authorization = typeof req?.headers?.authorization === 'string'
@@ -182,6 +222,9 @@ export function createAppHandler(options = {}) {
         });
       }
 
+      if (method === 'GET' && pathname === '/healthz') {
+        return healthz(req, res);
+      }
       if (method === 'GET' && pathname === '/.well-known/oauth-authorization-server') {
         return oauth.metadata(req, res);
       }
