@@ -55,6 +55,12 @@ export function formatToolDetail(entry) {
  * same shape*: strings end with a `--- TRUNCATED ---` marker, arrays get a
  * trailing marker counting dropped items, and objects drop the largest values
  * and name the omitted keys. The budget is shared by water-filling.
+ *
+ * Every marker also carries a lightweight *structure summary* so the model
+ * knows what was lost without re-fetching blindly: objects list their original
+ * top-level keys, arrays report their original length, and strings report the
+ * total length plus a grepSnippet/text.slice locating hint. The `--- TRUNCATED
+ * ---` token is preserved verbatim so existing assertions keep working.
  * ------------------------------------------------------------------ */
 
 const TRUNC_MARKER = '--- TRUNCATED ---';
@@ -76,9 +82,12 @@ function floorSize(value, maxChars) {
 /** Truncate a plain text response, appending a marker with the original size. */
 export function truncateResponseText(text, { maxChars = 24000 } = {}) {
   if (typeof text !== 'string' || text.length <= maxChars) return text;
+  // Keep `--- TRUNCATED --- <n> chars` verbatim for existing assertions; the
+  // extra sentences are append-only guidance (total length + locating hint).
   const suffix =
-    `\n\n${TRUNC_MARKER} ${text.length.toLocaleString()} chars omitted ` +
-    `(limit ${maxChars.toLocaleString()}). Narrow the request to reduce response size.`;
+    `\n\n${TRUNC_MARKER} ${text.length.toLocaleString()} chars total ` +
+    `(limit ${maxChars.toLocaleString()}). Use grepSnippet/text.slice to locate ` +
+    `a segment, then narrow the request.`;
   let keep = Math.max(0, maxChars - suffix.length);
   let out = text.slice(0, keep) + suffix;
   while (keep > 0 && out.length > maxChars) {
@@ -90,7 +99,11 @@ export function truncateResponseText(text, { maxChars = 24000 } = {}) {
 }
 
 function shrinkString(value, maxChars) {
-  const suffix = ` ${TRUNC_MARKER} ${value.length.toLocaleString()} chars`;
+  // `<n> chars` is the full original length (a locating hint, not a count of
+  // removed bytes) — keep that prefix stable and extend it with guidance.
+  const suffix =
+    ` ${TRUNC_MARKER} ${value.length.toLocaleString()} chars total ` +
+    `(use grepSnippet/text.slice to locate)`;
   let keep = Math.max(0, maxChars - suffix.length - 2);
   let out = value.slice(0, keep) + suffix;
   while (keep > 0 && jsonSize(out) > maxChars) {
@@ -126,13 +139,19 @@ function shrink(value, maxChars) {
 }
 
 function shrinkArray(items, maxChars) {
-  const marker = (dropped) => `${TRUNC_MARKER} ${dropped.toLocaleString()} more items`;
+  const total = items.length;
+  // The marker is always present on a truncated array (even when no element
+  // was dropped but a nested value was shrunk), so the model learns the
+  // original length. `--- TRUNCATED --- <n> more items` is kept verbatim.
+  const marker = (dropped) => dropped > 0
+    ? `${TRUNC_MARKER} ${dropped.toLocaleString()} more items (array length: ${total.toLocaleString()})`
+    : `${TRUNC_MARKER} array length: ${total.toLocaleString()}`;
   const floors = items.map((x) => floorSize(x, maxChars));
   const skeleton = (count) => 2 + Math.max(0, count - 1);
+  const tailCost = (dropped) => jsonSize(marker(dropped)) + 1; // +1 = separator comma
   let keep = items.length;
-  if (floors.reduce((n, f) => n + f, 0) + skeleton(keep) > maxChars) {
-    const tail = jsonSize(marker(items.length)) + 1;
-    let used = skeleton(0) + tail;
+  if (floors.reduce((n, f) => n + f, 0) + skeleton(keep) + tailCost(items.length) > maxChars) {
+    let used = skeleton(0) + tailCost(items.length);
     keep = 0;
     while (keep < items.length && used + floors[keep] + 1 <= maxChars) {
       used += floors[keep] + 1;
@@ -141,10 +160,10 @@ function shrinkArray(items, maxChars) {
   }
   const kept = items.slice(0, keep);
   const dropped = items.length - keep;
-  const tail = dropped > 0 ? jsonSize(marker(dropped)) + (keep > 0 ? 1 : 0) : 0;
+  const tail = tailCost(dropped);
   const allocation = allocate(kept, maxChars - skeleton(keep) - tail);
   const out = kept.map((item, i) => shrink(item, allocation[i]));
-  if (dropped > 0 && jsonSize([...out, marker(dropped)]) <= maxChars) out.push(marker(dropped));
+  if (jsonSize([...out, marker(dropped)]) <= maxChars) out.push(marker(dropped));
   return out;
 }
 
@@ -156,14 +175,22 @@ function shrinkObject(value, maxChars) {
   const floors = entries.map(([k, v]) => keyCost(k) + floorSize(v, maxChars));
   const floorOf = (chars) => Math.min(chars, MIN_SLOT, Math.max(2, Math.floor(maxChars / 2)));
   const byValueSize = entries.map((_, i) => i).sort((a, b) => jsonSize(entries[b][1]) - jsonSize(entries[a][1]));
+  // Structure summary: the original top-level keys, so the model knows the
+  // full shape even when some values were dropped or shortened.
+  const summary = `top-level keys: [${entries.map(([k]) => k).join(', ')}]`;
+  const summaryCost = `. ${summary}`.length;
   const dropped = new Set();
   let present = entries.length;
   let floorsSum = floors.reduce((n, f) => n + f, 0);
   let namesLength = 0;
-  const noteLength = () => `${dropped.size.toLocaleString()} keys omitted: `.length + namesLength + 2 * (dropped.size - 1);
+  const noteLength = () =>
+    `${dropped.size.toLocaleString()} keys omitted: `.length + namesLength +
+    2 * Math.max(0, dropped.size - 1) + summaryCost;
   const cost = () => {
-    const marker = dropped.size > 0 ? keyCost(markerKey) + floorOf(noteLength() + 2) : 0;
-    const count = present + (dropped.size > 0 ? 1 : 0);
+    // The marker key is always emitted on a truncated object, so always
+    // reserve its cost (previously it was only reserved when keys were dropped).
+    const marker = keyCost(markerKey) + floorOf(noteLength() + 2);
+    const count = present + 1;
     return 2 + Math.max(0, count - 1) + floorsSum + marker;
   };
   for (const i of byValueSize) {
@@ -175,13 +202,14 @@ function shrinkObject(value, maxChars) {
   }
   const kept = entries.filter((_, i) => !dropped.has(i));
   const omitted = [...dropped].sort((a, b) => a - b).map((i) => entries[i][0]);
-  const note = `${omitted.length.toLocaleString()} keys omitted: ${omitted.join(', ')}`;
+  const note = omitted.length > 0
+    ? `${omitted.length.toLocaleString()} keys omitted: ${omitted.join(', ')}. ${summary}`
+    : summary;
   if (cost() > maxChars) {
     const room = maxChars - 2 - keyCost(markerKey);
     return room >= 2 ? { [markerKey]: shrink(note, room) } : {};
   }
-  const all = [...kept];
-  if (omitted.length > 0) all.push([markerKey, note]);
+  const all = [...kept, [markerKey, note]];
   const fixed = 2 + Math.max(0, all.length - 1) + all.reduce((n, [k]) => n + keyCost(k), 0);
   const allocation = allocate(all.map(([, v]) => v), maxChars - fixed);
   const out = {};

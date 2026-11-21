@@ -41,10 +41,15 @@ const EXEC_BOUNDARY_GUIDANCE = " Boundary: if the task exceeds the available too
 
 // Gemini feedback #3: upstreams do not share one result shape. One short line
 // nudges the model to defend before field access instead of crashing mid-script.
-const RETURN_SHAPE_GUIDANCE = ' Results differ by service: Notion/Linear mostly return objects, GitHub often JSON text or arrays, Vercel mostly objects — guard with Array.isArray(x) / typeof x === "string" before reading fields; safeAll(tasks) keeps a batch alive when one sub-task fails.';
+const RETURN_SHAPE_GUIDANCE = ' Results differ by service: Notion/Linear mostly return objects, GitHub often JSON text or arrays, Vercel mostly objects — guard with Array.isArray(x) / typeof x === "string" before reading fields; safeAll(tasks) keeps a batch alive when one sub-task fails; grepSnippet(text, keyword, window) extracts context slices from long results.';
 
 // Gemini feedback #2: tell the model which identifier is actually callable.
 const CALLNAME_GUIDANCE = ' Each result carries "callName": pass that exact identifier to codemode (the "name" field may contain hyphens — do not copy it literally into codemode["..."]).';
+
+// Gemini new feedback #3: a read-only, in-sandbox service status helper. Kept
+// out of the MCP tool schemas on purpose — changing those requires the client
+// to reconnect, whereas a sandbox helper is available immediately.
+const SERVICES_GUIDANCE = ' Use codemode.services() to check connected-service online status (name/toolCount/online/needsReauth); it reads local state only and makes no network call.';
 
 /**
  * Guest-side compatibility layer, injected as a single function body prefix.
@@ -80,19 +85,28 @@ const GUEST_PRELUDE = [
   'codemode.listTools = __dshHide((options) => __dshInvoke("listTools", [options]));',
   'codemode.search = __dshSearch;',
   'codemode.remainingCalls = __dshHide(() => __dshInvoke("remainingCalls", []));',
+  // Gemini new feedback #3: pure-local service status helper (no network call
+  // and, crucially, no new MCP tool — its schema would force a Gemini reconnect).
+  'codemode.services = __dshHide(() => __dshInvoke("services", []));',
   // QuickJS has no event loop/timers. A microtask-based shim keeps the common
   // `await new Promise(r => setTimeout(r, 0))` pattern working without blocking
   // the host event loop (a host-side sleep would freeze the whole MCP server).
   'const __dshTimerIds = {}; let __dshTimerSeq = 0;',
   'const setTimeout = __dshHide((fn, ms, ...args) => { const id = ++__dshTimerSeq; __dshTimerIds[id] = true; Promise.resolve().then(() => { if (__dshTimerIds[id]) { try { fn(...args); } catch (_) {} } }); return id; });',
   'const clearTimeout = __dshHide((id) => { delete __dshTimerIds[id]; });',
-  // Gemini feedback #3: concurrency helper. One rejected sub-task must not
+  // Gemini feedback #4: concurrency helper. One rejected sub-task must not
   // throw away the whole batch (that used to cost a full retry round). Each
   // slot is {ok, value}; on failure `value` carries the error text, because
   // the tool bridge already reifies tool errors as data. Tasks may be promises
   // or thunks (thunks also catch *synchronous* throws during construction).
   'const __dshSafeAll = (tasks) => Promise.all((Array.isArray(tasks) ? tasks : []).map((task) => Promise.resolve().then(() => (typeof task === "function" ? task() : task)).then((value) => ({ ok: true, value }), (err) => ({ ok: false, value: err && err.message !== undefined ? String(err.message) : String(err) }))));',
   'const safeAll = __dshHide(__dshSafeAll); codemode.safeAll = safeAll;',
+  // Gemini feedback #4: extract context windows around a keyword from a long
+  // text — avoids hand-writing slice/indexOf loops after results get truncated.
+  // Accepts string or any object (JSON-stringified). Returns an array of
+  // {index, text} snippets; case-insensitive; capped at 10 snippets.
+  'const __dshGrepSnippet = (input, keyword, window) => { const s = typeof input === "string" ? input : JSON.stringify(input); if (!s || !keyword) return []; const w = Math.max(20, Math.min(Number(window) || 300, 4000)); const needle = String(keyword).toLowerCase(); const hay = s.toLowerCase(); const out = []; let from = 0; while (out.length < 10) { const i = hay.indexOf(needle, from); if (i < 0) break; const start = Math.max(0, i - Math.floor(w / 2)); out.push({ index: i, text: s.slice(start, Math.min(s.length, start + w)) }); from = i + needle.length; } return out; };',
+  'const grepSnippet = __dshHide(__dshGrepSnippet); codemode.grepSnippet = grepSnippet;',
 ].join('\n');
 const GUEST_PREFIX_LINES = GUEST_PRELUDE.split('\n').length;
 
@@ -422,7 +436,7 @@ export function searchWithFallback(tools, query, limit = 8) {
  * bridge; all counting/validation/audit stays on the host side.
  * @returns { result, logs, toolCalls } with the unchanged legacy output shape.
  */
-export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CALLS, maxResultChars = DEFAULT_MAX_RESULT_CHARS, timeout = EXEC_TIMEOUT_MS, totalTimeout, unavailableTools = [] }) {
+export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CALLS, maxResultChars = DEFAULT_MAX_RESULT_CHARS, timeout = EXEC_TIMEOUT_MS, totalTimeout, unavailableTools = [], servicesInfo = { services: [] } }) {
   const normalized = normalizeCode(code);
   const logs = [];
   const toolCalls = [];
@@ -474,12 +488,16 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
     search: (query) => {
       const { res, hint } = searchWithFallback(tools, query, 5);
       return {
-        matches: res.matches.map((e) => withCallName(e, formatToolSummary)),
+        matches: res.matches.map((e) => withCallName(e, formatToolSummary, { compact: true })),
         total: res.total,
         hint,
       };
     },
     remainingCalls: () => Math.max(0, maxCalls - calls),
+    // Gemini new feedback #3: the snapshot is computed on the host from local
+    // upstream state only; a getter (when provided) keeps it fresh even if the
+    // manager was populated after createCodeModeTools() ran.
+    services: () => (typeof servicesInfo === 'function' ? servicesInfo() : servicesInfo),
     stub: (name) => {
       throw new Error(`${name} is a write tool and unavailable in execute_read; use execute() instead`);
     },
@@ -635,13 +653,94 @@ function connectedServicesSuffix(entries) {
 }
 
 /**
- * Gemini feedback #2: attach the exact sandbox-callable identifier to a
- * formatted search hit. Kept here (not in tool-format.js) so the shared format
- * helpers and their file ownership stay untouched.
+ * Gemini new feedback #1: list-mode search hits carry a *bounded* description.
+ * Upstream descriptions can be thousands of characters (Notion's spec), which
+ * blew the context with just 5 hits. We keep 1 short sentence / the first line,
+ * capped at MAX_SEARCH_DESC_CHARS, and append `…` to signal that `select:<name>`
+ * still returns the full text. This wraps the shared formatter in codemode.js
+ * only — tool-format.js's formatToolSummary() body is left untouched.
  */
-function withCallName(entry, formatter) {
+const MAX_SEARCH_DESC_CHARS = 160;
+const SENTENCE_END_RE = /[.!?。！？]/;
+const TRAILING_PUNCT_RE = /[,，、;；:：.!?。！？]+$/;
+
+function compactDescription(description) {
+  const raw = String(description ?? '');
+  const nl = raw.indexOf('\n');
+  const firstLine = nl >= 0 ? raw.slice(0, nl) : raw;
+  const s = firstLine.replace(/\s+/g, ' ').trim();
+  if (!s) return '';
+  let truncated = nl >= 0 && raw.slice(nl + 1).trim().length > 0;
+  let cut = s.length;
+  const sentence = SENTENCE_END_RE.exec(s);
+  if (sentence) cut = Math.min(cut, sentence.index + 1); // keep the terminator
+  if (cut < s.length) truncated = true;
+  // Reserve one character for the ellipsis so the result is always <=160.
+  if (cut > MAX_SEARCH_DESC_CHARS - 1) { cut = MAX_SEARCH_DESC_CHARS - 1; truncated = true; }
+  let out = s.slice(0, cut).trimEnd();
+  if (truncated) out = out.replace(TRAILING_PUNCT_RE, '') + '…';
+  return out;
+}
+
+/**
+ * Gemini new feedback #2: attach the exact sandbox-callable identifier and an
+ * explicit `access` class ("read"/"write", from isReadOnlyTool) to a formatted
+ * search hit. Gemini new feedback #1: compact the description for list mode
+ * only; `select:<name>` keeps the full upstream description verbatim.
+ * Kept here (not in tool-format.js) so the shared format helpers and their
+ * file ownership stay untouched.
+ *
+ * @param {object} entry tool descriptor (carries `name`/`tool`/`annotations`)
+ * @param {Function} formatter formatToolSummary | formatToolDetail
+ * @param {{compact?: boolean}} opts compact=true for list-mode results
+ */
+function withCallName(entry, formatter, { compact = false } = {}) {
   const hit = formatter(entry);
-  return { ...hit, callName: sanitizeToolName(entry.name) };
+  const out = {
+    ...hit,
+    callName: sanitizeToolName(entry.name),
+    access: isReadOnlyTool(entry) ? 'read' : 'write',
+  };
+  if (compact && typeof out.description === 'string') {
+    out.description = compactDescription(out.description);
+  }
+  return out;
+}
+
+/**
+ * Gemini new feedback #3: aggregate local upstream state into a tiny status
+ * list. No network calls — reads only getEntries() and failedServers. A server
+ * with >=1 entry counts as online; a server in failedServers is offline and
+ * gets a needsReauth note (an auth failure is the most common cause).
+ */
+export function servicesSnapshot(upstreamManager) {
+  const rawEntries = upstreamManager?.getEntries?.();
+  const entries = Array.isArray(rawEntries) ? rawEntries : [];
+  const failed = upstreamManager?.failedServers;
+  const failedNames = Array.isArray(failed) ? failed : (failed instanceof Set ? [...failed] : []);
+  const failedSet = new Set(failedNames.filter(Boolean));
+  const byServer = new Map();
+  for (const e of entries) {
+    const name = e && typeof e.server === 'string' && e.server ? e.server : '';
+    if (!name) continue;
+    byServer.set(name, (byServer.get(name) ?? 0) + 1);
+  }
+  const note = '连接失败，可能是 token 失效 / 需要重新授权';
+  const services = [];
+  for (const [name, toolCount] of byServer) {
+    const offline = failedSet.has(name);
+    const svc = { name, toolCount, online: toolCount > 0 && !offline };
+    if (offline) { svc.needsReauth = note; }
+    services.push(svc);
+  }
+  // A server that failed before exposing any tool must still show up as offline.
+  for (const name of failedSet) {
+    if (!byServer.has(name)) {
+      services.push({ name, toolCount: 0, online: false, needsReauth: note });
+    }
+  }
+  services.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  return { services };
 }
 
 /**
@@ -651,6 +750,9 @@ export function createCodeModeTools(upstreamManager, options = {}) {
   const tools = upstreamManager.getEntries?.() ?? [];
   const sanitized = tools.map((t) => ({ ...t, ident: sanitizeToolName(t.name) }));
   const servicesSuffix = connectedServicesSuffix(tools);
+  // Gemini new feedback #3: pass a getter (not a frozen copy) so codemode.services()
+  // reflects local state at call time; it reads no network.
+  const getServices = () => servicesSnapshot(upstreamManager);
 
   const searchTool = {
     name: 'search',
@@ -669,7 +771,8 @@ export function createCodeModeTools(upstreamManager, options = {}) {
       const { res, hint, isSelect } = searchWithFallback(tools, args?.query ?? '', limit);
       const formatter = isSelect ? formatToolDetail : formatToolSummary;
       return {
-        matches: res.matches.map((e) => withCallName(e, formatter)),
+        // List mode -> compact description; select: -> full description.
+        matches: res.matches.map((e) => withCallName(e, formatter, { compact: !isSelect })),
         total: res.total,
         hint,
       };
@@ -680,7 +783,7 @@ export function createCodeModeTools(upstreamManager, options = {}) {
     name,
     description: (readOnly
       ? 'Write JavaScript to call READ-ONLY upstream tools (get/list/search/query) via codemode.<tool>(args). This tool is annotated read-only so the client may prompt less; it runs the same sandbox as execute(). Only your return value enters the conversation. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'
-      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), safeAll(tasks), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
+      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
     inputSchema: {
       type: 'object',
       properties: { code: { type: 'string', description: 'An async arrow function that calls codemode tools and returns a result.' } },
@@ -700,6 +803,7 @@ export function createCodeModeTools(upstreamManager, options = {}) {
         callTool: (server, tool, a) => upstreamManager.callTool(server, tool, a),
         maxCalls: options.maxCalls,
         maxResultChars: options.maxResultChars,
+        servicesInfo: getServices,
       });
       // MakeOutput() attaches a toJSON() that emits the full audit payload;
       // unwrap it first so the projection below is what server.js serializes.
