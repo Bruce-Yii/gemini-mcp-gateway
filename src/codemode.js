@@ -50,7 +50,7 @@ const CALLNAME_GUIDANCE = ' Each result carries "callName": pass that exact iden
 // bridge, so `.then()/.catch()` were "not a function". They are native Promises
 // now; spell out which helpers stay synchronous so models neither await a plain
 // object nor chain on one.
-const ASYNC_GUIDANCE = ' Upstream tool calls return native Promises — await them, or chain .then()/.catch() (e.g. Promise.all(items.map((x) => codemode.github__issue_read(x).catch(() => null)))). Helpers codemode.search(), codemode.listTools(), codemode.remainingCalls() and codemode.services() are synchronous.';
+const ASYNC_GUIDANCE = ' Tool calls return Promises (await / .then / .catch work); codemode.search, listTools, remainingCalls and services are synchronous helpers.';
 
 // Gemini new feedback #3: a read-only, in-sandbox service status helper. Kept
 // out of the MCP tool schemas on purpose — changing those requires the client
