@@ -1,0 +1,10 @@
+{
+  "taskId": "F145",
+  "anomalies": [
+    {
+      "type": "token_anomaly",
+      "attribution": "model",
+      "occurrences": 1
+    }
+  ]
+}

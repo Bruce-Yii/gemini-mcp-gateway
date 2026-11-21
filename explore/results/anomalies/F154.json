@@ -1,0 +1,15 @@
+{
+  "taskId": "F154",
+  "anomalies": [
+    {
+      "type": "execute_error",
+      "attribution": "gateway",
+      "occurrences": 2
+    },
+    {
+      "type": "retry",
+      "attribution": "model",
+      "occurrences": 1
+    }
+  ]
+}

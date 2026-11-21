@@ -1,0 +1,15 @@
+{
+  "taskId": "F043",
+  "anomalies": [
+    {
+      "type": "direct_answer",
+      "attribution": "model",
+      "occurrences": 1
+    },
+    {
+      "type": "no_tool_call",
+      "attribution": "model",
+      "occurrences": 1
+    }
+  ]
+}

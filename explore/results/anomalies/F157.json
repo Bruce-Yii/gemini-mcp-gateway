@@ -1,0 +1,10 @@
+{
+  "taskId": "F157",
+  "anomalies": [
+    {
+      "type": "model_confusion",
+      "attribution": "model",
+      "occurrences": 1
+    }
+  ]
+}

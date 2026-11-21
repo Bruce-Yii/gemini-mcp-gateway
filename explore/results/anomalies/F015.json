@@ -1,0 +1,10 @@
+{
+  "taskId": "F015",
+  "anomalies": [
+    {
+      "type": "execute_error",
+      "attribution": "synthetic_data",
+      "occurrences": 1
+    }
+  ]
+}

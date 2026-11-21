@@ -1,0 +1,10 @@
+{
+  "taskId": "F191",
+  "anomalies": [
+    {
+      "type": "execute_error",
+      "attribution": "gateway",
+      "occurrences": 1
+    }
+  ]
+}

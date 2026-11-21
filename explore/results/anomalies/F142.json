@@ -1,0 +1,10 @@
+{
+  "taskId": "F142",
+  "anomalies": [
+    {
+      "type": "execute_error",
+      "attribution": "gateway",
+      "occurrences": 1
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "taskId": "F140",
+  "anomalies": [
+    {
+      "type": "execute_error",
+      "attribution": "gateway",
+      "occurrences": 1
+    },
+    {
+      "type": "execute_error",
+      "attribution": "gateway",
+      "occurrences": 1
+    }
+  ]
+}

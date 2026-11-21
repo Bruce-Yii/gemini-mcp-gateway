@@ -1,0 +1,15 @@
+{
+  "taskId": "F172",
+  "anomalies": [
+    {
+      "type": "execute_error",
+      "attribution": "gateway",
+      "occurrences": 1
+    },
+    {
+      "type": "model_confusion",
+      "attribution": "model",
+      "occurrences": 1
+    }
+  ]
+}

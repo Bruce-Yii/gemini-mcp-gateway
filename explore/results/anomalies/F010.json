@@ -1,0 +1,20 @@
+{
+  "taskId": "F010",
+  "anomalies": [
+    {
+      "type": "model_confusion",
+      "attribution": "model",
+      "occurrences": 1
+    },
+    {
+      "type": "direct_answer",
+      "attribution": "model",
+      "occurrences": 1
+    },
+    {
+      "type": "no_tool_call",
+      "attribution": "model",
+      "occurrences": 1
+    }
+  ]
+}

@@ -478,15 +478,15 @@ const out = {
   model: MODEL,
   manifest,
   totalTasks: selected.length,
-  anomalies: collected.anomalies,
+  anomalies: collected.items,
   dedupCount: collected.dedupCount,
   rawCount: collected.rawCount,
   metrics: summary,
 };
 fs.writeFileSync('explore/results/anomalies.json', JSON.stringify(out, null, 2));
-console.error('\nDONE. anomalies:', collected.anomalies.length, '| deduped:', collected.dedupCount, '| raw:', collected.rawCount);
-const byType = {}; collected.anomalies.forEach(a => byType[a.type] = (byType[a.type] || 0) + 1);
-const byAttr = {}; collected.anomalies.forEach(a => byAttr[a.attribution] = (byAttr[a.attribution] || 0) + 1);
+console.error('\nDONE. anomalies:', collected.items.length, '| deduped:', collected.dedupCount, '| raw:', collected.rawCount);
+const byType = {}; collected.items.forEach(a => byType[a.type] = (byType[a.type] || 0) + 1);
+const byAttr = {}; collected.items.forEach(a => byAttr[a.attribution] = (byAttr[a.attribution] || 0) + 1);
 const infraRetries = metricsPerTask.reduce((s, r) => s + (r.infraRetries || 0), 0);
 console.error('byType', JSON.stringify(byType));
 console.error('byAttribution', JSON.stringify(byAttr));

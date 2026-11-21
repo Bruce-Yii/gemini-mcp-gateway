@@ -1,0 +1,25 @@
+{
+  "taskId": "F096",
+  "anomalies": [
+    {
+      "type": "execute_error",
+      "attribution": "infra",
+      "occurrences": 1
+    },
+    {
+      "type": "max_turns_exceeded",
+      "attribution": "model",
+      "occurrences": 1
+    },
+    {
+      "type": "retry",
+      "attribution": "model",
+      "occurrences": 1
+    },
+    {
+      "type": "retry",
+      "attribution": "model",
+      "occurrences": 1
+    }
+  ]
+}

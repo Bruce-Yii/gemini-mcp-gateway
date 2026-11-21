@@ -1,0 +1,10 @@
+{
+  "taskId": "F077",
+  "anomalies": [
+    {
+      "type": "retry",
+      "attribution": "model",
+      "occurrences": 1
+    }
+  ]
+}
