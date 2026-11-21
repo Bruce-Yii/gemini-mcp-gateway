@@ -254,8 +254,8 @@ export function createGatewayServer(upstreamManager, options = {}) {
   if (options.mode === 'codemode') {
     tools = createCodeModeTools(upstreamManager, options);
     instructions = [
-      'This gateway exposes two tools: search() to discover upstream tools, and execute() to run JavaScript that calls them.',
-      'Prefer execute(): write code that calls codemode.<tool>(args), process large results inside the code, and return only a concise summary. Only your return value enters the conversation.',
+      'This gateway exposes three tools: search() to discover upstream tools; execute_read() to run JavaScript that can only call read-only upstream tools; and execute() to run JavaScript with read-write access.',
+      'Prefer execute_read() or execute(): write code that calls codemode.<tool>(args), process large results inside the code, and return only a concise summary. Only your return value enters the conversation.',
       'Use search() first if you do not know the exact tool name.',
     ].join(' ');
   } else {
