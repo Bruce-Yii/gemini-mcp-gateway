@@ -180,6 +180,13 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 - `vercel__create_project` 已从关键词搜索和 `select:` 中彻底消失，确认临时放行已回滚生效。
 - 结论：错误质量基本由上游决定，网关透明透传是对的；唯一能修的是双 `Error:` 前缀（装饰性，ROI 低，登记 DEC 不做）。写路径 + 错误恢复两条覆盖完成。
 
+### 2026-11-22 批量错误隔离探针（safeAll vs Promise.all）
+
+- `safeAll`：3 个槽位（合法读 / 非法写 / 合法读）→ `ok:true` / `ok:false` / `ok:true`，单槽失败不影响其它；失败槽结构是 `{ok:false, value:"错误文本"}`（不是 `error`/`reason`），模型需自己看 value。
+- `Promise.all`：同样调用在首个失败时整批 reject，合法槽位的结果拿不到——符合 JS fail-fast 语义，模型应优先 `safeAll`（描述里已有提示）。
+- 配额账（修正模型表述）：首轮 `remainingCalls` 50→47（两个读首次各扣 1、失败写扣 1）；同一 execute 再跑同样 3 个 →46（两次读命中只读去重不扣，**失败的写不走去重、再扣 1**）。结论：**只读调用同一 execute 内命中缓存不重复扣；写调用（含失败）每次都计数**。
+- 处置：行为符合设计，不改代码。`safeAll` 失败槽是否补 `error` 字段：DEC 不做（重复错误文本占 token，模型已能理解 `ok/value`）。
+
 ### 文档过期
 多次出现"代码已改但文档还写旧状态"的情况（SANDBOX-SECURITY 写"真隔离未引入"但实际已引入、CONTEXT-AND-EVAL 写"Code Mode 未做"但实际早做了）。看文档结论时建议对照源码。
 
