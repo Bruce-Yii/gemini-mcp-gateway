@@ -165,6 +165,13 @@ B1/B2/B3 都已完成并通过。台账里登记了所有决策和"接受（DEC�
 - **写路径覆盖结论**：GitHub / Linear / Vercel / Notion 四个服务的真实写操作全部验证通过，无参数错误、无重试；四组测试里模型都是把同一服务的多个写操作批量放进一次 `execute`。
 - 遗留测试数据：GitHub 仓库 `Bruce-Yii/mcp-probe-20261122`（issue #1 已关闭）、Linear `LAJI-36`、Vercel 项目 `mcp-probe-20261122`（MCP 无删除工具，需面板删）；Notion 测试页已进回收站。
 
+### 2026-11-22 写操作确认行为的观察（用户实测）
+
+- 用户观察：写操作"有时候有弹窗，有时候没有"；Notion 那轮通过 `execute` 执行了 4 个写操作（建页/追加/评论/删），**没有弹窗**。
+- 推断：Gemini 的确认是**工具级 + 持久授权**——`execute` 是唯一 `destructiveHint:true` 的工具，第一次确认时选过"始终允许"后，后续 `execute` 调用不再弹；只读的 `execute_read` / `search` 从不弹；授权跨对话持久（Notion 是新对话仍未弹）。"全面允许"的 app 级设置未必生效，实际生效的是工具级授权。
+- 待用户确认：GitHub 第一次弹窗时是否点过"始终允许"；Connected Apps → 本 app 的权限/工具列表里 `execute` 是否显示已允许。
+- 结论：网关无法控制确认行为，也不应通过改 `destructiveHint` 伪造；写操作按 execute 调用建单，批量写只会在一次 execute 上触发确认。
+
 ### 文档过期
 多次出现"代码已改但文档还写旧状态"的情况（SANDBOX-SECURITY 写"真隔离未引入"但实际已引入、CONTEXT-AND-EVAL 写"Code Mode 未做"但实际早做了）。看文档结论时建议对照源码。
 
