@@ -10,6 +10,7 @@ export const BUILD = {
   commit: 'dev',
   buildHash: 'dev',
   pathHash: 'dev',
+  fileHashes: {},
   files: [],
   builtAt: null,
 };

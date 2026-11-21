@@ -40,6 +40,7 @@ function listRuntimeFiles() {
 function sourceHash() {
   const contentHash = createHash('sha256');
   const pathHash = createHash('sha256');
+  const fileHashes = {};
   const files = listRuntimeFiles();
   for (const file of files) {
     const rel = path.relative(root, file).split(path.sep).join('/');
@@ -48,6 +49,7 @@ function sourceHash() {
     // Normalize CRLF -> LF: the local checkout (core.autocrlf) and the Vercel
     // Linux build must produce the same hash for the same commit.
     const content = Buffer.from(fs.readFileSync(file).toString('utf8').replace(/\r\n/g, '\n'), 'utf8');
+    fileHashes[rel] = createHash('sha256').update(content).digest('hex').slice(0, 8);
     contentHash.update(rel);
     contentHash.update('\0');
     contentHash.update(content);
@@ -56,6 +58,7 @@ function sourceHash() {
   return {
     buildHash: contentHash.digest('hex').slice(0, 40),
     pathHash: pathHash.digest('hex').slice(0, 40),
+    fileHashes,
     files: files.map((file) => path.relative(root, file).split(path.sep).join('/')),
   };
 }
@@ -79,6 +82,7 @@ try {
     commit: process.env.VERCEL_GIT_COMMIT_SHA || gitCommit() || 'unknown',
     buildHash: hash.buildHash,
     pathHash: hash.pathHash,
+    fileHashes: hash.fileHashes,
     files: hash.files,
     builtAt: new Date().toISOString(),
   };
@@ -87,6 +91,7 @@ try {
     commit: 'unknown',
     buildHash: 'unknown',
     pathHash: 'unknown',
+    fileHashes: {},
     files: [],
     builtAt: null,
     error: error instanceof Error ? error.message : String(error),

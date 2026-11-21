@@ -169,6 +169,7 @@ export function createAppHandler(options = {}) {
       buildHash: BUILD.buildHash,
       buildPathHash: BUILD.pathHash ?? null,
       buildFiles: BUILD.files ?? null,
+      buildFileHashes: BUILD.fileHashes ?? null,
       builtAt: BUILD.builtAt,
       env: process.env.VERCEL_ENV || 'development',
       deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null,
