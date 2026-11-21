@@ -75,6 +75,7 @@ node scripts/write-build-info.mjs --print  # 当前 checkout 的 commit/buildHas
 | 路径 | 用途 |
 |---|---|
 | `docs/WHY.md` | 项目目的 + 上下文节省实测 |
+| `docs/GEMINI-PROBE.md` | 网页端体感探针：手动任务序列 + 提问脚本（把 Gemini 的回答贴回来即可） |
 | `docs/CODEMODE-SURVEY.md` / `docs/DSH-CODEMODE-FIT.md` | Code Mode 横向调研 / DSH 本地接入调研（快照，非规范） |
 | `CONTRACT.md` / `CONTRACT.vercel.md` | 历史阶段契约（whitelist / Vercel-OAuth）；Code Mode 以 `src/` + `tests/` 为准 |
 | `DEPLOY.md` | 部署交接文档（whitelist 时代，待刷新） |
