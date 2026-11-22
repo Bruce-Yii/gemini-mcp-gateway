@@ -67,6 +67,7 @@ for (const server of targets) {
     accessToken: token.access_token,
     refreshToken: token.refresh_token,
     clientId: token.client_id,
+    clientSecret: token.client_secret,
     expiresIn: Number(token.expires_in ?? 0),
     // Use the real authorization timestamp so expires_at reflects issuance time,
     // not seed time (seeding an already-expired token must not look fresh).

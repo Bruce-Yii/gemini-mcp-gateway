@@ -17,7 +17,7 @@ const ENV_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const TOP_LEVEL_KEYS = new Set(['servers', 'mode', 'maxWhitelistTools', 'maxCalls', 'maxResultChars']);
 const SERVER_KEYS = new Set([
   'name', 'transport', 'url', 'command', 'args', 'env', 'headers',
-  'tokenEnv', 'refreshEnv', 'clientIdEnv', 'expiresInEnv', 'obtainedAtEnv',
+  'tokenEnv', 'refreshEnv', 'clientIdEnv', 'clientSecretEnv', 'expiresInEnv', 'obtainedAtEnv',
   'refreshUrl', 'allowTools', 'denyTools',
 ]);
 

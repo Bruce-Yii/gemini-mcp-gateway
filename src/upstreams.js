@@ -96,6 +96,7 @@ export class UpstreamManager {
       envToken,
       envRefresh: config.refreshEnv ? process.env[config.refreshEnv] : undefined,
       envClientId: config.clientIdEnv ? process.env[config.clientIdEnv] : undefined,
+      envClientSecret: config.clientSecretEnv ? process.env[config.clientSecretEnv] : undefined,
       envExpiresIn: config.expiresInEnv ? Number(process.env[config.expiresInEnv]) : undefined,
       envObtainedAt: config.obtainedAtEnv ? Number(process.env[config.obtainedAtEnv]) : undefined,
       tokenUrl: provider.tokenUrl,

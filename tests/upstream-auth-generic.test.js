@@ -33,8 +33,8 @@ test('a custom provider refreshes at its configured refreshUrl', async () => {
   const calls = [];
   const auth = new UpstreamAuth({
     store,
-    fetch: async (url) => {
-      calls.push(url);
+    fetch: async (url, options) => {
+      calls.push({ url, body: String(options?.body ?? '') });
       return { ok: true, json: async () => ({ access_token: 'NEW_AT', refresh_token: 'NEW_RT', expires_in: 3600 }) };
     },
   });
@@ -43,12 +43,14 @@ test('a custom provider refreshes at its configured refreshUrl', async () => {
     envToken: 'AT',
     envRefresh: 'RT',
     envClientId: 'CID',
+    envClientSecret: 'CSEC',
     tokenUrl: 'https://auth.example/token',
     mcpUrl: 'https://mcp.example/mcp',
   });
 
   assert.equal(token, 'NEW_AT');
-  assert.deepEqual(calls, ['https://auth.example/token']);
+  assert.equal(calls[0].url, 'https://auth.example/token');
+  assert.match(calls[0].body, /client_secret=CSEC/);
   assert.equal(JSON.parse(store.data.get('gmcgw:v1:upstream:acme')).refresh_token, 'NEW_RT');
 });
 

@@ -107,6 +107,9 @@ export class UpstreamAuth {
       refresh_token: rec.refresh_token,
       client_id: rec.client_id,
     });
+    // Confidential OAuth clients (Google Workspace, Slack, Atlassian, ...) require
+    // the client secret at the token endpoint. Public PKCE clients do not set it.
+    if (rec.client_secret) body.set('client_secret', rec.client_secret);
     const r = await this._fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -119,6 +122,7 @@ export class UpstreamAuth {
       access_token: j.access_token,
       refresh_token: j.refresh_token || rec.refresh_token, // rotate, fall back to old
       client_id: rec.client_id,
+      client_secret: rec.client_secret,
       expires_at: expiresIn > 0 ? now + expiresIn * 1000 : 0,
       envSeed: rec.envSeed, // keep the seed marker so cold starts don't rebuild
       // CRITICAL: clear the bootstrap flag. Leaving it set makes every cold
@@ -143,7 +147,7 @@ export class UpstreamAuth {
     return next;
   }
 
-  async getAccessToken(server, { envToken, envRefresh, envClientId, envExpiresIn, envObtainedAt, tokenUrl, mcpUrl } = {}, { force = false } = {}) {
+  async getAccessToken(server, { envToken, envRefresh, envClientId, envClientSecret, envExpiresIn, envObtainedAt, tokenUrl, mcpUrl } = {}, { force = false } = {}) {
     const provider = {
       tokenUrl: tokenUrl ?? DEFAULT_PROVIDERS[server]?.tokenUrl,
       mcpUrl: mcpUrl ?? DEFAULT_PROVIDERS[server]?.mcpUrl,
@@ -170,6 +174,7 @@ export class UpstreamAuth {
         access_token: envToken,
         refresh_token: envRefresh,
         client_id: envClientId,
+        client_secret: envClientSecret,
         expires_at: expiresAt,
         envSeed: envToken,
         bootstrapped: true,
@@ -274,7 +279,7 @@ export class UpstreamAuth {
    *  Callers should pass `obtainedAt` (the provider's real issuance time) or an
    *  explicit `expiresAt`. Without either we store 0 (unknown) rather than
    *  `now + expiresIn`, which would disguise an already-expired token as fresh. */
-  async seed(server, { accessToken, refreshToken, clientId, expiresIn, expiresAt, obtainedAt }) {
+  async seed(server, { accessToken, refreshToken, clientId, clientSecret, expiresIn, expiresAt, obtainedAt }) {
     const obtained = Number(obtainedAt ?? 0);
     const expires = Number(expiresIn ?? 0);
     const resolvedExpiry = Number.isFinite(expiresAt)
@@ -284,6 +289,7 @@ export class UpstreamAuth {
       access_token: accessToken,
       refresh_token: refreshToken,
       client_id: clientId,
+      client_secret: clientSecret,
       expires_at: resolvedExpiry,
     });
   }
