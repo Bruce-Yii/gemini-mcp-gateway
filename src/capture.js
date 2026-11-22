@@ -74,6 +74,7 @@ function configFromOptions(options = {}, env = process.env) {
     r2Prefix: options.r2Prefix ?? env.R2_PREFIX ?? 'capture',
     fallbackHttpUrl: options.fallbackHttpUrl ?? env.CAPTURE_FALLBACK_HTTP_URL ?? '',
     fallbackHttpToken: options.fallbackHttpToken ?? env.CAPTURE_FALLBACK_HTTP_TOKEN ?? '',
+    sync: options.sync ?? env.CAPTURE_SYNC === '1',
     fetchImpl: options.fetchImpl ?? fetch,
   };
 }
@@ -348,8 +349,27 @@ export function startCapture(req, res, options = {}) {
     };
 
     const task = Promise.resolve()
-      .then(() => writeSink(cfg, envelope))
+      .then(() => {
+        log('capture_sink_start', { requestId, sink: cfg.sink });
+        return writeSink(cfg, envelope);
+      })
+      .then(() => log('capture_sink_ok', { requestId, sink: cfg.sink }))
       .catch(onSinkError);
+
+    const finish = () => originalEnd(chunk, encoding, callback);
+
+    // Optional synchronous mode: hold the response until the sink completes.
+    // Vercel's waitUntil is not reliable on every runtime; CAPTURE_SYNC=1 makes
+    // capture correctness win over a small response latency increase.
+    if (cfg.sync) {
+      sinkQueued = true;
+      log('capture_done', {
+        requestId, path, method, status: res.statusCode, duration,
+        sink: cfg.sink, sinkQueued, sync: true,
+      });
+      task.finally(finish);
+      return undefined;
+    }
 
     // Keep the function alive after the response where the platform allows it.
     // Called synchronously in res.end, before it returns, so Vercel sees the
@@ -369,8 +389,7 @@ export function startCapture(req, res, options = {}) {
       ...(sinkError ? { sinkError } : {}),
     });
     // Send the response only after waitUntil() has seen the pending sink task.
-    const result = originalEnd(chunk, encoding, callback);
-    return result;
+    return finish();
   };
 
   const capture = {
