@@ -228,7 +228,7 @@ function buildDiffSummary(path, first, second, added, removed, hunks) {
  * has `{ ok:false, error }` and NO write is attempted for read/patch failures.
  * A write error is reported as-is (never faked as success).
  */
-export async function applyFilePatch({ read, write, path, patch, dryRun = true } = {}) {
+export async function applyFilePatch({ read, write, path, patch, dryRun = true, includeContent = false, precheck = true } = {}) {
   // Validate I/O injection before doing any work.
   if (typeof read !== 'function') {
     return { ok: false, error: 'read must be a function' };
@@ -258,9 +258,22 @@ export async function applyFilePatch({ read, write, path, patch, dryRun = true }
     diff: buildDiffSummary(path, normalizeText(rawText), applied.text, applied.added, applied.removed, applied.hunks),
   };
 
+  // Write-before lightweight precheck: JSON strict parse / JS-TS bracket+quote
+  // balance. A failure is a hard stop — no write is attempted.
+  if (precheck) {
+    const checked = precheckText(applied.text, path);
+    if (!checked.ok) {
+      return { ok: false, error: checked.error, precheck: checked.check, diff };
+    }
+  }
+
   // Dry-run (the default) stops here — no write, no fake commit data.
+  // `includeContent` is an explicit opt-in for orchestrators that stage the
+  // patched text before writing (default stays false for backward compatibility).
   if (dryRun) {
-    return { ok: true, diff };
+    const out = { ok: true, diff };
+    if (includeContent) out.content = applied.text;
+    return out;
   }
 
   let writeResult;
@@ -284,4 +297,224 @@ export async function applyFilePatch({ read, write, path, patch, dryRun = true }
   return out;
 }
 
-export default { applyTextPatch, applyFilePatch };
+// ---------------------------------------------------------------------------
+// PR #41–#48 incremental suggestions (B10 follow-up): write-before precheck,
+// sha auto-fill and one unified apply/write entry for single and multiple files.
+// ---------------------------------------------------------------------------
+
+const CODE_EXT_RE = /\.(?:[cm]?[jt]sx?|mts|cts)$/i;
+
+/**
+ * Lightweight write-before syntax precheck. Deliberately NOT a compiler:
+ *  - `.json` (and `.jsonc`-free JSON) must parse strictly with JSON.parse.
+ *  - JS/TS-family files only get a bracket/quote balance scan; no tsc, no AST,
+ *    no type checking — a passing result does not mean the code compiles.
+ * Other extensions are not checked (returns ok).
+ *
+ * @returns {{ok:true,check:string}|{ok:false,error:string,check:string}}
+ */
+export function precheckText(text, path) {
+  const source = typeof text === 'string' ? text : String(text == null ? '' : text);
+  const name = typeof path === 'string' ? path.toLowerCase() : '';
+  if (name.endsWith('.json')) {
+    try {
+      JSON.parse(source);
+      return { ok: true, check: 'json' };
+    } catch (e) {
+      return { ok: false, check: 'json', error: `JSON precheck failed: ${String(e && e.message ? e.message : e)}` };
+    }
+  }
+  if (CODE_EXT_RE.test(name)) {
+    const stack = [];
+    const pairs = { ')': '(', ']': '[', '}': '{' };
+    let quote = null;
+    let escaped = false;
+    let lineComment = false;
+    let blockComment = false;
+    for (let i = 0; i < source.length; i += 1) {
+      const c = source[i];
+      const next = source[i + 1];
+      if (lineComment) {
+        if (c === '\n') lineComment = false;
+        continue;
+      }
+      if (blockComment) {
+        if (c === '*' && next === '/') { blockComment = false; i += 1; }
+        continue;
+      }
+      if (quote) {
+        if (escaped) { escaped = false; continue; }
+        if (c === '\\') { escaped = true; continue; }
+        if (c === quote) quote = null;
+        continue;
+      }
+      if (c === '/' && next === '/') { lineComment = true; i += 1; continue; }
+      if (c === '/' && next === '*') { blockComment = true; i += 1; continue; }
+      if (c === '"' || c === "'" || c === '`') { quote = c; continue; }
+      if (c === '(' || c === '[' || c === '{') stack.push({ c, i });
+      else if (c === ')' || c === ']' || c === '}') {
+        const top = stack.pop();
+        if (!top || top.c !== pairs[c]) {
+          return { ok: false, check: 'balance', error: `bracket balance precheck failed at offset ${i}: unexpected ${c}` };
+        }
+      }
+    }
+    if (quote) {
+      return { ok: false, check: 'balance', error: `bracket balance precheck failed: unterminated ${quote} quote` };
+    }
+    if (blockComment) {
+      return { ok: false, check: 'balance', error: 'bracket balance precheck failed: unterminated block comment' };
+    }
+    if (stack.length) {
+      return { ok: false, check: 'balance', error: `bracket balance precheck failed: unclosed ${stack[stack.length - 1].c}` };
+    }
+    return { ok: true, check: 'balance' };
+  }
+  return { ok: true, check: 'none' };
+}
+
+/**
+ * Resolve the optimistic-lock sha for a write. When the caller supplied one,
+ * it always wins. Otherwise `getSha(path)` is consulted (when provided) so a
+ * single-file update gets the current branch blob sha automatically. Missing
+ * sha is legal (new-file creation) and is simply omitted.
+ */
+async function resolveSha({ path, sha, getSha }) {
+  if (sha !== undefined && sha !== null && sha !== '') return String(sha);
+  if (typeof getSha !== 'function') return undefined;
+  const resolved = await getSha(path);
+  if (resolved === undefined || resolved === null || resolved === '') return undefined;
+  return String(resolved);
+}
+
+/**
+ * Normalize an upstream write response into the unified top-level field set.
+ * `{number?, url?, sha, commitSha}` — `number`/`url` are optional (present only
+ * when the upstream actually returned them); `sha` and `commitSha` are always
+ * present as `null` when unknown so models never need to guess field presence.
+ */
+export function normalizeWriteResult(value, { sha } = {}) {
+  let raw = value;
+  if (typeof raw === 'string') {
+    try { raw = JSON.parse(raw); } catch (_) { /* keep string */ }
+  }
+  if (raw && typeof raw === 'object' && !Array.isArray(raw) && raw.result && typeof raw.result === 'object') {
+    raw = raw.result;
+  }
+  const obj = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const pick = (keys) => {
+    for (const key of keys) {
+      const v = obj[key];
+      if (v !== undefined && v !== null && v !== '') return v;
+    }
+    return undefined;
+  };
+  const commitShaRaw = pick(['commitSha', 'commit_sha', 'sha']) ?? sha;
+  const blobShaRaw = pick(['sha', 'contentSha', 'content_sha', 'blobSha']);
+  const numRaw = pick(['number', 'prNumber', 'pr_number', 'issueNumber', 'issue_number']);
+  const urlRaw = pick(['html_url', 'url', 'web_url']);
+  const out = {
+    sha: blobShaRaw !== undefined ? String(blobShaRaw) : null,
+    commitSha: commitShaRaw !== undefined && commitShaRaw !== null ? String(commitShaRaw) : null,
+  };
+  if (numRaw !== undefined) out.number = Number(numRaw);
+  if (urlRaw !== undefined) out.url = String(urlRaw);
+  return out;
+}
+
+/**
+ * Unified single/multi-file patch+write entry.
+ *
+ * Accepts either `{path, patch}` (single file, legacy `applyFilePatch` call
+ * shape) or `{patches:[{path,patch,sha?}...]}` (multiple files). Both go
+ * through the SAME read → strict patch → precheck → write logic and both return
+ * the SAME top-level shape `{ok, files?, sha, commitSha, number?, url?, diff?}`.
+ *
+ * `getSha(path)` fills an omitted per-file sha from the current branch read.
+ * `write(path, text, {sha, path})` receives the resolved sha as its third arg.
+ * Every precheck/patch failure aborts the whole batch before any write; a
+ * later write failure is reported, never faked as success.
+ */
+export async function applyFilePatches({
+  read,
+  write,
+  getSha,
+  path,
+  patch,
+  patches,
+  dryRun = true,
+  precheck = true,
+  ...rest
+} = {}) {
+  if (typeof read !== 'function') return { ok: false, error: 'read must be a function' };
+  if (!dryRun && typeof write !== 'function') return { ok: false, error: 'write must be a function when dryRun is false' };
+
+  const list = patches !== undefined
+    ? (Array.isArray(patches) ? patches : null)
+    : (path !== undefined ? [{ path, patch, sha: rest.sha }] : null);
+  if (!list || list.length === 0) return { ok: false, error: 'patches must be a non-empty array (or provide path+patch)' };
+
+  const staged = [];
+  for (const item of list) {
+    if (!item || typeof item !== 'object') return { ok: false, error: 'each patch must be an object' };
+    const r = await applyFilePatch({
+      ...rest,
+      read,
+      write,
+      dryRun: true, // stage with no writes; actual writes happen below, after ALL files pass
+      includeContent: true, // orchestrator needs the fully patched text to write later
+      path: item.path,
+      patch: item.patch,
+    });
+    if (!r.ok) return { ok: false, error: `${item.path}: ${r.error}` };
+    staged.push({ path: item.path, applied: r, sha: await resolveSha({ path: item.path, sha: item.sha, getSha }) });
+  }
+
+  // Precheck the fully patched text of every file BEFORE any write.
+  if (precheck) {
+    for (const s of staged) {
+      const checked = precheckText(s.applied.content ?? s.applied.diff?.text ?? '', s.path);
+      if (!checked.ok) return { ok: false, error: `${s.path}: ${checked.error}`, precheck: checked.check };
+    }
+  }
+
+  const diffs = staged.map((s) => s.applied.diff);
+  if (dryRun) {
+    return {
+      ok: true,
+      files: staged.map((s) => ({ path: s.path, sha: s.sha ?? null })),
+      diff: list.length === 1 ? diffs[0] : diffs,
+      sha: null,
+      commitSha: null,
+    };
+  }
+
+  // All files passed validation — now write them in order.
+  let lastWriteResult;
+  for (const s of staged) {
+    const text = s.applied.content;
+    let writeResult;
+    try {
+      writeResult = await write(s.path, text, { sha: s.sha, path: s.path });
+    } catch (e) {
+      return { ok: false, error: `write failed for ${s.path}: ${String(e && e.message ? e.message : e)}`, diff: list.length === 1 ? diffs[0] : diffs };
+    }
+    if (writeResult && typeof writeResult === 'object' && writeResult.ok === false) {
+      return { ok: false, error: writeResult.error || `write failed for ${s.path}`, diff: list.length === 1 ? diffs[0] : diffs };
+    }
+    lastWriteResult = writeResult;
+  }
+
+  const top = normalizeWriteResult(lastWriteResult, { sha: staged[staged.length - 1].sha });
+  return {
+    ok: true,
+    files: staged.map((s) => ({ path: s.path, sha: s.sha ?? null })),
+    diff: list.length === 1 ? diffs[0] : diffs,
+    ...top,
+  };
+}
+
+/** Alias for callers that prefer a write-oriented name. */
+export const writeFiles = applyFilePatches;
+
+export default { applyTextPatch, applyFilePatch, applyFilePatches, writeFiles, precheckText, normalizeWriteResult };

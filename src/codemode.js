@@ -26,6 +26,10 @@ import { searchEntries } from './catalog.js';
 // existing host bridge (values serialize; guest functions cannot cross it).
 // The existing fileResult/prResult helpers stay byte-for-byte unchanged.
 import { normalizeResult as hostNormalizeResult } from './result-normalize.js';
+// B10 follow-up (PR #41–#48): unified write semantics. These are pure host
+// modules; only data crosses the bridge, so the guest helpers below stay thin.
+import { canonicalResult, createBranchIfMissing } from './github-helpers.js';
+import { applyFilePatches, precheckText, normalizeWriteResult } from './file-write.js';
 import {
   unwrapResult,
   formatToolSummary,
@@ -47,7 +51,7 @@ const EXEC_BOUNDARY_GUIDANCE = " Boundary: if the task exceeds the available too
 
 // Gemini feedback #3: upstreams do not share one result shape. One short line
 // nudges the model to defend before field access instead of crashing mid-script.
-const RETURN_SHAPE_GUIDANCE = ' Results differ by service: Notion/Linear mostly return objects, GitHub often JSON text or arrays, Vercel mostly objects — guard with Array.isArray(x) / typeof x === "string" before reading fields; safeAll(tasks) keeps a batch alive when one sub-task fails; grepSnippet(text, keyword, window) extracts context slices from long results; codemode.unwrap(x) normalizes JSON text, {result}, {text,resources} and content arrays; fileResult(x)/prResult(x) flatten common file/PR shapes. Intl is unavailable in the sandbox: use codemode.formatDate(value, {date:true,time:true,ms:true}) or Date UTC getters. For large files, fetch inside the sandbox and return codemode.sliceLines(text, start, end) instead of the full text. Edit with codemode.replaceLines/applyPatch; call diffSummary before writing. codemode.normalizeFile/normalizePr/normalizeIssue/normalizeResult give canonical field sets (raw kept); codemode.applyFilePatch previews/writes via GitHub tools (dryRun by default); codemode.ensureBranch/upsertPr/fetchAllPages/repoGrep wrap injected GitHub tools.';
+const RETURN_SHAPE_GUIDANCE = ' Results differ by service: Notion/Linear mostly return objects, GitHub often JSON text or arrays, Vercel mostly objects — guard with Array.isArray(x) / typeof x === "string" before reading fields; safeAll(tasks) keeps a batch alive when one sub-task fails; grepSnippet(text, keyword, window) extracts context slices from long results; codemode.unwrap(x) normalizes JSON text, {result}, {text,resources} and content arrays; fileResult(x)/prResult(x) flatten common file/PR shapes. Intl is unavailable in the sandbox: use codemode.formatDate(value, {date:true,time:true,ms:true}) or Date UTC getters. For large files, fetch inside the sandbox and return codemode.sliceLines(text, start, end) instead of the full text. Edit with codemode.replaceLines/applyPatch; call diffSummary before writing. codemode.normalizeFile/normalizePr/normalizeIssue/normalizeResult give canonical field sets (raw kept); codemode.applyFilePatch previews/writes via GitHub tools (dryRun by default); codemode.ensureBranch/upsertPr/fetchAllPages/repoGrep wrap injected GitHub tools. Unified writes: codemode.applyFilePatch/writeFiles accept {patches:[{path,patch,sha?}]} (or single path+patch), auto-fill sha from the read, precheck JSON/JS-TS before writing, and return top-level {sha,commitSha,number?,url?}; codemode.canonicalize/normalizeMerge give {number,url,sha}; codemode.createBranchIfMissing creates from base when absent; codemode.precheckText is a lightweight write-before check (JSON strict, JS/TS brackets only — not a compiler).';
 
 // Gemini feedback #2: tell the model which identifier is actually callable.
 const CALLNAME_GUIDANCE = ' Each result carries "callName": pass that exact identifier to codemode (the "name" field may contain hyphens — do not copy it literally into codemode["..."]).';
@@ -177,6 +181,11 @@ const GUEST_PRELUDE = [
   'codemode.normalizePr = __dshHide((value, toolName) => __dshNormalize("pr", toolName === undefined ? "get_pull_request" : toolName, value));',
   'codemode.normalizeIssue = __dshHide((value, toolName) => __dshNormalize("issue", toolName === undefined ? "get_issue" : toolName, value));',
   'codemode.normalizeResult = __dshHide((toolName, value) => __dshNormalize("dispatch", toolName, value));',
+  // PR #41–#48: canonical {number,url,sha} for PR / Issue / merge / write
+  // results, plus a pure write-before precheck (host adapters, data-only bridge).
+  'codemode.canonicalize = __dshHide((value) => __dshInvoke("canonicalize", [value]));',
+  'codemode.normalizeMerge = __dshHide((value) => __dshNormalize("merge", "", value));',
+  'codemode.precheckText = __dshHide((text, path) => __dshInvoke("precheckText", [text, path]));',
   // Generic tool caller used by every orchestration helper below. It goes
   // through the SAME bridge as codemode.<tool>(), so tool-call budget, audit
   // and read-only dedup all apply; no new privilege is introduced.
@@ -195,11 +204,70 @@ const GUEST_PRELUDE = [
   // Defaults verified against data/tool-dataset.json (GitHub MCP whitelist):
   //   github__get_file_contents({owner,repo,path,ref}) -> {content,sha,...}
   //   github__create_or_update_file({owner,repo,path,content,message,branch,sha})
-  'const __dshB10ApplyFilePatch = async (opts) => { const o = opts && typeof opts === "object" ? opts : {}; const names = __dshB10Cfg(o.tools, { readTool: "github__get_file_contents", writeTool: "github__create_or_update_file" }); if (typeof o.path !== "string" || !o.path) return { ok: false, error: "path must be a non-empty string" }; if (typeof o.patch !== "string") return { ok: false, error: "patch must be a string" }; const dryRun = o.dryRun !== false; const readArgs = Object.assign({}, o.readArgs || {}, { owner: o.owner, repo: o.repo, path: o.path }); if (o.branch !== undefined) readArgs.ref = readArgs.ref || o.branch; let raw; try { raw = await __dshCallTool(names.readTool, readArgs); } catch (e) { __dshB10Rethrow(e); return { ok: false, error: "read failed: " + __dshB10Str(e && e.message ? e.message : e) }; } const nf = codemode.normalizeFile(raw, names.readTool); let text = nf.content; const sha = nf.sha; if (typeof text !== "string") { const fr = codemode.fileResult(raw); text = fr.content; } if (typeof text !== "string") return { ok: false, error: "read did not yield file text" }; const applied = codemode.applyPatch(text, o.patch); if (!applied.ok) return { ok: false, error: applied.error }; const beforeLines = text.replace(/\\r\\n?/g, "\\n").split("\\n"); const afterLines = applied.text.split("\\n"); let p = 0; while (p < beforeLines.length && p < afterLines.length && beforeLines[p] === afterLines[p]) p += 1; const header = "--- a/" + o.path + "\\n+++ b/" + o.path + "\\n@@ -" + (p + 1) + "," + Math.max(0, beforeLines.length - p) + " +" + (p + 1) + "," + Math.max(0, afterLines.length - p) + " @@"; const diff = { path: o.path, added: applied.added, removed: applied.removed, hunks: applied.hunks, diff: header }; if (dryRun) return { ok: true, diff }; const writeArgs = Object.assign({}, o.writeArgs || {}, { owner: o.owner, repo: o.repo, path: o.path, content: applied.text, branch: o.branch, message: o.message === undefined ? "patch via codemode" : o.message }); if (sha) writeArgs.sha = sha; let wr; try { wr = await __dshCallTool(names.writeTool, writeArgs); } catch (e) { __dshB10Rethrow(e); return { ok: false, error: "write failed: " + __dshB10Str(e && e.message ? e.message : e), diff }; } const wv = wr && typeof wr === "object" && wr.ok === false ? wr : (() => { try { return typeof wr === "string" ? JSON.parse(wr) : wr; } catch (_) { return wr; } })(); if (wv && typeof wv === "object" && wv.ok === false) return { ok: false, error: __dshB10Str(wv.error || "write failed"), diff }; const out = { ok: true, diff }; const u = wv && typeof wv === "object" ? wv : {}; if (u.commitSha !== undefined) out.commitSha = u.commitSha; else if (u.sha !== undefined) out.commitSha = u.sha; if (u.content !== undefined) out.content = u.content; return out; };',
+  // PR #41–#48: ONE unified entry for single and multi-file patches. Both use
+  // the same read -> strict patch -> write-before precheck -> staged write path and
+  // both return top-level {ok,files,diff,sha,commitSha,number?,url?}. `sha` is
+  // auto-filled from the read result when the caller omits it, so a single-file
+  // update does not need a separate get_file_contents round trip by the model.
+  'const __dshB10ApplyFilePatch = async (opts) => {',
+  '  const o = opts && typeof opts === "object" ? opts : {};',
+  '  const names = __dshB10Cfg(o.tools, { readTool: "github__get_file_contents", writeTool: "github__create_or_update_file" });',
+  '  const list = Array.isArray(o.patches) ? o.patches : [{ path: o.path, patch: o.patch, sha: o.sha }];',
+  '  if (!list.length) return { ok: false, error: "patches must be a non-empty array (or provide path+patch)" };',
+  '  const dryRun = o.dryRun !== false;',
+  '  const staged = [];',
+  '  for (const item of list) {',
+  '    if (!item || typeof item.path !== "string" || !item.path) return { ok: false, error: "path must be a non-empty string" };',
+  '    if (typeof item.patch !== "string") return { ok: false, error: "patch must be a string" };',
+  '    const readArgs = Object.assign({}, o.readArgs || {}, { owner: o.owner, repo: o.repo, path: item.path });',
+  '    if (o.branch !== undefined) readArgs.ref = readArgs.ref || o.branch;',
+  '    let raw;',
+  '    try { raw = await __dshCallTool(names.readTool, readArgs); } catch (e) { __dshB10Rethrow(e); return { ok: false, error: "read failed for " + item.path + ": " + __dshB10Str(e && e.message ? e.message : e) }; }',
+  '    const nf = codemode.normalizeFile(raw, names.readTool);',
+  '    let text = nf.content;',
+  '    if (typeof text !== "string") { const fr = codemode.fileResult(raw); text = fr.content; }',
+  '    if (typeof text !== "string") return { ok: false, error: "read did not yield file text: " + item.path };',
+  '    const applied = codemode.applyPatch(text, item.patch);',
+  '    if (!applied.ok) return { ok: false, error: item.path + ": " + applied.error };',
+  '    const checked = __dshInvoke("precheckText", [applied.text, item.path]);',
+  '    if (!checked.ok) return { ok: false, error: item.path + ": " + checked.error, precheck: checked.check };',
+  '    const sha = (item.sha !== undefined && item.sha !== null && item.sha !== "") ? String(item.sha) : (nf.sha || null);',
+  '    staged.push({ path: item.path, text: applied.text, sha: sha, before: text, added: applied.added, removed: applied.removed, hunks: applied.hunks });',
+  '  }',
+  '  const diffs = staged.map((s) => {',
+  '    const beforeLines = s.before.replace(/\\r\\n?/g, "\\n").split("\\n");',
+  '    const afterLines = s.text.split("\\n");',
+  '    let p = 0; while (p < beforeLines.length && p < afterLines.length && beforeLines[p] === afterLines[p]) p += 1;',
+  '    const header = "--- a/" + s.path + "\\n+++ b/" + s.path + "\\n@@ -" + (p + 1) + "," + Math.max(0, beforeLines.length - p) + " +" + (p + 1) + "," + Math.max(0, afterLines.length - p) + " @@";',
+  '    return { path: s.path, added: s.added, removed: s.removed, hunks: s.hunks, diff: header };',
+  '  });',
+  '  const files = staged.map((s) => ({ path: s.path, sha: s.sha }));',
+  '  const out = { ok: true, files: files, diff: staged.length === 1 ? diffs[0] : diffs };',
+  '  if (dryRun) return out;',
+  '  let last;',
+  '  for (const s of staged) {',
+  '    const writeArgs = Object.assign({}, o.writeArgs || {}, { owner: o.owner, repo: o.repo, path: s.path, content: s.text, branch: o.branch, message: o.message === undefined ? "patch via codemode" : o.message });',
+  '    if (s.sha) writeArgs.sha = s.sha;',
+  '    let wr;',
+  '    try { wr = await __dshCallTool(names.writeTool, writeArgs); } catch (e) { __dshB10Rethrow(e); return { ok: false, error: "write failed for " + s.path + ": " + __dshB10Str(e && e.message ? e.message : e), diff: staged.length === 1 ? diffs[0] : diffs }; }',
+  '    const wv = wr && typeof wr === "object" && wr.ok === false ? wr : (() => { try { return typeof wr === "string" ? JSON.parse(wr) : wr; } catch (_) { return wr; } })();',
+  '    if (wv && typeof wv === "object" && wv.ok === false) return { ok: false, error: __dshB10Str(wv.error || "write failed"), diff: staged.length === 1 ? diffs[0] : diffs };',
+  '    last = wv;',
+  '  }',
+  '  const top = __dshInvoke("normalizeWriteResult", [last, staged[staged.length - 1].sha]);',
+  '  if (last && typeof last === "object" && last.content !== undefined) top.content = last.content;',
+  '  return Object.assign({}, out, top);',
+  '};',
   'codemode.applyFilePatch = __dshHide(__dshB10ApplyFilePatch);',
+  'codemode.writeFiles = codemode.applyFilePatch;',
   // ---- ensureBranch: idempotent branch creation via list/create tools ----
   'const __dshB10EnsureBranch = async (opts) => { const o = opts && typeof opts === "object" ? opts : {}; const names = __dshB10Cfg(o.tools, { listTool: "github__list_branches", createTool: "github__create_branch", deleteTool: "github__delete_branch" }); if (!o.name) throw new Error("ensureBranch: name is required"); const ifExists = o.ifExists === "reset" ? "reset" : "reuse"; const listArgs = Object.assign({}, o.listArgs || {}, { owner: o.owner, repo: o.repo }); const branches = __dshB10ToArray(await __dshCallTool(names.listTool, listArgs)); const found = branches.find((b) => { if (typeof b === "string") return b === o.name; if (!b || typeof b !== "object") return false; return b.name === o.name || b.ref === o.name || (typeof b.ref === "string" && b.ref.indexOf("/" + o.name) >= 0); }); if (found !== undefined) { if (ifExists === "reuse") return { created: false, reused: true, reset: false, branch: found }; if (!names.deleteTool) throw new Error("ensureBranch: ifExists=\\"reset\\" requires a deleteTool (unsupported)"); await __dshCallTool(names.deleteTool, Object.assign({}, o.deleteArgs || {}, { owner: o.owner, repo: o.repo, name: o.name, branch: found })); const reset = await __dshCallTool(names.createTool, Object.assign({}, o.createArgs || {}, { owner: o.owner, repo: o.repo, branch: o.name, from_branch: o.fromBranch || o.fromSha })); return { created: true, reused: false, reset: true, branch: reset }; } const created = await __dshCallTool(names.createTool, Object.assign({}, o.createArgs || {}, { owner: o.owner, repo: o.repo, branch: o.name, from_branch: o.fromBranch || o.fromSha })); return { created: true, reused: false, reset: false, branch: created }; };',
   'codemode.ensureBranch = __dshHide(__dshB10EnsureBranch);',
+  // PR #41–#48: idempotent branch option at the push/commit entry. Missing
+  // branch is created from `base`; existing branch is reused unless reset is
+  // explicitly opted into. Thin alias over ensureBranch — same tool bridge.
+  'codemode.createBranchIfMissing = __dshHide(async (opts) => { const o = opts && typeof opts === "object" ? Object.assign({}, opts) : {}; o.fromSha = (o.base !== undefined ? o.base : (o.fromSha !== undefined ? o.fromSha : o.fromBranch)); delete o.base; return __dshB10EnsureBranch(o); });',
+  'codemode.create_branch_if_missing = codemode.createBranchIfMissing;',
   // ---- upsertPr: find matching open PR then update or create ----
   'const __dshB10UpsertPr = async (opts) => { const o = opts && typeof opts === "object" ? opts : {}; const names = __dshB10Cfg(o.tools, { listTool: "github__list_pull_requests", createTool: "github__create_pull_request", updateTool: "github__update_pull_request" }); if (!o.head || !o.base) throw new Error("upsertPr: head and base are required"); const state = o.state || "open"; const listArgs = Object.assign({}, o.listArgs || {}, { owner: o.owner, repo: o.repo, head: typeof o.head === "object" ? (o.head.ref || o.head.sha) : o.head, base: typeof o.base === "object" ? (o.base.ref || o.base.sha) : o.base, state: state }); const prs = __dshB10ToArray(await __dshCallTool(names.listTool, listArgs)); const headRef = typeof o.head === "object" ? (o.head.ref || o.head.sha) : o.head; const baseRef = typeof o.base === "object" ? (o.base.ref || o.base.sha) : o.base; const existing = prs.find((pr) => { if (!pr || typeof pr !== "object") return false; const st = __dshB10Str(pr.state || "open").toLowerCase(); const h = pr.head && typeof pr.head === "object" ? (pr.head.ref || pr.head.sha) : pr.head; const b = pr.base && typeof pr.base === "object" ? (pr.base.ref || pr.base.sha) : pr.base; return st === "open" && h === headRef && b === baseRef; }); if (existing) { if (names.updateTool) { const updated = await __dshCallTool(names.updateTool, Object.assign({}, o.updateArgs || {}, { owner: o.owner, repo: o.repo, pullNumber: existing.number || existing.id, title: o.title, body: o.body, head: headRef, base: baseRef })); return { created: false, updated: true, reused: false, pr: updated }; } return { created: false, updated: false, reused: true, pr: existing }; } const created = await __dshCallTool(names.createTool, Object.assign({}, o.createArgs || {}, { owner: o.owner, repo: o.repo, head: headRef, base: baseRef, title: o.title, body: o.body })); return { created: true, updated: false, reused: false, pr: created }; };',
   'codemode.upsertPr = __dshHide(__dshB10UpsertPr);',
@@ -706,13 +774,26 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
       // The canonical adapters are tool-name dispatched; when a caller passes
       // an explicit name we honour it, otherwise we use a representative name
       // for the kind so the dispatch always lands on the right adapter.
+      // PR #41–#48: explicit canonical / merge kinds return the minimal
+      // {number,url,sha,raw} view so callers never have to regex a URL for the
+      // id. All other kinds keep the historical adapter behaviour unchanged.
+      if (kind === 'canonical' || kind === 'merge') return canonicalResult(value);
       const name = (toolName !== undefined && toolName !== null && toolName !== '')
         ? toolName
         : (kind === 'file' ? 'get_file_contents'
           : kind === 'pr' ? 'get_pull_request'
             : kind === 'issue' ? 'get_issue' : '');
+      // Historical adapters keep their exact field sets (normalizePr already
+      // carries top-level number/url/sha; normalizeIssue keeps its documented
+      // shape). Callers that need the unified minimal view use the explicit
+      // `canonical` / `merge` kinds or codemode.canonicalize below.
       return hostNormalizeResult(name, value);
     },
+    // Host pure-function bridges for the B10 follow-up write helpers. Safe:
+    // only serializable data crosses (no functions).
+    canonicalize: (value) => canonicalResult(value),
+    precheckText: (text, path) => precheckText(text, path),
+    normalizeWriteResult: (value, sha) => normalizeWriteResult(value, { sha }),
     stub: (name) => {
       throw new Error(`${name} is a write tool and unavailable in execute_read; use execute() instead`);
     },

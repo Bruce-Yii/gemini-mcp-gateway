@@ -298,4 +298,153 @@ export async function repoGrep({ readFile, listFiles, pattern, flags = 'i', limi
   return { matches, errors, scanned: errors.length ? files.length - errors.length : files.length, truncated };
 }
 
-export default { ensureBranch, upsertPr, fetchAllPages, repoGrep };
+// ---------------------------------------------------------------------------
+// PR #41–#48 incremental suggestions (B10 follow-up): unified write semantics.
+// ---------------------------------------------------------------------------
+
+/**
+ * Idempotent branch creation at the push/commit entry point.
+ *
+ * Thin, opinionated wrapper over `ensureBranch`: reading a missing branch from
+ * `base` (a branch name or a commit sha) and reusing an existing one is the
+ * default; resetting an existing branch is an EXPLICIT opt-in
+ * (`ifExists:'reset'`) and requires `deleteBranch`. No callback errors are
+ * swallowed — see `ensureBranch`.
+ *
+ * @param {object}   opts
+ * @param {Function} opts.listBranches
+ * @param {Function} opts.createBranch
+ * @param {Function} [opts.deleteBranch] required only for reset
+ * @param {string}   opts.name            branch to ensure
+ * @param {string}   opts.base            base ref / commit sha to create from
+ * @param {'reuse'|'reset'} [opts.ifExists='reuse']
+ * @returns {Promise<{created:boolean,reused:boolean,reset:boolean,branch:any}>}
+ */
+export async function createBranchIfMissing({ listBranches, createBranch, deleteBranch, name, base, ifExists = 'reuse' } = {}) {
+  return ensureBranch({
+    listBranches,
+    createBranch,
+    deleteBranch,
+    name,
+    // ensureBranch calls its callback with {name, fromSha}; callers that use
+    // this helper directly see `base` mapped to `fromSha` for compatibility.
+    fromSha: base,
+    ifExists,
+  });
+}
+
+/** snake_case alias used by the in-sandbox / Python-style call sites. */
+export const create_branch_if_missing = createBranchIfMissing;
+
+/** Read a property without letting a hostile getter throw. */
+function safeGet(obj, key) {
+  try {
+    if (obj === null || typeof obj !== 'object') return undefined;
+    return obj[key];
+  } catch (_) {
+    return undefined;
+  }
+}
+
+function firstDefined(obj, keys) {
+  for (const key of keys) {
+    const value = safeGet(obj, key);
+    if (value !== undefined && value !== null && value !== '') return value;
+  }
+  return undefined;
+}
+
+function toFiniteNumber(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Best-effort unwrap of the opaque shapes GitHub MCP tools return: JSON text,
+ * `{content:[{type:'text',text:'...'}]}`, `{result:{...}}`, or plain objects.
+ * Only one layer of `result` and one JSON parse is attempted — no deep magic.
+ */
+export function unwrapResultPayload(value) {
+  let v = value;
+  if (typeof v === 'string') {
+    try {
+      v = JSON.parse(v);
+    } catch (_) {
+      return v;
+    }
+  }
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    const inner = safeGet(v, 'result');
+    if (inner && typeof inner === 'object') v = inner;
+    const content = safeGet(v, 'content');
+    if (Array.isArray(content)) {
+      for (const part of content) {
+        if (part && typeof part.text === 'string') {
+          try {
+            const parsed = JSON.parse(part.text);
+            if (parsed && typeof parsed === 'object') return parsed;
+          } catch (_) {
+            // Not JSON text; keep the original envelope.
+          }
+        }
+      }
+    }
+  }
+  return v;
+}
+
+/**
+ * Canonical `{number, url, sha}` view for PR / Issue / merge / write results.
+ *
+ * Reuses the result-normalize idea (defensive unwrap + explicit field picking
+ * + `raw` preserved) but emits the *minimal, stable* field set requested by the
+ * PR #41–#48 feedback. Explicit fields always win; URL extraction is only a
+ * last-resort fallback so a number is never guessed when a field is present.
+ * Never throws; unknown fields stay available through `raw`.
+ *
+ * @returns {{number:number|null,url:string|null,sha:string|null,raw:*}}
+ */
+export function canonicalResult(value) {
+  try {
+    const v = unwrapResultPayload(value);
+    const root = v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+    // Merge results have no top-level sha sometimes; look one level into
+    // head/commit for a sha, mirroring result-normalize's normalizePrResult.
+    const head = safeGet(root, 'head');
+    const commit = safeGet(root, 'commit');
+    const number = toFiniteNumber(
+      firstDefined(root, ['number', 'prNumber', 'pr_number', 'issueNumber', 'issue_number', 'pullNumber', 'pull_number', 'id']),
+    );
+    const urlRaw = firstDefined(root, ['html_url', 'url', 'web_url']);
+    const shaRaw = firstDefined(root, ['sha', 'commitSha', 'commit_sha', 'head_sha', 'headSha'])
+      ?? firstDefined(head && typeof head === 'object' ? head : {}, ['sha'])
+      ?? firstDefined(commit && typeof commit === 'object' ? commit : {}, ['sha']);
+    let numberOut = number;
+    if (numberOut === null && typeof urlRaw === 'string') {
+      // Only fallback when no explicit number field exists at all.
+      const m = /\/pull\/(\d+)(?:\/|$|\?)|\/issues\/(\d+)(?:\/|$|\?)/.exec(urlRaw);
+      const raw = m && (m[1] ?? m[2]);
+      if (raw) numberOut = Number(raw);
+    }
+    return {
+      number: numberOut,
+      url: urlRaw !== undefined ? String(urlRaw) : null,
+      sha: shaRaw !== undefined && shaRaw !== null ? String(shaRaw) : null,
+      raw: value,
+    };
+  } catch (_) {
+    return { number: null, url: null, sha: null, raw: value };
+  }
+}
+
+export default {
+  ensureBranch,
+  createBranchIfMissing,
+  create_branch_if_missing,
+  unwrapResultPayload,
+  canonicalResult,
+  upsertPr,
+  fetchAllPages,
+  repoGrep,
+};
