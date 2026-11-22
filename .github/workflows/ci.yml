@@ -25,6 +25,8 @@ jobs:
       - run: npm ci
       - name: Unit + integration tests
         run: npm test
+      - name: Audit silent truncation (P0 blocks, P1 warns)
+        run: node scripts/audit-truncation.mjs --ci
       - name: Audit committed tool snapshots
         run: node scripts/audit-tools.mjs --server figma
       - name: Check committed task coverage
