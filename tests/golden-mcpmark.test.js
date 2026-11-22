@@ -18,7 +18,13 @@ const authoritative = discovered.tasks;
 const derived = loadDerivedTasks();
 const mapping = mapDerivedToAuthoritative(derived, authoritative);
 
-test('本地 MCPMark 克隆存在，权威任务清单数量与结构正确', () => {
+const cloneAvailable = discovered.sourcePresent;
+const cloneTest = (name, fn) => test(
+  name,
+  { skip: cloneAvailable ? false : 'MCPMark local clone not present (optional dev fixture; see explore/README.md)' },
+  fn,
+);
+cloneTest('本地 MCPMark 克隆存在，权威任务清单数量与结构正确', () => {
   assert.equal(discovered.sourcePresent, true);
   assert.equal(DEFAULT_MCPMARK_ROOT.endsWith(path.join('work', 'mcpmark')), true);
   assert.equal(DEFAULT_TASKS_FILE.endsWith(path.join('explore', 'tasks-final.json')), true);
@@ -34,7 +40,7 @@ test('本地 MCPMark 克隆存在，权威任务清单数量与结构正确', ()
   assert.deepEqual(bySuite, { standard: 51, easy: 20 });
 });
 
-test('每条权威任务的 prompt 取自 description.md 原文且三件套齐备', () => {
+cloneTest('每条权威任务的 prompt 取自 description.md 原文且三件套齐备', () => {
   for (const task of authoritative) {
     assert.ok(task.key.startsWith(`${task.service}/${task.suite}/`));
     assert.ok(task.prompt.length > 0, `${task.key} 缺 prompt`);
@@ -49,7 +55,7 @@ test('每条权威任务的 prompt 取自 description.md 原文且三件套齐�
   assert.equal(hotfix.stateUrl, 'https://github.com/mcpmark-source/claude-code');
 });
 
-test('GitHub verify.py 判定不可运行：终态检查 + 固定评测环境证据', () => {
+cloneTest('GitHub verify.py 判定不可运行：终态检查 + 固定评测环境证据', () => {
   const verdict = classifyVerifier(
     authoritative.find((t) => t.service === 'github' && t.taskId === 'critical_issue_hotfix_workflow'),
   );
@@ -62,7 +68,7 @@ test('GitHub verify.py 判定不可运行：终态检查 + 固定评测环境证
   assert.match(verdict.reason, /终态检查/);
 });
 
-test('Notion verify.py 判定不可运行：读固定评测页面的 block 结构', () => {
+cloneTest('Notion verify.py 判定不可运行：读固定评测页面的 block 结构', () => {
   const verdict = classifyVerifier(
     authoritative.find((t) => t.service === 'notion' && t.taskId === 'work_history_addition'),
   );
@@ -99,7 +105,7 @@ test('Linear / Vercel derived 任务权威源 0 覆盖，不编造映射', () =>
   }
 });
 
-test('GitHub / Notion derived 任务映射到 MCPMark 权威 prompt 候选，但仅话题级', () => {
+cloneTest('GitHub / Notion derived 任务映射到 MCPMark 权威 prompt 候选，但仅话题级', () => {
   const covered = mapping.filter((r) => r.server === 'github' || r.server === 'notion');
   assert.equal(covered.length, 24);
   for (const record of covered) {
@@ -116,7 +122,7 @@ test('GitHub / Notion derived 任务映射到 MCPMark 权威 prompt 候选，但
   }
 });
 
-test('特有工具的等价性警告被如实标注，不冒充逐工具 gold', () => {
+cloneTest('特有工具的等价性警告被如实标注，不冒充逐工具 gold', () => {
   const f001 = mapping.find((r) => r.id === 'F001');
   assert.ok(f001.note.includes('v0.15.0 不含该工具'));
   const sidebar = mapping.find((r) => r.tool === 'notion-update-sidebar-tabs');
@@ -128,7 +134,7 @@ test('映射结果确定可复现（无时间戳、无随机性）', () => {
   assert.deepEqual(again, mapping);
 });
 
-test('总报告：prompt 权威性可用，gold 打分不可用，计数自洽', () => {
+cloneTest('总报告：prompt 权威性可用，gold 打分不可用，计数自洽', () => {
   const report = buildGoldenReport();
   assert.equal(report.source.present, true);
   assert.equal(report.verifier.runnableAgainstOurAccount, false);
