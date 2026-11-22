@@ -86,13 +86,18 @@
   写前预览用。
 - 测试：`tests/codemode-edit-helpers.test.js`（6 条，含 mismatch 不修改原文）。
 
-### B8-4：错误行号（已修，线上待复验）
+### B8-4：错误行号（未闭环：生产 QuickJS 栈限制）
 
-- 根因：旧映射只减 `GUEST_PREFIX_LINES`，没有算动态 tool 绑定行；且只取第一个 `run.js` 帧。
-- 修复：在用户函数前注入 `__dshCodeStart` 校准哨兵，按 `runLine - codeStart` 取第一个正数帧；
-  不再依赖 prelude 长度/tool 数量/SDK wrapper 偏移。
-- 本地测试：`codemode.notARealTool()` → `script line 1:41`（有/无工具均正确）。
-- 线上任务 6 的 `run.js:369:20` 无 script line，是旧构建；待 296fa32 之后的部署复验。
+- 线上诊断：`userStart=362`、`cal=3`，栈帧
+  `__dshUserFn (run.js:352)` / `__dshFn (run.js:363)` / `<anonymous> (run.js:365)`。
+- 这些 `__dshUserFn` / `__dshFn` / `__dshUserStart` / `__dshCal` 都是**网关沙箱注入的**；
+  不是 Gemini 自己的执行环境。
+- 根因：Vercel `run` SDK 的 QuickJS 栈只暴露**函数帧/包装帧**，不暴露用户脚本的真实 throw 行；
+  因此无论怎么校准 `codeStart`，生产上都无法从栈里恢复精确行号。
+- 本地测试能映射 `script line 1/4` 是因为本地帧布局不同，不能代表生产。
+- 结论：不再宣称"已修精确行号"；B8-4 未闭环。后续二选一：
+  1. 错误里保留 `script frame` + `userStart` 原始帧（可诊断，但不假装精确行号）；
+  2. 需要精确行号就换带 source map/行跟踪的执行机制（成本高）。
 - `diffSummary` 已提供 dry-run 摘要基础；独立 dry-run 工具未做。
 
 ## 优先级与依赖（历史计划）
