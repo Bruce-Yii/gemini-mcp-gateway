@@ -26,6 +26,15 @@ the combination: web-client delivery + Code Mode orchestration + read/write
 isolation + write semantics + full-fidelity capture/eval. See
 [COMPETITORS.md](COMPETITORS.md) §0.2 for the threat model.
 
+### Native tool search: watch item, not current substitute
+
+The user's hands-on experience with Gemini and ChatGPT web is that their native
+tool discovery/loading is **not good enough today** to replace a gateway-level
+`search` + Code Mode. Treat host-native tool search as a **long-term watch
+item**, not an immediate structural threat. Do not build the strategy around
+"the host will never do it"; do build it around the current gap and our
+read/write/eval advantages.
+
 ## 1. What we actually optimize
 
 | Layer | What we do | Why it matters | Evidence |

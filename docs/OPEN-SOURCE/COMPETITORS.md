@@ -40,7 +40,7 @@
 
 | 威胁 | 影响 | 我们的应对 |
 |---|---|---|
-| 宿主原生 tool search / MCP Groups 普及 | 客户端自己就能延迟加载工具，`search` 不再是独有卖点 | 聚焦**没有原生 tool search 的网页客户端**（Gemini web 当前没有）；强化 Code Mode 编排、读写分层、结果投影 |
+| 宿主原生 tool search / MCP Groups 普及 | 客户端自己就能延迟加载工具，`search` 不再是独有卖点 | 聚焦**没有原生 tool search 的网页客户端**（Gemini web 当前没有）；强化 Code Mode 编排、读写分层、结果投影。**用户实测 Gemini/GPT web 的原生工具发现/加载目前效果不好，所以这是长期 watch item，不是当前替代品。** |
 | 检索型网关（toolgate/axiolex/dehydrator） | 直接竞争“工具发现 + 少 schema” | 我们的差异不是检索本身，而是**检索后能写代码编排 + 读写隔离 + 全量 capture/eval + 真实写路径** |
 | IBM ContextForge 这类大厂网关 | 功能面/生态/部署更强 | 不做企业控制面；做单用户、Web 客户端、Code Mode、可评测的轻量层 |
 | Cloudflare Code Mode / Portals | 平台级 Code Mode 免费/默认 | 提供可移植、可自托管、面向 web 客户端、带 eval 的版本 |
