@@ -1,9 +1,11 @@
 /**
- * Upstream OAuth token lifecycle: auto-refresh Notion/Linear access tokens.
+ * Upstream OAuth token lifecycle: auto-refresh expiring access tokens.
  *
- * Notion/Linear OAuth access tokens expire (8h / 24h) and refresh tokens ROTATE
- * on use. To avoid re-authorising by hand, we persist the current token pair in
- * Upstash KV under a fixed key per server. Before each MCP connection we:
+ * OAuth-capable upstreams (built-ins: Notion/Linear; any other provider with a
+ * configured `refreshUrl`) have access tokens that expire and refresh tokens
+ * that ROTATE on use. To avoid re-authorising by hand, we persist the current
+ * token pair in Upstash KV under a fixed key per server. Before each MCP
+ * connection we:
  *   1. load the stored pair (or bootstrap from env on first run),
  *   2. if the access token is expired/near-expiry, call the provider's /token
  *      endpoint with the refresh token to get a fresh pair,
@@ -18,11 +20,18 @@ import { TokenStore } from './store.js';
 const KEY_PREFIX = 'gmcgw:v1:upstream';
 const REFRESH_SKEW_MS = 5 * 60 * 1000; // refresh 5 min before expiry
 
-// Per-provider refresh endpoints. client_id is a public OAuth client id (not a secret).
-const PROVIDERS = {
-  notion: { token: 'https://mcp.notion.com/token' },
-  linear: { token: 'https://mcp.linear.app/token' },
+// Built-in OAuth providers (token + MCP endpoints). Any other upstream can opt
+// into refresh by setting `refreshUrl` (token endpoint) in its config; this map
+// only exists so the shipped Notion/Linear configs keep working without it.
+const DEFAULT_PROVIDERS = {
+  notion: { tokenUrl: 'https://mcp.notion.com/token', mcpUrl: 'https://mcp.notion.com/mcp' },
+  linear: { tokenUrl: 'https://mcp.linear.app/token', mcpUrl: 'https://mcp.linear.app/mcp' },
 };
+
+/** Built-in provider defaults, or null for static-token upstreams. */
+export function defaultProvider(server) {
+  return DEFAULT_PROVIDERS[server] ?? null;
+}
 
 export class UpstreamAuth {
   constructor(options = {}) {
@@ -66,11 +75,8 @@ export class UpstreamAuth {
 
   /** Verify an ACCESS token is usable by calling tools/list. Does NOT consume
    * the refresh token. Returns true only on a successful MCP handshake+list. */
-  async _verifyToken(server, accessToken) {
-    const url = {
-      notion: 'https://mcp.notion.com/mcp',
-      linear: 'https://mcp.linear.app/mcp',
-    }[server];
+  async _verifyToken(server, accessToken, mcpUrl) {
+    const url = mcpUrl ?? DEFAULT_PROVIDERS[server]?.mcpUrl;
     if (!url || !this._fetch) return false;
     try {
       const r = await this._fetch(url, {
@@ -92,15 +98,16 @@ export class UpstreamAuth {
    * `envRefresh` / `envClientId` are only needed on first run to seed KV.
    */
   /** Call the provider's refresh endpoint for a fresh token pair. */
-  async _refresh(server, rec) {
-    const provider = PROVIDERS[server];
+  async _refresh(server, rec, tokenUrl) {
+    const url = tokenUrl ?? DEFAULT_PROVIDERS[server]?.tokenUrl;
+    if (!url) throw new Error(`no refreshUrl configured for ${server}`);
     const now = Date.now();
     const body = new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: rec.refresh_token,
       client_id: rec.client_id,
     });
-    const r = await this._fetch(provider.token, {
+    const r = await this._fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
@@ -136,9 +143,12 @@ export class UpstreamAuth {
     return next;
   }
 
-  async getAccessToken(server, { envToken, envRefresh, envClientId, envExpiresIn, envObtainedAt } = {}, { force = false } = {}) {
-    const provider = PROVIDERS[server];
-    if (!provider) return envToken; // GitHub/Vercel use long-lived tokens; no refresh.
+  async getAccessToken(server, { envToken, envRefresh, envClientId, envExpiresIn, envObtainedAt, tokenUrl, mcpUrl } = {}, { force = false } = {}) {
+    const provider = {
+      tokenUrl: tokenUrl ?? DEFAULT_PROVIDERS[server]?.tokenUrl,
+      mcpUrl: mcpUrl ?? DEFAULT_PROVIDERS[server]?.mcpUrl,
+    };
+    if (!provider.tokenUrl) return envToken; // static bearer upstreams (GitHub/Vercel, custom)
 
     let rec = await this._load(server);
     // Env-injected tokens are the source of truth. Rebuild the record from env
@@ -214,7 +224,7 @@ export class UpstreamAuth {
           Number(latest.expires_at ?? 0) - REFRESH_SKEW_MS > Date.now()) {
         return latest.access_token;
       }
-      const next = await this._refresh(server, rec);
+      const next = await this._refresh(server, rec, provider.tokenUrl);
       console.error(`[upstream-auth] refreshed ${server} token (expires_in=${next.expires_at ? Math.round((next.expires_at - Date.now())/1000) : '?'}s)`);
       return next.access_token;
     } catch (e) {
@@ -233,7 +243,7 @@ export class UpstreamAuth {
       // the env access token directly. If it works, the grant is alive. If it
       // doesn't, we mark reauth-required and stop (no further refresh attempts).
       if (invalid && envToken && envRefresh && envClientId && rec.envSeed !== envToken) {
-        const valid = await this._verifyToken(server, envToken);
+        const valid = await this._verifyToken(server, envToken, provider.mcpUrl);
         if (valid) {
           console.error(`[upstream-auth] ${server} KV record was stale; restoring from env token (no refresh)`);
           await this._save(server, {

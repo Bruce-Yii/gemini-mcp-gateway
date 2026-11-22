@@ -13,12 +13,21 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { isAllowed } from './catalog.js';
-import { UpstreamAuth } from './upstream-auth.js';
+import { UpstreamAuth, defaultProvider } from './upstream-auth.js';
 import { normalizeToolArguments } from './sanitize.js';
 
 const CLIENT_INFO = { name: 'gemini-mcp-gateway', version: '0.1.0' };
-/** Upstreams whose OAuth access tokens expire and need auto-refresh. */
-const PROVIDER_REFRESH_SERVERS = new Set(['notion', 'linear']);
+
+/** Resolve the OAuth-refresh provider for a server config.
+ * A `refreshUrl` in the config opts any upstream into refresh; the built-in
+ * Notion/Linear defaults keep the shipped config working without it. */
+function providerFor(config) {
+  if (!config || typeof config !== 'object') return null;
+  if (typeof config.refreshUrl === 'string' && config.refreshUrl) {
+    return { tokenUrl: config.refreshUrl, mcpUrl: config.url };
+  }
+  return defaultProvider(config.name);
+}
 
 function messageOf(err) {
   return err instanceof Error ? err.message : String(err);
@@ -79,15 +88,18 @@ export class UpstreamManager {
   async _resolveToken(config, { force = false } = {}) {
     if (!config.tokenEnv) return undefined;
     const envToken = process.env[config.tokenEnv];
-    if (!PROVIDER_REFRESH_SERVERS.has(config.name)) return envToken; // long-lived token
-    // Notion/Linear: go through the refresh-aware lifecycle. `force` is set only
-    // after the provider itself rejected the token with 401/invalid_token.
+    const provider = providerFor(config);
+    if (!provider?.tokenUrl) return envToken; // long-lived token (GitHub/Vercel/custom)
+    // OAuth-refresh upstream: go through the refresh-aware lifecycle. `force` is
+    // set only after the provider itself rejected the token with 401/invalid_token.
     return this._auth.getAccessToken(config.name, {
       envToken,
       envRefresh: config.refreshEnv ? process.env[config.refreshEnv] : undefined,
       envClientId: config.clientIdEnv ? process.env[config.clientIdEnv] : undefined,
       envExpiresIn: config.expiresInEnv ? Number(process.env[config.expiresInEnv]) : undefined,
       envObtainedAt: config.obtainedAtEnv ? Number(process.env[config.obtainedAtEnv]) : undefined,
+      tokenUrl: provider.tokenUrl,
+      mcpUrl: provider.mcpUrl,
     }, { force });
   }
 
@@ -152,7 +164,7 @@ export class UpstreamManager {
           // exactly one refresh (through UpstreamAuth's lock/CAS/needsReauth
           // guards) and reconnect exactly once. invalid_grant / other errors
           // never take this path, so a dead grant cannot be burned by retries.
-          if (!isAuthError(err) || !PROVIDER_REFRESH_SERVERS.has(name)) throw err;
+          if (!isAuthError(err) || !providerFor(config)?.tokenUrl) throw err;
           console.error(`[upstreams] ${name} 上游拒绝 token (401/invalid_token)，强制刷新一次并重连`);
           try {
             if (client) await client.close();
