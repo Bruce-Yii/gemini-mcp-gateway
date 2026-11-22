@@ -122,3 +122,18 @@ ok:false 时返回 {ok:false, error}
    `tools.readTool` / `readArgs`。未提供会走 `ok:false`，不会伪造内容。
 7. **未做真实 capture 回放 / L1 smoke**：按项目规则，只用本地 fake 上游做确定性验证；
    真实请求 ID 的证据来自用户提供，本批未联网读取凭据或远端 capture。
+
+## 真实 Gemini 复测（2026-11-22T22:58:49Z）
+
+- requestId：`7e447118-c996-4e2d-b204-a4ff9772e4bf`
+- sessionId：`5537117d-a362-4961-9212-b5384ac4887b`
+- 任务：README 前 10 行
+- 模型代码：不再使用 `slice(0,150)`，返回 `{lines,lineCount,totalContentLines,truncated}`；
+- 结果：badge 行完整；`truncated:true` 仅表示“取前 10 行 / 共 272 行”，不是字符截断；
+- capture 审计：`possibleModelTruncation:false`，`modelOutputBytes=627`。
+- 结论：这次真实窗口未复发静默字符截断；仍需持续用 golden 任务守住。
+
+## 误报观察
+
+同一批 capture 中，模型对 recruitment-agent 的若干 `execute_read` 使用 `head`/`slice(0,70)` 行窗口，返回 5–14KB 而源文件 95–718KB，`possibleModelTruncation` 被判 true。  
+这是**有意的行窗口**，但没有显式 `truncated` 标记；审计按“短且无标记”标记为 suspect 是预期行为，不是 capture bug。后续应在 guidance/原语里强制返回 `truncated:true`，而不是放宽审计阈值。
