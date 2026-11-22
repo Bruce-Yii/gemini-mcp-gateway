@@ -1,12 +1,32 @@
 {
   "name": "gemini-mcp-gateway",
   "version": "0.1.0",
-  "description": "Remote MCP gateway: consolidate GitHub/Notion upstream tools into a stable whitelist + gateway_call for Gemini custom connectors",
+  "description": "Code Mode MCP gateway for web-based MCP clients: three stable tools (search / execute_read / execute), sandboxed orchestration, and upstream tool payloads kept out of the model context.",
   "type": "module",
   "main": "src/server.js",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bruce-Yii/gemini-mcp-gateway.git"
+  },
+  "homepage": "https://github.com/Bruce-Yii/gemini-mcp-gateway#readme",
+  "bugs": {
+    "url": "https://github.com/Bruce-Yii/gemini-mcp-gateway/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "code-mode",
+    "gateway",
+    "gemini",
+    "context-engineering",
+    "quickjs",
+    "oauth"
+  ],
   "scripts": {
     "test": "node --test \"tests/**/*.test.js\"",
+    "test:watch": "node --test --watch \"tests/**/*.test.js\"",
+    "verify": "npm test && node scripts/eval-search.mjs && node scripts/measure-context.mjs",
     "start": "node src/server.js --config config.example.json --port 3000",
     "smoke": "node scripts/smoke.mjs",
     "verify:github": "node scripts/verify-real-github.mjs",
