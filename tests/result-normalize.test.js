@@ -6,6 +6,7 @@ import {
   normalizePrResult,
   normalizeIssueResult,
   normalizeResult,
+  explainTruncation,
 } from '../src/result-normalize.js';
 
 const FILE_KEYS = ['content', 'sha', 'size', 'encoding', 'path', 'truncated', 'raw'].sort();
@@ -409,3 +410,31 @@ test('normalizeFile extracts blob sha from the GitHub download notice', () => {
   assert.equal(out.sha, '4cb29ea38f70d7c61b2a3a25b02e3bdf44905402');
   assert.equal(out.content, 'one\ntwo\n');
 });
+
+// --- batch 11 · no silent truncation ---------------------------------------
+
+test('batch11: nested / string / object truncation flags are no longer missed', () => {
+  assert.equal(explainTruncation({ result: { content: 'x', truncated: true } }), 'upstream:truncated');
+  assert.equal(explainTruncation({ content: 'x', truncated: 'true' }), 'upstream:truncated');
+  assert.equal(explainTruncation({ content: 'x', truncation: { reason: 'byte cap' } }), 'byte cap');
+  assert.equal(explainTruncation({ content: 'x--- TRUNCATED --- 9 chars' }), 'in-band:--- TRUNCATED ---');
+  assert.equal(normalizeFileResult({ result: { content: 'x', truncated: true } }).truncated, true);
+  assert.equal(normalizeFileResult('plain long text without markers').truncated, false);
+});
+
+test('batch11: long line survives every file shape character-for-character', () => {
+  const long = `x${'A'.repeat(900)}Z`;
+  const shapes = [
+    long,
+    JSON.stringify({ content: long }),
+    { content: long, sha: 's' },
+    { resources: [{ text: long }] },
+    { content: [{ type: 'resource', resource: { text: long } }] },
+  ];
+  for (const value of shapes) {
+    const out = normalizeFileResult(value);
+    assert.equal(out.content, long, `shape ${typeof value} lost characters`);
+    assert.equal(out.content.length, long.length);
+  }
+});
+

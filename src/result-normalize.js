@@ -177,11 +177,63 @@ function resourcesToText(resources) {
   return parts.length ? parts.join('\n') : null;
 }
 
+/**
+ * P0 batch 11 · Explain *why* a file result is truncated.
+ *
+ * Historical code only recognized a top-level boolean or an in-band
+ * `--- TRUNCATED ---` marker. Envelopes (`result.truncated`), string flags and
+ * explicit `truncation` objects slipped through and made a shortened payload
+ * look complete. This helper is the single source of truth for that decision;
+ * `normalizeFileResult` keeps its stable field set and delegates to it.
+ *
+ * Returns a short reason string, or `null` when nothing signals truncation.
+ * Pure and never throws (hostile Proxy getters are tolerated).
+ */
+export function explainTruncation(root, content) {
+  // Convenience: a bare string is the content itself (used by direct callers
+  // and by the string branch of normalizeFileResult).
+  if (typeof root === 'string' && content === undefined) {
+    content = root;
+    root = null;
+  }
+  // A bare object with only `content` is another common direct-call shape.
+  if (content === undefined && isObj(root)) {
+    const candidate = pick(root, ['content', 'text', 'data']);
+    if (typeof candidate === 'string') content = candidate;
+  }
+  const flagFrom = (obj) => {
+    const raw = pick(obj, ['truncated', 'isTruncated', 'truncation']);
+    if (raw === true) return 'upstream:truncated';
+    if (raw === 1 || raw === '1') return 'upstream:truncated';
+    if (raw === 'true') return 'upstream:truncated';
+    if (typeof raw === 'string' && raw.trim() !== '') return `upstream:${raw.trim().slice(0, 160)}`;
+    if (isObj(raw)) {
+      const reason = pick(raw, ['reason', 'detail', 'message']);
+      if (typeof reason === 'string' && reason.trim() !== '') return reason.trim().slice(0, 160);
+      return 'upstream:truncation-object';
+    }
+    return null;
+  };
+  try {
+    const direct = flagFrom(root);
+    if (direct) return direct;
+    const nested = get(root, 'result');
+    if (isObj(nested)) {
+      const inner = flagFrom(nested);
+      if (inner) return inner;
+    }
+    const text = String(content ?? '');
+    if (text.includes(TRUNCATED_MARKER)) return `in-band:${TRUNCATED_MARKER}`;
+    return null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function isTruncated(value, content) {
   try {
     if (value === true) return true;
-    const text = String(content ?? '');
-    return text.includes(TRUNCATED_MARKER);
+    return explainTruncation({ truncated: value }, content) !== null;
   } catch (_) {
     return false;
   }
@@ -234,7 +286,6 @@ export function normalizeFileResult(value) {
     const sizeRaw = pick(root, ['size', 'bytes']);
     const sizeNum = Number(sizeRaw);
     const size = sizeRaw !== undefined && Number.isFinite(sizeNum) ? sizeNum : null;
-    const truncatedFlag = pick(root, ['truncated', 'isTruncated']);
 
     return {
       content: content !== null && typeof content === 'string' ? content : null,
@@ -242,7 +293,10 @@ export function normalizeFileResult(value) {
       size,
       encoding: encoding !== undefined && encoding !== null ? String(encoding) : null,
       path: path !== undefined && path !== null ? String(path) : null,
-      truncated: isTruncated(truncatedFlag, content),
+      // P0 batch 11: use the root (not just the top-level flag) so nested
+      // `result.truncated`, string flags and explicit `truncation` objects are
+      // never mistaken for a complete payload.
+      truncated: explainTruncation(root, content) !== null,
       raw: value,
     };
   } catch (_) {

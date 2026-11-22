@@ -210,7 +210,11 @@ function buildDiffSummary(path, first, second, added, removed, hunks) {
   }
   samples.push(...removedSamples, ...addedSamples);
   const header = `--- a/${path}\n+++ b/${path}\n@@ -1,${beforeLines} +1,${afterLines} @@`;
-  return [header, ...samples].join('\n');
+  // P0 batch 11: the 3-sample cap is a deliberate safety limit, so it must be
+  // explicit instead of looking like the patch only changed these few lines.
+  const omitted = Math.max(0, Math.min(a.length, b.length) - removedSamples.length - addedSamples.length);
+  const footer = omitted > 0 ? `… ${omitted} more changed line${omitted === 1 ? '' : 's'} omitted from preview` : null;
+  return [header, ...samples, ...(footer ? [footer] : [])].join('\n');
 }
 
 /**
@@ -245,6 +249,15 @@ export async function applyFilePatch({ read, write, path, patch, dryRun = true, 
     rawText = await read(path);
   } catch (e) {
     return { ok: false, error: `read failed: ${String(e && e.message ? e.message : e)}` };
+  }
+
+  // P0 batch 11: a patch built on a truncated read would be applied to a
+  // partial file and then written back, silently destroying the tail. Treat an
+  // in-band TRUNCATED marker as a hard stop before any patch/precheck/write.
+  // (Host injects read() as plain text; upstream flags are checked by the
+  // sandbox orchestration helper before it calls this path.)
+  if (typeof rawText === 'string' && rawText.includes('--- TRUNCATED ---')) {
+    return { ok: false, error: 'refusing to patch a truncated read: re-read the full file before writing' };
   }
 
   const applied = applyTextPatch(rawText, patch);

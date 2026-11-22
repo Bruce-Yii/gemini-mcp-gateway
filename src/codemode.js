@@ -51,7 +51,7 @@ const EXEC_BOUNDARY_GUIDANCE = " Boundary: if the task exceeds the available too
 
 // Gemini feedback #3: upstreams do not share one result shape. One short line
 // nudges the model to defend before field access instead of crashing mid-script.
-const RETURN_SHAPE_GUIDANCE = ' Results differ by service: Notion/Linear mostly return objects, GitHub often JSON text or arrays, Vercel mostly objects — guard with Array.isArray(x) / typeof x === "string" before reading fields; safeAll(tasks) keeps a batch alive when one sub-task fails; grepSnippet(text, keyword, window) extracts context slices from long results; codemode.unwrap(x) normalizes JSON text, {result}, {text,resources} and content arrays; fileResult(x)/prResult(x) flatten common file/PR shapes. Intl is unavailable in the sandbox: use codemode.formatDate(value, {date:true,time:true,ms:true}) or Date UTC getters. For large files, fetch inside the sandbox and return codemode.sliceLines(text, start, end) instead of the full text. Edit with codemode.replaceLines/applyPatch; call diffSummary before writing. codemode.normalizeFile/normalizePr/normalizeIssue/normalizeResult give canonical field sets (raw kept); codemode.applyFilePatch previews/writes via GitHub tools (dryRun by default); codemode.ensureBranch/upsertPr/fetchAllPages/repoGrep wrap injected GitHub tools. Unified writes: codemode.applyFilePatch/writeFiles accept {patches:[{path,patch,sha?}]} (or single path+patch), auto-fill sha from the read, precheck JSON/JS-TS before writing, and return top-level {sha,commitSha,number?,url?}; codemode.canonicalize/normalizeMerge give {number,url,sha}; codemode.createBranchIfMissing creates from base when absent; codemode.precheckText is a lightweight write-before check (JSON strict, JS/TS brackets only — not a compiler).';
+const RETURN_SHAPE_GUIDANCE = ' Results differ by service: Notion/Linear mostly return objects, GitHub often JSON text or arrays, Vercel mostly objects — guard with Array.isArray(x) / typeof x === "string" before reading fields; safeAll(tasks) keeps a batch alive when one sub-task fails; grepSnippet(text, keyword, window) extracts context slices from long results (each clipped snippet is now marked truncated); codemode.unwrap(x) normalizes JSON text, {result}, {text,resources} and content arrays; fileResult(x)/prResult(x) flatten common file/PR shapes. Intl is unavailable in the sandbox: use codemode.formatDate(value, {date:true,time:true,ms:true}) or Date UTC getters. NO SILENT CHARACTER TRUNCATION: never write `l.slice(0, 150)`, `line.substring(0, N)` or any other manual per-line character cut — that silently destroys data and is the P0 bug this guidance fixes. To control context, read with codemode.readFileRange({path,startLine,endLine,maxCharsPerLine?}) (returns {lines,truncated,truncation?,nextStart,totalLines}; NO maxCharsPerLine means full lines, with it every cut line is flagged) or codemode.sliceLines(text,start,end) (line-based, reports truncated) and REPORT the truncated flag in your answer; follow nextStart to page through. grepSnippet also reports truncated on clipped windows. Never patch or write a read whose truncated flag is true — re-read the full file first. Edit with codemode.replaceLines/applyPatch; call diffSummary before writing. codemode.normalizeFile/normalizePr/normalizeIssue/normalizeResult give canonical field sets (raw kept; truncated is true on any upstream/marker/nested flag); codemode.applyFilePatch previews/writes via GitHub tools (dryRun by default; refuses truncated reads); codemode.ensureBranch/upsertPr/fetchAllPages/repoGrep wrap injected GitHub tools. Unified writes: codemode.applyFilePatch/writeFiles accept {patches:[{path,patch,sha?}]} (or single path+patch), auto-fill sha from the read, precheck JSON/JS-TS before writing, and return top-level {sha,commitSha,number?,url?}; codemode.canonicalize/normalizeMerge give {number,url,sha}; codemode.createBranchIfMissing creates from base when absent; codemode.precheckText is a lightweight write-before check (JSON strict, JS/TS brackets only — not a compiler).';
 
 // Gemini feedback #2: tell the model which identifier is actually callable.
 const CALLNAME_GUIDANCE = ' Each result carries "callName": pass that exact identifier to codemode (the "name" field may contain hyphens — do not copy it literally into codemode["..."]).';
@@ -128,7 +128,9 @@ const GUEST_PRELUDE = [
   // text — avoids hand-writing slice/indexOf loops after results get truncated.
   // Accepts string or any object (JSON-stringified). Returns an array of
   // {index, text} snippets; case-insensitive; capped at 10 snippets.
-  'const __dshGrepSnippet = (input, keyword, window) => { const s = typeof input === "string" ? input : JSON.stringify(input); if (!s || !keyword) return []; const w = Math.max(20, Math.min(Number(window) || 300, 4000)); const needle = String(keyword).toLowerCase(); const hay = s.toLowerCase(); const out = []; let from = 0; while (out.length < 10) { const i = hay.indexOf(needle, from); if (i < 0) break; const start = Math.max(0, i - Math.floor(w / 2)); out.push({ index: i, text: s.slice(start, Math.min(s.length, start + w)) }); from = i + needle.length; } return out; };',
+  // P0 batch 11: a snippet is a char-window slice of a line. It MUST say so —
+  // the captured model bug was exactly an unmarked `l.slice(0,150)`.
+  'const __dshGrepSnippet = (input, keyword, window) => { const s = typeof input === "string" ? input : JSON.stringify(input); if (!s || !keyword) return []; const w = Math.max(20, Math.min(Number(window) || 300, 4000)); const needle = String(keyword).toLowerCase(); const hay = s.toLowerCase(); const out = []; let from = 0; while (out.length < 10) { const i = hay.indexOf(needle, from); if (i < 0) break; const start = Math.max(0, i - Math.floor(w / 2)); const end = Math.min(s.length, start + w); const clipped = start > 0 || end < s.length; const item = { index: i, text: s.slice(start, end), fullLength: s.length, truncated: clipped }; if (clipped) item.truncation = { reason: "grepWindow", window: w, start: start, end: end, detail: "grepSnippet char window; use readFileRange to get the full line" }; out.push(item); from = i + needle.length; } return out; };',
   'const grepSnippet = __dshHide(__dshGrepSnippet); codemode.grepSnippet = grepSnippet;',
   // Inconsistent upstream result shapes: normalize defensively without ever
   // throwing. Ambiguous payloads are returned untouched so the model can still
@@ -149,6 +151,70 @@ const GUEST_PRELUDE = [
   // and makes truncation explicit instead of guessed.
   'const __dshSliceLines = (value, startLine, endLine) => { const normalize = (x) => typeof x === "string" ? x : __dshStr(x); const text = normalize(value).replace(/\\r\\n?/g, "\\n"); const lines = text.split("\\n"); const total = lines.length; let start = Math.floor(Number(startLine)); if (!Number.isFinite(start) || start < 1) start = 1; let end = Math.floor(Number(endLine)); if (!Number.isFinite(end)) end = Math.min(total, start + 199); if (end < start) end = start - 1; if (end > total) end = total; const slice = start <= end ? lines.slice(start - 1, end).join("\\n") : ""; return { text: slice, startLine: start, endLine: end, totalLines: total, truncated: start > 1 || end < total }; };',
   'const sliceLines = __dshHide(__dshSliceLines); codemode.sliceLines = sliceLines;',
+  // P0 batch 11 · typed line-range read primitive.
+  //
+  // Design contract (do not weaken):
+  //   - `path` is required; the file is fetched through the SAME tool bridge as
+  //     every other codemode call (`tools.readTool`, default GitHub read tool).
+  //   - Content extraction REUSES codemode.normalizeFile (host canonical
+  //     adapter) with codemode.fileResult as fallback. No second upstream read
+  //     implementation, no second shape parser.
+  //   - No `maxCharsPerLine` => NO character truncation at all, ever.
+  //   - With `maxCharsPerLine`, each over-long line is cut AND the result
+  //     carries `truncated:true` + `truncation.reason:'maxCharsPerLine'` plus
+  //     the 1-based line numbers that were cut.
+  //   - Line-range clipping and upstream truncation are also reported.
+  'const __dshReadFileRange = async (opts) => {',
+  '  const o = opts && typeof opts === "object" ? opts : {};',
+  '  if (typeof o.path !== "string" || o.path.length === 0) return { ok: false, error: "readFileRange: path must be a non-empty string" };',
+  '  let cap = null;',
+  '  if (o.maxCharsPerLine !== undefined && o.maxCharsPerLine !== null) {',
+  '    const n = Number(o.maxCharsPerLine);',
+  '    if (!Number.isFinite(n) || n <= 0) return { ok: false, error: "readFileRange: maxCharsPerLine must be a positive finite number" };',
+  '    cap = Math.floor(n);',
+  '  }',
+  '  const names = __dshB10Cfg(o.tools || {}, { readTool: "github__get_file_contents" });',
+  '  const readArgs = Object.assign({}, o.readArgs || {}, { owner: o.owner, repo: o.repo, path: o.path });',
+  '  if (o.branch !== undefined) readArgs.ref = readArgs.ref || o.branch;',
+  '  let raw;',
+  '  try { raw = await __dshCallTool(names.readTool, readArgs); } catch (e) { __dshB10Rethrow(e); return { ok: false, error: "readFileRange: read failed for " + o.path + ": " + __dshB10Str(e && e.message ? e.message : e) }; }',
+  '  const nf = codemode.normalizeFile(raw, names.readTool);',
+  '  let text = nf && typeof nf.content === "string" ? nf.content : null;',
+  '  if (text === null) { const fr = codemode.fileResult(raw); text = typeof fr.content === "string" ? fr.content : null; }',
+  '  if (text === null) return { ok: false, error: "readFileRange: read did not yield file text: " + o.path };',
+  '  const normalized = text.replace(/\\r\\n?/g, "\\n");',
+  '  const allLines = normalized.split("\\n");',
+  '  const totalLines = allLines.length;',
+  '  let start = Math.floor(Number(o.startLine));',
+  '  if (!Number.isFinite(start) || start < 1) start = 1;',
+  '  if (start > totalLines) start = totalLines;',
+  '  let end = Math.floor(Number(o.endLine));',
+  '  if (!Number.isFinite(end)) end = totalLines;',
+  '  if (end < start) end = start - 1;',
+  '  if (end > totalLines) end = totalLines;',
+  '  const lines = [];',
+  '  const cappedLines = [];',
+  '  for (let i = start; i <= end; i += 1) {',
+  '    const line = allLines[i - 1];',
+  '    if (cap !== null && line.length > cap) { lines.push(line.slice(0, cap)); cappedLines.push(i); }',
+  '    else lines.push(line);',
+  '  }',
+  '  const omittedBefore = start - 1;',
+  '  const omittedAfter = totalLines - end;',
+  '  const rangeClipped = omittedBefore > 0 || omittedAfter > 0;',
+  '  const pickTruncationDetail = (v) => { if (!v || typeof v !== "object") return null; const t = v.truncation !== undefined ? v.truncation : (v.result && typeof v.result === "object" ? v.result.truncation : undefined); if (t === undefined || t === null) return null; if (typeof t === "string") return t.slice(0, 160); const r = t.reason !== undefined ? t.reason : (t.detail !== undefined ? t.detail : t.message); return r === undefined ? "upstream truncation object" : __dshB10Str(r).slice(0, 160); };',
+  '  const upstreamDetail = pickTruncationDetail(raw) || pickTruncationDetail(nf);',
+  '  const upstreamTruncated = Boolean(nf && nf.truncated) || normalized.includes("--- TRUNCATED ---") || upstreamDetail !== null;',
+  '  const truncated = rangeClipped || cappedLines.length > 0 || upstreamTruncated;',
+  '  const reasons = [];',
+  '  if (rangeClipped) reasons.push({ reason: "lineRange", omittedBefore: omittedBefore, omittedAfter: omittedAfter });',
+  '  if (cappedLines.length) reasons.push({ reason: "maxCharsPerLine", maxCharsPerLine: cap, lines: cappedLines, detail: "lines exceeded maxCharsPerLine and were cut at the character boundary" });',
+  '  if (upstreamTruncated) reasons.push({ reason: "upstream", detail: upstreamDetail || "upstream file read reported truncated" });',
+  '  const out = { lines: lines, truncated: truncated, nextStart: omittedAfter > 0 ? end + 1 : null, totalLines: totalLines };',
+  '  if (truncated) out.truncation = reasons.length === 1 ? reasons[0] : { reason: "multiple", causes: reasons };',
+  '  return out;',
+  '};',
+  'codemode.readFileRange = __dshHide(__dshReadFileRange);',
   // Common capability shapes: upstreams disagree on file/PR field names. These
   // helpers are best-effort flat views; they never throw and return `null` for
   // fields they cannot find (callers can still inspect the original value).
@@ -227,6 +293,9 @@ const GUEST_PRELUDE = [
   '    let text = nf.content;',
   '    if (typeof text !== "string") { const fr = codemode.fileResult(raw); text = fr.content; }',
   '    if (typeof text !== "string") return { ok: false, error: "read did not yield file text: " + item.path };',
+  // P0 batch 11: never patch/write on a truncated read. A patch against a
+  // partial file would silently destroy the unread tail when written back.
+  '    if (nf.truncated || text.includes("--- TRUNCATED ---")) return { ok: false, error: "refusing to patch a truncated read for " + item.path + ": re-read the full file before writing" };',
   '    const applied = codemode.applyPatch(text, item.patch);',
   '    if (!applied.ok) return { ok: false, error: item.path + ": " + applied.error };',
   '    const checked = __dshInvoke("precheckText", [applied.text, item.path]);',

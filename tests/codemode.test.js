@@ -43,6 +43,40 @@ test('runInSandbox: tool call limit enforced (returned as error result)', async 
   assert.match(out.result, /tool call limit/);
 });
 
+// --- batch 11 · no silent truncation ---------------------------------------
+
+test('batch11: readFileRange returns full lines by default, marked cuts when capped', async () => {
+  const longLine = `L${'abcdefghij'.repeat(30)}Z`;
+  const text = `head\n${longLine}\ntail`;
+  const out = await runInSandbox({
+    code: `async () => ({
+      full: await codemode.readFileRange({path:'x', startLine:1, endLine:3, tools:{readTool:'fake__get_file_contents'}}),
+      capped: await codemode.readFileRange({path:'x', startLine:1, endLine:3, maxCharsPerLine:150, tools:{readTool:'fake__get_file_contents'}})
+    })`,
+    tools: [{ name: 'fake__get_file_contents', server: 'fake', tool: 'get_file_contents', description: 'read', inputSchema: { type: 'object', properties: {} }, annotations: { readOnlyHint: true } }],
+    callTool: async () => ({ content: [{ type: 'text', text }] }),
+  });
+  assert.ok(!out.isError, out.result);
+  const r = JSON.parse(out.result);
+  assert.deepEqual(r.full.lines, ['head', longLine, 'tail']);
+  assert.equal(r.full.truncated, false);
+  assert.equal(r.full.truncation, undefined);
+  assert.equal(r.capped.truncated, true);
+  assert.equal(r.capped.truncation.reason, 'maxCharsPerLine');
+  assert.equal(r.capped.lines[1], longLine.slice(0, 150));
+});
+
+test('batch11: grepSnippet marks its char window', async () => {
+  const out = await runInSandbox({
+    code: `async () => codemode.grepSnippet('${'x'.repeat(200)} needle ${'y'.repeat(200)}', 'needle', 40)`,
+    tools: [], callTool: async () => ({}),
+  });
+  assert.ok(!out.isError, out.result);
+  const r = JSON.parse(out.result);
+  assert.equal(r[0].truncated, true);
+  assert.equal(r[0].truncation.reason, 'grepWindow');
+});
+
 test('codemode server exposes only search + execute', async () => {
   const child = spawn(process.execPath, [fakeUpstream], { stdio: ['pipe', 'pipe', 'pipe'] });
   try {

@@ -237,3 +237,33 @@ test('normalizeWriteResult reads GitHub {content:{sha},commit:{sha}} shape', () 
   assert.equal(out.commitSha, 'commit-new');
 });
 
+// --- batch 11 · no silent truncation ---------------------------------------
+
+test('batch11: applyFilePatch refuses a truncated read before any write', async () => {
+  const partial = 'one\ntwo\n--- TRUNCATED --- 900 chars total';
+  const io = fakeIo(partial);
+  const r = await applyFilePatch({
+    ...io,
+    path: 'x.js',
+    patch: '@@ -1,1 +1,1 @@\n-one\n+ONE\n',
+    dryRun: false,
+    includeContent: true,
+  });
+  assert.equal(r.ok, false);
+  assert.match(r.error, /truncated/i);
+  assert.equal(io.calls.write.length, 0);
+});
+
+test('batch11: diff summary explicitly marks omitted preview lines', async () => {
+  const base = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`).join('\n') + '\n';
+  const patch = ['@@ -1,1 +1,1 @@', '-line 1', '+LINE 1'].join('\n');
+  const r = await applyFilePatch({
+    ...fakeIo(base),
+    path: 'x.txt',
+    patch,
+    dryRun: true,
+  });
+  assert.equal(r.ok, true, r.error);
+  assert.match(r.diff.diff, /more changed lines? omitted from preview/);
+});
+
