@@ -64,4 +64,5 @@
 
 ## 总账索引
 
-见 `ledger.json`（机器可读）与各批次 md（人读）。
+见 `ledger.json`（机器可读）与各批次 md（人读）。**上游接入/优化的完整工作流与门控见
+[`docs/WORKFLOW.md`](../WORKFLOW.md)**；台账只记录每条结论与证据。

@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Figma live OAuth attempt: a self-created OAuth app gets `Invalid scope: mcp:connect`, confirming the remote server is restricted to catalog clients; only the local desktop-server path is usable (`figma-desktop.json`).
 - `tokenHeader` config for upstreams that take the raw token in a custom header (e.g. Figma's `X-Figma-Token`). Ready-made hosted Figma route via Framelink `figma-developer-mcp` (Streamable HTTP, PAT, two read-only tools) documented in `docs/CREDENTIALS.md` with `templates/upstreams/figma-framelink.json`; verified end-to-end through the gateway (2 tools indexed, search works).
 - Figma official remote MCP can be configured with `FIGMA_ACCESS_TOKEN`/refresh env vars via a community OAuth allowlist workaround (50 tools, incl. `create_new_file` and `use_figma`); `config.example.json` includes the server (skipped when env vars are unset). Verified end-to-end: gateway created a real Figma file.
+- Figma tool curation corrected after auditing Figma's official Tools docs: the first pass over-denied 18 official tools (Weave/Shader/Generative plugin) by name; final `denyTools` is 4 ChatGPT/UI-internal tools, 46 kept. Recorded as a process lesson in `docs/UNNEEDED-TOOLS.md` and `docs/ledger/batch-4-figma.md`.
+- `docs/WORKFLOW.md`: end-to-end upstream onboarding + quality-gate workflow distilled from B0–B4 (G1 access → G2 tool curation → G3 scenario coverage → G4 baseline → G5 root cause → G6 retest → G7 delivery), with checklists and current upstream status.
 
 ## [0.1.0] - 2026-11-22
 

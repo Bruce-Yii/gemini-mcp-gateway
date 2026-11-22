@@ -7,23 +7,23 @@
 
 ## SCENARIO（测评场景）
 
-- 官方 Figma MCP 暴露 50 个工具（2026-11-22 实测），deny 后保留 28 个。
+- 官方 Figma MCP 暴露 50 个工具（2026-11-22 实测），deny 4 个 ChatGPT/UI 内部工具后保留 46 个；18 个 Weave/Shader/Generative plugin 按"存疑放行"保留。
 - 任务集：**0 条**。Figma 官方文档有示例 prompt（design-to-code、发 UI 到 Figma、
   生成 FigJam 等），可作为权威来源；schema 驱动任务也还没生成。
-- 覆盖度：0/28，**未通过 B1**。不把"本地能建一个文件"当成场景覆盖。
+- 覆盖度：0/46，**未通过 B1**。不把"本地能建一个文件"当成场景覆盖。
 
 ## ROOT / FIX（问题与修复）
 
 | 项 | 内容 | 证据 |
 |---|---|---|
 | 认证 | Figma 只允许目录内 client（`mcp:connect` scope）；采用社区 workaround：DCR 注册为 `client_name: "Codex"`、授权 URL **不带 scope 参数**，token 生命周期 90 天 + refresh | 本地实测 `tools/list` 50 个；`create_new_file` 成功 |
-| 工具收口 | `denyTools` 22 个：ChatGPT/UI 内部 4（`authorize_mcp_app`、`open_figma_mcp_app`、`open_figma_mcp_app_in_thread`、`get_profile_for_chatgpt`）、Figma Weave 9、shader 5、generative plugin 4 | `config.example.json`；`check-config` 显示 deny=22 |
-| 保留 | 28 个：建文件/`use_figma`/design-to-code/Code Connect/评论/变量/FigJam/图片/视频等；**写工具没有因为是写操作被删**，与四个旧上游原则一致 | 工具清单 |
+| 工具收口 | 第一版按名字猜了 22 个 deny（含 Weave/Shader/Generative plugin），复核官方 Tools 文档后判定为**误伤**：最终只 deny 4 个不在官方工具清单里的 ChatGPT/UI 内部工具；18 个存疑项全部放行 | `config.example.json`；`check-config` 显示 deny=4；`docs/UNNEEDED-TOOLS.md` 纠错记录 |
+| 保留 | 46 个：建文件/`use_figma`/design-to-code/Code Connect/评论/变量/FigJam/图片/视频/Weave/Shader/Generative plugin 等；**写工具没有因为是写操作被删**，与四个旧上游原则一致 | 官方 Tools 文档 + 工具清单 |
 | 凭据 | token 只存在 Vercel sensitive env；仓库无 token；`.vercelignore` 排除 `work/` | 部署记录 |
 
 ## TEST（验证）
 
-- `node scripts/check-config.mjs config.example.json` → config OK，figma deny=22。
+- `node scripts/check-config.mjs config.example.json` → config OK，figma deny=4。
 - `npm test` → 308/308。
 - 本地网关 → 官方 Figma MCP：50 工具可被 `search` 检索；`execute` 调
   `figma__create_new_file` 创建真实文件
@@ -41,7 +41,7 @@
 
 ## 欠账（下一步）
 
-1. 20-30 条 Figma 任务覆盖 28 个保留工具（官方 prompt + schema 驱动），按 B1 权威等级标注。
+1. 20-30 条 Figma 任务覆盖 46 个保留工具（28 核心 + 18 存疑放行；官方 prompt + schema 驱动），按 B1 权威等级标注。
 2. Figma 加入 `measure-context` 与 `eval-search` 的口径（当前统计仍是 4 上游 456 工具）。
 3. B3 式全量重测，并核实线上（带客户端 token）实际调用。
 4. 若 Figma 封禁 workaround，降级到 Framelink PAT（只读）或等待目录开放。

@@ -13,8 +13,8 @@
 | Notion | 77 | 24 | 32 | 21 |
 | Linear | 60 | 24 | 16 | 20 |
 | Vercel | 259 | 212 | 33 | 14 |
-| Figma（2026-11-22 补） | 50 | 22 | — | 28（deny 后） |
-| **合计** | **492** | **286** | **88** | **118** |
+| Figma（2026-11-22 补） | 50 | 4 | 18 | 28 |
+| **合计** | **492** | **268** | **106** | **118** |
 
 注意：写操作**没有**因为是写操作就被判"用不上"——建 issue/页面/PR、save_issue、create_pull_request 等全部在保留组。判"用不上"的标准是"个人日常场景无交集"或"企业/内部机制专属"。
 
@@ -81,17 +81,21 @@ Vercel 的 259 个工具里绝大多数是细碎底层 API 和企业运维功能
 
 ---
 
-## Figma（50 → 用不上 22）
+## Figma（50 → 明确用不上 4；存疑 18 全部放行）
 
 第五个上游，2026-11-22 接入（官方 MCP + 社区 OAuth workaround；见 `docs/ledger/batch-4-figma.md`）。
 
-**明确用不上（22）：**
-- **ChatGPT/UI 内部（4）**：`authorize_mcp_app`、`open_figma_mcp_app`、`open_figma_mcp_app_in_thread`、`get_profile_for_chatgpt`
-- **Figma Weave（9）**：`weave_list_tools`、`weave_get_tool_inputs`、`weave_run_tool`、`weave_upload_asset`、`weave_get_tool_run_output`、`weave_cancel_tool_run`、`weave_find_model`、`weave_run_model`、`weave_get_model_run_output`
-- **Shader（5）**：`list_file_shaders`、`list_shaders`、`get_shader`、`create_shader`、`update_shader`
-- **Generative plugin（4）**：`list_generative_plugins`、`get_generative_plugin`、`create_generative_plugin`、`update_generative_plugin`
+**明确用不上（4，ChatGPT/UI 内部）**：`authorize_mcp_app`、`open_figma_mcp_app`、`open_figma_mcp_app_in_thread`、`get_profile_for_chatgpt`。
+这 4 个不在 Figma 官方 Tools 文档的工具清单里，属于 ChatGPT app 的 UI/内部辅助；Gemini 网页端用不到。
 
-**保留 28 个**：`create_new_file`、`use_figma`、`get_design_context`、`get_metadata`、`get_screenshot`、`get_comments`、`get_variable_defs`、`search_design_system`、Code Connect 组、`generate_figma_design`/`send_code_to_figma`/`html_to_figma`、`generate_diagram`/`generate_image`/`generate_vector_illustration`、FigJam、变量/库、创建 session/branch、`whoami` 等。
+**存疑但放行（18）**：
+- **Figma Weave（9）**：`weave_*`。官方工具，但需要**付费 Figma Weave 账号**；没有账号时调用会报错。保留，避免误伤有 Weave 的用户。
+- **Shader（5）**：`list_shaders`/`get_shader`/`create_shader`/`update_shader`/`list_file_shaders`。官方能力，偏开发者；保留。
+- **Generative plugin（4）**：`list_generative_plugins`/`get_generative_plugin`/`create_generative_plugin`/`update_generative_plugin`。同上；保留。
+
+**保留核心 28 个**：`create_new_file`、`use_figma`、`get_design_context`、`get_metadata`、`get_screenshot`、`get_comments`、`get_variable_defs`、`search_design_system`、Code Connect 组、`generate_figma_design`/`send_code_to_figma`/`html_to_figma`、`generate_diagram`/`generate_image`/`generate_vector_illustration`、FigJam、变量/库、创建 session/branch、`whoami` 等。
+
+> **纠错记录（2026-11-22）**：第一次收口把 Weave/Shader/Generative plugin 共 18 个也标成"明确用不上"，属于按名字猜、没有对照官方 Tools 文档——违反"存疑全部放行"的既有标准。复核后已放回：最终只 deny 4 个 ChatGPT/UI 内部工具，配置为 `figma denyTools=4`。
 
 写工具同样**没有**因为"是写操作"被删；判"用不上"的标准与四个旧上游一致：个人日常场景无交集或内部机制专属。
 
@@ -99,11 +103,11 @@ Vercel 的 259 个工具里绝大多数是细碎底层 API 和企业运维功能
 
 ## 关键结论
 
-1. **真正"用不上"的大头在 Vercel**（212/259）——它是把整个 Vercel 平台 API 都搬成了 MCP，个人场景只碰其中 14 个；Figma（22/50）其次。
+1. **真正"用不上"的大头在 Vercel**（212/259）——它是把整个 Vercel 平台 API 都搬成了 MCP，个人场景只碰其中 14 个；Figma 明确用不上的只有 4/50（另 18 个存疑放行）。
 2. **GitHub 几乎全能用**（只 4 个用不上）——它本来就是面向个人开发者的工具集。
 3. **Notion/Linear 的"用不上"主要是内部机制**（agent session、skill、团队管理、发布管理），不是核心文档/issue 能力。
 4. **写操作全部保留**——本轮没有任何工具因为"是写操作"被判用不上。
-5. 本报告的"明确用不上"已按服务写入 `config.example.json` 的 `denyTools`（GitHub 4 / Notion 24 / Linear 24 / Vercel 213 / Figma 22；本报告写 Vercel 212，快照后该服务工具数从 259 变为 273）；"存疑"项仍全部放行，未逐项收敛。
+5. 本报告的"明确用不上"已按服务写入 `config.example.json` 的 `denyTools`（GitHub 4 / Notion 24 / Linear 24 / Vercel 213 / Figma 4；本报告写 Vercel 212，快照后该服务工具数从 259 变为 273）；"存疑"项仍全部放行，未逐项收敛。
 
 ## 来源
 - 工具清单：`data/tool-dataset.json`（分析时 442 个工具的 name+description，实测抓取；当前文件为 456 个）
