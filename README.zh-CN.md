@@ -238,8 +238,6 @@ node bench/run.mjs --dry-run      # 模型在环 harness 自检（不调模型�
 - [docs/UPSTREAMS.md](docs/UPSTREAMS.md) — 加上游：配置、鉴权模式、验证
 - [docs/WORKFLOW.md](docs/WORKFLOW.md) — 上游接入与质量门控（B1–B4 工作流）
 - [docs/OBSERVABILITY-AND-EVAL.md](docs/OBSERVABILITY-AND-EVAL.md) — 零影响 telemetry + 评测闭环设计
-- [docs/PLAN-2026-11-23.md](docs/PLAN-2026-11-23.md) — 当前全局缺口、并行工作流、验收标准（无日历）
-- [docs/HANDOFF-2026-11-23.md](docs/HANDOFF-2026-11-23.md) — 续接点：现状、进行中工作、下一步
 - [docs/CREDENTIALS.md](docs/CREDENTIALS.md) — Slack/Atlassian 等上游的 token 获取
 - [docs/CLIENTS.md](docs/CLIENTS.md) — 客户端兼容性矩阵
 - [docs/ADOPTION-RANKINGS.md](docs/ADOPTION-RANKINGS.md) — MCP/连接器公开采用数据的整理
