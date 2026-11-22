@@ -227,6 +227,7 @@ deployment between users. The sandbox provides isolation, not authorization.
 - [docs/WHY.md](docs/WHY.md) — problem, measurements, external evidence
 - [docs/UPSTREAMS.md](docs/UPSTREAMS.md) — add an upstream (config, auth patterns, verification)
 - [docs/CLIENTS.md](docs/CLIENTS.md) — client compatibility matrix
+- [docs/ADOPTION-RANKINGS.md](docs/ADOPTION-RANKINGS.md) — what public data says about MCP/connector adoption
 - [templates/upstreams/](templates/upstreams/README.md) — verified drop-in upstream entries
 - [bench/README.md](bench/README.md) — model-in-loop benchmark harness
 - [docs/SANDBOX-SECURITY.md](docs/SANDBOX-SECURITY.md) — sandbox model and caveats

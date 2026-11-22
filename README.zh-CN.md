@@ -195,6 +195,7 @@ node bench/run.mjs --dry-run      # 模型在环 harness 自检（不调模型�
 - [docs/WHY.md](docs/WHY.md) — 问题、实测数据、外部证据
 - [docs/UPSTREAMS.md](docs/UPSTREAMS.md) — 加上游：配置、鉴权模式、验证
 - [docs/CLIENTS.md](docs/CLIENTS.md) — 客户端兼容性矩阵
+- [docs/ADOPTION-RANKINGS.md](docs/ADOPTION-RANKINGS.md) — MCP/连接器公开采用数据的整理
 - [templates/upstreams/](templates/upstreams/README.md) — 已验证的现成上游配置
 - [bench/README.md](bench/README.md) — 模型在环 benchmark harness
 - [docs/SANDBOX-SECURITY.md](docs/SANDBOX-SECURITY.md) — 沙箱模型与局限
