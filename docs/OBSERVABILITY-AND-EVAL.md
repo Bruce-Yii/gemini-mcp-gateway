@@ -149,6 +149,44 @@ Vercel `waitUntil` 可在响应后继续短任务（[Functions API](https://verc
 - **保留**：原始 30 天；蒸馏后的失败样本/回归任务永久。
 - **访问**：私有、签名 URL、最小权限；不公开。
 
+### 6.1 GitHub / Notion 能不能当存储？
+
+可以，但要分工，**不要把全量 raw 高频塞进 Notion，也不建议把 raw 永久提交到主仓库**。
+
+| 用途 | 推荐存储 | 原因 |
+|---|---|---|
+| 热原始数据（每请求/SSE/上游原文） | 私有 Vercel Blob / S3 / R2 | 高吞吐、可 TTL、私有、按对象取回；日志系统不适合 |
+| 冷归档（脱敏后的日报/周报原文包） | **私有 GitHub 仓库**（独立 `gateway-capture`，非主仓库） | 版本化、可复现；用 Git LFS 或 Release assets，避免主仓库膨胀 |
+| 回归任务/scorecard | **主仓库 `docs/eval/` 或 `explore/tasks-*.json`** | 与代码同版本，评审可 diff |
+| 人看的 dashboard/决策记录 | **Notion** | 适合页面/数据库，不适合当高频原文仓库 |
+
+**GitHub 当原始存储的现实限制**：
+
+- 仓库会持续膨胀，clone/CI 变慢；删除历史很麻烦，TTL 很难真正落实；
+- API 有速率限制，逐请求提交不现实；必须按天/小时打包成 `.json.gz`；
+- 私有仓库仍要防 token 泄露；raw 原文含用户内容，GitHub 是第三方处理器；
+- 不建议用 gateway 现有的 GitHub 上游 token 写日志（会和用户操作混权限/配额）；
+  用独立的 bot token，只给 `contents:write` 到专门的 capture 仓库。
+
+**Notion 当原始存储的现实限制**：
+
+- API 约 3 req/s、页面/block 有大小上限；高频日志会被限流；
+- 不适合存二进制/压缩包；base64 塞页面会很快爆；
+- 全量 raw 原文进 Notion 等于把敏感内容再复制到一个协作工具，隐私面更大；
+- 适合存**摘要/评分/决策**，不适合存逐请求原文。
+
+**建议的组合**：
+
+```text
+热 raw      → Vercel Blob（30 天 TTL，按请求 gzip）
+冷归档      → 独立私有 GitHub capture 仓库（每天一个 .json.gz，脱敏/加密，保留 90 天）
+回归/评分   → 主仓库 docs/eval/ + explore/tasks-*.json（永久）
+人看报告    → Notion 页面/数据库（只放摘要、链接、结论）
+```
+
+如果要“零新增存储”，最低配是 **私有 GitHub 仓库 + 每天一个压缩包**；但它是冷归档，
+不适合当在线查询/回放的主存储，且 TTL 删除需要额外轮转策略。Notion 不建议承载 raw。
+
 ## 7. 从全量数据到迭代
 
 ```text
