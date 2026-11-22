@@ -27,6 +27,7 @@
 | B6 | 新增上游导致既有检索回归：按服务索引 + 窄别名 | ✅ 通过（G4 既有子集恢复） | batch-6-search-attribution.md |
 | B7 | G6 全量重测发现：sandbox 无 Intl + detector 误归因 | ✅ 通过（修复后重跑，无新网关功能 bug） | batch-7-g6-findings.md |
 | B8 | Gemini 大文件/多文件工作流反馈：canonical 结果、行区间、patch、行号映射 | ✅ 通过（B8-1/2/3/4，线上行号已复验） | batch-8-gemini-file-workflow.md |
+| B9 | 透明观测与评测体系：Gemini 无感采集 + 原始日志 + 迭代闭环 | 📝 设计稿（未实现） | ../OBSERVABILITY-AND-EVAL.md |
 
 ## 门控规则
 
