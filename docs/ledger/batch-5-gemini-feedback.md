@@ -53,7 +53,7 @@
 
 ## 验证与门控
 
-- `npm test` → 350/350（含 dedupe/truncation/unwrap/binary 新测试）。
+- `npm test` → 356/356（含 dedupe/truncation/unwrap/binary 新测试）。
 - 未做：真实 Gemini 重测（B5 的 G6 等价项）、token 前后对比、binary 修复的端到端真实调用。
 - **不能宣称 B5 通过**；ISSUE-1/2/3/4 代码层已修，真实客户端回归未做。
 

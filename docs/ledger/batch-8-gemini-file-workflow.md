@@ -55,7 +55,33 @@
 - **候选修复**：错误信息减去 `GUEST_PREFIX_LINES`；加 `codemode.diffSummary`；测试覆盖。
 - **优先级**：中（低风险、直接改善调试体验）。
 
-## 优先级与依赖
+## 实施进度（2026-11-23）
+
+### B8-1：canonical helpers（已实现）
+
+- `codemode.fileResult(x)`：`{content, sha, size, path, encoding, truncated}`，兼容
+  `text/resources/content/result` 常见形状；无法识别的字段返回 null，不抛错。
+- `codemode.prResult(x)`：`{number, url, sha, id}`，兼容 `number/id/html_url/url/head.sha`。
+- 选择 **沙箱 helper** 而不是网关强改上游返回：不丢原始字段，避免上游版本漂移破坏调用；
+  execute 描述里加了一条短 guidance。
+- 测试：`tests/codemode-file-pr-helpers.test.js`（3 条，含 hostile shape 不抛错）。
+
+### B8-2：大文件预算（已实现，认知修正）
+
+- **实测修正**：沙箱内本来就能拿到完整上游文本；截断只发生在**最终 execute 返回值**
+  （`maxResultChars` 20k），不是"上游结果进入沙箱前"。因此不需要放宽内部预算。
+- 新增 `codemode.sliceLines(text, start, end)`：返回
+  `{text,startLine,endLine,totalLines,truncated}`；默认最多 200 行，范围自动 clamp，
+  CRLF 归一；guidance 明确"大文件在沙箱内 fetch，只返回 sliceLines"。
+- 测试：`tests/codemode-slice-lines.test.js`（3 条；60KB fake 文件可完整进入沙箱，
+  只返回 4 行，最终结果 <2KB）。
+
+### B8-3 / B8-4：待实现
+
+- patch/diff helper、错误行号去 prelude 偏移、dry-run 摘要仍未做；
+  B8-4 已有线上证据（`run.js:369:20`，无 script line）。
+
+
 
 1. **先收口 B7**：Intl + detector 误归因 + G6 重测（当前门禁未过，不能跳过）。
 2. **B8-2 内部/可见预算分离 + truncated 元数据 + 行区间读取**（大文件编辑前置）。
@@ -72,4 +98,4 @@
 
 ## 状态
 
-⚠️ 已登记，未实现。B7/G6 收口后再排期；不与当前 G6 修复混在一起。
+⚠️ 部分完成：B8-1/B8-2 已实现并有测试；B8-3/B8-4 待实现。B4/G6 不受影响。

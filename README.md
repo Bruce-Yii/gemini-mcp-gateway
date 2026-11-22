@@ -8,9 +8,9 @@
 upstream MCP tool definitions into **three stable tools** and keeps tool payloads
 out of the model's context.
 
-Measured on the bundled catalog: connecting four upstream MCP servers directly
-puts **456 tool definitions (~217,601 tokens)** into the model context. This
-gateway exposes **3 tools (~1,286 tokens)**, a **99.4% reduction** — while the
+Measured on the bundled catalog: connecting five upstream MCP servers directly
+puts **506 tool definitions (~245,377 tokens)** into the model context. This
+gateway exposes **3 tools (~1,481 tokens)**, a **99.4% reduction** — while the
 same upstream tools stay callable inside an isolated sandbox.
 
 The model first calls `search` to discover tools, then writes a short JavaScript
@@ -87,7 +87,7 @@ upstream payloads are filtered/aggregated inside the sandbox.
   of the runtime sources.
 - **Upstream-agnostic** — any MCP server over Streamable HTTP or stdio; add one
   with a config entry (see [docs/UPSTREAMS.md](docs/UPSTREAMS.md)).
-- **Offline tests** — 350 unit/integration tests and a fake-upstream harness;
+- **Offline tests** — 356 unit/integration tests and a fake-upstream harness;
   no network or credentials needed.
 
 ## Quick start (local)
@@ -191,11 +191,11 @@ All numbers below are reproducible offline against the bundled catalog:
 
 | Metric | Result |
 |---|---|
-| Tool-definition context, 4 upstreams directly | 456 tools ≈ 217,601 tokens |
-| Tool-definition context, this gateway | 3 tools ≈ 1,286 tokens (**-99.4%**) |
+| Tool-definition context, 5 upstreams directly | 506 tools ≈ 245,377 tokens |
+| Tool-definition context, this gateway | 3 tools ≈ 1,481 tokens (**-99.4%**) |
 | Offline search recall (191 tool-level tasks, English) | top1 **56.5%**, top5 **72.3%** |
 | Offline search recall (19 realistic Chinese queries) | top1 **84%**, top5 **95%** |
-| Offline tests | **350** passing |
+| Offline tests | **356** passing |
 
 ```bash
 npm test
