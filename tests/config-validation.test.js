@@ -84,6 +84,14 @@ test('rejects bad header/env/args/tool-list types and warns on unknown keys', ()
   assert.equal(basic.config.servers[0].authScheme, 'basic');
   const sentry = validateConfig({ servers: [{ name: 'sentry', transport: 'http', url: 'https://a', tokenEnv: 'SENTRY_ACCESS_TOKEN', authScheme: 'Sentry-Bearer' }] }, noEnv);
   assert.equal(sentry.config.servers[0].authScheme, 'Sentry-Bearer');
+  assert.throws(
+    () => validateConfig({ servers: [{ name: 'figma', transport: 'http', url: 'https://a', authorizeUrl: 'https://auth', clientIdEnv: 'A_CLIENT' }] }, noEnv),
+    /refreshUrl/,
+  );
+  assert.throws(
+    () => validateConfig({ servers: [{ name: 'figma', transport: 'http', url: 'https://a', authorizeUrl: 'https://auth', clientIdEnv: 'A_CLIENT', refreshUrl: 'https://token', oauthScopes: 'mcp:connect' }] }, noEnv),
+    /oauthScopes/,
+  );
 
   const { warnings } = validateConfig({
     mystery: true,

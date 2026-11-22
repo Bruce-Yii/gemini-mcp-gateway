@@ -87,7 +87,7 @@ upstream payloads are filtered/aggregated inside the sandbox.
   of the runtime sources.
 - **Upstream-agnostic** — any MCP server over Streamable HTTP or stdio; add one
   with a config entry (see [docs/UPSTREAMS.md](docs/UPSTREAMS.md)).
-- **Offline tests** — 303 unit/integration tests and a fake-upstream harness;
+- **Offline tests** — 307 unit/integration tests and a fake-upstream harness;
   no network or credentials needed.
 
 ## Quick start (local)
@@ -156,12 +156,17 @@ Environment variables used by the reference deployment:
 | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Upstash Redis for OAuth client/token storage |
 | `PUBLIC_BASE_URL` | Public base URL of the deployment (e.g. `https://<your-domain>`) |
 | `ALLOWED_CLIENT_ID`, `ALLOWED_CLIENT_SECRET` | Lock the gateway to one pre-registered OAuth client (**required for production**) |
+| `UPSTREAM_OAUTH_ADMIN_KEY` | Optional. Enables `/upstream/oauth/start` for servers configured with `authorizeUrl` (see [docs/CREDENTIALS.md](docs/CREDENTIALS.md)) |
 | `GATEWAY_CONFIG`, `UPSTREAMS_JSON` | Optional inline config overrides |
 
-**Bring your own upstream credentials.** This repository does not implement
-OAuth acquisition for upstream services: obtain a PAT/API token yourself and
-pass it via env. Notion/Linear access+refresh tokens can be seeded into the
-hosted KV store with `scripts/seed-upstream-tokens.mjs`.
+**Bring your own upstream credentials by default.** Obtain a PAT/API token
+yourself and pass it via env. For providers that only support OAuth, the gateway
+can optionally run the authorization-code flow itself (set
+`UPSTREAM_OAUTH_ADMIN_KEY` and configure `authorizeUrl`; see
+[docs/CREDENTIALS.md](docs/CREDENTIALS.md)). Notion/Linear access+refresh tokens
+can be seeded into the hosted KV store with
+`scripts/seed-upstream-tokens.mjs`; other OAuth upstreams can use the same
+`refreshUrl`/`clientSecretEnv` refresh lifecycle.
 
 ## Deploy
 
@@ -189,7 +194,7 @@ All numbers below are reproducible offline against the bundled catalog:
 | Tool-definition context, this gateway | 3 tools ≈ 1,286 tokens (**-99.4%**) |
 | Offline search recall (191 tool-level tasks, English) | top1 **56.5%**, top5 **72.3%** |
 | Offline search recall (19 realistic Chinese queries) | top1 **84%**, top5 **95%** |
-| Offline tests | **303** passing |
+| Offline tests | **307** passing |
 
 ```bash
 npm test

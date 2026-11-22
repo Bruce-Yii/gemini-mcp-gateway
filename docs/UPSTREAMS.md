@@ -62,6 +62,9 @@ sanity check is to search for one of its tool names:
 | `clientSecretEnv` | OAuth | Client secret env var, for confidential OAuth clients (Google/Slack/etc.) |
 | `expiresInEnv`, `obtainedAtEnv` | OAuth | Optional token lifetime + real issuance time; used to compute expiry honestly |
 | `refreshUrl` | OAuth | Token endpoint for non-built-in providers (built-ins: Notion, Linear) |
+| `authorizeUrl` | OAuth (gateway-initiated) | Authorization endpoint; enables `/upstream/oauth/start` for this server |
+| `oauthScopes` | OAuth (gateway-initiated) | Array of scopes sent to the authorization endpoint |
+| `oauthRedirectUri` | no | Explicit callback URL; default is `<base>/upstream/oauth/callback` |
 | `allowTools` | no | Allowlist. Empty/absent = all tools. Patterns: `tool`, `server/tool`, `server/*` |
 | `denyTools` | no | Denylist, applied before `allowTools`. Same pattern syntax |
 
@@ -86,7 +89,11 @@ verbatim (e.g. Sentry's `Sentry-Bearer`):
 ```
 
 Credential acquisition for providers that need app registration/OAuth is
-documented in [CREDENTIALS.md](CREDENTIALS.md).
+documented in [CREDENTIALS.md](CREDENTIALS.md). For a Vercel deployment the
+gateway can also run the authorization-code flow itself: set
+`UPSTREAM_OAUTH_ADMIN_KEY`, add `authorizeUrl` + `refreshUrl` + `clientIdEnv` to
+the server, then open
+`/upstream/oauth/start?server=<name>&key=<UPSTREAM_OAUTH_ADMIN_KEY>`.
 
 **Static headers.** For servers that need extra headers. Keep secrets in env
 vars if the server supports templating; otherwise this field is best for
@@ -94,7 +101,6 @@ non-secret identifiers.
 
 **OAuth refresh (built-in).** Notion and Linear have their token endpoints
 built in; set the env vars:
-
 ```json
 {
   "name": "notion", "transport": "http", "url": "https://mcp.notion.com/mcp",

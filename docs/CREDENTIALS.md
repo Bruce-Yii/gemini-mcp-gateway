@@ -14,7 +14,7 @@ Nothing here should be committed. Put values in environment variables only.
 | Static bearer / API token | `tokenEnv` | Simplest; PAT/API keys that do not expire quickly |
 | Static Basic credential | `tokenEnv` + `authScheme: "basic"` | Env value is the pre-encoded `base64(user:token)` |`n| Static provider scheme | `tokenEnv` + `authScheme: "Sentry-Bearer"` (or similar) | The scheme is sent verbatim before the token |
 | OAuth + refresh | `tokenEnv` + `refreshEnv` + `clientIdEnv` (+ `clientSecretEnv`) + `refreshUrl` | The gateway refreshes before expiry and persists rotated tokens in KV |
-| Upstream OAuth/DCR (gateway as OAuth client) | — | **Not implemented.** You must obtain the token yourself; only viable when you also have client id/secret for refresh |
+| Gateway-initiated OAuth | `authorizeUrl` + `refreshUrl` + `clientIdEnv` (+ `clientSecretEnv`) + optional `oauthScopes` / `oauthRedirectUri`, plus `UPSTREAM_OAUTH_ADMIN_KEY` | The gateway runs the authorization-code + PKCE flow at `/upstream/oauth/start` and stores the result in KV |
 
 ## Slack
 
@@ -81,6 +81,30 @@ does; the worker does not refresh or store the token, so it must be long-lived
    `event:write` — check the current list in the Sentry MCP README).
 2. Export it as `SENTRY_ACCESS_TOKEN` and use
    `templates/upstreams/sentry.json` (`authScheme: "Sentry-Bearer"`).
+
+## Gateway-initiated OAuth (optional)
+
+Instead of obtaining a token elsewhere, the gateway can run the authorization
+code + PKCE flow for an upstream itself (Vercel deployment):
+
+1. Create an OAuth app for the provider and register the callback URI
+   `https://<your-domain>/upstream/oauth/callback` (or the per-server
+   `oauthRedirectUri` you configure).
+2. Set the provider's client id/secret env vars in Vercel, plus
+   `UPSTREAM_OAUTH_ADMIN_KEY` (a random admin secret). Leave it unset to disable
+   the feature.
+3. Add the server config (it needs `authorizeUrl`, `refreshUrl` = token endpoint,
+   `clientIdEnv`, optional `clientSecretEnv` and `oauthScopes`), e.g.
+   `templates/upstreams/figma-oauth.json`.
+4. Open
+   `https://<your-domain>/upstream/oauth/start?server=<name>&key=<UPSTREAM_OAUTH_ADMIN_KEY>`
+   once, log in and approve. The callback stores the access/refresh token in KV;
+   the gateway then uses/refreshes it like any other OAuth upstream.
+5. Reconnect the MCP client if it was already connected; tool lists are only
+   fetched on connect.
+
+The start route is disabled unless the admin key is set, and the callback only
+accepts a one-time, 10-minute state bound to the PKCE verifier.
 
 ## Figma
 

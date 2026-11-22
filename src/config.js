@@ -18,7 +18,7 @@ const TOP_LEVEL_KEYS = new Set(['servers', 'mode', 'maxWhitelistTools', 'maxCall
 const SERVER_KEYS = new Set([
   'name', 'transport', 'url', 'command', 'args', 'env', 'headers',
   'tokenEnv', 'authScheme', 'refreshEnv', 'clientIdEnv', 'clientSecretEnv', 'expiresInEnv', 'obtainedAtEnv',
-  'refreshUrl', 'allowTools', 'denyTools',
+  'refreshUrl', 'authorizeUrl', 'oauthScopes', 'oauthRedirectUri', 'allowTools', 'denyTools',
 ]);
 
 export class ConfigError extends Error {
@@ -136,6 +136,21 @@ export function validateConfig(value, { env = process.env } = {}) {
       }
       if (server.refreshEnv && !server.refreshUrl && !defaultProvider(server.name)) {
         issues.push(`${at}: refreshEnv requires refreshUrl for non-built-in providers`);
+      }
+
+      if (server.authorizeUrl !== undefined) {
+        if (!isHttpUrl(server.authorizeUrl)) {
+          issues.push(`${at}.authorizeUrl must be an absolute http(s) URL`);
+        }
+        if (!server.clientIdEnv) issues.push(`${at}.authorizeUrl requires clientIdEnv`);
+        if (!server.refreshUrl) issues.push(`${at}.authorizeUrl requires refreshUrl (the token endpoint)`);
+      }
+      if (server.oauthRedirectUri !== undefined && !isHttpUrl(server.oauthRedirectUri)) {
+        issues.push(`${at}.oauthRedirectUri must be an absolute http(s) URL`);
+      }
+      if (server.oauthScopes !== undefined
+          && (!Array.isArray(server.oauthScopes) || server.oauthScopes.some((scope) => typeof scope !== 'string' || !scope))) {
+        issues.push(`${at}.oauthScopes must be an array of non-empty strings`);
       }
 
       for (const key of ['allowTools', 'denyTools']) {

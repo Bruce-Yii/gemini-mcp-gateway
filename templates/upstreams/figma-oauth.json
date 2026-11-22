@@ -1,0 +1,10 @@
+{
+  "name": "figma",
+  "transport": "http",
+  "url": "https://mcp.figma.com/mcp",
+  "authorizeUrl": "https://www.figma.com/oauth/mcp",
+  "oauthScopes": ["mcp:connect"],
+  "refreshUrl": "https://api.figma.com/v1/oauth/token",
+  "clientIdEnv": "FIGMA_CLIENT_ID",
+  "clientSecretEnv": "FIGMA_CLIENT_SECRET"
+}

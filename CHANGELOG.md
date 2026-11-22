@@ -16,16 +16,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   instead of a hardcoded provider list.
 - [docs/UPSTREAMS.md](docs/UPSTREAMS.md), [docs/CLIENTS.md](docs/CLIENTS.md),
   [docs/CREDENTIALS.md](docs/CREDENTIALS.md) and ready-to-use `examples/` configs.
-- Upstream-config and generic-auth tests (suite now 303).
+- Upstream-config and generic-auth tests (suite now 307).
 - `clientSecretEnv` support for confidential OAuth refresh (Google Workspace, Slack, Atlassian, ...).
 - `authScheme: "basic"` for static Basic credentials (e.g. Atlassian personal API tokens); any provider scheme (e.g. `Sentry-Bearer`) is sent verbatim.
-- Slack template verified (registered internal/published app, no DCR, optional refresh) and **Sentry template via `Sentry-Bearer` user auth token**; credential guides updated, Figma documented as unsupported (no static/gateway token path).
-- Verified upstream templates in `templates/upstreams/` (Slack, Twilio, Zapier,
-  Cloudflare, Stripe, Supabase, Neon, Google Drive, Atlassian) with official-doc links.
+- Slack template verified (registered internal/published app, no DCR, optional refresh) and **Sentry template via `Sentry-Bearer` user auth token**; credential guides updated.
+- Verified upstream templates in `templates/upstreams/` (Slack, Sentry, Twilio, Zapier, Cloudflare, Stripe, Supabase, Neon, Google Drive, Atlassian) with official-doc links.
 - Model-in-loop benchmark harness (`bench/`, `npm run bench`, CI dry run);
   validated live against a free OpenAI-compatible model (5/5 deterministic tasks).
 - Slack/Atlassian/Sentry credential-acquisition notes and the Figma gap note in `docs/CREDENTIALS.md`.
-- Figma findings from live probing: remote server uses OAuth/DCR with a **client-name allowlist** (third-party gateway gets 403), so it is documented as unsupported; local Figma desktop server (`http://127.0.0.1:3845/mcp`) has a local-only template.
+- Figma findings from live probing: remote server uses OAuth/DCR with a **client-name allowlist** (third-party gateway gets 403); local Figma desktop server (`http://127.0.0.1:3845/mcp`) has a local-only template.
+- **Gateway-initiated upstream OAuth** (Vercel): `/upstream/oauth/start` + `/upstream/oauth/callback`, PKCE S256, single-use state, admin-key gate, tokens seeded into KV. New config fields `authorizeUrl`, `oauthScopes`, `oauthRedirectUri`; Figma OAuth template (`figma-oauth.json`). Set `UPSTREAM_OAUTH_ADMIN_KEY` to enable.
+
 ## [0.1.0] - 2026-11-22
 
 Initial public snapshot.

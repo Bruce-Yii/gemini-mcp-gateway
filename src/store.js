@@ -237,6 +237,25 @@ export class TokenStore {
     }
   }
 
+  // ---- upstream OAuth state (short-lived, single use) --------------------
+
+  /** Persist the PKCE verifier + server for an upstream OAuth redirect. */
+  async saveOAuthState(state, record) {
+    await this._put('oauthstate', state, record, 10 * 60);
+  }
+
+  /** Atomic get-and-delete for the upstream OAuth callback. */
+  async takeOAuthState(state) {
+    const raw = await this._command('getdel', this._key('oauthstate', state));
+    if (raw === null || raw === undefined || raw === '') return null;
+    if (typeof raw !== 'string') return raw;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
   // ---- access tokens -----------------------------------------------------
 
   async saveToken(token, record) {

@@ -67,7 +67,7 @@ Gemini / MCP 客户端
   深 oneOf 截断）；结果用文本 JSON（不用 `structuredContent`）。
 - **部署校验**：`GET /healthz` 返回构建 commit 和运行时源码哈希。
 - **上游无关**：任何 Streamable HTTP / stdio MCP server，加一个配置条目即可（见 [docs/UPSTREAMS.md](docs/UPSTREAMS.md)）。
-- **离线测试**：303 项单测/集成测试 + 假上游 harness，不需要网络或凭据。
+- **离线测试**：307 项单测/集成测试 + 假上游 harness，不需要网络或凭据。
 
 ## 快速开始（本地）
 
@@ -77,7 +77,7 @@ Gemini / MCP 客户端
 git clone https://github.com/Bruce-Yii/gemini-mcp-gateway.git
 cd gemini-mcp-gateway
 npm ci
-npm test            # 离线 303 项
+npm test            # 离线 307 项
 npm run smoke       # 假上游 MCP server，无需凭据
 node scripts/check-config.mjs  # 校验配置 + 环境变量警告
 npm start           # http://localhost:3000/mcp
@@ -130,11 +130,14 @@ node scripts/write-build-info.mjs --print # 当前 commit + 运行时源码哈�
 | `KV_REST_API_URL`、`KV_REST_API_TOKEN` | Upstash Redis（OAuth client/token 存储） |
 | `PUBLIC_BASE_URL` | 部署的公网地址（如 `https://<your-domain>`） |
 | `ALLOWED_CLIENT_ID`、`ALLOWED_CLIENT_SECRET` | 锁定单个预注册 OAuth 客户端（**生产必填**） |
+| `UPSTREAM_OAUTH_ADMIN_KEY` | 可选。启用 `/upstream/oauth/start`，让网关为配置了 `authorizeUrl` 的上游发起授权（见 [docs/CREDENTIALS.md](docs/CREDENTIALS.md)） |
 | `GATEWAY_CONFIG`、`UPSTREAMS_JSON` | 可选的内联配置覆盖 |
 
-**上游凭据自带。** 本仓库不实现上游服务的 OAuth 获取流程：PAT/API token 需要你自己申请，
-通过环境变量传入；Notion/Linear 的 access+refresh token 可以用
-`scripts/seed-upstream-tokens.mjs` 写入托管 KV。
+**上游凭据默认自带。** PAT/API token 需要你自己申请并通过环境变量传入。只支持 OAuth 的
+提供商可以选择让网关自己跑授权码流程（设置 `UPSTREAM_OAUTH_ADMIN_KEY` 并配置
+`authorizeUrl`，见 [docs/CREDENTIALS.md](docs/CREDENTIALS.md)）。Notion/Linear 的
+access+refresh token 可用 `scripts/seed-upstream-tokens.mjs` 写入托管 KV；其他 OAuth
+上游走同一套 `refreshUrl`/`clientSecretEnv` 刷新生命周期。
 
 ## 部署
 

@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { TokenStore } from './store.js';
 import { createOAuthHandlers, resolveBaseUrl } from './oauth.js';
 import { UpstreamManager } from './upstreams.js';
+import { createUpstreamOAuthHandlers } from './upstream-oauth.js';
 import { createMcpRequestHandler } from './server.js';
 import { BUILD } from './build-info.js';
 import { validateConfig } from './config.js';
@@ -110,6 +111,12 @@ export function createAppHandler(options = {}) {
   const store = options.store ?? new TokenStore();
   const oauth = createOAuthHandlers(store, options);
   let mcpHandlerPromise;
+  let configPromise;
+  const getConfig = () => {
+    if (!configPromise) configPromise = loadConfig(options);
+    return configPromise;
+  };
+  const upstreamOAuth = createUpstreamOAuthHandlers({ store, getConfig, options });
 
   async function getMcpHandler() {
     if (options.mcpHandler) return options.mcpHandler;
@@ -118,7 +125,7 @@ export function createAppHandler(options = {}) {
         let upstreamManager = options.upstreamManager;
         let gatewayOptions = {};
         if (!upstreamManager) {
-          const config = await loadConfig(options);
+          const config = await getConfig();
           upstreamManager = new UpstreamManager(availableServers(config.servers));
           // Deferred init: no network call until the first authenticated /mcp hit.
           await upstreamManager.connect();
@@ -235,6 +242,12 @@ export function createAppHandler(options = {}) {
 
       if (method === 'GET' && pathname === '/healthz') {
         return healthz(req, res);
+      }
+      if (method === 'GET' && pathname === '/upstream/oauth/start') {
+        return upstreamOAuth.start(req, res, url);
+      }
+      if (method === 'GET' && pathname === '/upstream/oauth/callback') {
+        return upstreamOAuth.callback(req, res, url);
       }
       if (method === 'GET' && pathname === '/.well-known/oauth-authorization-server') {
         return oauth.metadata(req, res);

@@ -46,6 +46,7 @@ just the reference deployment.
 | `LINEAR_TOKEN` / `LINEAR_REFRESH_TOKEN` / `LINEAR_CLIENT_ID` / `LINEAR_EXPIRES_IN` / `LINEAR_OBTAINED_AT` | Linear upstream credentials (optional) |
 | `VERCEL_TOKEN` | Vercel MCP bearer token (optional) |
 | `GATEWAY_CONFIG` / `UPSTREAMS_JSON` | Optional inline config override; normally leave unset to use `config.example.json` |
+| `UPSTREAM_OAUTH_ADMIN_KEY` | Optional. Random admin secret; enables `/upstream/oauth/start` for servers with `authorizeUrl` (see `docs/CREDENTIALS.md`) |
 
 Setting `ALLOWED_CLIENT_ID` locks the gateway to one pre-registered OAuth
 client **and disables dynamic client registration**. Without it, DCR is open to
