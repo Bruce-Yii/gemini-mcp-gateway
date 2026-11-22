@@ -38,6 +38,22 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
   });
   const metrics = aggregateEnvelopes(mcpOnly);
   const groups = new Map();
+  const samples = [];
+  for (const envelope of mcpOnly) {
+    const req = requestJson(envelope);
+    if (samples.length < 8 && req?.method === 'tools/call') {
+      const sandbox = (envelope.events ?? []).find((event) => event.type === 'sandbox');
+      samples.push({
+        id: envelope.requestId,
+        tool: req.params?.name ?? null,
+        code: truncate(req.params?.arguments?.code ?? sandbox?.payload?.code, MAX_CODE),
+        status: Number(envelope?.response?.status ?? 0),
+        durationMs: Number(envelope?.response?.durationMs ?? 0),
+        bytes: Number(envelope?.response?.bytes ?? 0),
+        sandboxTools: sandbox?.payload?.output?.toolCalls?.length ?? 0,
+      });
+    }
+  }
   for (const envelope of mcpOnly) {
     const status = Number(envelope?.response?.status ?? 0);
     const raw = String(envelope?.response?.raw ?? '');
@@ -72,6 +88,7 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
       topErrorClasses: metrics.errorClasses,
     },
     clusters: [...groups.values()].sort((a, b) => b.count - a.count).slice(0, maxClusters),
+    samples,
     limits: { maxIssues: 5, maxCharsPerIssue: 1200 },
   };
 }
@@ -80,7 +97,10 @@ const CATEGORIES = new Set(['gateway', 'upstream', 'model', 'data', 'unknown']);
 const SEVERITIES = new Set(['P0', 'P1', 'P2', 'P3']);
 
 export function validateAnalyzerOutput(output, input) {
-  const evidenceIds = new Set(input.clusters.flatMap((cluster) => cluster.sampleEventIds));
+  const evidenceIds = new Set([
+    ...input.clusters.flatMap((cluster) => cluster.sampleEventIds),
+    ...(input.samples ?? []).map((sample) => sample.id),
+  ]);
   const issues = [];
   for (const issue of Array.isArray(output?.issues) ? output.issues : []) {
     if (!issue || typeof issue !== 'object') continue;
@@ -121,6 +141,7 @@ function analyzerPrompt(input) {
         'Return ONLY strict JSON matching analyzer-output.v1:',
         '{"schema":"analyzer-output.v1","summary":"...","issues":[{"id":"issue-1","severity":"P0|P1|P2|P3","category":"gateway|upstream|model|data|unknown","title":"...","evidenceEventIds":["..."],"likelyCause":"...","suggestedFix":"...","confidence":0.0,"regressionTask":{"prompt":"...","expectedTool":"...","assertions":["..."]}}],"ignored":[{"clusterId":"c1","reason":"..."}]}',
         'Each issue MUST cite at least one evidenceEventIds from the input. If unsure, use ignored.',
+        'Also inspect successful samples: propose issues for real friction (wrong arg types, repeated unwrap/casting, slow tool chains, missing helpers) even when there is no error cluster.',
         'No markdown, no code fences, no extra text.',
       ].join('\n'),
     },
@@ -149,7 +170,8 @@ export async function callAnalyzer(input, options = {}) {
     body: JSON.stringify({
       model,
       temperature: 0,
-      max_tokens: 2000,
+      max_tokens: 6000,
+      reasoning_effort: 'none',
       messages: analyzerPrompt(input),
     }),
   });

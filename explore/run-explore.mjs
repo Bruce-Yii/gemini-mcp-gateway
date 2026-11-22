@@ -29,7 +29,34 @@ import {
   readConcurrency, runWorkerPool, mergeCollectors, withRetries, LLM_MAX_RETRIES,
 } from './trace.mjs';
 
-const DATASET = process.env.EXPLORE_DATASET || 'explore/tasks.json';
+/**
+ * L1 smoke support (Kept backward compatible):
+ *   EXPLORE_SUITE=smoke  -> use explore/tasks-smoke.json instead of the default dataset
+ *   EXPLORE_TASK_IDS=ID1,ID2 -> restrict to explicit ids (applied AFTER server filter)
+ *   EXPLORE_SUITE=g6     -> explicit alias for explore/tasks-g6.json
+ * CLI aliases: --suite=smoke|g6, --task-ids=ID1,ID2
+ * With no suite/ids set, the dataset is exactly what it was before (tasks.json
+ * or EXPLORE_DATASET) — existing G6 runs and evaluation artifacts are untouched.
+ */
+const CLI_ARGS = process.argv.slice(2);
+function cliValue(name) {
+  const eq = CLI_ARGS.find((a) => a.startsWith(`--${name}=`));
+  if (eq) return eq.slice(name.length + 3);
+  const i = CLI_ARGS.indexOf(`--${name}`);
+  return i >= 0 ? CLI_ARGS[i + 1] : undefined;
+}
+const SUITE = cliValue('suite') ?? process.env.EXPLORE_SUITE ?? '';
+const SUITE_DATASETS = {
+  smoke: 'explore/tasks-smoke.json',
+  g6: 'explore/tasks-g6.json',
+};
+if (SUITE && !SUITE_DATASETS[SUITE]) {
+  console.error(`[explore] unknown suite "${SUITE}" (expected: ${Object.keys(SUITE_DATASETS).join(', ')})`);
+  process.exit(2);
+}
+const DATASET = (SUITE && SUITE_DATASETS[SUITE]) || process.env.EXPLORE_DATASET || 'explore/tasks.json';
+const TASK_IDS = (cliValue('task-ids') ?? process.env.EXPLORE_TASK_IDS ?? '')
+  .split(',').map((s) => s.trim()).filter(Boolean);
 const MODEL = process.env.EXPLORE_MODEL || 'hy4-flash-free'; // FREE model — never the paid hy4
 // Use the FREE Go endpoint. The /inference/openai/v1 endpoint is METERED (and
 // rate-limits hard) — never use it for bulk exploration. Fail fast if someone
@@ -204,7 +231,16 @@ async function runToolCall(tc, toolsByName) {
 // R8: collector + flag now live in each worker context (createWorkerContext).
 
 const allTasks = JSON.parse(fs.readFileSync(DATASET, 'utf8')).tasks;
-const tasks = allTasks.filter(t => EXPLORE_SERVERS.includes(t.server));
+let tasks = allTasks.filter(t => EXPLORE_SERVERS.includes(t.server));
+if (TASK_IDS.length) {
+  const wanted = new Set(TASK_IDS);
+  tasks = tasks.filter((t) => wanted.has(t.id));
+  const missing = TASK_IDS.filter((id) => !tasks.some((t) => t.id === id));
+  if (missing.length) {
+    console.error(`[explore] task ids not found in ${DATASET} (after server filter): ${missing.join(',')}`);
+    process.exit(2);
+  }
+}
 const limit = Number(process.env.TASK_LIMIT || 0);
 const selected = limit ? tasks.slice(0, limit) : tasks;
 console.error('running', selected.length, 'tasks');
@@ -217,6 +253,8 @@ const manifest = {
   generatedAt: startedAt,
   gitSha: gitSha(),
   dataset: DATASET,
+  suite: SUITE || null,
+  taskIds: TASK_IDS.length ? TASK_IDS : null,
   datasetSha256: sha256File(DATASET),
   configSha256: sha256File('config.example.json'),
   timestamp: startedAt,

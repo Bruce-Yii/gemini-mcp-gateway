@@ -172,3 +172,21 @@ test('capture sink failure emits a structured capture_dropped event', async () =
   assert.ok(errors.some((line) => line.includes('[capture_dropped]')));
   assert.ok(errors.some((line) => line.includes('gmg.capture_dropped.v1')));
 });
+
+test('capture preserves Uint8Array response chunks as text, not comma-separated bytes', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gmg-capture-u8-'));
+  try {
+    const req = { method: 'POST', url: '/mcp', headers: {}, __gatewayRawBody: '{}' };
+    const res = fakeRes();
+    startCapture(req, res, { mode: 'full', sink: 'file', fileDir: dir });
+    res.write(new TextEncoder().encode('event: message\n'));
+    res.end(new TextEncoder().encode('data: {"ok":true}\n'));
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const files = await readdir(dir);
+    const envelope = JSON.parse(await readFile(join(dir, files[0]), 'utf8'));
+    assert.equal(envelope.response.raw, 'event: message\ndata: {"ok":true}\n');
+    assert.ok(!envelope.response.raw.startsWith('101,118'));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

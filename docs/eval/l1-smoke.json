@@ -1,0 +1,105 @@
+{
+  "generatedAt": "2026-11-22T20:51:58.283Z",
+  "mode": "fake-dry-run",
+  "runId": null,
+  "ok": true,
+  "taskCount": 50,
+  "datasetSha256": null,
+  "metrics": {
+    "tasks": 50,
+    "measuredTasks": 50,
+    "completed": 50,
+    "completionRate": 100,
+    "gatewayAnomalyCount": 0,
+    "anomalyCount": 0,
+    "searchHitRate": 100,
+    "toolHitRate": 100,
+    "tokensPerTask": 0,
+    "p95LatencyMs": 0,
+    "source": "fake-dry-run (deterministic simulation; not a gateway measurement)"
+  },
+  "baseline": {
+    "source": "deterministic simulation (scripts/run-l1-smoke.mjs fakeMetrics). Not a gateway measurement; wiring check only.",
+    "capturedAt": null,
+    "metrics": {
+      "tasks": 50,
+      "measuredTasks": 50,
+      "completed": 50,
+      "completionRate": 100,
+      "gatewayAnomalyCount": 0,
+      "anomalyCount": 0,
+      "searchHitRate": 100,
+      "toolHitRate": 100,
+      "tokensPerTask": 0,
+      "p95LatencyMs": 0
+    }
+  },
+  "comparison": {
+    "ok": true,
+    "checks": [
+      {
+        "metric": "completionRate",
+        "status": "pass",
+        "current": 100,
+        "baseline": 100,
+        "delta": 0,
+        "tolerance": 10,
+        "direction": "min",
+        "unit": "%"
+      },
+      {
+        "metric": "gatewayAnomalyCount",
+        "status": "pass",
+        "current": 0,
+        "baseline": 0,
+        "delta": 0,
+        "tolerance": 3,
+        "direction": "max",
+        "unit": "count"
+      },
+      {
+        "metric": "searchHitRate",
+        "status": "pass",
+        "current": 100,
+        "baseline": 100,
+        "delta": 0,
+        "tolerance": 10,
+        "direction": "min",
+        "unit": "%"
+      },
+      {
+        "metric": "toolHitRate",
+        "status": "pass",
+        "current": 100,
+        "baseline": 100,
+        "delta": 0,
+        "tolerance": 10,
+        "direction": "min",
+        "unit": "%"
+      },
+      {
+        "metric": "tokensPerTask",
+        "status": "pass",
+        "current": 0,
+        "baseline": 0,
+        "delta": 0,
+        "tolerance": 3000,
+        "direction": "max",
+        "unit": "tokens"
+      },
+      {
+        "metric": "p95LatencyMs",
+        "status": "pass",
+        "current": 0,
+        "baseline": 0,
+        "delta": 0,
+        "tolerance": 15000,
+        "direction": "max",
+        "unit": "ms"
+      }
+    ]
+  },
+  "notes": [
+    "fake-dry-run: deterministic simulation, no model/upstream calls; only verifies runner + compare + report wiring."
+  ]
+}

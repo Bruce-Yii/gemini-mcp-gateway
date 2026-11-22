@@ -1,0 +1,71 @@
+name: l1-smoke
+
+on:
+  schedule:
+    - cron: '0 18 * * *' # 02:00 Asia/Singapore next day (daily)
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Smoke mode (fake needs no secrets; real needs upstream credentials)'
+        required: true
+        default: fake
+        type: choice
+        options: [fake, real]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      # Default: deterministic fake/dry-run. No tokens, no network calls,
+      # no real results fabricated — only verifies the L1 pipeline wiring.
+      - name: L1 smoke (fake / offline)
+        if: ${{ github.event_name == 'schedule' || inputs.mode != 'real' }}
+        run: node scripts/run-l1-smoke.mjs --mode fake
+
+      # Optional real run: needs free model key + upstream tokens in secrets.
+      # Secrets are injected as env vars only; never printed or committed.
+      - name: L1 smoke (real upstreams)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'real' }}
+        env:
+          EXPLORE_MODEL_KEY: ${{ secrets.OPENCODE_GO_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_REFRESH_TOKEN: ${{ secrets.NOTION_REFRESH_TOKEN }}
+          NOTION_CLIENT_ID: ${{ secrets.NOTION_CLIENT_ID }}
+          LINEAR_TOKEN: ${{ secrets.LINEAR_TOKEN }}
+          LINEAR_REFRESH_TOKEN: ${{ secrets.LINEAR_REFRESH_TOKEN }}
+          LINEAR_CLIENT_ID: ${{ secrets.LINEAR_CLIENT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          FIGMA_TOKEN: ${{ secrets.FIGMA_TOKEN }}
+          GEMINI_GATEWAY_TOKENS_DIR: ${{ runner.temp }}/gateway-tokens
+        run: |
+          # run-explore.mjs reads Notion/Linear token JSON files from the token
+          # dir; build them from secrets at runtime so nothing lands in git.
+          mkdir -p "$GEMINI_GATEWAY_TOKENS_DIR"
+          printf '{"access_token":"%s","refresh_token":"%s","client_id":"%s","expires_in":0,"obtained_at":"%s"}' \
+            "$NOTION_TOKEN" "${NOTION_REFRESH_TOKEN:-}" "${NOTION_CLIENT_ID:-}" "$(date -u +%FT%TZ)" \
+            > "$GEMINI_GATEWAY_TOKENS_DIR/notion.json"
+          printf '{"access_token":"%s","refresh_token":"%s","client_id":"%s","expires_in":0,"obtained_at":"%s"}' \
+            "$LINEAR_TOKEN" "${LINEAR_REFRESH_TOKEN:-}" "${LINEAR_CLIENT_ID:-}" "$(date -u +%FT%TZ)" \
+            > "$GEMINI_GATEWAY_TOKENS_DIR/linear.json"
+          node scripts/run-l1-smoke.mjs --mode real
+
+      - name: Upload L1 report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l1-smoke-report
+          path: |
+            docs/eval/l1-smoke.md
+            docs/eval/l1-smoke.json
+          retention-days: 14

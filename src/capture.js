@@ -35,6 +35,13 @@ export function captureHeaders(headers = {}) {
   return out;
 }
 
+function chunkToBuffer(chunk, encoding) {
+  if (Buffer.isBuffer(chunk)) return chunk;
+  if (chunk instanceof Uint8Array) return Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+  if (typeof chunk === 'string') return Buffer.from(chunk, typeof encoding === 'string' ? encoding : 'utf8');
+  return Buffer.from(String(chunk), typeof encoding === 'string' ? encoding : 'utf8');
+}
+
 function configFromOptions(options = {}, env = process.env) {
   const mode = options.mode ?? env.CAPTURE_MODE ?? 'off';
   return {
@@ -140,7 +147,7 @@ export function startCapture(req, res, options = {}) {
 
   res.write = function captureWrite(chunk, encoding, callback) {
     if (chunk && !overflow) {
-      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), typeof encoding === 'string' ? encoding : 'utf8');
+      const buf = chunkToBuffer(chunk, encoding);
       bytes += buf.length;
       if (bytes > cfg.maxBytes) {
         overflow = true;
@@ -156,7 +163,7 @@ export function startCapture(req, res, options = {}) {
     if (finished) return originalEnd(chunk, encoding, callback);
     finished = true;
     if (chunk && !overflow) {
-      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), typeof encoding === 'string' ? encoding : 'utf8');
+      const buf = chunkToBuffer(chunk, encoding);
       bytes += buf.length;
       if (bytes > cfg.maxBytes) overflow = true;
       else chunks.push(buf);

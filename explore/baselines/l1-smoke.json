@@ -1,0 +1,41 @@
+{
+  "description": "L1 smoke baseline. Top-level = REAL baseline derived from the 2026-11-22 G6 full run, filtered to the 50 smoke task ids. `fake` section = deterministic offline reference used only by fake-dry-run CI mode (all-pass wiring check).",
+  "capturedAt": "2026-11-22T17:50:59.641Z",
+  "source": "explore/results/metrics.json + explore/results/anomalies.json from G6 run 6b4254c (228 tasks, hy4-flash-free), filtered to explore/tasks-smoke.json ids. Completion uses the anomaly-based proxy (no runner_error / max_turns_exceeded), not the raw `finished` boolean (see docs/eval/L1-SMOKE.md).",
+  "metrics": {
+    "tasks": 50,
+    "measuredTasks": 50,
+    "completed": 38,
+    "completionRate": 76,
+    "gatewayAnomalyCount": 21,
+    "anomalyCount": 92,
+    "searchHitRate": 86.4,
+    "toolHitRate": 51.3,
+    "tokensPerTask": 15691,
+    "p95LatencyMs": 22025
+  },
+  "fake": {
+    "source": "deterministic simulation (scripts/run-l1-smoke.mjs fakeMetrics). Not a gateway measurement; wiring check only.",
+    "capturedAt": null,
+    "metrics": {
+      "tasks": 50,
+      "measuredTasks": 50,
+      "completed": 50,
+      "completionRate": 100,
+      "gatewayAnomalyCount": 0,
+      "anomalyCount": 0,
+      "searchHitRate": 100,
+      "toolHitRate": 100,
+      "tokensPerTask": 0,
+      "p95LatencyMs": 0
+    }
+  },
+  "thresholds": {
+    "completionRate": { "direction": "min", "tolerance": 10, "unit": "%" },
+    "gatewayAnomalyCount": { "direction": "max", "tolerance": 3, "unit": "count" },
+    "searchHitRate": { "direction": "min", "tolerance": 10, "unit": "%" },
+    "toolHitRate": { "direction": "min", "tolerance": 10, "unit": "%" },
+    "tokensPerTask": { "direction": "max", "tolerance": 3000, "unit": "tokens" },
+    "p95LatencyMs": { "direction": "max", "tolerance": 15000, "unit": "ms" }
+  }
+}

@@ -65,3 +65,16 @@ test('analyzer ignores expected non-POST /mcp 405 probes and keeps a fallback er
   assert.equal(input.clusters.length, 1);
   assert.equal(input.clusters[0].sampleError, 'HTTP 500');
 });
+test('buildAnalyzerInput includes successful execute samples for friction analysis', () => {
+  const env = {
+    requestId: 'req-sample',
+    request: { method: 'POST', url: '/mcp', raw: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: 'execute_read', arguments: { code: 'async () => 1' } } }) },
+    response: { status: 200, raw: 'ok', bytes: 2, durationMs: 50 },
+    events: [],
+  };
+  const input = buildAnalyzerInput([env], { date: '2026-11-22' });
+  assert.equal(input.samples.length, 1);
+  assert.equal(input.samples[0].id, 'req-sample');
+  assert.equal(input.samples[0].tool, 'execute_read');
+  assert.match(input.samples[0].code, /async/);
+});

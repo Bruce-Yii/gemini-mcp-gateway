@@ -54,6 +54,17 @@ R2 原始 envelope
       "upstream": "github"
     }
   ],
+  "samples": [
+    {
+      "id": "req_...",
+      "tool": "execute_read",
+      "code": "async () => { ... }",
+      "status": 200,
+      "durationMs": 6228,
+      "bytes": 3000,
+      "sandboxTools": 11
+    }
+  ],
   "limits": { "maxIssues": 5, "maxCharsPerIssue": 1200 }
 }
 ```
@@ -127,3 +138,13 @@ R2 原始 envelope
 - `scripts/analyze-captures.mjs`：读 digest + 抽样 envelope，调免费模型，校验输出（已实现）；\n- `.github/workflows/capture-daily.yml`：每日跑 digest + analyzer，scorecard 提交到 `docs/eval/`，原始 artifact 保留 14 天。
 - GitHub Actions：每天/每周跑 digest + analyzer，scorecard 进主仓库；issue 由人确认后开；
 - 免费模型只配 `ANALYZER_BASE_URL`、`ANALYZER_MODEL`、`ANALYZER_API_KEY`，不接触 R2 写权限。
+
+## 8. 首次真实运行（2026-11-22）
+
+- 输入：11 条 MCP POST 请求、4 条成功 execute 样本、p95 6228ms、0 个错误簇；
+- 模型：`hy4-flash-free`（`x-opencode-session` 必填）；
+- 输出：2 条 P2 issue（validator 通过）：
+  1. 工具结果形状不统一，样本里反复 `unwrap`/字段兜底；
+  2. 长链 `execute_read` 拉高 p95，缺分步耗时/批量 helper。
+- 说明：即使没有错误簇，模型也能从成功样本里产出“摩擦点/优化建议”；
+  这是“用现有采集数据驱动改进”的最小闭环。
