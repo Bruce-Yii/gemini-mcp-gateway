@@ -47,6 +47,15 @@
 | 部署/配置 | commit、buildHash、工具目录/上游快照 | ✅ P2（`deployment` + `gateway_catalog`） |
 | 客户端 | User-Agent、Accept、MCP-Protocol-Version、session header、IP（可选） | 元数据 |
 
+### 1.1 仍不可采 / 尚未采
+
+| 项 | 原因 | 能否补 |
+|---|---|---|
+| Gemini 聊天上下文 / 隐藏推理 / 模型 token | 不经过网关，MCP 协议不携带 | ❌ 物理不可得 |
+| 独立 GET SSE 流 | 当前网关无状态，GET 返回 405 | 开 SSE 时再加 tee |
+| 上游 HTTP 传输层 headers / URL / token-refresh HTTP 请求 | 目前只 tap 了 MCP JSON-RPC 帧，没有包上游 fetch | 可补（自定义 fetch） |
+| capture sink 自身失败事件 | 失败即丢，只有日志告警 | 可补（失败计数/兜底队列） |
+
 ## 2. 全量采集架构
 
 ```text

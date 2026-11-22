@@ -292,8 +292,17 @@ export function createGatewayServer(upstreamManager, options = {}) {
   const byName = new Map(tools.map((tool) => [tool.name, tool]));
   captureEvent('gateway_catalog', {
     mode: options.mode ?? 'whitelist',
-    toolCount: tools.length,
-    tools: tools.map((tool) => tool.name),
+    limits: {
+      maxWhitelistTools: options.maxWhitelistTools,
+      maxCalls: options.maxCalls,
+      maxResultChars: options.maxResultChars,
+    },
+    tools: tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+      annotations: tool.annotations,
+    })),
     upstreams: [...new Set(upstreamManager.getEntries().map((entry) => entry.server))],
   });
 
@@ -331,6 +340,11 @@ function sendJsonRpcError(res, status, code, message) {
 }
 
 function readJsonBody(req) {
+  if (Object.prototype.hasOwnProperty.call(req, '__gatewayRawBody')) {
+    const raw = req.__gatewayRawBody;
+    if (!raw) return Promise.resolve(undefined);
+    try { return Promise.resolve(JSON.parse(raw)); } catch { return Promise.reject(new Error('invalid JSON body')); }
+  }
   return new Promise((resolveBody, rejectBody) => {
     const chunks = [];
     let size = 0;

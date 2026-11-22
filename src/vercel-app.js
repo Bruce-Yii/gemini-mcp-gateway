@@ -15,7 +15,7 @@ import { createOAuthHandlers, resolveBaseUrl } from './oauth.js';
 import { UpstreamManager } from './upstreams.js';
 import { createUpstreamOAuthHandlers } from './upstream-oauth.js';
 import { createMcpRequestHandler } from './server.js';
-import { startCapture } from './capture.js';
+import { startCapture, captureEnabled } from './capture.js';
 import { BUILD } from './build-info.js';
 import { validateConfig } from './config.js';
 
@@ -196,6 +196,13 @@ export function createAppHandler(options = {}) {
   }
 
   async function handleMcp(req, res) {
+    // Buffer the raw body before auth so a 401 still has a complete request
+    // envelope; the MCP handler consumes this buffer instead of the stream.
+    if (captureEnabled() && req.method === 'POST' && req.__gatewayRawBody === undefined) {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      req.__gatewayRawBody = Buffer.concat(chunks).toString('utf8');
+    }
     const metadataUrl = `${resolveBaseUrl(options, req)}/.well-known/oauth-protected-resource`;
     const authorization = typeof req?.headers?.authorization === 'string'
       ? req.headers.authorization
