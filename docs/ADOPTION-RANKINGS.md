@@ -108,24 +108,42 @@ These measure interest in MCP servers, not usage of ChatGPT connectors.
 
 ## 3. What this means for this gateway
 
-1. **The most-installed MCP servers are local dev tools** (Filesystem, Context7,
-   browser automation, Git/GitHub). A hosted gateway for web clients can serve
-   the remote ones (GitHub, Figma, Context7-style docs, Supabase), but cannot
-   give the model a local browser or filesystem — those need a local client, so
-   do not treat their numbers as addressable demand.
-2. **For ChatGPT/Claude web users, work connectors matter more than the
-   directory's consumer mix**: Google Workspace, Microsoft 365, Slack, Notion,
-   Figma, Atlassian, plus GitHub/Sentry/Supabase/Stripe/Cloudflare for technical
-   users. The ChatGPT directory's travel/finance/shopping apps are mostly closed
-   consumer integrations, not MCP servers a gateway can wrap.
-3. **Current coverage** (GitHub, Notion, Linear, Vercel) matches the dev/office
-   cluster only partially. Evidence-ranked next templates: **Slack, Figma,
-   Atlassian (Jira/Confluence), Sentry, Context7**, then Google Workspace /
-   Microsoft 365 (confidential OAuth; Google template exists). Vercel is useful
-   for our own deployment but is not a top public MCP-adoption server.
-4. **The leading Smithery server is a gateway** (`pipeworx/gateway`, 419k
-   connections), which validates the Code Mode/gateway category — and means
-   competing meta-gateways exist.
+"High frequency" is an input, not the priority order. Filter candidate upstreams
+through four questions before adding one:
+
+1. **Is it reachable from a hosted gateway?** Local-only servers (Filesystem,
+   Playwright/Chrome DevTools/Puppeteer/Browser Tools, local Git) lead the
+   install/pull charts but cannot be wrapped by a hosted web-client gateway.
+2. **Does the web client lack a native connector?** ChatGPT/Gemini already ship
+   native Google Drive/Gmail/Calendar (and ChatGPT: SharePoint/Box/Dropbox)
+   connectors; duplicating those through the gateway adds maintenance without a
+   clear context win.
+3. **Is the tool surface big enough to matter?** The gateway's core value is
+   collapsing many tool definitions and sandboxing results. A two-tool docs
+   server (e.g. Context7) gains little.
+4. **Can a user actually obtain credentials?** Pre-registered/confidential OAuth
+   (Slack, Figma, Atlassian, Google, Microsoft) needs a documented token
+   acquisition flow; a template without that guide is dead weight.
+
+Applying those filters:
+
+| Priority | Upstreams | Why |
+|---|---|---|
+| **A — next** | **Slack, Atlassian (Jira/Confluence), Figma, Sentry** | Remote, work-heavy usage, meaningful tool surfaces; all need pre-registered OAuth or DCR plus a short token-acquisition guide. `clientSecretEnv` refresh already supports the confidential ones. |
+| **B — later** | **Google Workspace, Microsoft 365** | Highest web-connector usage, but heaviest OAuth (own OAuth client, consent, refresh) and largely duplicated by native client connectors. Google template exists; add the acquisition guide first. |
+| **C — low value** | **Context7** | Very high installs, but a docs-only, tiny tool surface; the gateway saves little context. |
+| **D — out of scope** | Playwright, Filesystem, Chrome DevTools, Puppeteer, Browser Tools, local Git | Local-only; would need a separate local companion mode, not a hosted gateway. |
+| **E — not upstreams** | ChatGPT consumer apps (Spotify, Expedia, OpenTable, ...) | Closed consumer integrations, not MCP servers to wrap. |
+
+Coverage vs quality: for v0.1/v1.0, **5–8 well-supported upstreams with credential
+guides, contract tests and one real client** beat a long template list. The
+current four (GitHub, Notion, Linear, Vercel) already cover the author's daily
+use; breadth should follow the filters above, with onboarding docs before more
+templates.
+
+The leading Smithery server is a gateway (`pipeworx/gateway`, 419k connections),
+which validates the Code Mode/gateway category — and means competing
+meta-gateways exist.
 
 ## Sources
 
