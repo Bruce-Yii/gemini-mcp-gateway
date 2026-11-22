@@ -27,7 +27,8 @@
 | B6 | 新增上游导致既有检索回归：按服务索引 + 窄别名 | ✅ 通过（G4 既有子集恢复） | batch-6-search-attribution.md |
 | B7 | G6 全量重测发现：sandbox 无 Intl + detector 误归因 | ✅ 通过（修复后重跑，无新网关功能 bug） | batch-7-g6-findings.md |
 | B8 | Gemini 大文件/多文件工作流反馈：canonical 结果、行区间、patch、行号映射 | ✅ 通过（B8-1/2/3/4，线上行号已复验） | batch-8-gemini-file-workflow.md |
-| B9 | 透明观测与评测体系：Gemini 无感采集 + 原始日志 + 迭代闭环 | 🔨 P1/P2 全量 capture 已实现（HTTP/MCP/上游帧/sandbox/config）；analyzer 待做 | ../OBSERVABILITY-AND-EVAL.md |
+| B9 | 透明观测与评测体系：Gemini 无感采集 + 原始日志 + 迭代闭环 | 🔨 P1/P2 全量 capture + analyzer + L1 smoke 已落地 | ../OBSERVABILITY-AND-EVAL.md |
+| B10 | Gemini PR #14–#41 工程总控反馈映射 | ⚠️ 部分：B5/B8 已修；canonical/patch 端到端/merge/幂等未做 | batch-10-pr-workflow.md |
 
 ## 门控规则
 
