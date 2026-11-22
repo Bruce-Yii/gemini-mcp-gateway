@@ -41,7 +41,7 @@ const EXEC_BOUNDARY_GUIDANCE = " Boundary: if the task exceeds the available too
 
 // Gemini feedback #3: upstreams do not share one result shape. One short line
 // nudges the model to defend before field access instead of crashing mid-script.
-const RETURN_SHAPE_GUIDANCE = ' Results differ by service: Notion/Linear mostly return objects, GitHub often JSON text or arrays, Vercel mostly objects — guard with Array.isArray(x) / typeof x === "string" before reading fields; safeAll(tasks) keeps a batch alive when one sub-task fails; grepSnippet(text, keyword, window) extracts context slices from long results. codemode.unwrap(x) normalizes JSON text, {result}, {text,resources} and content arrays.';
+const RETURN_SHAPE_GUIDANCE = ' Results differ by service: Notion/Linear mostly return objects, GitHub often JSON text or arrays, Vercel mostly objects — guard with Array.isArray(x) / typeof x === "string" before reading fields; safeAll(tasks) keeps a batch alive when one sub-task fails; grepSnippet(text, keyword, window) extracts context slices from long results; codemode.unwrap(x) normalizes JSON text, {result}, {text,resources} and content arrays. Intl is unavailable in the sandbox: use codemode.formatDate(value, {date:true,time:true,ms:true}) or Date UTC getters.';
 
 // Gemini feedback #2: tell the model which identifier is actually callable.
 const CALLNAME_GUIDANCE = ' Each result carries "callName": pass that exact identifier to codemode (the "name" field may contain hyphens — do not copy it literally into codemode["..."]).';
@@ -125,6 +125,13 @@ const GUEST_PRELUDE = [
   // resource bodies, mixed/non-text blocks stay un-collapsed).
   'const __dshUnwrap = (value) => { try { if (typeof value === "string") { try { return JSON.parse(value); } catch (_) { return value; } } if (value === null || typeof value !== "object" || Array.isArray(value)) return value; const own = (k) => Object.prototype.hasOwnProperty.call(value, k); const hasText = own("text") && typeof value.text === "string"; const hasContent = own("content") && Array.isArray(value.content); const hasResult = own("result"); const hasSC = own("structuredContent") && value.structuredContent !== undefined; if (hasSC && !hasText && !hasContent && !hasResult) return value.structuredContent; if (hasResult && !hasSC && !hasText && !hasContent) return value.result; if (hasText && own("resources") && Array.isArray(value.resources)) return value.text; if (hasContent) { const candidates = []; for (const c of value.content) { if (!c || typeof c !== "object") return value; let body; if (c.type === "text" || c.type === undefined) { if (typeof c.text !== "string") return value; body = c.text; } else if (c.type === "resource") { const res = c.resource; if (!res || typeof res !== "object" || typeof res.text !== "string") return value; body = res.text; } else { return value; } if (candidates.indexOf(body) < 0) candidates.push(body); } if (candidates.length !== 1) return value; const s = candidates[0]; try { return JSON.parse(s); } catch (_) { return s; } } return value; } catch (_) { return value; } };',
   'const unwrap = __dshHide(__dshUnwrap); codemode.unwrap = unwrap;',
+  // QuickJS has no Intl. Give a small, explicit UTC formatter instead of
+  // pretending a partial Intl polyfill is complete. Models that reach for
+  // Intl get a guidance line in the execute description; this helper covers
+  // the common date-range use case (Notion/GitHub/Vercel timestamps).
+  'const __dshFormatDate = (value, options) => { const d = value === undefined || value === null ? new Date() : (value instanceof Date ? value : new Date(value)); if (!(d instanceof Date) || isNaN(d.getTime())) throw new Error("formatDate: invalid date value"); const o = options && typeof options === "object" ? options : {}; const pad = (n) => (n < 10 ? "0" : "") + n; const date = d.getUTCFullYear() + "-" + pad(d.getUTCMonth() + 1) + "-" + pad(d.getUTCDate()); const time = pad(d.getUTCHours()) + ":" + pad(d.getUTCMinutes()) + ":" + pad(d.getUTCSeconds()); if (o.date && !o.time) return date; if (o.time && !o.date) return time; if (o.date && o.time) return date + "T" + time + (o.ms ? "." + String(d.getUTCMilliseconds()).padStart(3, "0") : "") + "Z"; return d.toISOString(); };',
+  'const formatDate = __dshHide(__dshFormatDate); codemode.formatDate = formatDate;',
+  'const nowISO = __dshHide(() => new Date().toISOString()); codemode.nowISO = nowISO;',
 ].join('\n');
 const GUEST_PREFIX_LINES = GUEST_PRELUDE.split('\n').length;
 

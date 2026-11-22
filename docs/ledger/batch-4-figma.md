@@ -70,21 +70,17 @@
 - 修复：按服务重建索引 + 窄别名（repository/repo/octocat→github，deployment→vercel）。
 - 结果：top1 57.1%、top5 72.3%，恢复并略超基线；详见 `docs/ledger/batch-6-search-attribution.md`。
 
-## G6 全量重测（2026-11-23，未通过）
+## G6 全量重测（2026-11-23，通过）
 
-- 任务：**228**（既有 191 + 可运行 Figma 37；9 个 Weave 任务按付费账号跳过）。
-- 运行：`explore/tasks-g6.json`，5 上游（github,notion,linear,vercel,figma），hy4-flash-free，
-  concurrency 3，runId `run-1795367330219-12631ed7`。
-- 结果：228 tasks / 855 turns / 703 tool calls；3,229,253 prompt tokens + 73,939 completion；
-  searchHitRate **85.8%**、toolHitRate 53.2%；anomalies 387（model 257 / gateway 124 / infra 3 / synthetic 3）。
-- gateway 124 逐条复核（详见 `batch-7`）：
-  - **Intl 未定义 5 条 = 真 sandbox 能力缺口**（QuickJS 无 Intl）。
-  - `not a function` 5 条 = 模型用了错误的 callName（实际 callName 在 search 结果里），非网关。
-  - `services` 对象 16 条 = 检测器把 `codemode.services()` 的返回误标 execute_error，非网关。
-  - 其余为上游套餐/账号（Notion Business/calendar）、Vercel token 权限（403/404）、
-    Figma 占位/缺少 nodeId、Linear 复杂度/team 不存在、GitHub 404 等，非网关功能 bug。
-- **结论：G6 未通过**，不能标 ✅；唯一明确的网关侧缺口是 Intl。其它是 detector 口径/上游账号数据问题。
-- G7 线上带客户端 token 真实调用仍未做。
+- 修复 Intl（`codemode.formatDate/nowISO` + guidance）与 detector 误归因后重跑：
+  **228 tasks / 873 turns / 718 calls**；3,409,329 prompt + 71,224 completion tokens；
+  searchHitRate 85.3%、toolHitRate 52.9%。
+- anomalies 363（model 273 / gateway 86 / infra 1 / synthetic 3）；Intl 与 services 误报归零，
+  `not a function` 7 条归 model。
+- gateway 86 逐条复核：Vercel 404/403、Notion 套餐/日历、upstream validation、not-found、
+  Linear complexity、Figma 占位参数等，**无新网关功能 bug**。
+- 已知差异：本轮 Notion token 只暴露 47 工具（上一轮 53），属于 token/工作区权限差异，非网关。
+- **G6 ✅**；G7 线上带客户端 token 真实调用仍未做。
 
 
 

@@ -239,3 +239,49 @@ test('combined: the three mislabels no longer surface as gateway/schema defects'
   assert.equal(result[2].isGatewayDefect, false);
   assert.equal(result.filter((r) => r.flagged && r.rootCause === 'schema/arg-name mismatch').length, 0);
 });
+
+/* ------------------------------------------------------------------ *
+ * #24 — G6 detector misattribution: successful services payloads and
+ * model call-name mistakes must not be gateway defects.
+ * ------------------------------------------------------------------ */
+test('#24: successful services() payload is not an execute_error', () => {
+  const servicesPayload = JSON.stringify({
+    result: {
+      services: [{ name: 'figma', toolCount: 46, status: 'observed', note: 'if a tool call returns an error, report it' }],
+    },
+  });
+  assert.match(servicesPayload, /error/i, 'fixture does contain the word error');
+  assert.equal(classifyExecuteResult({ name: 'execute_read', text: servicesPayload }), null);
+});
+
+test('#24: successful payload containing "not found" data is not an execute_error', () => {
+  const success = JSON.stringify({
+    result: { items: [{ title: 'Handle not found', status: 'open' }], total: 1 },
+  });
+  assert.equal(classifyExecuteResult({ name: 'execute_read', text: success }), null);
+});
+
+test('#24: missing callName "not a function" is attributed to the model', () => {
+  const err = JSON.stringify({
+    result: 'execute error: not a function (script line 294:26)',
+    isError: true,
+    status: 'error',
+    error: { message: 'not a function', type: 'TypeError' },
+  });
+  const finding = classifyExecuteResult({ name: 'execute_read', text: err });
+  assert.equal(finding.type, 'execute_error');
+  assert.equal(finding.meta.attribution, 'model');
+  assert.equal(finding.meta.isGatewayDefect, false);
+});
+
+test('#24: explicit execute error still defaults to gateway classification', () => {
+  const err = JSON.stringify({
+    result: 'execute error: upstream 500',
+    isError: true,
+    status: 'error',
+    error: { message: 'upstream 500' },
+  });
+  const finding = classifyExecuteResult({ name: 'execute', text: err });
+  assert.equal(finding.type, 'execute_error');
+  assert.equal(finding.meta.attribution, undefined);
+});

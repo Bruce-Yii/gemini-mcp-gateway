@@ -156,12 +156,21 @@ const EXECUTE_ERROR_RE = /"isError":true|ReferenceError|TypeError|invalid_grant|
 export function classifyExecuteResult(result, fixtures = []) {
   const text = String(result?.text ?? '');
   if (!text || !EXECUTE_ERROR_RE.test(text)) return null;
-  // Defensive: a catalog/search payload is not an execute error even if a
-  // tool description inside it happens to mention "not found".
-  try {
-    const parsed = JSON.parse(text);
-    if (Array.isArray(parsed?.matches) && parsed.isError !== true) return null;
-  } catch {}
+
+  let parsed;
+  try { parsed = JSON.parse(text); } catch { parsed = null; }
+
+  // A successful execute payload is not an error just because its data contains
+  // words like "not found" (services snapshot, docs, issue titles, ...).
+  // Only explicit error markers count when the payload parses as JSON.
+  if (parsed && typeof parsed === 'object') {
+    const explicitError = parsed.isError === true ||
+      parsed.status === 'error' ||
+      (typeof parsed.result === 'string' && /^\s*execute error:/i.test(parsed.result)) ||
+      (parsed.error !== undefined && parsed.error !== null);
+    if (!explicitError) return null;
+  }
+
   if (fixtures.length && isNotFound(text)) {
     return {
       type: 'execute_error',
@@ -175,6 +184,21 @@ export function classifyExecuteResult(result, fixtures = []) {
   }
   if (isInfraError(text) && text.includes('429')) {
     return { type: 'infra_error', detail: text, meta: { attribution: 'infra', note: 'upstream rate limit / server error' } };
+  }
+  // `codemode.foo is not a function` is almost always the model copying a
+  // non-callable name (the search result exposes the real `callName`). Do not
+  // count it as a gateway defect; the binding regression tests live in
+  // codemode-fixes/readonly-tool-stub.
+  if (/is not a function|not a function/i.test(text)) {
+    return {
+      type: 'execute_error',
+      detail: text,
+      meta: {
+        attribution: 'model', isGatewayDefect: false,
+        rootCause: 'model used an unknown callName/helper',
+        note: 'search results expose callName; model copied name instead',
+      },
+    };
   }
   return { type: 'execute_error', detail: text, meta: {} };
 }

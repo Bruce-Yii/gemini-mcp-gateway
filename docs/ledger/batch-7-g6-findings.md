@@ -29,6 +29,24 @@
 
 ## 验证与门控
 
-- G6 228 tasks / 855 turns / 703 tool calls；anomalies 387（model 257 / gateway 124 / infra 3 / synthetic 3）。
+- **初次运行（修复前）**：228 tasks / 855 turns / 703 tool calls；anomalies 387（model 257 / gateway 124 / infra 3 / synthetic 3）。
 - 逐条复核后：真网关缺口 = Intl（5）；其余为模型/上游/账号/检测器。
-- **G6 结论：未通过**（Intl 未解决 + detector 口径未修）；G7 未做。
+- 初次结论：未通过（Intl 未解决 + detector 口径未修）；修复后重跑见下节，G6 通过。
+
+## 修复与重跑（2026-11-23）
+
+- **Intl**：`src/codemode.js` 加 `codemode.formatDate()` / `codemode.nowISO()`，guidance 明确
+  "Intl is unavailable"；不塞不完整的 Intl polyfill（避免 locale 语义骗模型）。
+- **Detector**：`explore/trace.mjs` `classifyExecuteResult` 只在 JSON 显式 error（isError/status/error/`execute error:`）时判错；
+  成功的 `services()` / 含 "not found" 数据的成功结果不再误报；`not a function` 归 model（模型 callName 写错）。
+- 测试：`tests/codemode-date-helper.test.js` 3 条 + `tests/detector.test.js` #24 4 条；全量 **350/350**。
+
+### G6 重跑结果
+
+- 228 tasks / 873 turns / 718 tool calls；3,409,329 prompt + 71,224 completion tokens；wall ~45 min。
+- anomalies **363**（model 273 / gateway 86 / infra 1 / synthetic 3）；searchHitRate 85.3%、toolHitRate 52.9%。
+- Intl 0 条、services 误报 0 条；`not a function` 7 条全部归 model。
+- gateway 86 复核：Vercel 404 19 / 403 9、Notion Business 9、upstream validation 9、not-found 10、
+  Linear complexity 5、Figma 占位 fileKey 3、其余为上游数据/账号；**没有新的网关功能 bug**。
+- 已知差异：本轮 Notion token 只暴露 47 工具（上一轮 53），属于 token/工作区权限差异，非网关。
+- **G6 结论：✅ 通过（无新网关功能 bug）**；G7 线上带客户端 token 真实调用仍未做。
