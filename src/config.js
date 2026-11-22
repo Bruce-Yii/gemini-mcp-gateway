@@ -113,8 +113,9 @@ export function validateConfig(value, { env = process.env } = {}) {
         if (server.url !== undefined) warnings.push(`${at}: "url" is ignored for stdio transport`);
       }
 
-      if (server.authScheme !== undefined && !['bearer', 'basic'].includes(server.authScheme)) {
-        issues.push(`${at}.authScheme must be "bearer" or "basic"`);
+      if (server.authScheme !== undefined
+          && (typeof server.authScheme !== 'string' || !/^[A-Za-z][A-Za-z0-9-]*$/.test(server.authScheme))) {
+        issues.push(`${at}.authScheme must be an HTTP auth scheme such as "bearer", "basic" or "Sentry-Bearer"`);
       }
       if (server.authScheme && !server.tokenEnv) {
         warnings.push(`${at}: authScheme is ignored without tokenEnv`);

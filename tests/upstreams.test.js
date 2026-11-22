@@ -58,3 +58,20 @@ test('authScheme: basic sends an Authorization: Basic header', async () => {
   assert.equal(headers.Authorization, 'Basic dXNlcjpwYXNz');
   delete process.env[ENV_KEY];
 });
+
+test('authScheme: provider-specific scheme is preserved verbatim (Sentry-Bearer)', async () => {
+  process.env[ENV_KEY] = 'sentry-user-token';
+  const mgr = new UpstreamManager([
+    {
+      name: 'sentry',
+      transport: 'http',
+      url: 'https://example.invalid/mcp',
+      tokenEnv: ENV_KEY,
+      authScheme: 'Sentry-Bearer',
+    },
+  ]);
+  const transport = await mgr._createTransport(mgr.configs[0]);
+  const headers = transport._requestInit?.headers ?? transport.requestInit?.headers;
+  assert.equal(headers.Authorization, 'Sentry-Bearer sentry-user-token');
+  delete process.env[ENV_KEY];
+});

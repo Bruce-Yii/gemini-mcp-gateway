@@ -79,9 +79,11 @@ test('rejects bad header/env/args/tool-list types and warns on unknown keys', ()
   assert.throws(() => validateConfig({ servers: [{ name: 'a', transport: 'http', url: 'https://a', env: [] }] }, noEnv), /env must/);
   assert.throws(() => validateConfig({ servers: [{ name: 'a', transport: 'stdio', command: 'node', args: [1] }] }, noEnv), /args/);
   assert.throws(() => validateConfig({ servers: [{ name: 'a', transport: 'http', url: 'https://a', denyTools: 'x' }] }, noEnv), /denyTools/);
-  assert.throws(() => validateConfig({ servers: [{ name: 'a', transport: 'http', url: 'https://a', authScheme: 'oauth' }] }, noEnv), /authScheme/);
+  assert.throws(() => validateConfig({ servers: [{ name: 'a', transport: 'http', url: 'https://a', authScheme: 'bad scheme!' }] }, noEnv), /authScheme/);
   const basic = validateConfig({ servers: [{ name: 'a', transport: 'http', url: 'https://a', tokenEnv: 'A_TOKEN', authScheme: 'basic' }] }, noEnv);
   assert.equal(basic.config.servers[0].authScheme, 'basic');
+  const sentry = validateConfig({ servers: [{ name: 'sentry', transport: 'http', url: 'https://a', tokenEnv: 'SENTRY_ACCESS_TOKEN', authScheme: 'Sentry-Bearer' }] }, noEnv);
+  assert.equal(sentry.config.servers[0].authScheme, 'Sentry-Bearer');
 
   const { warnings } = validateConfig({
     mystery: true,
