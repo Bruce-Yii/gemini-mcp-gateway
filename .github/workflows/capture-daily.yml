@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   digest:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 2 * * *'
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 2 * * *' || github.event.schedule == '0 3 * * 1'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +52,7 @@ jobs:
           git config user.email "capture-bot@users.noreply.github.com"
           git add "docs/eval/scorecard-$DAY.md" "docs/eval/scorecard-$DAY.json" 2>/dev/null || true
           git diff --cached --quiet || git commit -m "chore(eval): capture scorecard $DAY"
+          git pull --rebase
           git push
       - uses: actions/upload-artifact@v4
         with:
@@ -62,6 +63,7 @@ jobs:
           retention-days: 14
 
   weekly-review:
+    needs: digest
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 3 * * 1'
     runs-on: ubuntu-latest
     steps:
@@ -119,6 +121,7 @@ jobs:
           git config user.email "capture-bot@users.noreply.github.com"
           git add docs/eval/weekly-*.md
           git diff --cached --quiet || git commit -m "chore(eval): weekly capture review $(date -u +%G-W%V)"
+          git pull --rebase
           git push
       - uses: actions/upload-artifact@v4
         with:
