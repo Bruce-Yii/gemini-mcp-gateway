@@ -13,6 +13,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { waitUntil } from '@vercel/functions';
+import { BUILD } from './build-info.js';
 
 const MAX_BODY_BYTES = 32 * 1024 * 1024;
 export const captureStore = new AsyncLocalStorage();
@@ -163,6 +164,7 @@ export function startCapture(req, res, options = {}) {
         ts: new Date(started).toISOString(),
         requestId,
         mode: cfg.mode,
+        deployment: BUILD,
         request: {
           method: req.method,
           url: req.url,

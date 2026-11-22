@@ -29,6 +29,7 @@ import { searchEntries } from './catalog.js';
 import { UpstreamManager } from './upstreams.js';
 import { createCodeModeTools } from './codemode.js';
 import { validateConfig } from './config.js';
+import { captureEvent } from './capture.js';
 
 const SERVER_INFO = { name: 'gemini-mcp-gateway', version: '0.1.0' };
 
@@ -289,6 +290,12 @@ export function createGatewayServer(upstreamManager, options = {}) {
     tools = buildToolRegistry(upstreamManager, options);
   }
   const byName = new Map(tools.map((tool) => [tool.name, tool]));
+  captureEvent('gateway_catalog', {
+    mode: options.mode ?? 'whitelist',
+    toolCount: tools.length,
+    tools: tools.map((tool) => tool.name),
+    upstreams: [...new Set(upstreamManager.getEntries().map((entry) => entry.server))],
+  });
 
   const mcpServer = new McpServer(SERVER_INFO, { instructions });
   const server = mcpServer.server;

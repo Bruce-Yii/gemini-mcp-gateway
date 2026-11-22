@@ -17,6 +17,23 @@ import { UpstreamAuth, defaultProvider } from './upstream-auth.js';
 import { normalizeToolArguments } from './sanitize.js';
 import { captureEvent } from './capture.js';
 
+export function tapTransport(transport, server) {
+  if (!transport) return transport;
+  const originalSend = transport.send?.bind(transport);
+  if (originalSend) {
+    transport.send = (message, options) => {
+      captureEvent('upstream_frame', { server, direction: 'out', message, options });
+      return originalSend(message, options);
+    };
+  }
+  const originalOnMessage = transport.onmessage;
+  transport.onmessage = (message, extra) => {
+    captureEvent('upstream_frame', { server, direction: 'in', message, extra });
+    return originalOnMessage?.(message, extra);
+  };
+  return transport;
+}
+
 const CLIENT_INFO = { name: 'gemini-mcp-gateway', version: '0.1.0' };
 
 /** Resolve the OAuth-refresh provider for a server config.
@@ -161,6 +178,7 @@ export class UpstreamManager {
       try {
         const establish = async (tokenOverride) => {
           transport = await this._createTransport(config, tokenOverride);
+          tapTransport(transport, name);
           client = this._clientFactory();
           await client.connect(transport);
           const { tools } = await client.listTools();

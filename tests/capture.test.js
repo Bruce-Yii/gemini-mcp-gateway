@@ -122,3 +122,33 @@ test('captureEvent adds upstream/sandbox events to the active envelope', async (
   }
 });
 
+
+test('tapTransport records both upstream directions as raw frames', async () => {
+  const { tapTransport } = await import('../src/upstreams.js');
+  const dir = await mkdtemp(join(tmpdir(), 'gmg-capture-frames-'));
+  try {
+    const req = { method: 'POST', url: '/mcp', headers: {}, __gatewayRawBody: '{}' };
+    const res = fakeRes();
+    startCapture(req, res, { mode: 'full', sink: 'file', fileDir: dir });
+    const transport = {
+      sent: [],
+      async send(message) { this.sent.push(message); },
+      onmessage: null,
+    };
+    tapTransport(transport, 'github');
+    await transport.send({ jsonrpc: '2.0', method: 'tools/list', id: 1 });
+    transport.onmessage({ jsonrpc: '2.0', result: { tools: [] }, id: 1 });
+    res.end('ok');
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const files = await readdir(dir);
+    const envelope = JSON.parse(await readFile(join(dir, files[0]), 'utf8'));
+    const frames = envelope.events.filter((event) => event.type === 'upstream_frame');
+    assert.equal(frames.length, 2);
+    assert.equal(frames[0].payload.direction, 'out');
+    assert.equal(frames[0].payload.message.method, 'tools/list');
+    assert.equal(frames[1].payload.direction, 'in');
+    assert.equal(frames[1].payload.server, 'github');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

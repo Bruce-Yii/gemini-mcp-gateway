@@ -1,6 +1,6 @@
 # 透明观测与评测体系（Full-Fidelity Observability + Evaluation）
 
-> 状态：**P1 已实现（HTTP/MCP 请求/响应全量 capture + file/http sink）；P2 上游/sandbox 明细待做** · 2026-11-23
+> 状态：**P1+P2 已实现：HTTP/MCP/上游帧/sandbox/config 全量 capture；SSE 当前无流** · 2026-11-23
 > 目标：Gemini 侧完全无感；网关把**边界内所有可观测事件**按原始保真度记录下来，
 > 不采样、不按主观判断裁剪；用这些数据做回放、回归和迭代。
 
@@ -41,10 +41,10 @@
 | MCP | 每个 JSON-RPC request/response/notification、`tools/list`、`tools/call`、progress、error | ✅ P1 |
 | SSE | 每个 `event:` / `data:` 帧、顺序、时间 | ⚠️ 当前 GET 返回 405，无 SSE 流 |
 | Code Mode / sandbox | 代码、logs、toolCalls、错误、最终结果、截断、行标记 | ✅ P2（`captureEvent`） |
-| Upstream | 工具调用 args/raw result/错误/耗时 + connect 元数据 | ⚠️ 工具调用/connect 已采；原始 MCP 帧/重试未采 |
+| Upstream | 原始 MCP 帧（双向）、工具调用 args/result/错误、connect、重试 | ✅ P2（`tapTransport` + `upstream_frame`） |
 | Sandbox | 代码、日志、异常栈、行号、超时、资源限制 | 原始文本 |
 | OAuth | grant/refresh 事件、client_id、scope、请求 body、结果 | ✅ P2（`readRawBody`） |
-| 部署/配置 | commit、buildHash、工具目录快照、feature flags、上游列表 | ⚠️ 尚未入 envelope |
+| 部署/配置 | commit、buildHash、工具目录/上游快照 | ✅ P2（`deployment` + `gateway_catalog`） |
 | 客户端 | User-Agent、Accept、MCP-Protocol-Version、session header、IP（可选） | 元数据 |
 
 ## 2. 全量采集架构
@@ -253,7 +253,7 @@ Cloudflare R2 的免费额度对“每天几十~几百次网关调用、每次�
 |---|---|---|
 | P0 | 本文档 + envelope schema | 完成 |
 | P1 | HTTP/MCP 原始 tap + file/http/r2 sink + 开关 | ✅ 已实现（`src/capture.js` + 5 tests；R2 生产已验证 9 条真实 envelope） |
-| P2 | Code Mode/sandbox/upstream 明细 tap + R2 适配 | 🔨 部分：sandbox/upstream工具调用/connect已采；原始上游帧待补 |
+| P2 | Code Mode/sandbox/upstream 明细 tap + R2 适配 | ✅ 已完成（上游双向原始帧、sandbox、config/deployment） |
 | P3 | 回放脚本 + 错误聚类 + scorecard | ✅ `scripts/capture-digest.mjs` 已实现；回放待做 |
 | P4 | L1 smoke 定时任务 | 1–2 天 |
 | P5 | L3 judge/人工（可选） | 按需 |
