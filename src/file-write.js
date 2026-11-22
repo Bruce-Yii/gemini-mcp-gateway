@@ -290,8 +290,12 @@ export async function applyFilePatch({ read, write, path, patch, dryRun = true, 
 
   const out = { ok: true, diff };
   if (writeResult && typeof writeResult === 'object') {
-    if (writeResult.commitSha !== undefined) out.commitSha = writeResult.commitSha;
-    if (writeResult.sha !== undefined) out.commitSha = writeResult.sha;
+    const nestedContent = writeResult.content && typeof writeResult.content === 'object' ? writeResult.content : null;
+    const nestedCommit = writeResult.commit && typeof writeResult.commit === 'object' ? writeResult.commit : null;
+    const blobSha = writeResult.sha ?? nestedContent?.sha;
+    const commitSha = writeResult.commitSha ?? nestedCommit?.sha;
+    if (commitSha !== undefined) out.commitSha = commitSha;
+    if (blobSha !== undefined) out.commitSha = blobSha;
     if (writeResult.content !== undefined) out.content = writeResult.content;
   }
   return out;
@@ -409,8 +413,11 @@ export function normalizeWriteResult(value, { sha } = {}) {
     }
     return undefined;
   };
-  const commitShaRaw = pick(['commitSha', 'commit_sha', 'sha']) ?? sha;
-  const blobShaRaw = pick(['sha', 'contentSha', 'content_sha', 'blobSha']);
+  const nestedContent = obj.content && typeof obj.content === 'object' && !Array.isArray(obj.content) ? obj.content : {};
+  const nestedCommit = obj.commit && typeof obj.commit === 'object' && !Array.isArray(obj.commit) ? obj.commit : {};
+  // GitHub create_or_update_file returns {content:{sha,path,...}, commit:{sha,...}}.
+  const blobShaRaw = pick(['sha', 'contentSha', 'content_sha', 'blobSha']) ?? nestedContent.sha;
+  const commitShaRaw = pick(['commitSha', 'commit_sha', 'sha']) ?? nestedCommit.sha ?? sha;
   const numRaw = pick(['number', 'prNumber', 'pr_number', 'issueNumber', 'issue_number']);
   const urlRaw = pick(['html_url', 'url', 'web_url']);
   const out = {

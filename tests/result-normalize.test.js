@@ -398,3 +398,14 @@ test('dispatch：normalizeResult 本身不抛错（恶意 toolName）', () => {
   const out = normalizeResult(hostile, 'value');
   assert.deepEqual(Object.keys(out), ['raw']);
 });
+test('normalizeFile prefers resource body when text is a download notice plus body', () => {
+  const body = 'one\ntwo\nthree\n';
+  const out = normalizeFileResult({ text: `successfully downloaded text file (SHA: abc)\n${body}`, resources: [{ uri: 'repo://x', text: body }] });
+  assert.equal(out.content, body);
+  assert.doesNotMatch(out.content, /successfully downloaded/);
+});
+test('normalizeFile extracts blob sha from the GitHub download notice', () => {
+  const out = normalizeFileResult({ text: 'successfully downloaded text file (SHA: 4cb29ea38f70d7c61b2a3a25b02e3bdf44905402)\none\ntwo\n', resources: [{ text: 'one\ntwo\n' }] });
+  assert.equal(out.sha, '4cb29ea38f70d7c61b2a3a25b02e3bdf44905402');
+  assert.equal(out.content, 'one\ntwo\n');
+});

@@ -209,16 +209,26 @@ export function normalizeFileResult(value) {
     const root = isObj(v) ? v : {};
     // content 优先取顶层；再尝试 resources[].text；最后尝试 result 里的同名键。
     let content = contentToString(pick(root, ['content', 'text', 'data']));
-    if (content === null) content = resourcesToText(get(root, 'resources'));
+    const rootResources = resourcesToText(get(root, 'resources'));
+    // GitHub sometimes returns {text: "successfully downloaded ...\n<body>",
+    // resources:[{text: body}]}; prefer the resource body so the notice never
+    // becomes the file content.
+    if (rootResources && (isDownloadNotice(String(pick(root, ['text', 'content', 'data']) ?? '')) || /successfully downloaded/i.test(String(pick(root, ['text', 'content', 'data']) ?? '')))) {
+      content = rootResources;
+    }
+    if (content === null) content = rootResources;
     if (content === null) {
       const nested = get(root, 'result');
       if (isObj(nested)) {
         content = contentToString(pick(nested, ['content', 'text', 'data']));
-        if (content === null) content = resourcesToText(get(nested, 'resources'));
+        const nestedResources = resourcesToText(get(nested, 'resources'));
+        if (nestedResources && /successfully downloaded/i.test(String(pick(nested, ['text', 'content', 'data']) ?? ''))) content = nestedResources;
+        if (content === null) content = nestedResources;
       }
     }
 
-    const sha = pick(root, ['sha', 'sha256', 'content_sha', 'commit_sha']);
+    const shaFromNotice = /SHA:\s*([0-9a-f]{7,})/i.exec(String(pick(root, ['text', 'content', 'data']) ?? ''))?.[1];
+    const sha = pick(root, ['sha', 'sha256', 'content_sha', 'commit_sha']) ?? shaFromNotice;
     const path = pick(root, ['path', 'name', 'uri', 'file_path']);
     const encoding = pick(root, ['encoding']);
     const sizeRaw = pick(root, ['size', 'bytes']);

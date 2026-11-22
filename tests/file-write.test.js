@@ -7,7 +7,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyTextPatch, applyFilePatch } from '../src/file-write.js';
+import { applyTextPatch, applyFilePatch, normalizeWriteResult } from '../src/file-write.js';
 
 // ---------- applyTextPatch (pure) ----------
 
@@ -231,3 +231,9 @@ test('applyFilePatch validates its injected dependencies', async () => {
   assert.equal(r2.ok, false);
   assert.match(r2.error, /path/);
 });
+test('normalizeWriteResult reads GitHub {content:{sha},commit:{sha}} shape', () => {
+  const out = normalizeWriteResult({ content: { sha: 'blob-new' }, commit: { sha: 'commit-new' } }, { sha: 'old' });
+  assert.equal(out.sha, 'blob-new');
+  assert.equal(out.commitSha, 'commit-new');
+});
+
