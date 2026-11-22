@@ -53,9 +53,17 @@
 
 ## 验证与门控
 
-- `npm test` → 343/343（含 dedupe/truncation/unwrap/binary 新测试）。
+- `npm test` → 350/350（含 dedupe/truncation/unwrap/binary 新测试）。
 - 未做：真实 Gemini 重测（B5 的 G6 等价项）、token 前后对比、binary 修复的端到端真实调用。
 - **不能宣称 B5 通过**；ISSUE-1/2/3/4 代码层已修，真实客户端回归未做。
+
+## Gemini 线上回归（2026-11-23）
+
+- 任务 2（GitHub 大文件）：README/WORKFLOW 均**无三份重复**（text 1 次 + resources 元数据，
+  无 `content` 字段）；README 12,774 字符、WORKFLOW 14,073 字符，均未触发截断，因此
+  `truncated` 标记仍未被实际验证。
+- 任务 3（Intl）：`codemode.nowISO/formatDate` 正常返回，`typeof Intl` = `undefined`，无报错。
+- 未覆盖：>24KB 文件的显式截断标记、图片二进制、直接调用 `unwrap` 的真实任务。
 
 ## DEC
 
@@ -64,4 +72,4 @@
 | 删除 `content` 别名 | 无 src/测试消费者；保留即第三份重复 |
 | 截断采用 true cap | 提示声称 limit 必须与实际一致 |
 | unwrap 歧义时返回原对象 | 不静默丢数据；模型可自行防御 |
-| binary 暂不实现 | 需先确定 cap/opt-in 与 GitHub 实际 shape；避免上下文爆炸 |
+| binary 采用 mimeType 门控 + 1MiB cap | 保留原 base64 到 images[]，超限只给 metadata，避免上下文爆炸 |

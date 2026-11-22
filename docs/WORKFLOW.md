@@ -451,7 +451,7 @@ Fallback：Framelink PAT（只读）/ 桌面 server / 等待目录开放
 | Notion | B0–B3 | ✅ | deny 24；53 暴露；refresh/CAS 修复 |
 | Linear | B0–B3 | ✅ | deny 24；36 暴露；无权威 benchmark（结构性缺口已登记） |
 | Vercel | B0–B3 | ✅ | deny 213；60 暴露；平台 API 噪音大 |
-| Figma | B4 | ⚠️ 进行中 | 50 工具；deny 4；保留 46；G1–G6 ✅；G7 部分 |
+| Figma | B4 | ✅ 通过 | 50 工具；deny 4；保留 46；G1–G7 全部通过 |
 
 ### Figma B4 逐门状态
 
@@ -463,11 +463,11 @@ Fallback：Framelink PAT（只读）/ 桌面 server / 等待目录开放
 | G4 | ✅ | 506 工具 245,377 tokens vs 3 工具 1,335（-99.5%）；既有 191 条 top1 57.1/top5 72.3（B6 修复后）；Figma schema 28/28 |
 | G5 | ✅ | B6 修复新增上游导致的检索回归（按服务索引 + 窄别名）；无其它 Figma 根因 |
 | G6 | ✅ | 修复 Intl+detector 后重跑 228 任务/5 上游；anomalies 363，gateway 86 逐条复核无新功能 bug；详见 B7 |
-| G7 | ⚠️ | 部署/hash/servers ✅；线上带客户端 token 真实调用 ❌ |
+| G7 | ✅ | Gemini 线上真实调用：Vercel 项目/部署 READY；Figma whoami + pages 成功；无错误 |
+| G8 | — | 不适用（Figma 无额外 G8 门） |
 
 ### 已知欠账
-1. G7：线上带客户端 token 的真实 Figma 调用。
-2. 仓库 README 引用的 `ledger.json`（机器可读总账）当前不存在；需确认是否补建/删除引用。
+1. 仓库 README 引用的 `ledger.json`（机器可读总账）当前不存在；需确认是否补建/删除引用。
 
 ---
 

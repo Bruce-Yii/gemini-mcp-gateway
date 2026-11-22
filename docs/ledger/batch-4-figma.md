@@ -80,20 +80,32 @@
 - gateway 86 逐条复核：Vercel 404/403、Notion 套餐/日历、upstream validation、not-found、
   Linear complexity、Figma 占位参数等，**无新网关功能 bug**。
 - 已知差异：本轮 Notion token 只暴露 47 工具（上一轮 53），属于 token/工作区权限差异，非网关。
-- **G6 ✅**；G7 线上带客户端 token 真实调用仍未做。
+- **G6 ✅**；G7 见下节。
 
+## G7 线上真实调用（2026-11-23，通过）
 
+用户在 Gemini 网页端（连线上网关 `/mcp`）实际执行：
+
+- Vercel 只读：项目 `gemini-mcp-gateway`，部署
+  `https://gemini-mcp-gateway-f7hyjkzcj-yu-ac3a.vercel.app`，状态 `READY`，
+  时间 `2026-11-22T17:52:17.153Z`，无错误。
+- Figma 只读：`whoami` 返回 Yi Yu / plan `Yi Yu's team` (starter, admin) / seat View；
+  读取 test file 顶层 pages 返回 `0:1 Page 1`，无错误。
+- 两项均为 Gemini → 线上网关 → 上游的真实调用；不是本地 mock。
+
+**G7 ✅。**
+
+## DEC（决策）
 
 | 决策 | 理由 |
 |---|---|
 | 接受 OAuth allowlist workaround | 用户明确要求完整功能；官方远程只对目录 client 开放。风险：Figma 可随时封禁，属于非官方支持 |
 | 不因写操作 deny | 与 GitHub/Notion/Linear/Vercel 一致：写能力保留，靠 `execute`/`execute_read` 与 annotations 区分 |
-| 暂不做 B1 任务集 | 先完成接入与收口；任务覆盖是下一步欠账，不能宣称已过 B1 |
+| B1 任务集已补 | `explore/figma-tasks.json` 覆盖 46/46；18 official/28 schema；9 Weave skip |
 | 不删除旧只读路线 | Framelink PAT（`figma-framelink.json`）和桌面 server 保留作为降级/官方路径 |
 
 ## 欠账（下一步）
 
-1. G4 基线：Figma 纳入 `measure-context`/`eval-search`（同子集对比），跑 bench + 真实调用。
-2. G5：Figma 相关根因报告（若有问题）。
-3. G6：全量重测（含 Figma），gateway 新功能 bug = 0。
-4. G7：线上带客户端 token 的真实 Figma 调用。
+- B4 无阻塞欠账；B8（大文件/patch/行号）另行排期，不属于 B4 门禁。
+- 仓库 README 引用的 `ledger.json` 仍不存在，需补建或删引用。
+

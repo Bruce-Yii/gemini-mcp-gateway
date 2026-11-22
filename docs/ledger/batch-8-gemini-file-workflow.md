@@ -49,7 +49,7 @@
 ## ISSUE-B8-4：错误行号偏移 + 缺 dry-run 预览
 
 - **表象**：脚本报错行号包含网关 prelude 偏移，无法对应脚本行；多文件推送前没有变更摘要。
-- **L1**：QuickJS 报错行号 = prelude 行数 + 用户脚本行号；未做偏移校正。
+- **L1**：QuickJS 报错行号 = prelude 行数 + 用户脚本行号；未做偏移校正。`n- **实测（2026-11-23）**：`codemode.notARealTool()` 返回 `TypeError: ... is not a function`，栈帧 `run.js:369:20`，**没有 `script line N`**；无法直接对应脚本行。
 - **L2**：沙箱没有 source map / 错误行映射；没有 diff 预览 helper。
 - **L3**：可调试性不是一等能力。
 - **候选修复**：错误信息减去 `GUEST_PREFIX_LINES`；加 `codemode.diffSummary`；测试覆盖。
