@@ -14,6 +14,22 @@ Recommended public name: **`codemode-mcp-gateway`** (neutral; `gemini` stays a
 keyword + “tested with Gemini web” section). Keep `gemini-mcp-gateway` only if
 brand continuity is more important than client breadth.
 
+## 0.1 Delivery model: new public repo, private repo stays source of truth
+
+The open-source project will be a **fresh repository created from a clean
+allowlist export**, not this private repo made public. See
+[EXPORT-MANIFEST.md](EXPORT-MANIFEST.md).
+
+Consequences:
+
+- no need to sanitize the private repo’s internal ledgers/history;
+- public tree contains only runtime code, public docs, tests, templates and
+  neutral fixtures;
+- exported tree must pass a clean-clone test/audit gate before first push;
+- evaluation workflows (`capture-daily`, L1 real) stay private or become
+  opt-in; they are not part of the public default;
+- private repo continues to hold capture data, ledgers, handoffs and experiments.
+
 ## 1. What we are / are not
 
 **We are:** single-owner, self-hosted Code Mode gateway for web MCP clients.
@@ -102,24 +118,19 @@ Do not invent a profile key before the loader supports it; docs must label
 
 ## 6. Workstreams (parallel, no dates)
 
-### W-OSS-1 · Identity, hygiene, publication gate (P0)
+### W-OSS-1 · Export pipeline and publication gate (P0)
 
-- Decide owner/org and project name.
-- Replace real Vercel hostnames and Figma identity in tracked docs with
-  placeholders.
-- Replace personal vault/absolute paths with `GATEWAY_SECRET_DIR`/`~/.secrets`.
-- Remove personal defaults from `scripts/replay-write.mjs`; require explicit
-  `REPLAY_OWNER`/`REPLAY_REPO`.
-- Decide `capture-daily` workflow fate: default `workflow_dispatch` or restrict
-  to owner repo; do not auto-push generated scorecards from forks.
-- Harden `.gitignore`: `outputs/`, captures, `config.local.*`, dated handoffs,
-  `explore/results/**` exceptions.
-- Decide whether internal `docs/ledger/`, `PLAN-*`, `HANDOFF-*`, `AGENTS.md`
-  stay public or move to a private/ops tree.
+- Implement `scripts/export-oss.mjs` with an allowlist from
+  [EXPORT-MANIFEST.md](EXPORT-MANIFEST.md); dry-run by default.
+- Export to a fresh directory, run `npm ci && npm test + audit` there, and only
+  then `git init` + push to the new public repo.
+- Neutralize fixtures (`example-org/example-repo`), remove personal defaults
+  from `scripts/replay-write.mjs`, and do not export `AGENTS.md`, internal
+  ledgers, handoffs, capture/eval data, or owner-only workflows.
+- Public metadata points to the new repo; private repo remains private.
 
-Acceptance: tracked-file grep for real hostnames/paths/personal defaults is
-clean; a fresh clone can run tests without tokens; no workflow pushes capture
-artifacts to a fork's `main`.
+Acceptance: exported tree passes clean-clone tests and contains none of the
+denylisted files; a fresh `git log` has no private history.
 
 ### W-OSS-2 · Docker + local deployment (P0)
 
