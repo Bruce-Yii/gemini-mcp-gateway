@@ -31,7 +31,7 @@ function r2Endpoint(key = '') {
   return key ? `${base}/objects/${encoded}` : `${base}/objects`;
 }
 
-async function listR2Keys(prefix) {
+export async function listR2Keys(prefix) {
   const url = `${r2Endpoint()}?prefix=${encodeURIComponent(prefix)}`;
   const response = await fetch(url, { headers: r2AuthHeaders() });
   if (!response.ok) throw new Error(`R2 list failed: ${response.status}`);
@@ -39,7 +39,7 @@ async function listR2Keys(prefix) {
   return (body.result ?? []).map((item) => item.key).filter((key) => key.endsWith('.json.gz'));
 }
 
-async function readR2Envelope(key) {
+export async function readR2Envelope(key) {
   const response = await fetch(r2Endpoint(key), { headers: r2AuthHeaders() });
   if (!response.ok) throw new Error(`R2 get failed: ${response.status}`);
   const buffer = Buffer.from(await response.arrayBuffer());
@@ -51,7 +51,7 @@ async function readR2Envelope(key) {
   }
 }
 
-async function readDirEnvelopes(dir) {
+export async function readDirEnvelopes(dir) {
   const files = (await readdir(dir)).filter((name) => name.endsWith('.json') || name.endsWith('.json.gz'));
   const envelopes = [];
   for (const name of files) {

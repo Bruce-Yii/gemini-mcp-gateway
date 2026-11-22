@@ -1,0 +1,53 @@
+name: capture-daily
+
+on:
+  schedule:
+    - cron: '0 2 * * *' # 10:00 Asia/Singapore
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Digest R2 captures
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_AUTH_EMAIL: ${{ secrets.R2_AUTH_EMAIL }}
+          R2_AUTH_KEY: ${{ secrets.R2_AUTH_KEY }}
+        run: node scripts/capture-digest.mjs --date "$(date -u +%F)" --out work/digest
+      - name: Analyze clusters with the free model
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_AUTH_EMAIL: ${{ secrets.R2_AUTH_EMAIL }}
+          R2_AUTH_KEY: ${{ secrets.R2_AUTH_KEY }}
+          ANALYZER_BASE_URL: ${{ secrets.ANALYZER_BASE_URL }}
+          ANALYZER_MODEL: ${{ secrets.ANALYZER_MODEL }}
+          ANALYZER_API_KEY: ${{ secrets.ANALYZER_API_KEY }}
+        run: node scripts/analyze-captures.mjs --date "$(date -u +%F)" --out work/analyzer
+      - name: Keep scorecard in the repo
+        run: |
+          mkdir -p docs/eval
+          cp work/digest/scorecard-*.md docs/eval/ 2>/dev/null || true
+          git config user.name "capture-bot"
+          git config user.email "capture-bot@users.noreply.github.com"
+          git add docs/eval
+          git diff --cached --quiet || git commit -m "chore(eval): capture scorecard $(date -u +%F)"
+          git push
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capture-digest
+          path: |
+            work/digest
+            work/analyzer
+          retention-days: 14

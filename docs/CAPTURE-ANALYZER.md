@@ -124,6 +124,6 @@ R2 原始 envelope
 ## 7. 自动化落点
 
 - `scripts/capture-digest.mjs`：确定性聚合（已实现）；
-- `scripts/analyze-captures.mjs`：读 digest + 抽样 envelope，调免费模型，校验输出（待实现）；
+- `scripts/analyze-captures.mjs`：读 digest + 抽样 envelope，调免费模型，校验输出（已实现）；\n- `.github/workflows/capture-daily.yml`：每日跑 digest + analyzer，scorecard 提交到 `docs/eval/`，原始 artifact 保留 14 天。
 - GitHub Actions：每天/每周跑 digest + analyzer，scorecard 进主仓库；issue 由人确认后开；
 - 免费模型只配 `ANALYZER_BASE_URL`、`ANALYZER_MODEL`、`ANALYZER_API_KEY`，不接触 R2 写权限。
