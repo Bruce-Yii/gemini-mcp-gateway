@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - clientSecretEnv support for confidential OAuth refresh (Google Workspace, Slack, Atlassian, ...).
 - Verified upstream templates in 	emplates/upstreams/ (Slack, Twilio, Zapier, Cloudflare, Stripe, Supabase, Neon, Google Drive) with official-doc links.
 - Model-in-loop benchmark harness (ench/, 
-pm run bench, CI dry run).
+pm run bench, CI dry run); validated live against a free OpenAI-compatible model (5/5 deterministic tasks).
 
 ## [0.1.0] - 2026-11-22
 

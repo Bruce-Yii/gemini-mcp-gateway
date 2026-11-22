@@ -39,6 +39,7 @@ them. Nothing here contains credentials.
 - **Microsoft 365** remote MCP endpoints are tenant-scoped
   (`agent365.svc.cloud.microsoft/agents/tenants/{tenant_id}/...`), so there is no
   universal template.
+- **Sentry** (https://mcp.sentry.dev/mcp, OAuth/DCR only) and **Figma** (https://mcp.figma.com/mcp, auth mode not officially documented) have no static-token template yet.
 - Providers whose MCP server needs a pre-registered OAuth client with a client
   secret can use the generic refresh path: `refreshEnv`, `clientIdEnv`,
   `clientSecretEnv`, `refreshUrl`.

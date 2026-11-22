@@ -35,6 +35,18 @@ BENCH_MODEL_KEY=sk-... \
 node bench/run.mjs
 ```
 
+Environment options:
+
+| Variable | Meaning |
+|---|---|
+| BENCH_MODEL_BASE | OpenAI-compatible base URL ending in /v1 |
+| BENCH_MODEL / BENCH_MODEL_KEY | Model name and bearer key |
+| BENCH_MAX_TOKENS | Max output tokens per turn (default 2000) |
+| BENCH_MODEL_HEADERS | Extra request headers as a JSON object (e.g. provider quirks) |
+| BENCH_GATEWAY_TOKEN | Static bearer when using --gateway |
+
+For OpenCode Go endpoints (opencode.ai) the harness automatically sends an x-opencode-session header because that endpoint requires it.
+
 Options:
 
 | Flag | Meaning |

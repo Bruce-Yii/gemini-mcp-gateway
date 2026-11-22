@@ -26,6 +26,7 @@
  * No secrets are printed. Results are written to bench/results.json.
  */
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,6 +50,9 @@ const GATEWAY_TOKEN = valueArg('--token', process.env.BENCH_GATEWAY_TOKEN ?? '')
 const MODEL_BASE = (process.env.BENCH_MODEL_BASE ?? '').replace(/\/+$/, '');
 const MODEL = process.env.BENCH_MODEL ?? '';
 const MODEL_KEY = process.env.BENCH_MODEL_KEY ?? '';
+const MODEL_MAX_TOKENS = Number(process.env.BENCH_MAX_TOKENS ?? '2000');
+let EXTRA_HEADERS = {};
+try { EXTRA_HEADERS = JSON.parse(process.env.BENCH_MODEL_HEADERS ?? '{}'); } catch { die('BENCH_MODEL_HEADERS must be a JSON object'); }
 
 function die(message, code = 2) {
   console.error(`[bench] ${message}`);
@@ -121,8 +125,22 @@ function toolResultText(result) {
 async function chat(messages, tools) {
   const response = await fetch(`${MODEL_BASE}/chat/completions`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${MODEL_KEY}` },
-    body: JSON.stringify({ model: MODEL, messages, tools, tool_choice: 'auto', temperature: 0 }),
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${MODEL_KEY}`,
+      'User-Agent': 'gateway-bench/1.0',
+      // OpenCode Go routes requests by session id; harmless for other endpoints.
+      ...(/opencode\.ai/.test(MODEL_BASE) ? { 'x-opencode-session': randomUUID() } : {}),
+      ...EXTRA_HEADERS,
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages,
+      tools,
+      tool_choice: 'auto',
+      temperature: 0,
+      ...(Number.isFinite(MODEL_MAX_TOKENS) && MODEL_MAX_TOKENS > 0 ? { max_tokens: MODEL_MAX_TOKENS } : {}),
+    }),
   });
   if (!response.ok) {
     const body = await response.text();
