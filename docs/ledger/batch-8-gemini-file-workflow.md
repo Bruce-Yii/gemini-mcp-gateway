@@ -86,7 +86,7 @@
   写前预览用。
 - 测试：`tests/codemode-edit-helpers.test.js`（6 条，含 mismatch 不修改原文）。
 
-### B8-4：错误行号（已改用行标记，线上复验待做）
+### B8-4：错误行号（线上验证通过）
 
 - 线上诊断：`userStart=362`、`cal=3`，栈帧
   `__dshUserFn (run.js:352)` / `__dshFn (run.js:363)` / `<anonymous> (run.js:365)`。
@@ -94,10 +94,12 @@
   靠栈校准只能得到函数起始行，不能得到错误行。
 - 修复：不再依赖栈。host 侧用 `acorn` 解析用户函数，在每个 block statement 前插入
   `__dshLine(原始行号);`；guest 记录最后执行的行，出错时把 `line` 带回 host。
-- 效果：单行/多行错误、block/expression 函数体都能拿到**最后执行的语句行**（例如多行测试第 4 行 throw → `script line 4`）；
+- 效果：单行/多行错误、block/expression 函数体都能拿到**最后执行的语句行**；
   非 Error 抛出（plain string/object）不带行号，保持旧行为。
+- 线上复验（2026-11-23，Gemini 新会话）：
+  `execute error: not a function (script line 2:1)`，`type=TypeError`、`isError=true`；
+  行号来自实际执行的语句标记，不再依赖 `run.js` 栈。
 - 测试：`tests/codemode-rest.test.js` #12 覆盖 4 行 throw；全量 364/364。
-- 尚未在线复验；`acorn` 已加入依赖。
 
 ## 优先级与依赖（历史计划）
 
@@ -116,5 +118,5 @@
 
 ## 状态
 
-⚠️ 部分完成：B8-1/B8-2/B8-3 已实现并有测试；B8-4 本地验证通过、线上复验待做。
+✅ 完成：B8-1/B8-2/B8-3 已实现并有测试；B8-4 已用行标记方案在线上复验。
 B4/G6 不受影响。
