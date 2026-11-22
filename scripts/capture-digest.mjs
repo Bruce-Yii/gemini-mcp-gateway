@@ -6,8 +6,12 @@
  * Usage:
  *   node scripts/capture-digest.mjs --date 2026-11-22
  *   node scripts/capture-digest.mjs --dir work/capture
+ *   node scripts/capture-digest.mjs --since 2026-11-16 --days 7 --out work/weekly
  *
  * R2 env: R2_ACCOUNT_ID, R2_BUCKET, R2_AUTH_EMAIL + R2_AUTH_KEY, or R2_API_TOKEN.
+ *
+ * Compatibility: every field previously emitted in the scorecard / metrics
+ * object is preserved. New fields are additive only.
  */
 import { readdir, readFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -73,7 +77,76 @@ export function classifyError(envelope) {
   return 'unknown';
 }
 
-export function aggregateEnvelopes(envelopes) {
+/** True when a response was truncated, flagged by capture or by an explicit wire marker. */
+export function isTruncated(envelope) {
+  if (envelope?.response?.truncated === true) return true;
+  const raw = `${String(envelope?.response?.raw ?? '')} ${String(envelope?.response?.error ?? '')}`;
+  // Only explicit wire markers count; an ordinary word "truncated" in user code is noise.
+  return /--- TRUNCATED ---|…\[truncated\s*\d*\]|(?:^|["'\s])truncated["'\s]*:/i.test(raw);
+}
+
+/** Summarize a list of durations; empty list yields all zeroes. */
+function timing(durations) {
+  const sorted = [...durations].sort((a, b) => a - b);
+  const pct = (p) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * p) - 1))] ?? 0;
+  return {
+    calls: sorted.length,
+    p50Ms: pct(0.5),
+    p95Ms: pct(0.95),
+    avgMs: sorted.length ? Math.round(sorted.reduce((a, b) => a + b, 0) / sorted.length) : 0,
+  };
+}
+
+function rate(count, total) {
+  return total ? Math.round((count / total) * 10000) / 10000 : 0;
+}
+
+/** YYYY-MM-DD + HH from envelope.ts, with a deterministic fallback. */
+function timeParts(envelope) {
+  const raw = envelope?.ts ?? envelope?.timestamp ?? envelope?.request?.ts;
+  const date = typeof raw === 'string' && raw.length >= 10 ? raw.slice(0, 10) : 'unknown';
+  let hour = 'unknown';
+  if (typeof raw === 'string') {
+    const match = raw.match(/T(\d{2}):/);
+    if (match) hour = match[1];
+  }
+  if (hour === 'unknown' && Number.isFinite(Date.parse(raw))) {
+    hour = String(new Date(raw).getUTCHours()).padStart(2, '0');
+  }
+  return { date, hour };
+}
+
+/** Server name from upstream events, falling back to the `<server>__<tool>` prefix. */
+export function upstreamOf(envelope, tool) {
+  const event = (envelope.events ?? []).find((item) => item?.type === 'upstream' && item?.payload?.server);
+  if (event) return String(event.payload.server);
+  const name = String(tool ?? '');
+  const idx = name.indexOf('__');
+  return idx > 0 ? name.slice(0, idx) : 'unknown';
+}
+
+function blankGroup() {
+  return { calls: 0, errors: 0, durations: [], errorClasses: {}, truncated: 0, overflow: 0 };
+}
+
+function finishGroup(group) {
+  const { calls, errors, durations, errorClasses, truncated, overflow } = group;
+  return {
+    calls,
+    errors,
+    errorRate: rate(errors, calls),
+    ...timing(durations),
+    errorClasses,
+    truncated,
+    overflow,
+  };
+}
+
+function bumpHistogram(hist, key) {
+  hist[key] = (hist[key] ?? 0) + 1;
+}
+
+export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
   const result = {
     requests: envelopes.length,
     mcpRequests: 0,
@@ -89,7 +162,21 @@ export function aggregateEnvelopes(envelopes) {
     bytes: 0,
     truncated: 0,
     overflow: 0,
+    // Additive fields (batch 9).
+    truncationRate: 0,
+    overflowRate: 0,
+    errorRate: 0,
+    byDay: {},
+    byHour: {},
+    byDayHour: {},
+    byRoute: {},
+    upstreamStats: {},
+    toolStats: {},
   };
+  const upstreamGroups = new Map();
+  const toolGroups = new Map();
+  const routeGroups = new Map();
+
   for (const envelope of envelopes) {
     const status = Number(envelope?.response?.status ?? 0);
     let path = '/';
@@ -101,32 +188,97 @@ export function aggregateEnvelopes(envelopes) {
     result.statuses[status] = (result.statuses[status] ?? 0) + 1;
     result.durations.push(Number(envelope?.response?.durationMs ?? 0));
     result.bytes += Number(envelope?.response?.bytes ?? 0);
-    if (status >= 400) {
+
+    const truncated = isTruncated(envelope);
+    const overflow = envelope?.response?.overflow === true;
+    if (truncated) result.truncated += 1;
+    if (overflow) result.overflow += 1;
+
+    const { date: day, hour } = timeParts(envelope);
+    bumpHistogram(result.byDay, day);
+    bumpHistogram(result.byHour, hour);
+    bumpHistogram(result.byDayHour, `${day}T${hour}`);
+
+    const routeKey = isMcp ? 'POST /mcp' : `${method} ${path}`;
+    const route = routeGroups.get(routeKey) ?? blankGroup();
+    route.calls += 1;
+    route.durations.push(Number(envelope?.response?.durationMs ?? 0));
+    if (truncated) route.truncated += 1;
+    if (overflow) route.overflow += 1;
+    routeGroups.set(routeKey, route);
+
+    let errorClass = null;
+    if (status >= 400 || /isError":true|execute error/i.test(String(envelope?.response?.raw ?? ''))) {
       result.errors += 1;
-      const cls = classifyError(envelope);
+      errorClass = classifyError(envelope);
       if (isMcp) {
         result.mcpErrors += 1;
-        result.errorClasses[cls] = (result.errorClasses[cls] ?? 0) + 1;
+        result.errorClasses[errorClass] = (result.errorClasses[errorClass] ?? 0) + 1;
       } else {
-        result.routeErrors[cls] = (result.routeErrors[cls] ?? 0) + 1;
+        result.routeErrors[errorClass] = (result.routeErrors[errorClass] ?? 0) + 1;
+        route.errors += 1;
+        route.errorClasses[errorClass] = (route.errorClasses[errorClass] ?? 0) + 1;
       }
     }
-    if (envelope?.response?.overflow) result.overflow += 1;
+
     if (!isMcp) continue;
     try {
       const json = JSON.parse(String(envelope?.request?.raw ?? ''));
-      const method = json?.method;
-      if (method) result.tools[method] = (result.tools[method] ?? 0) + 1;
+      const mcpMethod = json?.method;
+      if (mcpMethod) result.tools[mcpMethod] = (result.tools[mcpMethod] ?? 0) + 1;
       const name = json?.params?.name;
       if (name) result.upstreams[name] = (result.upstreams[name] ?? 0) + 1;
+
+      const server = upstreamOf(envelope, name);
+      const upstream = upstreamGroups.get(server) ?? blankGroup();
+      const tool = toolGroups.get(name ?? 'unknown') ?? blankGroup();
+      for (const group of [upstream, tool]) {
+        group.calls += 1;
+        group.durations.push(Number(envelope?.response?.durationMs ?? 0));
+        if (truncated) group.truncated += 1;
+        if (overflow) group.overflow += 1;
+        if (errorClass) {
+          group.errors += 1;
+          group.errorClasses[errorClass] = (group.errorClasses[errorClass] ?? 0) + 1;
+        }
+      }
+      upstreamGroups.set(server, upstream);
+      if (name) toolGroups.set(name, tool);
     } catch { /* not JSON */ }
   }
+
+  result.truncationRate = rate(result.truncated, result.requests);
+  result.overflowRate = rate(result.overflow, result.requests);
+  result.errorRate = rate(result.errors, result.requests);
   result.durations.sort((a, b) => a - b);
   const pct = (p) => result.durations[Math.min(result.durations.length - 1, Math.max(0, Math.ceil(result.durations.length * p) - 1))] ?? 0;
   result.p50Ms = pct(0.5);
   result.p95Ms = pct(0.95);
   result.avgMs = result.durations.length ? Math.round(result.durations.reduce((a, b) => a + b, 0) / result.durations.length) : 0;
+
+  for (const [name, group] of upstreamGroups) result.upstreamStats[name] = finishGroup(group);
+  for (const [name, group] of toolGroups) result.toolStats[name] = finishGroup(group);
+  for (const [name, group] of routeGroups) result.byRoute[name] = finishGroup(group);
+
+  // Keep a stable, human-friendly order in JSON output.
+  for (const key of ['byDay', 'byDayHour', 'byHour', 'statuses', 'errorClasses', 'routeErrors', 'upstreamStats', 'toolStats', 'byRoute']) {
+    result[key] = Object.fromEntries(Object.entries(result[key]).sort(([a], [b]) => a.localeCompare(b)));
+  }
+  result.date = date || Object.keys(result.byDay).filter((d) => d !== 'unknown').sort().at(-1) || 'unknown';
   return result;
+}
+
+function statTable(stats, { tool = false } = {}) {
+  const rows = Object.entries(stats).sort((a, b) => b[1].calls - a[1].calls).slice(0, 10)
+    .map(([name, s]) => {
+      const errors = Object.entries(s.errorClasses).map(([cls, count]) => `${cls}:${count}`).join(',') || '—';
+      return `| ${name} | ${s.calls} | ${s.errors} | ${s.errorRate} | ${s.p50Ms} | ${s.p95Ms} | ${s.avgMs} | ${s.truncated} | ${s.overflow} | ${errors} |`;
+    });
+  return [
+    `| ${tool ? 'Tool' : 'Upstream'} | Calls | Errors | Error rate | p50 ms | p95 ms | Avg ms | Truncated | Overflow | Error classes |`,
+    '|---|---:|---:|---:|---:|---:|---:|---:|---:|---|',
+    ...(rows.length ? rows : ['| — | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |']),
+  ].join('\n');
 }
 
 export function renderScorecard(date, metrics) {
@@ -134,6 +286,10 @@ export function renderScorecard(date, metrics) {
     .map(([name, count]) => `| ${name} | ${count} |`).join('\n');
   const errorRows = Object.entries(metrics.errorClasses).sort((a, b) => b[1] - a[1])
     .map(([name, count]) => `| ${name} | ${count} |`).join('\n') || '| — | 0 |';
+  const dayRows = Object.entries(metrics.byDay ?? {}).sort(([a], [b]) => a.localeCompare(b))
+    .map(([day, count]) => `| ${day} | ${count} |`).join('\n') || '| — | 0 |';
+  const hourRows = Object.entries(metrics.byHour ?? {}).sort(([a], [b]) => a.localeCompare(b))
+    .map(([hour, count]) => `| ${hour}:00 | ${count} |`).join('\n') || '| — | 0 |';
   return `# Capture Scorecard — ${date}
 
 | Metric | Value |
@@ -149,14 +305,42 @@ export function renderScorecard(date, metrics) {
 | Response bytes | ${metrics.bytes} |
 | Truncated responses | ${metrics.truncated} |
 | Overflow captures | ${metrics.overflow} |
+| Truncation rate | ${metrics.truncationRate ?? 0} |
+| Overflow rate | ${metrics.overflowRate ?? 0} |
+| Overall error rate | ${metrics.errorRate ?? 0} |
 
 ## Tool calls (MCP method)
 ${Object.entries(metrics.tools).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, count]) => `- ${name}: ${count}`).join('\n') || '- none'}
 
-## Top upstream tools
+## Top upstream tools (legacy tally)
 | Tool | Calls |
 |---|---|
 ${toolRows || '| — | 0 |'}
+
+## Per-upstream stats (MCP tools/call)
+${statTable(metrics.upstreamStats ?? {})}
+
+## Per-MCP-tool stats
+${statTable(metrics.toolStats ?? {}, { tool: true })}
+
+## Truncation / overflow
+| Signal | Count | Rate |
+|---|---:|---:|
+| Truncated responses | ${metrics.truncated} | ${metrics.truncationRate ?? 0} |
+| Overflow captures | ${metrics.overflow} | ${metrics.overflowRate ?? 0} |
+
+## Requests by day
+| Day | Requests |
+|---|---:|
+${dayRows}
+
+## Requests by hour (UTC)
+| Hour | Requests |
+|---|---:|
+${hourRows}
+
+## Non-MCP routes (kept separate)
+${statTable(metrics.byRoute ?? {})}
 
 ## Error classes (MCP only)
 | Class | Count |
@@ -172,18 +356,43 @@ ${Object.entries(metrics.routeErrors ?? {}).map(([name, count]) => `| ${name} | 
 `;
 }
 
+/** Aggregate a range of R2 day prefixes into one metrics object. */
+export async function aggregateR2Range({ since, days = 7 }) {
+  const start = new Date(`${since}T00:00:00.000Z`);
+  if (Number.isNaN(start.getTime())) throw new Error(`invalid --since date: ${since}`);
+  const keys = [];
+  for (let offset = 0; offset < days; offset += 1) {
+    const day = new Date(start.getTime() + offset * 86400000).toISOString().slice(0, 10);
+    keys.push(...await listR2Keys(`capture/${day}/`));
+  }
+  const envelopes = await Promise.all(keys.map(readR2Envelope));
+  return { days, since, keys: keys.length, metrics: aggregateEnvelopes(envelopes, { date: since }) };
+}
+
 async function main() {
   const args = process.argv.slice(2);
-  const date = args.includes('--date') ? args[args.indexOf('--date') + 1] : new Date().toISOString().slice(0, 10);
-  const dir = args.includes('--dir') ? args[args.indexOf('--dir') + 1] : '';
-  const out = args.includes('--out') ? args[args.indexOf('--out') + 1] : join('docs', 'eval');
-  const envelopes = dir ? await readDirEnvelopes(dir) : (await listR2Keys(`capture/${date}/`)).map(readR2Envelope);
-  const resolved = dir ? envelopes : await Promise.all(envelopes);
-  const metrics = aggregateEnvelopes(resolved);
+  const arg = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : '');
+  const date = arg('--date') || new Date().toISOString().slice(0, 10);
+  const dir = arg('--dir');
+  const out = arg('--out') || join('docs', 'eval');
+  const since = arg('--since');
+  const days = Number(arg('--days') || 7);
+
+  let payload;
+  let label = date;
+  if (since) {
+    payload = await aggregateR2Range({ since, days });
+    label = `${since}+${days}d`;
+  } else {
+    const envelopes = dir ? await readDirEnvelopes(dir) : (await listR2Keys(`capture/${date}/`)).map(readR2Envelope);
+    const resolved = dir ? envelopes : await Promise.all(envelopes);
+    payload = { metrics: aggregateEnvelopes(resolved, { date }) };
+  }
+  const metrics = payload.metrics;
   await mkdir(out, { recursive: true });
-  await writeFile(join(out, `scorecard-${date}.md`), renderScorecard(date, metrics), 'utf8');
-  await writeFile(join(out, `scorecard-${date}.json`), JSON.stringify({ date, metrics }, null, 2), 'utf8');
-  console.log(`[digest] ${date}: ${metrics.requests} requests, ${metrics.errors} errors -> ${out}`);
+  await writeFile(join(out, `scorecard-${label}.md`), renderScorecard(label, metrics), 'utf8');
+  await writeFile(join(out, `scorecard-${label}.json`), JSON.stringify({ date: label, ...payload }, null, 2), 'utf8');
+  console.log(`[digest] ${label}: ${metrics.requests} requests, ${metrics.errors} errors -> ${out}`);
 }
 
 if (process.argv[1] && process.argv[1].endsWith('capture-digest.mjs')) {

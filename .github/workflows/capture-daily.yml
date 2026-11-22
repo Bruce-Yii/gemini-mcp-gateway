@@ -2,7 +2,8 @@ name: capture-daily
 
 on:
   schedule:
-    - cron: '0 2 * * *' # 10:00 Asia/Singapore
+    - cron: '0 2 * * *' # daily digest + analyzer candidate, 10:00 Asia/Singapore
+    - cron: '0 3 * * 1' # weekly review, 11:00 Asia/Singapore (previous 7 days)
   workflow_dispatch:
 
 permissions:
@@ -10,6 +11,7 @@ permissions:
 
 jobs:
   digest:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 2 * * *'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,13 +21,18 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Digest R2 captures
+        id: digest
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_AUTH_EMAIL: ${{ secrets.R2_AUTH_EMAIL }}
           R2_AUTH_KEY: ${{ secrets.R2_AUTH_KEY }}
-        run: node scripts/capture-digest.mjs --date "$(date -u +%F)" --out work/digest
-      - name: Analyze clusters with the free model
+        run: |
+          DAY="$(date -u +%F)"
+          echo "day=$DAY" >> "$GITHUB_OUTPUT"
+          node scripts/capture-digest.mjs --date "$DAY" --out work/digest
+      - name: Analyze clusters with the free model (advisory only)
+        continue-on-error: true
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
@@ -38,11 +45,13 @@ jobs:
       - name: Keep scorecard in the repo
         run: |
           mkdir -p docs/eval
-          cp work/digest/scorecard-*.md docs/eval/ 2>/dev/null || true
+          DAY="${{ steps.digest.outputs.day }}"
+          cp "work/digest/scorecard-$DAY.md" docs/eval/ 2>/dev/null || true
+          cp "work/digest/scorecard-$DAY.json" docs/eval/ 2>/dev/null || true
           git config user.name "capture-bot"
           git config user.email "capture-bot@users.noreply.github.com"
-          git add docs/eval
-          git diff --cached --quiet || git commit -m "chore(eval): capture scorecard $(date -u +%F)"
+          git add "docs/eval/scorecard-$DAY.md" "docs/eval/scorecard-$DAY.json" 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "chore(eval): capture scorecard $DAY"
           git push
       - uses: actions/upload-artifact@v4
         with:
@@ -51,3 +60,70 @@ jobs:
             work/digest
             work/analyzer
           retention-days: 14
+
+  weekly-review:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 3 * * 1'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Aggregate 7 days of digests and analyzer candidates
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_AUTH_EMAIL: ${{ secrets.R2_AUTH_EMAIL }}
+          R2_AUTH_KEY: ${{ secrets.R2_AUTH_KEY }}
+        run: |
+          SINCE="$(date -u -d '7 days ago' +%F)"
+          echo "SINCE=$SINCE" >> "$GITHUB_ENV"
+          node scripts/capture-digest.mjs --since "$SINCE" --days 7 --out work/weekly
+          # --dry-run never calls the model: the weekly report is a deterministic
+          # candidate roll-up of clusters + evidence ids, not validated issues.
+          node scripts/analyze-captures.mjs --since "$SINCE" --days 7 --dry-run --out work/weekly
+      - name: Render docs/eval/weekly-YYYY-WW.md
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile, writeFile, mkdir } from 'node:fs/promises';
+          import { isoWeek, renderWeeklyReview } from './scripts/analyze-captures.mjs';
+
+          const since = process.env.SINCE;
+          const label = `${since}+7d`;
+          const digest = JSON.parse(await readFile(`work/weekly/scorecard-${label}.json`, 'utf8'));
+          const analysis = JSON.parse(await readFile(`work/weekly/analyzer-input-${label}.json`, 'utf8'));
+          const candidates = (analysis.clusters ?? []).slice(0, 10).map((cluster) => ({
+            severity: 'P3',
+            category: 'unknown',
+            title: `${cluster.errorClass}/${cluster.server}/${cluster.tool} (${cluster.count} hits)`,
+            evidenceEventIds: cluster.sampleEventIds ?? [],
+          }));
+          const md = renderWeeklyReview({
+            week: isoWeek(since),
+            since,
+            days: 7,
+            trend: analysis.trend ?? [],
+            totals: digest.metrics ?? {},
+            candidates,
+          });
+          await mkdir('docs/eval', { recursive: true });
+          const path = `docs/eval/weekly-${isoWeek(since)}.md`;
+          await writeFile(path, md, 'utf8');
+          console.log(`[weekly] wrote ${path}: ${candidates.length} candidates`);
+          NODE
+      - name: Keep weekly review in the repo
+        run: |
+          git config user.name "capture-bot"
+          git config user.email "capture-bot@users.noreply.github.com"
+          git add docs/eval/weekly-*.md
+          git diff --cached --quiet || git commit -m "chore(eval): weekly capture review $(date -u +%G-W%V)"
+          git push
+      - uses: actions/upload-artifact@v4
+        with:
+          name: capture-weekly-review
+          path: |
+            work/weekly
+            docs/eval/weekly-*.md
+          retention-days: 30

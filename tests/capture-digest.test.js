@@ -1,10 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateEnvelopes, classifyError, renderScorecard } from '../scripts/capture-digest.mjs';
+import {
+  aggregateEnvelopes, classifyError, renderScorecard, isTruncated,
+} from '../scripts/capture-digest.mjs';
 
-const envelope = (status, durationMs, raw = '{}') => ({
-  request: { method: 'POST', url: '/mcp', raw: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: 'github__get_file_contents' } }) },
-  response: { status, durationMs, bytes: raw.length, raw, overflow: false },
+const envelope = (status, durationMs, raw = '{}', extra = {}) => ({
+  request: {
+    method: extra.method ?? 'POST', url: extra.url ?? '/mcp',
+    raw: extra.raw ?? JSON.stringify({ jsonrpc: '2.0', method: extra.mcpMethod ?? 'tools/call', params: { name: extra.tool ?? 'github__get_file_contents' } }),
+  },
+  response: {
+    status, durationMs, bytes: extra.bytes ?? (raw ?? '').length, raw,
+    overflow: extra.overflow ?? false, ...(extra.truncated ? { truncated: true } : {}),
+  },
+  ...(extra.ts ? { ts: extra.ts } : {}),
+  ...(extra.events ? { events: extra.events } : {}),
 });
 
 test('capture digest aggregates requests, tools and error classes', () => {
@@ -22,6 +32,10 @@ test('capture digest aggregates requests, tools and error classes', () => {
   assert.equal(metrics.errorClasses.upstream_5xx, 1);
   assert.equal(metrics.p50Ms, 20);
   assert.equal(metrics.p95Ms, 40);
+  // Existing scorecard fields remain intact.
+  assert.equal(metrics.mcpRequests, 4);
+  assert.equal(metrics.nonMcpRequests, 0);
+  assert.equal(metrics.mcpErrors, 2);
 });
 
 test('capture digest classifies auth/timeout/rate-limit and renders a scorecard', () => {
@@ -32,5 +46,85 @@ test('capture digest classifies auth/timeout/rate-limit and renders a scorecard'
   assert.match(md, /# Capture Scorecard — 2026-11-22/);
   assert.match(md, /Requests \| 1/);
   assert.match(md, /Raw payloads remain in R2/);
+  // New sections are rendered.
+  assert.match(md, /## Per-upstream stats/);
+  assert.match(md, /## Per-MCP-tool stats/);
+  assert.match(md, /## Requests by day/);
+  assert.match(md, /## Requests by hour \(UTC\)/);
+  assert.match(md, /## Non-MCP routes \(kept separate\)/);
 });
 
+test('digest splits per-upstream and per-MCP-tool calls, errors and timings', () => {
+  const events = (server) => [{ type: 'upstream', payload: { server, tool: 'x' } }];
+  const metrics = aggregateEnvelopes([
+    envelope(200, 10, '{}', { tool: 'github__get_file_contents', events: events('github'), bytes: 100 }),
+    envelope(200, 30, '{}', { tool: 'github__get_file_contents', events: events('github'), bytes: 100 }),
+    envelope(500, 50, '{"error":"internal error"}', { tool: 'github__create_issue', events: events('github') }),
+    envelope(404, 20, '{"error":"not found"}', { tool: 'notion__search', events: events('notion') }),
+  ]);
+  const github = metrics.upstreamStats.github;
+  assert.equal(github.calls, 3);
+  assert.equal(github.errors, 1);
+  assert.equal(github.errorRate, 0.3333);
+  assert.equal(github.p50Ms, 30);
+  assert.equal(github.p95Ms, 50);
+  assert.equal(github.avgMs, 30);
+  assert.equal(github.errorClasses.upstream_5xx, 1);
+  const notion = metrics.upstreamStats.notion;
+  assert.equal(notion.calls, 1);
+  assert.equal(notion.errors, 1);
+  assert.equal(notion.errorRate, 1);
+  assert.equal(metrics.toolStats['github__get_file_contents'].calls, 2);
+  assert.equal(metrics.toolStats['github__create_issue'].p95Ms, 50);
+  assert.equal(metrics.toolStats['notion__search'].errors, 1);
+});
+
+test('digest falls back to the tool prefix when no upstream event exists', () => {
+  const metrics = aggregateEnvelopes([envelope(200, 5, '{}', { tool: 'figma__get_file' })]);
+  assert.equal(metrics.upstreamStats.figma.calls, 1);
+});
+
+test('digest counts truncation and overflow separately, including wire markers', () => {
+  const flagged = envelope(200, 5, 'ok', { truncated: true });
+  const overflowed = envelope(200, 5, null, { overflow: true });
+  const marker = envelope(200, 5, '{"result":"--- TRUNCATED ---"}');
+  const plain = envelope(200, 5, '{"result":"truncated is a normal word in this code"}');
+  assert.equal(isTruncated(flagged), true);
+  assert.equal(isTruncated(overflowed), false, 'overflow is counted separately, not as truncation');
+  assert.equal(isTruncated(marker), true);
+  assert.equal(isTruncated(plain), false);
+  const metrics = aggregateEnvelopes([flagged, overflowed, marker, plain]);
+  assert.equal(metrics.truncated, 2);
+  assert.equal(metrics.overflow, 1);
+  assert.equal(metrics.truncationRate, 0.5);
+  assert.equal(metrics.overflowRate, 0.25);
+  assert.equal(metrics.upstreamStats.github.truncated, 2);
+  assert.equal(metrics.upstreamStats.github.overflow, 1);
+});
+
+test('digest buckets requests by day and by UTC hour', () => {
+  const metrics = aggregateEnvelopes([
+    envelope(200, 1, '{}', { ts: '2026-11-21T03:10:00.000Z' }),
+    envelope(200, 2, '{}', { ts: '2026-11-21T03:45:00.000Z' }),
+    envelope(200, 3, '{}', { ts: '2026-11-22T17:05:00.000Z' }),
+  ]);
+  assert.deepEqual(metrics.byDay, { '2026-11-21': 2, '2026-11-22': 1 });
+  assert.deepEqual(metrics.byHour, { '03': 2, '17': 1 });
+  assert.deepEqual(metrics.byDayHour, { '2026-11-21T03': 2, '2026-11-22T17': 1 });
+});
+
+test('digest keeps non-MCP routes in a separate table', () => {
+  const metrics = aggregateEnvelopes([
+    envelope(200, 5, '{}'),
+    envelope(404, 1, '{"error":"not found"}', { method: 'GET', url: '/healthz', mcpMethod: undefined, raw: null }),
+    envelope(500, 2, '{"error":"internal error"}', { method: 'GET', url: '/nope', raw: null }),
+  ]);
+  assert.equal(metrics.mcpRequests, 1);
+  assert.equal(metrics.nonMcpRequests, 2);
+  assert.equal(metrics.mcpErrors, 0);
+  assert.equal(metrics.errors, 2);
+  assert.equal(metrics.byRoute['GET /healthz'].errors, 1);
+  assert.equal(metrics.byRoute['GET /nope'].errors, 1);
+  assert.equal(metrics.routeErrors.upstream_4xx, 1);
+  assert.equal(metrics.routeErrors.upstream_5xx, 1);
+});

@@ -68,8 +68,8 @@ jobs:
       - name: L1 smoke (real upstreams)
         if: ${{ steps.resolve.outputs.mode == 'real' }}
         env:
-          EXPLORE_MODEL_KEY: ${{ secrets.OPENCODE_GO_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPLORE_MODEL_KEY: ${{ secrets.ANALYZER_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_REFRESH_TOKEN: ${{ secrets.NOTION_REFRESH_TOKEN }}
           NOTION_CLIENT_ID: ${{ secrets.NOTION_CLIENT_ID }}

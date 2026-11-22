@@ -182,8 +182,9 @@ test('L1 workflow: daily fake + weekly Monday real schedules and dispatch choice
 
 test('L1 workflow: real injects free model key + 4 upstreams, never Figma', () => {
   const wf = fs.readFileSync(path.resolve(ROOT, '.github/workflows/l1-smoke.yml'), 'utf8');
-  assert.match(wf, /EXPLORE_MODEL_KEY:\s*\$\{\{ secrets\.OPENCODE_GO_API_KEY \}\}/);
-  for (const secret of ['GITHUB_TOKEN', 'NOTION_TOKEN', 'LINEAR_TOKEN', 'VERCEL_TOKEN']) {
+  assert.match(wf, /EXPLORE_MODEL_KEY:\s*\$\{\{ secrets\.(?:OPENCODE_GO_API_KEY|ANALYZER_API_KEY) \}\}/);
+  assert.ok(/secrets\.(?:GITHUB_TOKEN|GH_PAT)/.test(wf), 'missing upstream GitHub token secret');
+  for (const secret of ['NOTION_TOKEN', 'LINEAR_TOKEN', 'VERCEL_TOKEN']) {
     assert.ok(wf.includes(`secrets.${secret}`), `missing upstream secret ${secret}`);
   }
   assert.match(wf, /--servers github,notion,linear,vercel/);
