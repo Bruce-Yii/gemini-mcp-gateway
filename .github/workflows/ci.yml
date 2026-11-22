@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20.x', '22.x', '24.x']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Unit + integration tests
+        run: npm test
+      - name: Offline search evaluation
+        run: node scripts/eval-search.mjs
+      - name: Tool-face context measurement
+        run: node scripts/measure-context.mjs
+      - name: Build identity self-check
+        run: node scripts/write-build-info.mjs --print

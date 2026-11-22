@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest a capability or upstream integration
+title: '[feat] '
+labels: ['enhancement']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What pain are you hitting (context size, wrong tool selection, latency, missing upstream, ...)?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: If you have one. Note any side effects/trade-offs you can see.
+  - type: textarea
+    id: upstream
+    attributes:
+      label: For a new upstream
+      description: MCP endpoint URL, transport, auth type, approximate tool count, and whether it is publicly documented.
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints to keep in mind
+      options:
+        - label: I understand the outer tool surface must stay stable (search / execute_read / execute).
+        - label: I understand this project is single-user and self-hosted by design.
