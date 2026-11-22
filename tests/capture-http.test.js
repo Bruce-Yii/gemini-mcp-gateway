@@ -29,9 +29,14 @@ async function withCapture(fn, options = {}) {
     assert.ok(cap, 'capture must be enabled');
     await fn();
     res.end('ok');
-    // Allow the sink write to settle (waitUntil/microtask + fs).
-    await new Promise((r) => setTimeout(r, 100));
-    const files = await readdir(dir);
+    // Allow the sink write to settle (waitUntil/microtask + fs); poll instead of
+    // assuming a fixed 100ms under full-suite load.
+    let files = [];
+    for (let i = 0; i < 40; i += 1) {
+      files = await readdir(dir);
+      if (files.length > 0) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
     assert.equal(files.length, 1, 'file sink should have written one envelope');
     return JSON.parse(await readFile(join(dir, files[0]), 'utf8'));
   } finally {

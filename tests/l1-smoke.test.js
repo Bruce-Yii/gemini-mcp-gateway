@@ -248,7 +248,8 @@ test('L1 real report paths: dated, distinct per day, under docs/eval', () => {
   assert.throws(() => realReportPaths('not-a-date'), /bad date/);
 });
 
-test('L1 real baseline: derived 40-task subset matches G6 filtered metrics', () => {
+const hasG6Results = fs.existsSync(path.resolve(ROOT, 'explore/results/metrics.json')) && fs.existsSync(path.resolve(ROOT, 'explore/results/anomalies.json'));
+test('L1 real baseline: derived 40-task subset matches G6 filtered metrics', { skip: !hasG6Results }, () => {
   const { tasks } = selectTasksByServers(SMOKE.tasks, DEFAULT_REAL_SERVERS);
   const baseline = deriveBaselineForServers(tasks);
   assert.equal(baseline.metrics.tasks, 40);

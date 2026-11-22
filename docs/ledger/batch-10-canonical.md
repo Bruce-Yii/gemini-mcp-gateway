@@ -74,7 +74,32 @@ adapter **当前未接入任何调用路径**，需由 lead 决定接入点。�
 
 运行：`node --test tests/result-normalize.test.js` → 28/28 通过；`npm test` 全量见交付报告。
 
-## 五、边界与未解决风险（不承诺所有 GitHub 工具）
+## 五、真实 capture 回归修复（R2 回放）
+
+来源：`capture/2026-11-22/10c13554-...json.gz` 的 `get_file_contents` 原始 result：
+
+```json
+{"content":[
+  {"type":"text","text":"successfully downloaded text file (SHA: ...)"},
+  {"type":"resource","resource":{"uri":"repo://...","mimeType":"text/plain; charset=utf-8","text":"# gemini-mcp-gateway\n\n..."}}
+]}
+```
+
+**现象**：初版 adapter 在 `unwrap` 阶段把数组展平成第一个 `text`（下载提示，81 字符），
+丢失了 `resource.text` 里的真正正文（约 13KB），canonical `content` 错误。
+
+**修正**：
+- `unwrap` 遇到含嵌套 `resource` 块的 content 数组时不再展平，保留数组交给正文选择逻辑。
+- 新增 `extractBodyText`（同时读取顶层 `text/content/data` 与 `resource.text/content/data`）、
+  `isDownloadNotice`（窄匹配 `successfully downloaded/fetched/retrieved ... (SHA: ...)`）、
+  `contentArrayToString`：排除下载提示后在候选中选**最长**的正文。
+- 无下载提示、无嵌套 resource 时保持原有逐项合并行为（向后兼容）。
+- 极端情况只有下载提示、没有正文时仍返回提示，不返回 `null`；`raw` 始终保留。
+
+**测试**：新增 3 个用例（真实形状、多候选取最长、仅提示兜底），断言 `content.length > 1000`
+且包含 `# gemini-mcp-gateway`。`node --test tests/result-normalize.test.js` → 31/31 通过。
+
+## 六、边界与未解决风险（不承诺所有 GitHub 工具）
 
 - **只覆盖三类高频形状**：读文件、PR、Issue。仓库搜索、commit、branch、review、check、
   release、用户等工具不在范围内，统一走 `{raw:value}` fallback。
