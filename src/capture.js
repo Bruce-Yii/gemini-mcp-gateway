@@ -11,6 +11,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { gzipSync } from 'node:zlib';
+import { waitUntil } from '@vercel/functions';
 
 const SECRET_HEADER_RE = /^(authorization|cookie|set-cookie|proxy-authorization|x-api-key|api-key)$/i;
 const MAX_BODY_BYTES = 32 * 1024 * 1024;
@@ -37,6 +39,13 @@ function configFromOptions(options = {}, env = process.env) {
     httpUrl: options.httpUrl ?? env.CAPTURE_HTTP_URL ?? '',
     httpToken: options.httpToken ?? env.CAPTURE_HTTP_TOKEN ?? '',
     maxBytes: Number(options.maxBytes ?? env.CAPTURE_MAX_BYTES ?? MAX_BODY_BYTES),
+    r2AccountId: options.r2AccountId ?? env.R2_ACCOUNT_ID ?? '',
+    r2Bucket: options.r2Bucket ?? env.R2_BUCKET ?? '',
+    r2AuthEmail: options.r2AuthEmail ?? env.R2_AUTH_EMAIL ?? '',
+    r2AuthKey: options.r2AuthKey ?? env.R2_AUTH_KEY ?? '',
+    r2ApiToken: options.r2ApiToken ?? env.R2_API_TOKEN ?? '',
+    r2Prefix: options.r2Prefix ?? env.R2_PREFIX ?? 'capture',
+    fetchImpl: options.fetchImpl ?? fetch,
   };
 }
 
@@ -65,6 +74,35 @@ async function writeHttpSink(cfg, envelope) {
   }
 }
 
+async function writeR2Sink(cfg, envelope) {
+  if (!cfg.r2AccountId || !cfg.r2Bucket) throw new Error('R2 capture sink missing account/bucket');
+  if (!cfg.r2ApiToken && (!cfg.r2AuthEmail || !cfg.r2AuthKey)) {
+    throw new Error('R2 capture sink missing auth');
+  }
+  const day = envelope.ts.slice(0, 10);
+  const key = `${cfg.r2Prefix}/${day}/${envelope.requestId}.json.gz`;
+  const encodedKey = key.split('/').map(encodeURIComponent).join('/');
+  const url = `https://api.cloudflare.com/client/v4/accounts/${cfg.r2AccountId}/r2/buckets/${cfg.r2Bucket}/objects/${encodedKey}`;
+  const headers = {
+    'content-type': 'application/json',
+    'content-encoding': 'gzip',
+  };
+  if (cfg.r2ApiToken) headers.authorization = `Bearer ${cfg.r2ApiToken}`;
+  else {
+    headers['x-auth-email'] = cfg.r2AuthEmail;
+    headers['x-auth-key'] = cfg.r2AuthKey;
+  }
+  const body = gzipSync(Buffer.from(JSON.stringify(envelope)));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await cfg.fetchImpl(url, { method: 'PUT', headers, body, signal: controller.signal });
+    if (!response.ok) throw new Error(`R2 put failed: ${response.status}`);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function writeSink(cfg, envelope) {
   if (cfg.sink === 'console') {
     // Debug only: Vercel log limits are not a durable raw store.
@@ -72,6 +110,7 @@ function writeSink(cfg, envelope) {
     return Promise.resolve();
   }
   if (cfg.sink === 'http') return writeHttpSink(cfg, envelope);
+  if (cfg.sink === 'r2') return writeR2Sink(cfg, envelope);
   return writeFileSink(cfg, envelope);
 }
 
@@ -139,9 +178,12 @@ export function startCapture(req, res, options = {}) {
           durationMs: Date.now() - started,
         },
       };
-      Promise.resolve()
+      const task = Promise.resolve()
         .then(() => writeSink(cfg, envelope))
         .catch((error) => console.warn('[capture] sink failed:', error?.message ?? String(error)));
+      // Keep the function alive after the response where the platform allows
+      // it; locally waitUntil may throw, in which case the task still runs.
+      try { waitUntil(task); } catch { /* best-effort local runtime */ }
     });
     return result;
   };

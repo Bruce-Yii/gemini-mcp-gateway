@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { gunzipSync } from 'node:zlib';
 import { startCapture, redactHeaders } from '../src/capture.js';
 
 function fakeRes() {
@@ -73,5 +74,31 @@ test('capture sink failure never throws into the response path', async () => {
   res.end('ok');
   assert.equal(Buffer.concat(res.body).toString(), 'ok');
   await new Promise((resolve) => setTimeout(resolve, 20));
+});
+
+
+test('R2 sink uploads gzipped raw envelope to the private capture bucket', async () => {
+  const req = { method: 'POST', url: '/mcp', headers: { authorization: 'Bearer x' }, __gatewayRawBody: '{"a":1}' };
+  const res = fakeRes();
+  let captured;
+  const fetchImpl = async (url, init) => {
+    captured = { url, init };
+    return { ok: true, status: 200 };
+  };
+  startCapture(req, res, {
+    mode: 'full', sink: 'r2', fetchImpl,
+    r2AccountId: 'acct', r2Bucket: 'bucket', r2AuthEmail: 'u@example.com', r2AuthKey: 'k',
+    r2Prefix: 'capture',
+  });
+  res.end('{"ok":true}');
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  assert.ok(captured, 'R2 PUT was issued');
+  assert.match(captured.url, /accounts\/acct\/r2\/buckets\/bucket\/objects\/capture\/\d{4}-\d{2}-\d{2}\//);
+  assert.equal(captured.init.method, 'PUT');
+  assert.equal(captured.init.headers['x-auth-email'], 'u@example.com');
+  assert.equal(captured.init.headers['content-encoding'], 'gzip');
+  const envelope = JSON.parse(gunzipSync(captured.init.body).toString('utf8'));
+  assert.equal(envelope.request.raw, '{"a":1}');
+  assert.equal(envelope.response.raw, '{"ok":true}');
 });
 

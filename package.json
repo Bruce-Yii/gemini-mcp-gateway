@@ -44,6 +44,7 @@
   "dependencies": {
     "@cloudflare/codemode": "0.5.6",
     "@modelcontextprotocol/sdk": "^1.32.2",
+    "@vercel/functions": "^3.11.3",
     "acorn": "^8.19.0",
     "run": "^2.1.13"
   }

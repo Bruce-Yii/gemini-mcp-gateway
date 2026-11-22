@@ -257,7 +257,7 @@ Cloudflare R2 的免费额度对“每天几十~几百次网关调用、每次�
 | 阶段 | 内容 | 预估 |
 |---|---|---|
 | P0 | 本文档 + envelope schema | 完成 |
-| P1 | HTTP/MCP 原始 tap + file/http sink + 开关 | ✅ 已实现（`src/capture.js` + 4 tests） |
+| P1 | HTTP/MCP 原始 tap + file/http/r2 sink + 开关 | ✅ 已实现（`src/capture.js` + 5 tests；R2 已建桶） |
 | P2 | Code Mode/sandbox/upstream 明细 tap + Blob/R2 适配 | 1–2 天 |
 | P3 | 回放脚本 + 错误聚类 + scorecard | 2 天 |
 | P4 | L1 smoke 定时任务 | 1–2 天 |

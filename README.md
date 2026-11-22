@@ -163,6 +163,9 @@ Environment variables used by the reference deployment:
 | `CAPTURE_SINK` | `file`（本地）/`http`（collector）/`console`（仅 debug） |
 | `CAPTURE_FILE_DIR` | File sink directory (default `work/capture`) |
 | `CAPTURE_HTTP_URL`, `CAPTURE_HTTP_TOKEN` | HTTP collector endpoint + bearer token |
+| `R2_ACCOUNT_ID`, `R2_BUCKET`, `R2_PREFIX` | Cloudflare R2 capture destination (default prefix `capture`) |
+| `R2_AUTH_EMAIL`, `R2_AUTH_KEY` | Cloudflare global API key auth (secret; prefer a scoped token later) |
+| `R2_API_TOKEN` | Optional scoped Cloudflare API token; takes precedence over email/key |
 | `CAPTURE_MAX_BYTES` | Per-response raw cap (default 32 MiB) |
 
 **Bring your own upstream credentials by default.** Obtain a PAT/API token
