@@ -12,39 +12,35 @@ Nothing here should be committed. Put values in environment variables only.
 | Model | Config | Notes |
 |---|---|---|
 | Static bearer / API token | `tokenEnv` | Simplest; PAT/API keys that do not expire quickly |
-| Static Basic credential | `tokenEnv` + `authScheme: "basic"` | Env value is the pre-encoded `base64(user:token)` |
+| Static Basic credential | `tokenEnv` + `authScheme: "basic"` | Env value is the pre-encoded `base64(user:token)` |`n| Static provider scheme | `tokenEnv` + `authScheme: "Sentry-Bearer"` (or similar) | The scheme is sent verbatim before the token |
 | OAuth + refresh | `tokenEnv` + `refreshEnv` + `clientIdEnv` (+ `clientSecretEnv`) + `refreshUrl` | The gateway refreshes before expiry and persists rotated tokens in KV |
 | Upstream OAuth/DCR (gateway as OAuth client) | — | **Not implemented.** You must obtain the token yourself; only viable when you also have client id/secret for refresh |
 
 ## Slack
 
 Endpoint: `https://mcp.slack.com/mcp` (Streamable HTTP). Slack does **not**
-support dynamic client registration; MCP clients must be backed by a registered
-Slack app.
+support dynamic client registration. The docs require the MCP client to be
+backed by a registered Slack app with a **fixed app ID**; only internal or
+directory-published apps may use the MCP server.
 
-1. Create a Slack app (from `api.slack.com/apps`) that is internal to your
-   workspace (or a published app if you need one).
-2. Add OAuth **user** scopes for the MCP server. The official docs list them:
-   `channels:history`, `channels:read`, `chat:write`, `files:read`, `files:write`,
-   `groups:history`, `groups:read`, `im:history`, `im:read`, `mpim:history`,
-   `mpim:read`, `search:read`, `users:read`, `users:read.email`, `canvases:read`,
-   `canvases:write`, `reactions:read`, `reactions:write`, `team:read`.
-3. Install the app to the workspace, complete the OAuth consent, and take the
-   user access token.
-4. Configure the template (`templates/upstreams/slack.json`) and export
+1. Create an internal Slack app (from `api.slack.com/apps`) for your workspace,
+   or use a directory-published one.
+2. Add the OAuth **user** scopes listed in the official scopes table (channel,
+   message, search, canvas, file, reactions, users and lists scopes). The table
+   is authoritative; check it before installing.
+3. Install the app to the workspace, complete the OAuth consent
+   (`https://slack.com/oauth/v2_user/authorize`), and take the user access token.
+4. Configure `templates/upstreams/slack.json` and export
    `SLACK_MCP_USER_TOKEN`.
 
-Refresh: if your Slack app uses **token rotation**, the OAuth response also
-contains a refresh token. The gateway can refresh it by setting `refreshEnv`,
-`clientIdEnv`, `clientSecretEnv` and `refreshUrl:
-https://slack.com/api/oauth.v2.user.access` — verify the token endpoint for your
-app before relying on it.
+App identity: the gateway acts as the MCP client and uses your registered app's
+**fixed client id/secret** for OAuth — that app is the identity Slack requires.
+No DCR is involved.
 
-**Caveat:** the docs require the MCP client to be backed by a Slack app with a
-fixed app id, but do not specify how a third-party gateway presents that app
-identity. The endpoint and OAuth flow are verified; a gateway-as-MCP-client
-handshake is not. Treat the Slack template as **experimental** until tested with
-a real token.
+Refresh: the token endpoint is `https://slack.com/api/oauth.v2.user.access`.
+If your app uses token rotation, put the refresh token, client id and client
+secret in the template's `SLACK_MCP_*` env vars and the gateway will refresh it;
+otherwise the static user token works until revoked.
 
 ## Atlassian Rovo MCP (Jira/Confluence)
 
@@ -74,16 +70,25 @@ confirm the refresh response against your OAuth app before relying on it.
 
 ## Sentry
 
-Endpoint: `https://mcp.sentry.dev/mcp`, OAuth-based (dynamic client
-registration). There is **no documented static token** for this server, and the
-gateway does not run an upstream OAuth client, so there is no supported template
-yet. If Sentry exposes a long-lived token for your account, configure it like any
-static bearer; otherwise this upstream waits for the upstream-OAuth helper.
+Endpoint: `https://mcp.sentry.dev/mcp`. Besides OAuth, Sentry documents a remote
+path for clients that can send custom headers: pass a **Sentry user auth token**
+as `Authorization: Sentry-Bearer <token>`. That is exactly what the template
+does; the worker does not refresh or store the token, so it must be long-lived
+(revoke it when no longer needed).
+
+1. Create a User Auth Token in Sentry with the documented scopes
+   (`org:read`, `project:read`, `project:write`, `team:read`, `team:write`,
+   `event:write` — check the current list in the Sentry MCP README).
+2. Export it as `SENTRY_ACCESS_TOKEN` and use
+   `templates/upstreams/sentry.json` (`authScheme: "Sentry-Bearer"`).
 
 ## Figma
 
-Endpoint: `https://mcp.figma.com/mcp`, but the official docs do not state whether
-it uses DCR or a pre-registered OAuth app. No template until that is verified.
+Endpoint: `https://mcp.figma.com/mcp`. The official docs describe an OAuth login
+flow (plus enterprise-managed authorization), but no static token and no
+documented way for a third-party gateway to register itself. Our gateway does
+not run an upstream OAuth client, so Figma is unsupported until Figma documents
+a token path a gateway can use.
 
 ## Providers with simple API tokens
 

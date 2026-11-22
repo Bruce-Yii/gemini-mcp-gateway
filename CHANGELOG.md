@@ -16,9 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   instead of a hardcoded provider list.
 - [docs/UPSTREAMS.md](docs/UPSTREAMS.md), [docs/CLIENTS.md](docs/CLIENTS.md),
   [docs/CREDENTIALS.md](docs/CREDENTIALS.md) and ready-to-use `examples/` configs.
-- Upstream-config and generic-auth tests (suite now 302).
+- Upstream-config and generic-auth tests (suite now 303).
 - `clientSecretEnv` support for confidential OAuth refresh (Google Workspace, Slack, Atlassian, ...).
-- `authScheme: "basic"` for static Basic credentials (e.g. Atlassian personal API tokens).
+- `authScheme: "basic"` for static Basic credentials (e.g. Atlassian personal API tokens); any provider scheme (e.g. `Sentry-Bearer`) is sent verbatim.
+- Slack template verified (registered internal/published app, no DCR, optional refresh) and **Sentry template via `Sentry-Bearer` user auth token**; credential guides updated, Figma documented as unsupported (no static/gateway token path).
 - Verified upstream templates in `templates/upstreams/` (Slack, Twilio, Zapier,
   Cloudflare, Stripe, Supabase, Neon, Google Drive, Atlassian) with official-doc links.
 - Model-in-loop benchmark harness (`bench/`, `npm run bench`, CI dry run);

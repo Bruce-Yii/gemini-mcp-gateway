@@ -1,0 +1,7 @@
+{
+  "name": "sentry",
+  "transport": "http",
+  "url": "https://mcp.sentry.dev/mcp",
+  "tokenEnv": "SENTRY_ACCESS_TOKEN",
+  "authScheme": "Sentry-Bearer"
+}

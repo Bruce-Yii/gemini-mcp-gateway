@@ -2,5 +2,11 @@
   "name": "slack",
   "transport": "http",
   "url": "https://mcp.slack.com/mcp",
-  "tokenEnv": "SLACK_MCP_USER_TOKEN"
+  "tokenEnv": "SLACK_MCP_USER_TOKEN",
+  "refreshEnv": "SLACK_MCP_REFRESH_TOKEN",
+  "clientIdEnv": "SLACK_MCP_CLIENT_ID",
+  "clientSecretEnv": "SLACK_MCP_CLIENT_SECRET",
+  "expiresInEnv": "SLACK_MCP_EXPIRES_IN",
+  "obtainedAtEnv": "SLACK_MCP_OBTAINED_AT",
+  "refreshUrl": "https://slack.com/api/oauth.v2.user.access"
 }

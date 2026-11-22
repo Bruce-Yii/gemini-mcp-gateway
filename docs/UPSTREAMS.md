@@ -57,7 +57,7 @@ sanity check is to search for one of its tool names:
 | `env` | stdio | Extra environment variables for the child process (string map) |
 | `headers` | http | Extra request headers (string map); do not put secrets here — use `tokenEnv` |
 | `tokenEnv` | http | Env var holding a Bearer token |
-| `authScheme` | no | `bearer` (default) or `basic`; Basic expects `base64(user:token)` in the env var |
+| `authScheme` | no | HTTP auth scheme for `tokenEnv`: `bearer` (default), `basic`, or a provider scheme such as `Sentry-Bearer` |
 | `refreshEnv`, `clientIdEnv` | OAuth | Refresh token + public OAuth client id env vars |
 | `clientSecretEnv` | OAuth | Client secret env var, for confidential OAuth clients (Google/Slack/etc.) |
 | `expiresInEnv`, `obtainedAtEnv` | OAuth | Optional token lifetime + real issuance time; used to compute expiry honestly |
@@ -77,8 +77,9 @@ Top-level options: `mode` (`codemode` default, or legacy `whitelist`),
 { "name": "github", "transport": "http", "url": "https://api.githubcopilot.com/mcp/", "tokenEnv": "GITHUB_TOKEN" }
 ```
 
-**Static Basic credential.** Set `authScheme: "basic"` and put
-`base64(user:token)` in the env var (used by Atlassian personal API tokens):
+**Static Basic / custom scheme.** Set `authScheme` and put the credential in the
+env var. `basic` takes `base64(user:token)`; a provider-specific scheme is sent
+verbatim (e.g. Sentry's `Sentry-Bearer`):
 
 ```json
 { "name": "atlassian", "transport": "http", "url": "https://mcp.atlassian.com/v2/mcp?tools=all", "tokenEnv": "ATLASSIAN_BASIC_TOKEN", "authScheme": "basic" }
