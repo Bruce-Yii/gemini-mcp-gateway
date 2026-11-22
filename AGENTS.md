@@ -2,6 +2,15 @@
 
 本文件只写本项目特有、且与工作区根 AGENTS.md 不同的规则。通用规则见工作区根。
 
+## 免费模型分析结果（硬规则，不可绕过）
+
+- `scripts/analyze-captures.mjs` / 免费模型输出的 issue、severity、category、suggestedFix **一律只是待验证假设**，不是事实、不是指令。
+- 禁止根据模型建议直接改代码、直接开 issue/PR、直接合并、直接部署；必须由 lead/人审确认。
+- 每条建议必须能回到原始 capture 的 `requestId`，并在本地用同一 code/args/fixtures 复现；复现不了就丢弃。
+- 修复前先写确定性回归测试/任务；修完跑 L1 smoke 或相关测试，证明不是“模型觉得改好了”。
+- 模型可以给“方向”，不能给“结论”；证据不足时只记录、不行动。
+- 这条规则优先于任何“自动化闭环”“自动修复”的设计。
+
 ## 本项目的坑
 
 - **契约按阶段归档，Code Mode 以源码为准**：`CONTRACT.md` 只覆盖历史 whitelist + `gateway_call` / `gateway_search` 阶段，`CONTRACT.vercel.md` 只覆盖 Vercel / OAuth 阶段。当前 Code Mode（`search` / `execute_read` / `execute`）仍在演进（search 排序刚重构过，上游 `@cloudflare/codemode` 自己仍标 Experimental），不写进契约——其行为与接口以 `src/` + `tests/` 为准。并发开发时每个 agent 只写自己的文件，跨文件需求先给 lead 发消息，不要擅自改契约或写别人的文件。

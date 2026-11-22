@@ -125,6 +125,9 @@ export function validateAnalyzerOutput(output, input) {
   }
   return {
     schema: 'analyzer-output.v1',
+    policy: 'free-model-advisory-v1',
+    advisoryOnly: true,
+    requiresHumanReview: true,
     summary: truncate(output?.summary ?? '', 500),
     issues,
     ignored: Array.isArray(output?.ignored) ? output.ignored.slice(0, 20) : [],
@@ -138,6 +141,7 @@ function analyzerPrompt(input) {
       content: [
         'You are an offline analyzer for a private MCP gateway capture dataset.',
         'Classify only from the provided JSON. Do not invent evidence.',
+        'Your output is advisory only: it must be verified against raw captures and a local replay before any code change.',
         'Return ONLY strict JSON matching analyzer-output.v1:',
         '{"schema":"analyzer-output.v1","summary":"...","issues":[{"id":"issue-1","severity":"P0|P1|P2|P3","category":"gateway|upstream|model|data|unknown","title":"...","evidenceEventIds":["..."],"likelyCause":"...","suggestedFix":"...","confidence":0.0,"regressionTask":{"prompt":"...","expectedTool":"...","assertions":["..."]}}],"ignored":[{"clusterId":"c1","reason":"..."}]}',
         'Each issue MUST cite at least one evidenceEventIds from the input. If unsure, use ignored.',

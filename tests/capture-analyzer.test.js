@@ -78,3 +78,13 @@ test('buildAnalyzerInput includes successful execute samples for friction analys
   assert.equal(input.samples[0].tool, 'execute_read');
   assert.match(input.samples[0].code, /async/);
 });
+test('analyzer output is explicitly advisory and requires human review', () => {
+  const input = { clusters: [{ id: 'c1', sampleEventIds: ['req-a'] }], limits: { maxIssues: 5 } };
+  const out = validateAnalyzerOutput({
+    summary: 'x',
+    issues: [{ severity: 'P2', category: 'gateway', title: 'x', evidenceEventIds: ['req-a'] }],
+  }, input);
+  assert.equal(out.policy, 'free-model-advisory-v1');
+  assert.equal(out.advisoryOnly, true);
+  assert.equal(out.requiresHumanReview, true);
+});

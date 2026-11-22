@@ -1,5 +1,18 @@
 # 免费分析模型的固定工作流（Capture Analyzer）
 
+## 0. 硬规则（不可绕过）
+
+免费模型能力弱于主模型，它的输出**只能当假设**：
+
+- issue / severity / category / suggestedFix 都不是事实，也不是指令；
+- 禁止根据它的建议直接改代码、开 issue/PR、合并、部署；
+- 每条建议必须能回到原始 capture 的 `requestId`，并在本地用同一 code/args/fixtures 复现；
+- 复现不了就丢弃；修复前先写确定性回归测试/任务；
+- 修完跑 L1 smoke 或相关测试，证明“不是模型觉得改好了”；
+- 模型可以给方向，不能给结论。
+
+这条规则同时写进 `AGENTS.md`，优先级高于任何“自动修复/自动闭环”的设想。
+
 > 目标：让免费推理模型只做“脏活累活”的**离线归类/摘要**，不进入网关请求路径，
 > 不影响 Gemini，也不直接改代码/仓库。人只审结果和决定修什么。
 
@@ -83,6 +96,9 @@ R2 原始 envelope
 ```json
 {
   "schema": "analyzer-output.v1",
+  "policy": "free-model-advisory-v1",
+  "advisoryOnly": true,
+  "requiresHumanReview": true,
   "summary": "1-2 句当天主要问题",
   "issues": [
     {
