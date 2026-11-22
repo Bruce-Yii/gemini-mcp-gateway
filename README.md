@@ -153,6 +153,7 @@ Environment variables used by the reference deployment:
 | `NOTION_TOKEN`, `NOTION_REFRESH_TOKEN`, `NOTION_CLIENT_ID`, `NOTION_EXPIRES_IN`, `NOTION_OBTAINED_AT` | Notion upstream credentials |
 | `LINEAR_TOKEN`, `LINEAR_REFRESH_TOKEN`, `LINEAR_CLIENT_ID`, `LINEAR_EXPIRES_IN`, `LINEAR_OBTAINED_AT` | Linear upstream credentials |
 | `VERCEL_TOKEN` | Vercel MCP bearer token |
+| `FIGMA_ACCESS_TOKEN`, `FIGMA_REFRESH_TOKEN`, `FIGMA_CLIENT_ID`, `FIGMA_CLIENT_SECRET`, `FIGMA_EXPIRES_IN`, `FIGMA_OBTAINED_AT` | Figma official MCP via a community OAuth workaround (unsupported by Figma; see [docs/CREDENTIALS.md](docs/CREDENTIALS.md)) |
 | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Upstash Redis for OAuth client/token storage |
 | `PUBLIC_BASE_URL` | Public base URL of the deployment (e.g. `https://<your-domain>`) |
 | `ALLOWED_CLIENT_ID`, `ALLOWED_CLIENT_SECRET` | Lock the gateway to one pre-registered OAuth client (**required for production**) |

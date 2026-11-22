@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Gateway-initiated upstream OAuth** (Vercel): `/upstream/oauth/start` + `/upstream/oauth/callback`, PKCE S256, single-use state, admin-key gate, tokens seeded into KV. New config fields `authorizeUrl`, `oauthScopes`, `oauthRedirectUri`; Figma OAuth template (`figma-oauth.json`). Set `UPSTREAM_OAUTH_ADMIN_KEY` to enable.
 - Figma live OAuth attempt: a self-created OAuth app gets `Invalid scope: mcp:connect`, confirming the remote server is restricted to catalog clients; only the local desktop-server path is usable (`figma-desktop.json`).
 - `tokenHeader` config for upstreams that take the raw token in a custom header (e.g. Figma's `X-Figma-Token`). Ready-made hosted Figma route via Framelink `figma-developer-mcp` (Streamable HTTP, PAT, two read-only tools) documented in `docs/CREDENTIALS.md` with `templates/upstreams/figma-framelink.json`; verified end-to-end through the gateway (2 tools indexed, search works).
+- Figma official remote MCP can be configured with `FIGMA_ACCESS_TOKEN`/refresh env vars via a community OAuth allowlist workaround (50 tools, incl. `create_new_file` and `use_figma`); `config.example.json` includes the server (skipped when env vars are unset). Verified end-to-end: gateway created a real Figma file.
 
 ## [0.1.0] - 2026-11-22
 

@@ -127,6 +127,7 @@ node scripts/write-build-info.mjs --print # 当前 commit + 运行时源码哈�
 | `NOTION_TOKEN`、`NOTION_REFRESH_TOKEN`、`NOTION_CLIENT_ID`、`NOTION_EXPIRES_IN`、`NOTION_OBTAINED_AT` | Notion 上游凭据 |
 | `LINEAR_TOKEN`、`LINEAR_REFRESH_TOKEN`、`LINEAR_CLIENT_ID`、`LINEAR_EXPIRES_IN`、`LINEAR_OBTAINED_AT` | Linear 上游凭据 |
 | `VERCEL_TOKEN` | Vercel MCP bearer token |
+| `FIGMA_ACCESS_TOKEN`、`FIGMA_REFRESH_TOKEN`、`FIGMA_CLIENT_ID`、`FIGMA_CLIENT_SECRET`、`FIGMA_EXPIRES_IN`、`FIGMA_OBTAINED_AT` | Figma 官方 MCP（社区 OAuth 绕过方案，Figma 不支持；见 [docs/CREDENTIALS.md](docs/CREDENTIALS.md)） |
 | `KV_REST_API_URL`、`KV_REST_API_TOKEN` | Upstash Redis（OAuth client/token 存储） |
 | `PUBLIC_BASE_URL` | 部署的公网地址（如 `https://<your-domain>`） |
 | `ALLOWED_CLIENT_ID`、`ALLOWED_CLIENT_SECRET` | 锁定单个预注册 OAuth 客户端（**生产必填**） |

@@ -170,6 +170,33 @@ gateway (`--stdio`).
 same machine** as the Figma desktop app; the hosted Vercel deployment cannot
 reach your localhost.
 
+### Community allowlist workaround (unsupported by Figma)
+
+Community tools such as
+[sdaoudi/mcp-auth-helper](https://github.com/sdaoudi/mcp-auth-helper),
+[figma-mcp-auth](https://www.npmjs.com/package/figma-mcp-auth) and
+[pi-figma-remote-auth](https://www.npmjs.com/package/pi-figma-remote-auth) work
+around the allowlist by registering the OAuth client with an allowlisted
+`client_name` (e.g. `Codex`). The resulting access/refresh token can be used by
+this gateway like any OAuth upstream; `config.example.json` now contains a
+`figma` entry that reads:
+
+- `FIGMA_ACCESS_TOKEN`, `FIGMA_REFRESH_TOKEN`
+- `FIGMA_CLIENT_ID`, `FIGMA_CLIENT_SECRET`
+- `FIGMA_EXPIRES_IN`, `FIGMA_OBTAINED_AT`
+
+The token endpoint is `https://api.figma.com/v1/oauth/token` and the server is
+`https://mcp.figma.com/mcp`. With these values the gateway exposes the official
+MCP toolset (50 tools at the time of writing, including `create_new_file`,
+`use_figma`, `generate_figma_design`, Code Connect and comments). Access tokens
+last ~90 days; the gateway refreshes them with the refresh token + client
+secret.
+
+**Risks:** this is client-name spoofing, not a supported Figma integration.
+Figma can change or block it at any time; use a dedicated Figma account/token
+you can revoke. For a supported path use only catalog clients (ChatGPT, Claude,
+Cursor, VS Code, ...).
+
 ## Providers with simple API tokens
 
 These are the easiest to onboard and already have templates: Cloudflare (API

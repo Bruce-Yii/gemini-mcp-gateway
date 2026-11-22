@@ -312,6 +312,18 @@
         "create_project_env",
         "get_domain_project_domains"
       ]
+    },
+    {
+      "name": "figma",
+      "transport": "http",
+      "url": "https://mcp.figma.com/mcp",
+      "tokenEnv": "FIGMA_ACCESS_TOKEN",
+      "refreshEnv": "FIGMA_REFRESH_TOKEN",
+      "clientIdEnv": "FIGMA_CLIENT_ID",
+      "clientSecretEnv": "FIGMA_CLIENT_SECRET",
+      "expiresInEnv": "FIGMA_EXPIRES_IN",
+      "obtainedAtEnv": "FIGMA_OBTAINED_AT",
+      "refreshUrl": "https://api.figma.com/v1/oauth/token"
     }
   ]
 }
