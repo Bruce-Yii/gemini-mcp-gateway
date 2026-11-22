@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Cloudflare, Stripe, Supabase, Neon, Google Drive, Atlassian) with official-doc links.
 - Model-in-loop benchmark harness (`bench/`, `npm run bench`, CI dry run);
   validated live against a free OpenAI-compatible model (5/5 deterministic tasks).
-- Slack/Atlassian credential-acquisition notes and Sentry/Figma gap notes in `docs/CREDENTIALS.md`.
+- Slack/Atlassian/Sentry credential-acquisition notes and the Figma gap note in `docs/CREDENTIALS.md`.
 ## [0.1.0] - 2026-11-22
 
 Initial public snapshot.
