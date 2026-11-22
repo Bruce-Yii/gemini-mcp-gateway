@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   instead of a hardcoded provider list.
 - [docs/UPSTREAMS.md](docs/UPSTREAMS.md), [docs/CLIENTS.md](docs/CLIENTS.md),
   [docs/CREDENTIALS.md](docs/CREDENTIALS.md) and ready-to-use `examples/` configs.
-- Upstream-config and generic-auth tests (suite now 307).
+- Upstream-config and generic-auth tests (suite now 308).
 - `clientSecretEnv` support for confidential OAuth refresh (Google Workspace, Slack, Atlassian, ...).
 - `authScheme: "basic"` for static Basic credentials (e.g. Atlassian personal API tokens); any provider scheme (e.g. `Sentry-Bearer`) is sent verbatim.
 - Slack template verified (registered internal/published app, no DCR, optional refresh) and **Sentry template via `Sentry-Bearer` user auth token**; credential guides updated.
@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Figma findings from live probing: remote server uses OAuth/DCR with a **client-name allowlist** (third-party gateway gets 403); local Figma desktop server (`http://127.0.0.1:3845/mcp`) has a local-only template.
 - **Gateway-initiated upstream OAuth** (Vercel): `/upstream/oauth/start` + `/upstream/oauth/callback`, PKCE S256, single-use state, admin-key gate, tokens seeded into KV. New config fields `authorizeUrl`, `oauthScopes`, `oauthRedirectUri`; Figma OAuth template (`figma-oauth.json`). Set `UPSTREAM_OAUTH_ADMIN_KEY` to enable.
 - Figma live OAuth attempt: a self-created OAuth app gets `Invalid scope: mcp:connect`, confirming the remote server is restricted to catalog clients; only the local desktop-server path is usable (`figma-desktop.json`).
+- `tokenHeader` config for upstreams that take the raw token in a custom header (e.g. Figma's `X-Figma-Token`). Ready-made hosted Figma route via Framelink `figma-developer-mcp` (Streamable HTTP, PAT, two read-only tools) documented in `docs/CREDENTIALS.md` with `templates/upstreams/figma-framelink.json`; verified end-to-end through the gateway (2 tools indexed, search works).
 
 ## [0.1.0] - 2026-11-22
 

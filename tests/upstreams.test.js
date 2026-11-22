@@ -75,3 +75,21 @@ test('authScheme: provider-specific scheme is preserved verbatim (Sentry-Bearer)
   assert.equal(headers.Authorization, 'Sentry-Bearer sentry-user-token');
   delete process.env[ENV_KEY];
 });
+
+test('tokenHeader: raw token goes into a custom header (Figma X-Figma-Token)', async () => {
+  process.env[ENV_KEY] = 'figma-pat';
+  const mgr = new UpstreamManager([
+    {
+      name: 'figma',
+      transport: 'http',
+      url: 'https://example.invalid/mcp',
+      tokenEnv: ENV_KEY,
+      tokenHeader: 'X-Figma-Token',
+    },
+  ]);
+  const transport = await mgr._createTransport(mgr.configs[0]);
+  const headers = transport._requestInit?.headers ?? transport.requestInit?.headers;
+  assert.equal(headers['X-Figma-Token'], 'figma-pat');
+  assert.equal(headers.Authorization, undefined);
+  delete process.env[ENV_KEY];
+});

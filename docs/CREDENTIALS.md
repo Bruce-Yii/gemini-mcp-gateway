@@ -129,10 +129,40 @@ no credentials; results:
   authorization endpoint answers `Invalid scope: mcp:connect`. So even with app
   credentials, the gateway cannot obtain a token the remote MCP server accepts.
 
-Conclusion: the remote Figma server cannot be used by this gateway until Figma
-allowlists it (or grants `mcp:connect` to your OAuth app). The gateway-initiated
-OAuth flow is therefore not usable for Figma today, though it works for providers
-that grant the scope.
+Conclusion: the official remote Figma server cannot be used by this gateway until
+Figma allowlists it (or grants `mcp:connect` to your OAuth app). The
+gateway-initiated OAuth flow is therefore not usable for Figma today, though it
+works for providers that grant the scope.
+
+**Ready-made PAT route (recommended for hosted usage):** the third-party
+[Framelink server](https://github.com/GLips/Figma-Context-MCP)
+(`figma-developer-mcp`, MIT, ~16k GitHub stars, ~150k npm downloads/week)
+speaks Streamable HTTP at `/mcp` and accepts a Figma PAT per request via
+`X-Figma-Token`:
+
+```bash
+# run on a private host / container that the gateway can reach
+npx -y figma-developer-mcp@0.13.2 --host 0.0.0.0 --port 3333 --no-telemetry
+```
+
+Then add an upstream with `tokenEnv` + `tokenHeader` (see
+`templates/upstreams/figma-framelink.json`):
+
+```json
+{
+  "name": "figma",
+  "transport": "http",
+  "url": "https://<your-figma-bridge>/mcp",
+  "tokenEnv": "FIGMA_API_KEY",
+  "tokenHeader": "X-Figma-Token"
+}
+```
+
+It exposes two read-only tools (`get_figma_data`, `download_figma_images`) — not
+the official MCP's canvas-write tools, but it bypasses the catalog allowlist
+without custom code. Keep the bridge on a private network: it forwards whatever
+`X-Figma-Token` it receives. The same server also supports stdio for a local
+gateway (`--stdio`).
 
 **Desktop server:** the Figma desktop app can expose a local MCP server at
 `http://127.0.0.1:3845/mcp` without OAuth. Use

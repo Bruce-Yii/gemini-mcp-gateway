@@ -1,0 +1,7 @@
+{
+  "name": "figma",
+  "transport": "http",
+  "url": "http://127.0.0.1:3333/mcp",
+  "tokenEnv": "FIGMA_API_KEY",
+  "tokenHeader": "X-Figma-Token"
+}

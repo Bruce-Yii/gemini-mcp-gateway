@@ -57,6 +57,7 @@ sanity check is to search for one of its tool names:
 | `env` | stdio | Extra environment variables for the child process (string map) |
 | `headers` | http | Extra request headers (string map); do not put secrets here — use `tokenEnv` |
 | `tokenEnv` | http | Env var holding a Bearer token |
+| `tokenHeader` | no | Header name for the raw token instead of `Authorization` (e.g. Figma's `X-Figma-Token`) |
 | `authScheme` | no | HTTP auth scheme for `tokenEnv`: `bearer` (default), `basic`, or a provider scheme such as `Sentry-Bearer` |
 | `refreshEnv`, `clientIdEnv` | OAuth | Refresh token + public OAuth client id env vars |
 | `clientSecretEnv` | OAuth | Client secret env var, for confidential OAuth clients (Google/Slack/etc.) |

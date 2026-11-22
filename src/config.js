@@ -17,7 +17,7 @@ const ENV_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const TOP_LEVEL_KEYS = new Set(['servers', 'mode', 'maxWhitelistTools', 'maxCalls', 'maxResultChars']);
 const SERVER_KEYS = new Set([
   'name', 'transport', 'url', 'command', 'args', 'env', 'headers',
-  'tokenEnv', 'authScheme', 'refreshEnv', 'clientIdEnv', 'clientSecretEnv', 'expiresInEnv', 'obtainedAtEnv',
+  'tokenEnv', 'tokenHeader', 'authScheme', 'refreshEnv', 'clientIdEnv', 'clientSecretEnv', 'expiresInEnv', 'obtainedAtEnv',
   'refreshUrl', 'authorizeUrl', 'oauthScopes', 'oauthRedirectUri', 'allowTools', 'denyTools',
 ]);
 
@@ -113,6 +113,13 @@ export function validateConfig(value, { env = process.env } = {}) {
         if (server.url !== undefined) warnings.push(`${at}: "url" is ignored for stdio transport`);
       }
 
+      if (server.tokenHeader !== undefined
+          && (typeof server.tokenHeader !== 'string' || !/^[A-Za-z0-9-]+$/.test(server.tokenHeader))) {
+        issues.push(`${at}.tokenHeader must be an HTTP header name`);
+      }
+      if (server.tokenHeader && !server.tokenEnv) {
+        warnings.push(`${at}: tokenHeader is ignored without tokenEnv`);
+      }
       if (server.authScheme !== undefined
           && (typeof server.authScheme !== 'string' || !/^[A-Za-z][A-Za-z0-9-]*$/.test(server.authScheme))) {
         issues.push(`${at}.authScheme must be an HTTP auth scheme such as "bearer", "basic" or "Sentry-Bearer"`);
