@@ -84,11 +84,34 @@ does; the worker does not refresh or store the token, so it must be long-lived
 
 ## Figma
 
-Endpoint: `https://mcp.figma.com/mcp`. The official docs describe an OAuth login
-flow (plus enterprise-managed authorization), but no static token and no
-documented way for a third-party gateway to register itself. Our gateway does
-not run an upstream OAuth client, so Figma is unsupported until Figma documents
-a token path a gateway can use.
+We probed the **remote** server (`https://mcp.figma.com/mcp`) on 2026-11-22 with
+no credentials; results:
+
+- Protected-resource metadata: resource `https://mcp.figma.com/mcp`,
+  authorization server `https://api.figma.com`, scope `mcp:connect`, Bearer
+  header.
+- Authorization-server metadata: authorization `https://www.figma.com/oauth/mcp`,
+  token `https://api.figma.com/v1/oauth/token`, registration
+  `https://api.figma.com/v1/oauth/mcp/register`, PKCE S256, `refresh_token`
+  grant supported.
+- Unauthenticated `initialize` returns `401` with a Bearer challenge (as
+  expected).
+- Dynamic client registration is **client-name allowlisted**: our
+  `client_name` got `403 Forbidden`; a known allowlisted client name got `201`
+  with client credentials. Figma's docs say it directly: "Only clients listed in
+  the Figma MCP catalog … can connect"; developers of new clients must join a
+  waitlist.
+
+Conclusion: the remote Figma server cannot be used by this gateway until Figma
+allowlists it. There is no documented static-token path. If you have a Figma
+OAuth access token issued to a supported client you can test it with
+`tokenEnv`, but that is not a supported production setup.
+
+**Desktop server:** the Figma desktop app can expose a local MCP server at
+`http://127.0.0.1:3845/mcp` without OAuth. Use
+`templates/upstreams/figma-desktop.json` **only when the gateway runs on the
+same machine** as the Figma desktop app; the hosted Vercel deployment cannot
+reach your localhost.
 
 ## Providers with simple API tokens
 

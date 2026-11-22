@@ -22,6 +22,7 @@ documented in [docs/CREDENTIALS.md](../../docs/CREDENTIALS.md).
 | `supabase.json` | `https://mcp.supabase.com/mcp` | OAuth DCR or PAT | DCR by default; a personal access token works as a Bearer header for CI. Consider `?project_ref=...&read_only=true` URL parameters. |
 | `neon.json` | `https://mcp.neon.tech/mcp` | OAuth DCR or API key | API key works as a Bearer header; add `?readonly=true` / `?projectId=...` to scope access. |
 | `google-drive.json` | `https://drivemcp.googleapis.com/mcp/v1` | OAuth 2.0 + refresh | Requires your own Google OAuth client with "Let AI agents use this client" and `access_type=offline`. The refresh flow needs the client id **and secret** (`clientSecretEnv`). |
+| `figma-desktop.json` | `http://127.0.0.1:3845/mcp` | none (localhost) | **Local gateway only.** Figma's desktop MCP server runs on the machine with the Figma desktop app; a hosted gateway (Vercel) cannot reach it. The remote Figma server is OAuth/DCR but allowlists MCP clients, so it is not usable here yet. |
 
 ## Sources
 
@@ -35,15 +36,19 @@ documented in [docs/CREDENTIALS.md](../../docs/CREDENTIALS.md).
 - Supabase: <https://supabase.com/docs/guides/ai-tools/mcp> — endpoint `https://mcp.supabase.com/mcp`; DCR by default, PAT as Bearer for CI.
 - Neon: <https://neon.com/docs/ai/neon-mcp-server> — endpoint `https://mcp.neon.tech/mcp`; OAuth or API key Bearer.
 - Google Workspace: <https://developers.google.com/workspace/guides/configure-mcp-servers> — per-product endpoints (`https://drivemcp.googleapis.com/mcp/v1` for Drive), OAuth 2.0 with refresh tokens.
+- Figma: <https://developers.figma.com/docs/figma-mcp-server/> and <https://help.figma.com/hc/en-us/articles/39216419318551> — remote server is OAuth/DCR and "Only clients listed in the Figma MCP catalog … can connect"; desktop server runs at `http://127.0.0.1:3845/mcp`.
 
 ## Why some candidates are missing
 
 - **Microsoft 365** remote MCP endpoints are tenant-scoped
   (`agent365.svc.cloud.microsoft/agents/tenants/{tenant_id}/...`), so there is no
   universal template. See [docs/CREDENTIALS.md](../../docs/CREDENTIALS.md).
-- **Figma** (`https://mcp.figma.com/mcp`) documents an OAuth login flow but no
-  static token or a way for a third-party gateway to register; no template until
-  that is verified.
+- **Figma remote** (`https://mcp.figma.com/mcp`): OAuth 2.0 with dynamic client
+  registration, but Figma only allows MCP clients listed in its catalog; a
+  third-party gateway registration returns `403 Forbidden`, and new clients must
+  join Figma's waitlist. **Figma desktop** (`http://127.0.0.1:3845/mcp`) works
+  without OAuth but only from a gateway on the same machine (see
+  `figma-desktop.json`).
 - **Google Workspace** has a template for Drive, but its refresh flow needs a
   Google OAuth client with a client secret (see `clientSecretEnv`).
 - Providers whose MCP server needs a pre-registered OAuth client with a client

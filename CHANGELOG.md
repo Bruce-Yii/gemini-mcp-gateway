@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Model-in-loop benchmark harness (`bench/`, `npm run bench`, CI dry run);
   validated live against a free OpenAI-compatible model (5/5 deterministic tasks).
 - Slack/Atlassian/Sentry credential-acquisition notes and the Figma gap note in `docs/CREDENTIALS.md`.
+- Figma findings from live probing: remote server uses OAuth/DCR with a **client-name allowlist** (third-party gateway gets 403), so it is documented as unsupported; local Figma desktop server (`http://127.0.0.1:3845/mcp`) has a local-only template.
 ## [0.1.0] - 2026-11-22
 
 Initial public snapshot.
