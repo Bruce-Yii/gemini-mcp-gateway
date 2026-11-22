@@ -76,26 +76,40 @@
 - 测试：`tests/codemode-slice-lines.test.js`（3 条；60KB fake 文件可完整进入沙箱，
   只返回 4 行，最终结果 <2KB）。
 
-### B8-3 / B8-4：待实现
+### B8-3：行区间编辑 + unified diff（已实现）
 
-- patch/diff helper、错误行号去 prelude 偏移、dry-run 摘要仍未做；
-  B8-4 已有线上证据（`run.js:369:20`，无 script line）。
+- `codemode.replaceLines(text,start,end,newText)`：1-based 闭区间替换/插入/删除；越界返回
+  `{ok:false}`，不产生部分写入。
+- `codemode.applyPatch(text, unifiedDiff)`：解析 `@@ -a,b +c,d @@` hunk，严格校验 context；
+  mismatch 返回 `{ok:false,error,text:<original>}`；支持多 hunk。
+- `codemode.diffSummary(before,after)`：`{beforeLines,afterLines,added,removed,changed}`，
+  写前预览用。
+- 测试：`tests/codemode-edit-helpers.test.js`（6 条，含 mismatch 不修改原文）。
 
+### B8-4：错误行号（本地验证通过，线上待复验）
 
+- 现有 `wrapperOffset + GUEST_PREFIX_LINES` 映射在本地新测试中正常：
+  `codemode.notARealTool()` → `script line 1:41`。
+- 线上任务 6 的 `run.js:369:20` 没有 script line，可能是旧构建或模型引用了栈帧文本；
+  905f97e 之后可在 Gemini 重跑确认。
+- `diffSummary` 已提供 dry-run 摘要基础；独立 dry-run 工具未做。
 
-1. **先收口 B7**：Intl + detector 误归因 + G6 重测（当前门禁未过，不能跳过）。
-2. **B8-2 内部/可见预算分离 + truncated 元数据 + 行区间读取**（大文件编辑前置）。
-3. **B8-1 canonical adapter/helper**（可与 2 并行，独立文件）。
-4. **B8-3 patch helper + 写前 diff**（依赖 2）。
-5. **B8-4 行号映射 + dry-run 摘要**（独立、低风险，可随时做）。
+## 优先级与依赖（历史计划）
+
+1. **先收口 B7**：Intl + detector 误归因 + G6 重测（已完成）。
+2. **B8-2 行区间读取 + truncated 元数据**（已完成）。
+3. **B8-1 canonical helper**（已完成）。
+4. **B8-3 patch/diff helper**（已完成）。
+5. **B8-4 行号/dry-run**（本地已验证，线上复验待做）。
 
 ## 待决策
 
-- canonical adapter 放网关还是沙箱 helper？建议：网关只做"不丢数据 + truncated 元数据"，
-  canonical 扁平视图放 helper（避免上游版本漂移时破坏原始调用）。
-- 沙箱内文本预算上限（需要内存/CPU 压测；不能无限）。
-- patch 的格式支持（unified diff vs 行号 edit；先 unified diff + strict context）。
+- canonical adapter 放网关还是沙箱 helper？已选 **sandbox helper**：网关不丢原始数据，
+  helper 提供扁平视图。
+- 沙箱内文本预算：实测不需要放宽（沙箱本来可持有全量文本）。
+- patch 格式：已支持 unified diff + 行号 replace；后续可加 dry-run 独立工具。
 
 ## 状态
 
-⚠️ 部分完成：B8-1/B8-2 已实现并有测试；B8-3/B8-4 待实现。B4/G6 不受影响。
+⚠️ 部分完成：B8-1/B8-2/B8-3 已实现并有测试；B8-4 本地验证通过、线上复验待做。
+B4/G6 不受影响。

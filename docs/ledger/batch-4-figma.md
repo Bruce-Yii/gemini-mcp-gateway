@@ -57,7 +57,7 @@
 
 | 项 | 结果 |
 |---|---|
-| 上下文 | 506 工具 ≈245,377 tokens（direct） vs 3 工具 ≈1,481 tokens（gateway），省 **99.5%** |
+| 上下文 | 506 工具 ≈245,377 tokens（direct） vs 3 工具 ≈1,520 tokens（gateway），省 **99.5%** |
 | 既有检索子集（191 条） | top1 **57.1%**（109/191）、top5 **72.3%**（138/191）；不回归（B6） |
 | Figma 检索（46 条） | top1 78.3%、top5 93.5%；schema 28/28 top-5；官方 18 条 top1 61.1%/top5 77.8%（单独报告） |
 | 模型在环 | `bench` 既有基线 5/5 确定性任务（22,468 prompt / 919 completion tokens），未为 Figma 单独重跑 |

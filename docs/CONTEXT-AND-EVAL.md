@@ -28,8 +28,8 @@
 | 项 | 结果 |
 |---|---|
 | 直接工具面 | 506 工具 ≈245,377 tokens |
-| 网关 3 工具 | ≈1,481 tokens（search 1,053B / execute_read 2,084B / execute 2,198B） |
-| 挂载节省 | 99.4%（243,896 tokens） |
+| 网关 3 工具 | ≈1,520 tokens（search 1,053B / execute_read 2,084B / execute 2,198B） |
+| 挂载节省 | 99.4%（243,857 tokens） |
 | 既有检索（191 条） | top1 57.1%，top5 72.3%（B6 修复后；基线 56.5/72.3） |
 | Figma schema 检索（28 条） | top5 100% |
 

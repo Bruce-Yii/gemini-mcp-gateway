@@ -460,7 +460,7 @@ Fallback：Framelink PAT（只读）/ 桌面 server / 等待目录开放
 | G1 | ✅ | 接入/实测/config ✅；tools/list 快照入库；token 强刷实测并同步 Vercel；真实建文件 ✅ |
 | G2 | ✅ | deny 4（ChatGPT/UI 内部）+ policy/审计脚本；audit-tools exit 0（50/46/4） |
 | G3 | ✅ | 46/46 任务覆盖；18 official / 28 schema；schema 28/28 top-5；9 个 Weave 任务按账号原因 skip |
-| G4 | ✅ | 506 工具 245,377 tokens vs 3 工具 1,481（-99.4%）；既有 191 条 top1 57.1/top5 72.3（B6 修复后）；Figma schema 28/28 |
+| G4 | ✅ | 506 工具 245,377 tokens vs 3 工具 1,520（-99.4%）；既有 191 条 top1 57.1/top5 72.3（B6 修复后）；Figma schema 28/28 |
 | G5 | ✅ | B6 修复新增上游导致的检索回归（按服务索引 + 窄别名）；无其它 Figma 根因 |
 | G6 | ✅ | 修复 Intl+detector 后重跑 228 任务/5 上游；anomalies 363，gateway 86 逐条复核无新功能 bug；详见 B7 |
 | G7 | ✅ | Gemini 线上真实调用：Vercel 项目/部署 READY；Figma whoami + pages 成功；无错误 |
