@@ -19,7 +19,7 @@
  *
  * Storage is intentionally pluggable. P1 ships file/HTTP/console/R2 sinks.
  */
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -48,6 +48,128 @@ export function captureHeaders(headers = {}) {
   const out = {};
   for (const [name, value] of Object.entries(headers)) out[name] = value;
   return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * Model-output truncation audit (P0, batch 11)
+ *
+ * The gateway captures the FULL upstream/sandbox response. The model only
+ * sees a projection (`toModelOutput` -> `output.result`). When model code
+ * slices that projection (e.g. `.slice(0, 150)`), the wire capture still looks
+ * healthy: status 200, no `overflow`, no `truncated` marker. That silent
+ * loss was invisible to capture/analyzer until now.
+ *
+ * These helpers add a COMPUTABLE audit signal to the envelope. They never
+ * change how a response is captured or written. Every rule is deterministic
+ * and byte-based — no semantic/natural-language guessing about content.
+ * ------------------------------------------------------------------ */
+
+/** Byte length of a value as it would appear in the JSON wire payload. */
+function wireBytes(value) {
+  if (value === undefined) return 0;
+  try {
+    const text = typeof value === 'string' ? value : JSON.stringify(value);
+    return typeof text === 'string' ? Buffer.byteLength(text, 'utf8') : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Stable, short hash of a value for correlating a model-output summary to raw R2. */
+function auditHash(value) {
+  try {
+    const text = typeof value === 'string' ? value : JSON.stringify(value);
+    if (typeof text !== 'string') return null;
+    return createHash('sha256').update(text, 'utf8').digest('hex').slice(0, 16);
+  } catch {
+    return null;
+  }
+}
+
+/** An explicit truncation marker on the wire — never inferred from prose. */
+function hasExplicitTruncationMark(...values) {
+  return values.some((value) => {
+    if (typeof value === 'boolean') return value === true;
+    if (value && typeof value === 'object' && value.truncated === true) return true;
+    const text = typeof value === 'string' ? value : (() => {
+      try { return JSON.stringify(value) ?? ''; } catch { return ''; }
+    })();
+    return /--- TRUNCATED ---|…\[truncated\s*\d*\]|(?:^|["'\s])truncated["'\s]*:/i.test(text);
+  });
+}
+
+/**
+ * Build the model-output audit block from data already present in the envelope.
+ *
+ * Source of truth for "source" vs "visible":
+ *   - source  = the FULL upstream response captured by `captureEvent('upstream',
+ *     { server, tool, args, result })` (or an `upstream_frame` direction:'in'
+ *     message). This is the complete upstream/gateway data — evidence shows the
+ *     wire was healthy in the silent-truncation incidents.
+ *   - visible = the sandbox event's `output.result`, i.e. exactly what
+ *     `toModelOutput()` returns to the model. When model code does
+ *     `.slice(0, 150)` this is a short projection of the full source.
+ *
+ * `possibleModelTruncation` is true only when ALL hold:
+ *   1. a sandbox output exists (never guess when there is nothing to compare),
+ *   2. an upstream source exists with bytes > 0 (never flag without a source),
+ *   3. the visible model output is materially shorter than the source
+ *      (<= 50% AND at least 64 bytes smaller — both conservative),
+ *   4. there is NO explicit `truncated:true` / wire marker on output/response.
+ * The rule is purely byte-based; it makes no claim about content semantics.
+ * Gateway `overflow` is unrelated and is deliberately NOT consulted here.
+ */
+export function buildModelOutputAudit({ events = [], response = {} } = {}) {
+  const list = Array.isArray(events) ? events : [];
+  const sandbox = list.find(
+    (event) => event?.type === 'sandbox' && event?.payload?.output !== undefined,
+  );
+  const empty = {
+    modelOutput: null,
+    sourceBytes: 0,
+    modelOutputBytes: 0,
+    possibleModelTruncation: false,
+  };
+  const output = sandbox?.payload?.output;
+  if (output === undefined || output === null) return empty;
+
+  // Largest captured upstream response in this request = the source bytes.
+  let sourceBytes = 0;
+  for (const event of list) {
+    if (event?.type === 'upstream' && event?.payload?.result !== undefined) {
+      sourceBytes = Math.max(sourceBytes, wireBytes(event.payload.result));
+    } else if (event?.type === 'upstream_frame' && event?.payload?.direction === 'in'
+      && event?.payload?.message !== undefined) {
+      sourceBytes = Math.max(sourceBytes, wireBytes(event.payload.message));
+    }
+  }
+
+  const hasObject = typeof output === 'object' && !Array.isArray(output);
+  const visible = hasObject && Object.prototype.hasOwnProperty.call(output, 'result')
+    ? output.result
+    : output;
+  const modelOutputBytes = wireBytes(visible);
+  const text = typeof visible === 'string' ? visible : (() => {
+    try { return JSON.stringify(visible) ?? ''; } catch { return ''; }
+  })();
+  const summary = text.length > 160 ? `${text.slice(0, 160)}…` : text;
+
+  const marked = hasExplicitTruncationMark(
+    output, visible, response?.truncated, response?.raw,
+  );
+  const materiallyShorter = sourceBytes > 0
+    && modelOutputBytes <= sourceBytes * 0.5
+    && sourceBytes - modelOutputBytes >= 64;
+  return {
+    modelOutput: {
+      summary,
+      length: typeof visible === 'string' ? visible.length : modelOutputBytes,
+      sha256: auditHash(visible),
+    },
+    sourceBytes,
+    modelOutputBytes,
+    possibleModelTruncation: sourceBytes > 0 && modelOutputBytes < sourceBytes && materiallyShorter && !marked,
+  };
 }
 
 function chunkToBuffer(chunk, encoding) {
@@ -327,6 +449,9 @@ export function startCapture(req, res, options = {}) {
         overflow,
         durationMs: duration,
       },
+      // Additive model-output truncation audit. Computed from data already in
+      // the envelope; capture semantics and all existing fields are unchanged.
+      model: buildModelOutputAudit({ events: context.events, response: { status: res.statusCode } }),
     };
 
     // Record the drop in Vercel logs unconditionally, even when `waitUntil`

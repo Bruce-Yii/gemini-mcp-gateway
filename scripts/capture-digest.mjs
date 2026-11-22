@@ -85,6 +85,19 @@ export function isTruncated(envelope) {
   return /--- TRUNCATED ---|…\[truncated\s*\d*\]|(?:^|["'\s])truncated["'\s]*:/i.test(raw);
 }
 
+/**
+ * True when the MODEL's visible output was silently truncated (batch 11).
+ *
+ * This is a DIFFERENT signal from gateway truncation (`isTruncated`) and from
+ * capture overflow (`response.overflow`): the gateway wire was complete, but
+ * the model only saw a shorter projection. We trust the deterministic boolean
+ * stamped by `buildModelOutputAudit()` in capture.js and never re-derive it
+ * from prose. Older envelopes without the field are not retro-flagged.
+ */
+export function isModelTruncationSuspect(envelope) {
+  return envelope?.model?.possibleModelTruncation === true;
+}
+
 /** Summarize a list of durations; empty list yields all zeroes. */
 function timing(durations) {
   const sorted = [...durations].sort((a, b) => a - b);
@@ -126,11 +139,11 @@ export function upstreamOf(envelope, tool) {
 }
 
 function blankGroup() {
-  return { calls: 0, errors: 0, durations: [], errorClasses: {}, truncated: 0, overflow: 0 };
+  return { calls: 0, errors: 0, durations: [], errorClasses: {}, truncated: 0, overflow: 0, modelTruncationSuspects: 0 };
 }
 
 function finishGroup(group) {
-  const { calls, errors, durations, errorClasses, truncated, overflow } = group;
+  const { calls, errors, durations, errorClasses, truncated, overflow, modelTruncationSuspects } = group;
   return {
     calls,
     errors,
@@ -139,6 +152,7 @@ function finishGroup(group) {
     errorClasses,
     truncated,
     overflow,
+    modelTruncationSuspects,
   };
 }
 
@@ -172,6 +186,13 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     byRoute: {},
     upstreamStats: {},
     toolStats: {},
+    // Additive fields (batch 11) — model-side silent truncation.
+    // Kept strictly separate from gateway `truncated` / `overflow`.
+    model_truncation_suspects: 0,
+    modelTruncationRate: 0,
+    modelTruncationByServer: {},
+    modelTruncationByTool: {},
+    modelTruncationBySession: {},
   };
   const upstreamGroups = new Map();
   const toolGroups = new Map();
@@ -191,8 +212,13 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
 
     const truncated = isTruncated(envelope);
     const overflow = envelope?.response?.overflow === true;
+    const modelSuspect = isModelTruncationSuspect(envelope);
     if (truncated) result.truncated += 1;
     if (overflow) result.overflow += 1;
+    if (modelSuspect) result.model_truncation_suspects += 1;
+
+    const session = envelope?.sessionId ?? envelope?.request?.sessionId ?? null;
+    if (modelSuspect) bumpHistogram(result.modelTruncationBySession, session ?? 'unknown');
 
     const { date: day, hour } = timeParts(envelope);
     bumpHistogram(result.byDay, day);
@@ -205,6 +231,7 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     route.durations.push(Number(envelope?.response?.durationMs ?? 0));
     if (truncated) route.truncated += 1;
     if (overflow) route.overflow += 1;
+    if (modelSuspect) route.modelTruncationSuspects += 1;
     routeGroups.set(routeKey, route);
 
     let errorClass = null;
@@ -231,16 +258,22 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
 
       const server = upstreamOf(envelope, name);
       const upstream = upstreamGroups.get(server) ?? blankGroup();
-      const tool = toolGroups.get(name ?? 'unknown') ?? blankGroup();
+      const toolName = name ?? 'unknown';
+      const tool = toolGroups.get(toolName) ?? blankGroup();
       for (const group of [upstream, tool]) {
         group.calls += 1;
         group.durations.push(Number(envelope?.response?.durationMs ?? 0));
         if (truncated) group.truncated += 1;
         if (overflow) group.overflow += 1;
+        if (modelSuspect) group.modelTruncationSuspects += 1;
         if (errorClass) {
           group.errors += 1;
           group.errorClasses[errorClass] = (group.errorClasses[errorClass] ?? 0) + 1;
         }
+      }
+      if (modelSuspect) {
+        bumpHistogram(result.modelTruncationByServer, server);
+        bumpHistogram(result.modelTruncationByTool, toolName);
       }
       upstreamGroups.set(server, upstream);
       if (name) toolGroups.set(name, tool);
@@ -250,6 +283,7 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
   result.truncationRate = rate(result.truncated, result.requests);
   result.overflowRate = rate(result.overflow, result.requests);
   result.errorRate = rate(result.errors, result.requests);
+  result.modelTruncationRate = rate(result.model_truncation_suspects, result.requests);
   result.durations.sort((a, b) => a - b);
   const pct = (p) => result.durations[Math.min(result.durations.length - 1, Math.max(0, Math.ceil(result.durations.length * p) - 1))] ?? 0;
   result.p50Ms = pct(0.5);
@@ -261,7 +295,7 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
   for (const [name, group] of routeGroups) result.byRoute[name] = finishGroup(group);
 
   // Keep a stable, human-friendly order in JSON output.
-  for (const key of ['byDay', 'byDayHour', 'byHour', 'statuses', 'errorClasses', 'routeErrors', 'upstreamStats', 'toolStats', 'byRoute']) {
+  for (const key of ['byDay', 'byDayHour', 'byHour', 'statuses', 'errorClasses', 'routeErrors', 'upstreamStats', 'toolStats', 'byRoute', 'modelTruncationByServer', 'modelTruncationByTool', 'modelTruncationBySession']) {
     result[key] = Object.fromEntries(Object.entries(result[key]).sort(([a], [b]) => a.localeCompare(b)));
   }
   result.date = date || Object.keys(result.byDay).filter((d) => d !== 'unknown').sort().at(-1) || 'unknown';
@@ -272,12 +306,12 @@ function statTable(stats, { tool = false } = {}) {
   const rows = Object.entries(stats).sort((a, b) => b[1].calls - a[1].calls).slice(0, 10)
     .map(([name, s]) => {
       const errors = Object.entries(s.errorClasses).map(([cls, count]) => `${cls}:${count}`).join(',') || '—';
-      return `| ${name} | ${s.calls} | ${s.errors} | ${s.errorRate} | ${s.p50Ms} | ${s.p95Ms} | ${s.avgMs} | ${s.truncated} | ${s.overflow} | ${errors} |`;
+      return `| ${name} | ${s.calls} | ${s.errors} | ${s.errorRate} | ${s.p50Ms} | ${s.p95Ms} | ${s.avgMs} | ${s.truncated} | ${s.overflow} | ${s.modelTruncationSuspects ?? 0} | ${errors} |`;
     });
   return [
-    `| ${tool ? 'Tool' : 'Upstream'} | Calls | Errors | Error rate | p50 ms | p95 ms | Avg ms | Truncated | Overflow | Error classes |`,
-    '|---|---:|---:|---:|---:|---:|---:|---:|---:|---|',
-    ...(rows.length ? rows : ['| — | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |']),
+    `| ${tool ? 'Tool' : 'Upstream'} | Calls | Errors | Error rate | p50 ms | p95 ms | Avg ms | Truncated | Overflow | ModelTrunc | Error classes |`,
+    '|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|',
+    ...(rows.length ? rows : ['| — | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |']),
   ].join('\n');
 }
 
@@ -303,10 +337,12 @@ export function renderScorecard(date, metrics) {
 | p95 latency | ${metrics.p95Ms} ms |
 | Avg latency | ${metrics.avgMs} ms |
 | Response bytes | ${metrics.bytes} |
-| Truncated responses | ${metrics.truncated} |
-| Overflow captures | ${metrics.overflow} |
+| Truncated responses (gateway wire) | ${metrics.truncated} |
+| Overflow captures (capture limit) | ${metrics.overflow} |
 | Truncation rate | ${metrics.truncationRate ?? 0} |
 | Overflow rate | ${metrics.overflowRate ?? 0} |
+| Model truncation suspects (silent) | ${metrics.model_truncation_suspects ?? 0} |
+| Model truncation rate | ${metrics.modelTruncationRate ?? 0} |
 | Overall error rate | ${metrics.errorRate ?? 0} |
 
 ## Tool calls (MCP method)
@@ -324,10 +360,30 @@ ${statTable(metrics.upstreamStats ?? {})}
 ${statTable(metrics.toolStats ?? {}, { tool: true })}
 
 ## Truncation / overflow
+> Three independent signals. "Model truncation suspects" is the silent case:
+> the gateway wire was complete, but the model received a materially shorter,
+> unmarked projection (e.g. model code calling slice(0, 150)). It is advisory-only.
+
 | Signal | Count | Rate |
 |---|---:|---:|
-| Truncated responses | ${metrics.truncated} | ${metrics.truncationRate ?? 0} |
-| Overflow captures | ${metrics.overflow} | ${metrics.overflowRate ?? 0} |
+| Truncated responses (gateway wire) | ${metrics.truncated} | ${metrics.truncationRate ?? 0} |
+| Overflow captures (capture limit) | ${metrics.overflow} | ${metrics.overflowRate ?? 0} |
+| Model truncation suspects (silent, advisory) | ${metrics.model_truncation_suspects ?? 0} | ${metrics.modelTruncationRate ?? 0} |
+
+### Model truncation suspects by server
+| Server | Suspects |
+|---|---:|
+${Object.entries(metrics.modelTruncationByServer ?? {}).sort((a, b) => b[1] - a[1]).map(([name, count]) => `| ${name} | ${count} |`).join('\n') || '| — | 0 |'}
+
+### Model truncation suspects by tool
+| Tool | Suspects |
+|---|---:|
+${Object.entries(metrics.modelTruncationByTool ?? {}).sort((a, b) => b[1] - a[1]).map(([name, count]) => `| ${name} | ${count} |`).join('\n') || '| — | 0 |'}
+
+### Model truncation suspects by session
+| Session | Suspects |
+|---|---:|
+${Object.entries(metrics.modelTruncationBySession ?? {}).sort((a, b) => b[1] - a[1]).map(([name, count]) => `| ${name} | ${count} |`).join('\n') || '| — | 0 |'}
 
 ## Requests by day
 | Day | Requests |

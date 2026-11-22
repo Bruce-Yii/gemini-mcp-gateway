@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
   listR2Keys, readR2Envelope, readDirEnvelopes, aggregateEnvelopes, classifyError,
-  isTruncated, upstreamOf,
+  isTruncated, isModelTruncationSuspect, upstreamOf,
 } from './capture-digest.mjs';
 
 const MAX_CODE = 2000;
@@ -144,6 +144,47 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
       sampleEventIds: row.sampleEventIds,
     }));
 
+  // Independent model-side silent-truncation cluster (batch 11). Advisory only:
+  // this is a deterministic flag stamped at capture time, never a verdict about
+  // content. It stays separate from error clusters and from gateway truncation.
+  // Each entry keeps its requestId AND sessionId so a reviewer can go straight
+  // back to the raw R2 envelope (see batch-11 ledger doc for the replay steps).
+  const truncationSuspects = [];
+  for (const envelope of mcpOnly) {
+    if (!isModelTruncationSuspect(envelope)) continue;
+    const req = requestJson(envelope);
+    const upstream = (envelope.events ?? []).find((event) => event?.type === 'upstream');
+    const sandbox = (envelope.events ?? []).find((event) => event?.type === 'sandbox');
+    const tool = upstream?.payload?.tool ?? req?.params?.name ?? sandbox?.payload?.tool ?? 'unknown';
+    truncationSuspects.push({
+      requestId: envelope.requestId ?? null,
+      sessionId: envelope.sessionId ?? envelope?.request?.sessionId ?? null,
+      server: upstreamOf(envelope, tool),
+      tool,
+      sourceBytes: Number(envelope?.model?.sourceBytes ?? 0),
+      modelOutputBytes: Number(envelope?.model?.modelOutputBytes ?? 0),
+      modelOutputLength: Number(envelope?.model?.modelOutput?.length ?? 0),
+      modelOutputSha256: envelope?.model?.modelOutput?.sha256 ?? null,
+      modelOutputSummary: truncate(envelope?.model?.modelOutput?.summary ?? '', MAX_ERROR),
+    });
+  }
+  // Expose the suspect ids as a cluster so validateAnalyzerOutput()'s existing
+  // evidence whitelist accepts them WITHOUT any validator change.
+  const truncationCluster = truncationSuspects.length
+    ? [{
+        id: `model-truncation-${truncationSuspects.length}`,
+        kind: 'model_truncation_suspect',
+        advisoryOnly: true,
+        errorClass: 'model_truncation_suspect',
+        server: 'multiple',
+        tool: 'multiple',
+        count: truncationSuspects.length,
+        sampleEventIds: truncationSuspects.slice(0, 20).map((suspect) => suspect.requestId).filter(Boolean),
+        sampleError: 'Model-visible output materially shorter than source with no truncation marker (advisory).',
+        durationMs: [],
+      }]
+    : [];
+
   return {
     schema: 'analyzer-input.v1',
     date,
@@ -158,7 +199,12 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
     // Additive: present whenever multi-day data is supplied; null/undefined otherwise.
     trend: trend ?? null,
     upstreamErrorRates,
-    clusters: [...groups.values()].sort((a, b) => b.count - a.count).slice(0, maxClusters),
+    // Independent, advisory-only model-side silent-truncation cluster/suspects.
+    truncationSuspects,
+    clusters: [
+      ...[...groups.values()].sort((a, b) => b.count - a.count).slice(0, maxClusters),
+      ...truncationCluster,
+    ],
     samples,
     limits: { maxIssues: 5, maxCharsPerIssue: 1200 },
   };
@@ -259,6 +305,9 @@ function analyzerPrompt(input) {
   const trendHint = Array.isArray(input.trend) && input.trend.length > 1
     ? 'Cross-day trend and per-upstream error rates are included; only flag a trend if the evidence ids support it.'
     : '';
+  const truncationHint = Array.isArray(input.truncationSuspects) && input.truncationSuspects.length
+    ? 'truncationSuspects / the model_truncation_suspect cluster are advisory, byte-based hints that the model saw a shorter, unmarked projection while the gateway wire was complete. Do NOT classify them as gateway errors or overflow; cite their requestId only if you want to raise a candidate for human replay.'
+    : '';
   return [
     {
       role: 'system',
@@ -267,6 +316,7 @@ function analyzerPrompt(input) {
         'Classify only from the provided JSON. Do not invent evidence.',
         'Your output is advisory only: it must be verified against raw captures and a local replay before any code change.',
         trendHint,
+        truncationHint,
         'Return ONLY strict JSON matching analyzer-output.v1:',
         '{"schema":"analyzer-output.v1","summary":"...","issues":[{"id":"issue-1","severity":"P0|P1|P2|P3","category":"gateway|upstream|model|data|unknown","title":"...","evidenceEventIds":["..."],"likelyCause":"...","suggestedFix":"...","confidence":0.0,"regressionTask":{"prompt":"...","expectedTool":"...","assertions":["..."]}}],"ignored":[{"clusterId":"c1","reason":"..."}]}',
         'Each issue MUST cite at least one evidenceEventIds from the input. If unsure, use ignored.',
