@@ -1,0 +1,34 @@
+# B7 · G6 全量重测发现：sandbox 缺少 Intl + 检测器误归因
+
+> 2026-11-23。G6 用 5 上游 228 任务跑完（run `run-1795367330219-12631ed7`）。
+> 本批只登记发现与分类，**不宣布 G6 通过**。
+
+## ISSUE-G6-1：sandbox 没有 Intl（真缺口）
+
+- **表象**：5 条 Notion 任务 `execute error: Intl is not defined (script line 299...)`。
+- **L1**：QuickJS guest prelude/global 没有 `Intl`；模型用 `new Intl.DateTimeFormat(...)` 构造日期范围。
+- **L2**：沙箱的能力契约只写了"JS"，没有列出可用/不可用的标准全局；模型按 Node 习惯写代码。
+- **L3**：Code Mode 的"可预期运行时"没有定义——与 B5 的截断预算不透明同源（让模型猜）。
+- **影响**：可恢复（模型重试改用 UTC getter 后继续），但会浪费一轮上下文；若任务依赖 locale/时区格式化，可能直接失败。
+- **候选修复**（未定）：
+  1. 加最小 `formatDate()` sandbox helper（UTC/ISO），并在 guidance 明确 "Intl 不可用"；
+  2. 提供受限 `Intl.DateTimeFormat`/`NumberFormat` polyfill（覆盖常用 options；风险是 locale 语义不完整）；
+  3. DEC：保留缺失，只文档化。
+- **状态**：⚠️ 待决策/实现；G6 因此不能通过。
+
+## ISSUE-G6-2：检测器把非网关问题归到 gateway
+
+- `not a function` 5 条：模型抄了不存在的 callName（如 `notion__notion_get_page`），
+  实际可调用名在 search 的 `callName` 字段；非网关。
+- `services` 对象 16 条：`execute_read` 返回 `codemode.services()` 的合法对象，detector 却发
+  `execute_error`；属于 **detector 口径 bug**，与网关功能无关。
+- 其余 124 条 gateway 中，约 98 条是上游套餐/账号（Notion Business/日历未连接）、
+  Vercel token 权限 403/404、Figma 占位 fileKey/nodeId、Linear 复杂度/team 不存在、
+  GitHub 404 等，均非网关功能 bug。
+- **修复方向**：G7 前先修 detector 的 `services` 误报与 execute_error 归因，否则 G6 数字不可用于验收。
+
+## 验证与门控
+
+- G6 228 tasks / 855 turns / 703 tool calls；anomalies 387（model 257 / gateway 124 / infra 3 / synthetic 3）。
+- 逐条复核后：真网关缺口 = Intl（5）；其余为模型/上游/账号/检测器。
+- **G6 结论：未通过**（Intl 未解决 + detector 口径未修）；G7 未做。

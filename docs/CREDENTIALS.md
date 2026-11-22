@@ -17,6 +17,18 @@ live in a **vault outside the repo**:
 - `figma-oauth.json` — Figma OAuth client id/secret + access/refresh token
 - `vercel-auth.json` — backup of the Vercel CLI auth file (restore to
   `%APPDATA%\com.vercel.cli\Data\auth.json` if a fresh profile loses login)
+- `github-auth.json` — GitHub PAT (`token`); exported from a prior
+  user-provided session, validated against `api.github.com/user`
+- `notion-oauth.json` — Notion OAuth access/refresh token; exported from the
+  DSH connector OAuth grant in `storages/mcp_connector_grants_v1/`
+- `linear-auth.json` — Linear MCP `Authorization` header; exported from the
+  DSH connector config (`storages/mcp_connector.json`, `custom-linear`)
+
+Run G6/G7 against these three files rather than re-prompting the user. If a
+token is rejected, refresh/re-authorize that one upstream once (GitHub PATs
+and OAuth refresh tokens expire on the provider's schedule — not fixable by
+the gateway); do not fall back to a single upstream (e.g. Figma) and call it a
+full retest.
 
 Commands:
 

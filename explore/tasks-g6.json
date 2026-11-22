@@ -1,0 +1,2528 @@
+{
+  "generatedAt": "2026-11-22T17:08:49.815Z",
+  "description": "G6 combined task set: 191 existing + runnable Figma tasks (paid Weave skipped).",
+  "count": 228,
+  "skipped": 9,
+  "tasks": [
+    {
+      "id": "F001",
+      "server": "github",
+      "tool": "add_comment_to_pending_review",
+      "prompt": "Add a review comment to the requester's latest pending pull request review in the GitHub repository Bruce-Yii/gemini-mcp-gateway: on pull request #12 target the file src/app.js at the FILE level with body 'Please handle the null case here.'",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F002",
+      "server": "github",
+      "tool": "add_issue_comment",
+      "prompt": "Add a comment to PR #123: 'LGTM, approved'",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-codex.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F003",
+      "server": "github",
+      "tool": "add_reply_to_pull_request_comment",
+      "prompt": "Add a reply to an existing pull request comment in the GitHub repository Bruce-Yii/gemini-mcp-gateway: reply to comment ID 123456 on PR #7 with the text 'Good catch - fixed in the latest commit.'",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F004",
+      "server": "github",
+      "tool": "create_branch",
+      "prompt": "Create a new branch called feature/new-login in the repository octocat/Hello-World.",
+      "source": "https://docs.github.com/en/copilot/reference/chat-cheat-sheet",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F005",
+      "server": "github",
+      "tool": "create_or_update_file",
+      "prompt": "Add a new file named hello-world.md to my feature/new-login branch of octocat/Hello-World with the content: \"Hello, world! This file was created from Copilot Chat in GitHub!\"",
+      "source": "https://docs.github.com/en/copilot/reference/chat-cheat-sheet",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F006",
+      "server": "github",
+      "tool": "create_pull_request",
+      "prompt": "Create a pull request with the changes we have made",
+      "source": "https://github.blog/ai-and-ml/github-copilot-cli-101-how-to-use-github-copilot-from-the-command-line/",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F007",
+      "server": "github",
+      "tool": "create_repository",
+      "prompt": "Can you create a repository for this project called teenyhost?",
+      "source": "https://github.blog/ai-and-ml/generative-ai/gpt-5-in-github-copilot-how-i-built-a-game-in-60-seconds/",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F008",
+      "server": "github",
+      "tool": "delete_file",
+      "prompt": "Delete a file from the GitHub repository Bruce-Yii/gemini-mcp-gateway: remove docs/old-notes.md from branch main with commit message 'Remove obsolete notes'.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F009",
+      "server": "github",
+      "tool": "fork_repository",
+      "prompt": "Fork the GitHub repository Bruce-Yii/gemini-mcp-gateway to my account.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F010",
+      "server": "github",
+      "tool": "get_commit",
+      "prompt": "What is the expected output of this commit?",
+      "source": "https://docs.github.com/en/copilot/how-tos/copilot-on-github/chat-with-copilot/get-started-with-chat",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F011",
+      "server": "github",
+      "tool": "get_file_contents",
+      "prompt": "Explain this file.",
+      "source": "https://docs.github.com/en/copilot/how-tos/copilot-on-github/chat-with-copilot/get-started-with-chat",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F012",
+      "server": "github",
+      "tool": "get_label",
+      "prompt": "Get a specific label from the GitHub repository Bruce-Yii/gemini-mcp-gateway: show the details of the label named 'bug'.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F013",
+      "server": "github",
+      "tool": "get_latest_release",
+      "prompt": "Get the latest release in the GitHub repository Bruce-Yii/gemini-mcp-gateway.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F014",
+      "server": "github",
+      "tool": "get_me",
+      "prompt": "Tell me about myself.",
+      "source": "https://docs.github.com/en/copilot/reference/chat-cheat-sheet",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F015",
+      "server": "github",
+      "tool": "get_release_by_tag",
+      "prompt": "Get a specific release by its tag name in the GitHub repository Bruce-Yii/gemini-mcp-gateway: tag v1.0.0.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F016",
+      "server": "github",
+      "tool": "get_tag",
+      "prompt": "Get details about a specific git tag in the GitHub repository Bruce-Yii/gemini-mcp-gateway: tag v1.0.0.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F017",
+      "server": "github",
+      "tool": "issue_read",
+      "prompt": "Show the content of issue #4",
+      "source": "https://github.blog/ai-and-ml/github-copilot-cli-101-how-to-use-github-copilot-from-the-command-line/",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F018",
+      "server": "github",
+      "tool": "issue_write",
+      "prompt": "Create a new issue in [owner/repo] titled 'Bug: fix login'",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-codex.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F019",
+      "server": "github",
+      "tool": "list_branches",
+      "prompt": "List branches in the GitHub repository Bruce-Yii/gemini-mcp-gateway.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F020",
+      "server": "github",
+      "tool": "list_commits",
+      "prompt": "Get the list of commits of a branch in the GitHub repository Bruce-Yii/gemini-mcp-gateway: branch main, since 2026-01-01.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F021",
+      "server": "github",
+      "tool": "list_issue_fields",
+      "prompt": "List issue fields for the GitHub repository Bruce-Yii/gemini-mcp-gateway.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F022",
+      "server": "github",
+      "tool": "list_issue_types",
+      "prompt": "List supported issue types for the GitHub repository Bruce-Yii/gemini-mcp-gateway.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F023",
+      "server": "github",
+      "tool": "list_issues",
+      "prompt": "Show me recent issues in [owner/repo]",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-codex.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F024",
+      "server": "github",
+      "tool": "list_pull_requests",
+      "prompt": "List open pull requests in [owner/repo]",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-codex.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F025",
+      "server": "github",
+      "tool": "list_releases",
+      "prompt": "List releases in the GitHub repository Bruce-Yii/gemini-mcp-gateway.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F026",
+      "server": "github",
+      "tool": "list_tags",
+      "prompt": "List git tags in the GitHub repository Bruce-Yii/gemini-mcp-gateway.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F027",
+      "server": "github",
+      "tool": "merge_pull_request",
+      "prompt": "Merge pull request #12 in octocat/Hello-World.",
+      "source": "https://docs.github.com/en/copilot/reference/chat-cheat-sheet",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F028",
+      "server": "github",
+      "tool": "pull_request_read",
+      "prompt": "Show me the diff for PR #123",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/docs/installation-guides/install-codex.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F029",
+      "server": "github",
+      "tool": "pull_request_review_write",
+      "prompt": "Help review this pull request.",
+      "source": "https://docs.github.com/en/copilot/tutorials/explore-pull-requests",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F030",
+      "server": "github",
+      "tool": "push_files",
+      "prompt": "Push the files test.md with the content \"This is a test file\" and test-again.md with the content \"This is another test file\" to the feature/new-login branch in octocat/Hello-World.",
+      "source": "https://docs.github.com/en/copilot/reference/chat-cheat-sheet",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F031",
+      "server": "github",
+      "tool": "request_copilot_review",
+      "prompt": "Request a GitHub Copilot code review for pull request #12 in the GitHub repository Bruce-Yii/gemini-mcp-gateway.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F032",
+      "server": "github",
+      "tool": "run_secret_scanning",
+      "prompt": "Scan my current changes for exposed secrets and show me the files and lines I should update before I commit.",
+      "source": "https://docs.github.com/en/code-security/how-tos/use-ghas-with-ai-coding-agents/scan-for-secrets-with-github-mcp-server",
+      "category": "boundary",
+      "official": true
+    },
+    {
+      "id": "F033",
+      "server": "github",
+      "tool": "search_code",
+      "prompt": "Search the code in the github organization's repositories for Go code that contains 'WithContext'.",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/README.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F034",
+      "server": "github",
+      "tool": "search_commits",
+      "prompt": "Find commits in octocat/Hello-World whose messages mention 'fix panic'.",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/README.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F035",
+      "server": "github",
+      "tool": "search_issues",
+      "prompt": "Search issues using natural-language semantic matching in the GitHub repository Bruce-Yii/gemini-mcp-gateway for 'memory leak' reports.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F036",
+      "server": "github",
+      "tool": "search_pull_requests",
+      "prompt": "What was the last merged PR by USERNAME",
+      "source": "https://docs.github.com/en/copilot/how-tos/copilot-on-github/chat-with-copilot/get-started-with-chat",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F037",
+      "server": "github",
+      "tool": "search_repositories",
+      "prompt": "Search GitHub for machine learning repositories written in Python with more than 1000 stars.",
+      "source": "https://raw.githubusercontent.com/github/github-mcp-server/main/README.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F038",
+      "server": "github",
+      "tool": "search_users",
+      "prompt": "Search for users with the name \"Mona Octocat\".",
+      "source": "https://docs.github.com/en/copilot/reference/chat-cheat-sheet",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F039",
+      "server": "github",
+      "tool": "sub_issue_write",
+      "prompt": "Add a sub-issue to a parent issue in the GitHub repository Bruce-Yii/gemini-mcp-gateway: use the add method to add sub-issue ID 50 to parent issue #42.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F040",
+      "server": "github",
+      "tool": "update_issue_comment",
+      "prompt": "Update the body of an existing issue conversation comment in the GitHub repository Bruce-Yii/gemini-mcp-gateway: comment ID 987654, new body 'Confirmed fixed in v1.2.0.'",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F041",
+      "server": "github",
+      "tool": "update_pull_request",
+      "prompt": "Update an existing pull request in the GitHub repository Bruce-Yii/gemini-mcp-gateway: PR #12, change title to 'Add login page (updated)', set base branch to develop, and set draft to false (ready for review).",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F042",
+      "server": "github",
+      "tool": "update_pull_request_branch",
+      "prompt": "Update the branch for pull request #12 in octocat/Hello-World with the latest changes from the base branch.",
+      "source": "https://docs.github.com/en/copilot/reference/chat-cheat-sheet",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F043",
+      "server": "notion",
+      "tool": "notion-search",
+      "prompt": "What did the product team decide this month about the rollout? Answer in chat.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/research-documentation/evaluations/restricted-search.json",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F044",
+      "server": "notion",
+      "tool": "notion-memory-search",
+      "prompt": "What do my Notion memories say about how I prefer project updates?",
+      "source": "https://developers.notion.com/guides/mcp/overview.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F045",
+      "server": "notion",
+      "tool": "notion-fetch",
+      "prompt": "In two sentences, what is the launch date in https://notion.so/launch? Answer here; do not save.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/research-documentation/evaluations/quick-answer.json",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F046",
+      "server": "notion",
+      "tool": "notion-create-attachment",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary.",
+      "source": "https://developers.notion.com/guides/mcp/tools-files.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F047",
+      "server": "notion",
+      "tool": "notion-create-file-upload",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary.",
+      "source": "https://developers.notion.com/guides/mcp/tools-files.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F048",
+      "server": "notion",
+      "tool": "notion-download-attachment",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary.",
+      "source": "https://developers.notion.com/guides/mcp/tools-files.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F049",
+      "server": "notion",
+      "tool": "notion-get-file-download-urls",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary.",
+      "source": "https://developers.notion.com/guides/mcp/tools-files.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F050",
+      "server": "notion",
+      "tool": "notion-create-pages",
+      "prompt": "Save our deployment discussion to the team wiki.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/knowledge-capture/evaluations/conversation-to-wiki.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F051",
+      "server": "notion",
+      "tool": "notion-update-page",
+      "prompt": "Update https://notion.so/deploy-guide with this correction: verify /ready returns 200 instead of /health. Keep the rest.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/knowledge-capture/evaluations/update-existing.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F052",
+      "server": "notion",
+      "tool": "notion-delete-pages",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents.",
+      "source": "https://developers.notion.com/guides/mcp/tools-pages.md",
+      "category": "boundary",
+      "official": true
+    },
+    {
+      "id": "F053",
+      "server": "notion",
+      "tool": "notion-delete-databases",
+      "prompt": "Create a content calendar in Notion for the campaign we discussed. Add draft ideas with owners, publish dates, and statuses, then create a calendar view and a view of content ready for review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-databases.md",
+      "category": "boundary",
+      "official": true
+    },
+    {
+      "id": "F054",
+      "server": "notion",
+      "tool": "notion-restore-pages",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F055",
+      "server": "notion",
+      "tool": "notion-move-pages",
+      "prompt": "Use Product projects. I am working with Maya on design and Eli on engineering. I lead product; Maya should review the interaction spec.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/set-up-my-project/evaluations/refine-team-and-placement.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F056",
+      "server": "notion",
+      "tool": "notion-duplicate-page",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents.",
+      "source": "https://developers.notion.com/guides/mcp/tools-pages.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F057",
+      "server": "notion",
+      "tool": "notion-create-database",
+      "prompt": "Create a simple equipment checkout database under https://notion.so/lab. Use one row per item, with item name, borrower, due date, and available or checked-out status. Add an overdue view if supported. Do not add sample items.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/database-designer/evaluations/create-with-limited-tools.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F058",
+      "server": "notion",
+      "tool": "notion-create-folder",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary.",
+      "source": "https://developers.notion.com/guides/mcp/tools-files.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F059",
+      "server": "notion",
+      "tool": "notion-update-folder",
+      "prompt": "Upload the report I attached to our project page in Notion. Put it in a Project files folder and add a link to it in the project summary.",
+      "source": "https://developers.notion.com/guides/mcp/tools-files.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F060",
+      "server": "notion",
+      "tool": "notion-update-data-source",
+      "prompt": "Our team tracker at https://notion.so/deliverables is hard to scan. Add a simple progress field so we can quickly see what is planned, underway, or finished. Fill it in from what is already there, and keep our original labels and notes.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/database-designer/evaluations/lossless-migration.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F061",
+      "server": "notion",
+      "tool": "notion-create-comment",
+      "prompt": "Comment \"Hello MCP\" on page \"Getting started\"",
+      "source": "https://github.com/makenotion/notion-mcp-server#examples",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F062",
+      "server": "notion",
+      "tool": "notion-get-comments",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F063",
+      "server": "notion",
+      "tool": "notion-update-comment",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F064",
+      "server": "notion",
+      "tool": "notion-delete-comment",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "boundary",
+      "official": true
+    },
+    {
+      "id": "F065",
+      "server": "notion",
+      "tool": "notion-set-discussion-resolved",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F066",
+      "server": "notion",
+      "tool": "notion-set-comment-reaction",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F067",
+      "server": "notion",
+      "tool": "notion-create-suggested-edit",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F068",
+      "server": "notion",
+      "tool": "notion-get-suggested-edit",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F069",
+      "server": "notion",
+      "tool": "notion-resolve-suggested-edit",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "boundary",
+      "official": true
+    },
+    {
+      "id": "F070",
+      "server": "notion",
+      "tool": "notion-get-async-task",
+      "prompt": "Find our project notes in Notion and create a project update with progress, decisions, blockers, and next steps. Save it alongside the existing project documents.",
+      "source": "https://developers.notion.com/guides/mcp/tools-pages.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F071",
+      "server": "notion",
+      "tool": "notion-query-data-sources",
+      "prompt": "Give me a brief weekly update for https://notion.so/pilot for September 28–October 4, 2026. Tell me how much progress we made.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/weekly-project-digest/evaluations/first-snapshot.json",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F072",
+      "server": "notion",
+      "tool": "notion-query-meeting-notes",
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes.",
+      "source": "https://developers.notion.com/guides/mcp/tools-calendars.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F073",
+      "server": "notion",
+      "tool": "notion-list-private-pages",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources.",
+      "source": "https://developers.notion.com/guides/mcp/tools-search.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F074",
+      "server": "notion",
+      "tool": "notion-list-shared-pages",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources.",
+      "source": "https://developers.notion.com/guides/mcp/tools-search.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F075",
+      "server": "notion",
+      "tool": "notion-list-favorite-pages",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources.",
+      "source": "https://developers.notion.com/guides/mcp/tools-search.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F076",
+      "server": "notion",
+      "tool": "notion-list-recent-pages",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources.",
+      "source": "https://developers.notion.com/guides/mcp/tools-search.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F077",
+      "server": "notion",
+      "tool": "notion-create-view",
+      "prompt": "Create a private weekly planner with a task board and example tasks. I want to see the board immediately when I open the page, with notes and ideas below it. Open in the side panel.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/database-designer/evaluations/board-first-layout.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F078",
+      "server": "notion",
+      "tool": "notion-update-view",
+      "prompt": "Set up our marketing workspace in Notion from these campaign notes. Use a new private workspace; don't search existing company information.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/plan-marketing-campaigns/evaluations/connected-campaign-workspace.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F079",
+      "server": "notion",
+      "tool": "notion-get-version-changes",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F080",
+      "server": "notion",
+      "tool": "notion-view-version",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F081",
+      "server": "notion",
+      "tool": "notion-restore-version",
+      "prompt": "Review our launch proposal in Notion. Summarize what changed since Monday and who made the changes, read the unresolved comments, and suggest edits to address them. Leave the suggestions pending for my team to review.",
+      "source": "https://developers.notion.com/guides/mcp/tools-comments.md",
+      "category": "boundary",
+      "official": true
+    },
+    {
+      "id": "F082",
+      "server": "notion",
+      "tool": "notion-list-page-backlinks",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources.",
+      "source": "https://developers.notion.com/guides/mcp/tools-search.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F083",
+      "server": "notion",
+      "tool": "notion-get-sidebar-tabs",
+      "prompt": "Show me the current tabs in my Notion sidebar, in order, along with the catalogs of shortcuts and sections I can add to them.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F084",
+      "server": "notion",
+      "tool": "notion-update-sidebar-tabs",
+      "prompt": "Update my Notion sidebar by replacing the complete ordered list of tabs, where each tab has a name, shortcuts, and sections; keep the existing ones by id and omit the ones to remove.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F085",
+      "server": "notion",
+      "tool": "notion-update-page-favorites",
+      "prompt": "Add the Notion page titled 'Launch proposal' to my favorites.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F086",
+      "server": "notion",
+      "tool": "notion-calendar-list-calendars",
+      "prompt": "Prepare for my next accepted meeting in Notion.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/meeting-prep/evaluations/calendar-connection.json",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F087",
+      "server": "notion",
+      "tool": "notion-calendar-list-events",
+      "prompt": "Prepare for my next accepted meeting in Notion.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/meeting-prep/evaluations/calendar-connection.json",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F088",
+      "server": "notion",
+      "tool": "notion-calendar-list-contacts",
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes.",
+      "source": "https://developers.notion.com/guides/mcp/tools-calendars.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F089",
+      "server": "notion",
+      "tool": "notion-calendar-create-events",
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes.",
+      "source": "https://developers.notion.com/guides/mcp/tools-calendars.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F090",
+      "server": "notion",
+      "tool": "notion-calendar-update-events",
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes.",
+      "source": "https://developers.notion.com/guides/mcp/tools-calendars.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F091",
+      "server": "notion",
+      "tool": "notion-calendar-cancel-events",
+      "prompt": "Use Notion MCP to review my calendar for tomorrow, find time for focused work, and summarize what I need to prepare for each meeting using my Notion notes.",
+      "source": "https://developers.notion.com/guides/mcp/tools-calendars.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F092",
+      "server": "notion",
+      "tool": "notion-get-self",
+      "prompt": "Search Notion for our latest launch decisions and meeting notes. Summarize what we agreed, what is still unresolved, and link to the sources.",
+      "source": "https://developers.notion.com/guides/mcp/tools-search.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F093",
+      "server": "notion",
+      "tool": "notion-link-meeting-note-to-calendar-event",
+      "prompt": "Link my existing full-page Notion meeting note 'Launch review' to a calendar event returned by the calendar tools.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F094",
+      "server": "notion",
+      "tool": "notion-convert-to-meetings-database",
+      "prompt": "Convert my existing Notion database 'Meetings' into a Meetings database so its rows can be full-page meeting notes, keeping all existing rows.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F095",
+      "server": "notion",
+      "tool": "notion-create-meeting-note",
+      "prompt": "Prepare for my next accepted meeting in Notion.",
+      "source": "https://raw.githubusercontent.com/makenotion/notion-cookbook/main/skills/mcp-clients/meeting-prep/evaluations/next-accepted-meeting.json",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F096",
+      "server": "linear",
+      "tool": "get_attachment",
+      "prompt": "add retry handling for failed image uploads described in this issue",
+      "source": "https://linear.app/agents.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F097",
+      "server": "linear",
+      "tool": "list_comments",
+      "prompt": "Start from issue LIN-123. Read the issue description and all its comments, then list what the team has already observed and hypothesized about the bug.",
+      "source": "https://linear.app/docs/mcp#common-use-cases",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F098",
+      "server": "linear",
+      "tool": "save_comment",
+      "prompt": "Turn these standup notes into updates on existing Linear issues. Match each note by ID, title, owner, or clear context; for every confident match add a concise comment capturing what changed, the current status or blocker, and the next step. Show me the issues and exact comments before applying them, then list any notes you skipped. Standup notes: [paste the raw text here]",
+      "source": "https://linear.app/docs/mcp#common-use-cases",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F099",
+      "server": "linear",
+      "tool": "delete_comment",
+      "prompt": "Delete the comment with ID 3f1c2d9e-4b7a-4c88-9e21-6d0f5a7b8c13 in the Yi Linear workspace.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F100",
+      "server": "linear",
+      "tool": "list_cycles",
+      "prompt": "Identify the most recently completed cycle for teams LIN and FEA, gather the relevant issues, and produce a concise summary of what was actually completed, the main themes, and any notable patterns.",
+      "source": "https://linear.app/docs/mcp#common-use-cases",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F101",
+      "server": "linear",
+      "tool": "list_custom_views",
+      "prompt": "List all saved issue, project, and initiative views I can access in the Yi Linear workspace, including my personal views and the LIN and FEA team views.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F102",
+      "server": "linear",
+      "tool": "get_document",
+      "prompt": "How does notification grouping work today, and where should we change it? Read the relevant Linear documents and summarize the current behavior and the open questions.",
+      "source": "https://linear.app/agents.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F103",
+      "server": "linear",
+      "tool": "list_documents",
+      "prompt": "List the documents in the Yi Linear workspace with their titles and last-updated dates, and highlight any about the API launch.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F104",
+      "server": "linear",
+      "tool": "save_document",
+      "prompt": "Draft a new document on this project that comprehensively outlines the feature.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F105",
+      "server": "linear",
+      "tool": "extract_images",
+      "prompt": "add retry handling for failed image uploads described in this issue",
+      "source": "https://linear.app/agents.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F106",
+      "server": "linear",
+      "tool": "get_issue",
+      "prompt": "Investigate this issue using Sentry and summarize the likely cause.",
+      "source": "https://linear.app/docs/connect-mcp-servers.md",
+      "category": "boundary",
+      "official": true
+    },
+    {
+      "id": "F107",
+      "server": "linear",
+      "tool": "list_issues",
+      "prompt": "Review today's mobile triage and group the issues by what should happen next.",
+      "source": "https://linear.app/agents.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F108",
+      "server": "linear",
+      "tool": "save_issue",
+      "prompt": "Design an implementation plan from the context below and treat it as a draft I can review and edit. Once I approve it, create a parent issue that captures the overall goal and create sub-issues for the concrete pieces of work needed to execute it. Context: [insert enough context to help orient the agent]",
+      "source": "https://linear.app/docs/mcp#common-use-cases",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F109",
+      "server": "linear",
+      "tool": "list_issue_statuses",
+      "prompt": "Review new and untriaged issues for our team. For each issue, recommend the next step, such as clarifying scope, assigning an owner, setting priority, linking related work, or closing it if it is no longer needed. Flag any duplicates, missing context, or risks.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F110",
+      "server": "linear",
+      "tool": "get_issue_status",
+      "prompt": "In the Yi Linear workspace, get the issue status 'In Review' for team LIN by status name and team, and show its type, position and start/complete flags.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F111",
+      "server": "linear",
+      "tool": "list_issue_labels",
+      "prompt": "List the issue labels available in the Yi Linear workspace and in the FEA team, including label groups and noting any retired labels.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F112",
+      "server": "linear",
+      "tool": "list_projects",
+      "prompt": "Check project status: see what is at risk, what is falling behind, and where my attention is needed.",
+      "source": "https://linear.app/ai.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F113",
+      "server": "linear",
+      "tool": "get_project",
+      "prompt": "Summarize the current status of this project with progress, risks, and next steps.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F114",
+      "server": "linear",
+      "tool": "save_project",
+      "prompt": "Turn the attached PRD into a new Linear project. Draft the project overview based on the PRD, create the issues needed to deliver it, and organize them into milestones that reflect the plan in the document. Keep the issues well scoped and call out anything ambiguous instead of filling in gaps on your own.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F115",
+      "server": "linear",
+      "tool": "list_project_labels",
+      "prompt": "List all project labels in the Yi Linear workspace, including the FEA team's project labels and label groups, so I can tag the API launch project.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F116",
+      "server": "linear",
+      "tool": "list_milestones",
+      "prompt": "Review all issues assigned to me, the projects I am involved in, and any upcoming deadlines or milestones in the next two weeks. Recommend what I should focus on this week based on what is blocking other people's work, what has the nearest deadlines, and what is tied to the highest-priority projects. Flag anything that looks stale.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F117",
+      "server": "linear",
+      "tool": "get_milestone",
+      "prompt": "Retrieve details of a specific milestone by name in the API launch project of the Yi Linear workspace: 'Public Beta' — include its target date, description and progress.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F118",
+      "server": "linear",
+      "tool": "save_milestone",
+      "prompt": "Turn this planning document into a well-structured Linear project. Read the document, create a project that reflects its objective, scope, and timeline, create the issues, and organize issues into milestones when the document clearly implies phases, deliverables, or checkpoints. Before creating anything, show me the proposed project, milestones, issues, and relationships.",
+      "source": "https://linear.app/docs/mcp#common-use-cases",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F119",
+      "server": "linear",
+      "tool": "get_notifications",
+      "prompt": "Show me the unread notifications in my Linear inbox in the Yi workspace from the last two days.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F120",
+      "server": "linear",
+      "tool": "mark_notification",
+      "prompt": "Mark the notification with ID 8c7b6a5d-4e3f-2a1b-9c8d-7e6f5a4b3c2d in my Linear inbox as read, in the Yi workspace.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F121",
+      "server": "linear",
+      "tool": "list_teams",
+      "prompt": "Summarize the progress of our team's current cycle and tell me which issues are at risk of rolling over. Start by identifying the right team in the workspace.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F122",
+      "server": "linear",
+      "tool": "get_team",
+      "prompt": "Look up the FEA team by team key in the Yi Linear workspace and tell me its parent ID and hierarchy name.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F123",
+      "server": "linear",
+      "tool": "list_templates",
+      "prompt": "List the issue, project, and document templates available to me in the Yi Linear workspace, including the LIN team's templates.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F124",
+      "server": "linear",
+      "tool": "get_template",
+      "prompt": "Show me the 'Bug Report' issue template in the Yi Linear workspace, including the content it pre-fills, the default fields it applies, and its sub-issues.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F125",
+      "server": "linear",
+      "tool": "list_users",
+      "prompt": "Review my recent work across issues, projects, and comments from the last two weeks and highlight the most important updates, decisions, risks, and open questions I should bring to my next 1:1; first identify me and the teammates involved.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F126",
+      "server": "linear",
+      "tool": "get_user",
+      "prompt": "Retrieve one user's profile in the Yi Linear workspace by query 'me': show email, admin, guest and active flags, plus team IDs, names and keys.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F127",
+      "server": "linear",
+      "tool": "get_workspace",
+      "prompt": "Tell me which Linear workspace I am connected to — its ID, name, and URL — to confirm it is the Yi workspace.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F128",
+      "server": "linear",
+      "tool": "search_documentation",
+      "prompt": "Search Linear's product documentation to explain how cycles differ from project milestones, and link the relevant doc pages.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F129",
+      "server": "linear",
+      "tool": "get_status_updates",
+      "prompt": "Draft a project update that summarizes progress, risks, blockers, and recent changes. First read this project's existing status updates so the draft does not repeat them, then show me the draft for review.",
+      "source": "https://linear.app/ai.md",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F130",
+      "server": "linear",
+      "tool": "save_status_update",
+      "prompt": "Draft a concise weekly update for this project. Call out any meaningful changes in scope or timeline, note work that appears off plan or drifting from the original goals, and base the update on evidence from project issues and activity. Share the draft with me in this chat first; once I approve it, post it to the project.",
+      "source": "https://linear.app/docs/linear-agent.md",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F131",
+      "server": "linear",
+      "tool": "delete_status_update",
+      "prompt": "Delete (archive) an obsolete project status update in the Yi Linear workspace by update ID 2a1b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d; the update type must match.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F132",
+      "server": "vercel",
+      "tool": "search_vercel_documentation",
+      "prompt": "How do I configure custom domains in Vercel?",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/documentation/search_vercel_documentation",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F133",
+      "server": "vercel",
+      "tool": "get_git_deployment_context",
+      "prompt": "Which of my Git repositories already have Vercel projects?",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments/get_git_deployment_context",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F134",
+      "server": "vercel",
+      "tool": "open_deployments",
+      "prompt": "Show the deployment for the branch and commit I just pushed.",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments",
+      "category": "cross",
+      "official": true
+    },
+    {
+      "id": "F135",
+      "server": "vercel",
+      "tool": "ui_get_build_log_excerpt",
+      "prompt": "Get the last lines of a deployment build log for the Vercel deployment widget logs panel: teamId team_abc, deployment idOrUrl dpl_123.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F136",
+      "server": "vercel",
+      "tool": "get_runtime_logs",
+      "prompt": "Show me the runtime error logs for my project from the last hour",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/observability/get_runtime_logs",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F137",
+      "server": "vercel",
+      "tool": "get_runtime_errors",
+      "prompt": "Why is my production app throwing errors?",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/observability/get_runtime_errors",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F138",
+      "server": "vercel",
+      "tool": "get_project_trace",
+      "prompt": "Find the resolved OpenTelemetry trace for a Vercel project by request ID: projectId my-app, requestId req_abc123 from the runtime logs.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F139",
+      "server": "vercel",
+      "tool": "get_access_to_vercel_url",
+      "prompt": "myapp.vercel.app is protected by auth. Please create a shareable link for it",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments/get_access_to_vercel_url",
+      "category": "write",
+      "official": true
+    },
+    {
+      "id": "F140",
+      "server": "vercel",
+      "tool": "web_fetch_vercel_url",
+      "prompt": "Make sure the content from my-app.vercel.app/api/status looks right",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments/web_fetch_vercel_url",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F141",
+      "server": "vercel",
+      "tool": "list_ai_gateway_virtual_models",
+      "prompt": "List all virtual models configured in the Vercel AI Gateway for team team_abc, the reusable model configurations called as vmc/slug.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F142",
+      "server": "vercel",
+      "tool": "get_ai_gateway_virtual_model",
+      "prompt": "Read the full routing configuration of one Vercel AI Gateway virtual model for team team_abc: slug fast-chat, including provider order and inference region.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 2,
+      "regenerated": true
+    },
+    {
+      "id": "F143",
+      "server": "vercel",
+      "tool": "list_ai_gateway_rules",
+      "prompt": "List all Vercel AI Gateway routing rules for team team_abc, including rewrite and deny rules, whether each is enabled, and any shadowedBy rule.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F144",
+      "server": "vercel",
+      "tool": "list_ai_gateway_budgets",
+      "prompt": "List all Vercel AI Gateway budgets and spend limits for team team_abc, including how much of each budget is already used.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F145",
+      "server": "vercel",
+      "tool": "list_ai_gateway_models",
+      "prompt": "List the models in the public Vercel AI Gateway model catalog with their pricing and context windows.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F146",
+      "server": "vercel",
+      "tool": "get_ai_gateway_model",
+      "prompt": "Show the details and pricing of the Vercel AI Gateway model anthropic/claude-sonnet-4.5, including the providers that serve it.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F147",
+      "server": "vercel",
+      "tool": "get_domains_records_by_record_id",
+      "prompt": "Retrieve a single DNS record by its record ID rec_123 for the authenticated Vercel account or team.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F148",
+      "server": "vercel",
+      "tool": "get_storage_stores_by_id",
+      "prompt": "Retrieve a Vercel storage store by its ID store_123 for the authenticated account or team.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F149",
+      "server": "vercel",
+      "tool": "get_drive",
+      "prompt": "Read one Vercel Drive by name or ID (nameOrId my-drive, projectId my-app) to check its size and region.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F150",
+      "server": "vercel",
+      "tool": "get_project_env",
+      "prompt": "Get one project environment variable by ID from Vercel project idOrName my-app, id env_123, including its decrypted value.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 3,
+      "regenerated": true
+    },
+    {
+      "id": "F151",
+      "server": "vercel",
+      "tool": "list_project_routes",
+      "prompt": "Get the routing rules for Vercel project projectId my-app, including rewrites and redirects and staged changes.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F152",
+      "server": "vercel",
+      "tool": "list_project_route_versions",
+      "prompt": "Get the version history of the routing rules for Vercel project projectId my-app, including the staging and production versions.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F153",
+      "server": "vercel",
+      "tool": "aggregate_events",
+      "prompt": "Aggregate custom analytics events for Vercel project projectId my-app over the last 7 days, broken down by eventName.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F154",
+      "server": "vercel",
+      "tool": "count_events",
+      "prompt": "Count custom events for Vercel project projectId my-app in the last 24 hours (production only), filtered by eventName signup.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F155",
+      "server": "vercel",
+      "tool": "aggregate_pageviews",
+      "prompt": "Aggregate pageviews for Vercel project projectId my-app over the past week, broken down by day.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F156",
+      "server": "vercel",
+      "tool": "count_pageviews",
+      "prompt": "Count page views for Vercel project projectId my-app last month (production only).",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F157",
+      "server": "vercel",
+      "tool": "get_domain_availability",
+      "prompt": "Check whether the domain example.com is available for registration: a read-only Vercel registry lookup that does not register it.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F158",
+      "server": "vercel",
+      "tool": "get_domain_price",
+      "prompt": "Is example.com available, and what does it cost to register?",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/domains",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F159",
+      "server": "vercel",
+      "tool": "list_projects",
+      "prompt": "Show me projects in my team",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/projects/list_projects",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F160",
+      "server": "vercel",
+      "tool": "filter_project_envs",
+      "prompt": "List the environment variables of Vercel project idOrName my-app, optionally filtered by Git branch or custom environment.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F161",
+      "server": "vercel",
+      "tool": "get_deployment",
+      "prompt": "Get details about my latest production deployment",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments/get_deployment",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F162",
+      "server": "vercel",
+      "tool": "list_deployment_aliases",
+      "prompt": "Retrieve all aliases assigned to the Vercel deployment with ID dpl_123.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F163",
+      "server": "vercel",
+      "tool": "list_teams",
+      "prompt": "Show me all the teams I'm part of",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/teams/list_teams",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F164",
+      "server": "vercel",
+      "tool": "get_team",
+      "prompt": "Get information about the Vercel team specified by teamId team_abc.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F165",
+      "server": "vercel",
+      "tool": "get_auth_user",
+      "prompt": "Show information about the currently authenticated Vercel user (who am I logged in as).",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F166",
+      "server": "vercel",
+      "tool": "list_deployment_events",
+      "prompt": "Show me the latest build logs for the failed deployment",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments/list_deployment_events",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F167",
+      "server": "vercel",
+      "tool": "list_user_events",
+      "prompt": "List account activity events generated by the authenticated Vercel user, such as logins, deployments, and joining a team.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F168",
+      "server": "vercel",
+      "tool": "list_aliases",
+      "prompt": "List aliases for the authenticated Vercel user or team, optionally filtered by domain or projectId.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F169",
+      "server": "vercel",
+      "tool": "get_alias",
+      "prompt": "Look up a Vercel alias by hostname or alias ID my-app.vercel.app and tell me which deployment it points to.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 3,
+      "regenerated": true
+    },
+    {
+      "id": "F170",
+      "server": "vercel",
+      "tool": "list_domains",
+      "prompt": "List the domains registered for the authenticated Vercel user or team, up to 20 by default.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F171",
+      "server": "vercel",
+      "tool": "get_domain",
+      "prompt": "Get information about a single Vercel domain by name: domain example.com.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 2,
+      "regenerated": true
+    },
+    {
+      "id": "F172",
+      "server": "vercel",
+      "tool": "get_records",
+      "prompt": "Retrieve the list of DNS records created for the Vercel domain example.com, with pagination.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F173",
+      "server": "vercel",
+      "tool": "list_deployment_files",
+      "prompt": "List the file tree of a Vercel deployment's source code by deployment ID dpl_123.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F174",
+      "server": "vercel",
+      "tool": "get_domain_config",
+      "prompt": "Get the DNS configuration for the Vercel domain example.com, including its nameservers.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F175",
+      "server": "vercel",
+      "tool": "list_deployments",
+      "prompt": "Show me deployments for my blog project",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments/list_deployments",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F176",
+      "server": "vercel",
+      "tool": "list_certs",
+      "prompt": "List the SSL certificates for the authenticated Vercel account or selected team.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F177",
+      "server": "vercel",
+      "tool": "get_cert_by_id",
+      "prompt": "Get one SSL certificate by certificate ID cert_123 for the authenticated Vercel account or team.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F178",
+      "server": "vercel",
+      "tool": "get_deployment_file_contents",
+      "prompt": "Get the contents of the file index.html from Vercel deployment ID dpl_123 by file ID file_123 (base64-encoded).",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F179",
+      "server": "vercel",
+      "tool": "get_domain_verification_record",
+      "prompt": "Get the TXT verification record needed to claim ownership of the Vercel domain example.com, to be added at _vercel.example.com.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F180",
+      "server": "vercel",
+      "tool": "get_project",
+      "prompt": "Get details about my next-js-blog project",
+      "source": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/projects/get_project",
+      "category": "read",
+      "official": true
+    },
+    {
+      "id": "F181",
+      "server": "vercel",
+      "tool": "list_project_domains",
+      "prompt": "List the domains attached to Vercel project idOrName my-app, filtered by production or redirect.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F182",
+      "server": "vercel",
+      "tool": "get_project_domain",
+      "prompt": "Get the domain example.com attached to Vercel project idOrName my-app: show its project domain details.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 2,
+      "regenerated": true
+    },
+    {
+      "id": "F183",
+      "server": "vercel",
+      "tool": "update_ai_gateway_rule",
+      "prompt": "Turn off (disable) an existing Vercel AI Gateway routing rule named rate-limit for team team_abc: update requestBody ruleId rule_123 with enabled false.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F184",
+      "server": "vercel",
+      "tool": "update_ai_gateway_virtual_model",
+      "prompt": "Change an existing Vercel AI Gateway virtual model for team team_abc: vmcSlug fast-chat, requestBody modelSlug openai/gpt-4o.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F185",
+      "server": "vercel",
+      "tool": "cancel_deployment",
+      "prompt": "Cancel an in-progress Vercel deployment dpl_123, stopping its build before it completes.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F186",
+      "server": "vercel",
+      "tool": "create_ai_gateway_rule",
+      "prompt": "Add a new Vercel AI Gateway routing rule for team team_abc that rewrites requests for one model to another model.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 2,
+      "regenerated": true
+    },
+    {
+      "id": "F187",
+      "server": "vercel",
+      "tool": "create_ai_gateway_virtual_model",
+      "prompt": "Create a Vercel AI Gateway virtual model cheap-model in team team_abc that resolves to modelSlug openai/gpt-4o-mini.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F188",
+      "server": "vercel",
+      "tool": "fork_drive",
+      "prompt": "Fork an existing Vercel Drive named my-drive into a new drive in projectId my-app, requestBody name my-drive-copy.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F189",
+      "server": "vercel",
+      "tool": "search_domains",
+      "prompt": "Use Vercel to check registration availability and pricing for the exact domain names example.com and example.org; no authentication is required.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F190",
+      "server": "vercel",
+      "tool": "upsert_ai_gateway_budget",
+      "prompt": "Set or change a Vercel AI Gateway spend budget for team team_abc: requestBody scopeType user, userId user_123, limitAmount 100 in USD per month.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "F191",
+      "server": "vercel",
+      "tool": "upsert_ai_gateway_budget_default",
+      "prompt": "Set a default Vercel AI Gateway monthly spend limit of 50 USD for every API key in team team_abc that has no budget of its own.",
+      "source": "schema-driven+validated",
+      "category": "derived",
+      "official": false,
+      "rank": 1,
+      "regenerated": true
+    },
+    {
+      "id": "FIG-001",
+      "server": "figma",
+      "tool": "get_screenshot",
+      "prompt": "Take a screenshot of a frame in the test Figma file (first call get_metadata to find a page/frame node id).",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_screenshot"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-002",
+      "server": "figma",
+      "tool": "get_design_context",
+      "prompt": "Generate my Figma selection in Vue.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "get_design_context"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-003",
+      "server": "figma",
+      "tool": "get_motion_context",
+      "prompt": "Use get_motion_context to get keyframe animation data for an animated node in the test Figma file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_motion_context"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-004",
+      "server": "figma",
+      "tool": "get_metadata",
+      "prompt": "Use get_metadata to get a lightweight XML outline of the test Figma file pages, then list the page names.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_metadata"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-005",
+      "server": "figma",
+      "tool": "get_comments",
+      "prompt": "Summarize the unread comments in this Figma file: https://www.figma.com/design/izWTtDxzzsdcA5ZWyaquvS.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "get_comments"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-006",
+      "server": "figma",
+      "tool": "get_variable_defs",
+      "prompt": "Get the variables used in my Figma selection.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "get_variable_defs"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-007",
+      "server": "figma",
+      "tool": "get_figjam",
+      "prompt": "Use get_figjam to read the FigJam diagram in the test file and convert it to an XML outline.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_figjam"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-008",
+      "server": "figma",
+      "tool": "generate_image",
+      "prompt": "Generate a hero image of a mountain trail at sunrise for our landing page.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "generate_image"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-009",
+      "server": "figma",
+      "tool": "generate_vector_illustration",
+      "prompt": "Generate a flat vector illustration of a fox jumping over a fence and add it to https://www.figma.com/design/izWTtDxzzsdcA5ZWyaquvS.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "generate_vector_illustration"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-010",
+      "server": "figma",
+      "tool": "generate_figma_design",
+      "prompt": "Use generate_figma_design to capture a live web page into the existing test Figma design file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "generate_figma_design"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-011",
+      "server": "figma",
+      "tool": "generate_diagram",
+      "prompt": "Create a flowchart for the user authentication flow using the Figma MCP generate_diagram tool.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "generate_diagram"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-012",
+      "server": "figma",
+      "tool": "get_code_connect_map",
+      "prompt": "Use get_code_connect_map to get Code Connect mappings for a component instance in the test Figma file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_code_connect_map"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-013",
+      "server": "figma",
+      "tool": "whoami",
+      "prompt": "Get my Figma identity, plans and seats using whoami.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "whoami"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-023",
+      "server": "figma",
+      "tool": "add_code_connect_map",
+      "prompt": "Use add_code_connect_map to map a Figma component in the test file to a code component named Button.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "add_code_connect_map"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-024",
+      "server": "figma",
+      "tool": "get_code_connect_suggestions",
+      "prompt": "Use get_code_connect_suggestions to suggest Code Connect mappings for a component instance in the test Figma file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_code_connect_suggestions"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-025",
+      "server": "figma",
+      "tool": "send_code_connect_mappings",
+      "prompt": "Use send_code_connect_mappings to confirm and save the suggested Code Connect mappings for a component in the test file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "send_code_connect_mappings"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-026",
+      "server": "figma",
+      "tool": "export_video",
+      "prompt": "Export this animated frame as an MP4.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "export_video"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-027",
+      "server": "figma",
+      "tool": "get_context_for_code_connect",
+      "prompt": "Use get_context_for_code_connect to get component metadata needed for a Code Connect template from the test file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_context_for_code_connect"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-028",
+      "server": "figma",
+      "tool": "use_figma",
+      "prompt": "Add a new frame to my Figma file.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "use_figma"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-029",
+      "server": "figma",
+      "tool": "create_session",
+      "prompt": "Use create_session to create a Figma session for the test file before starting file-tool work.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "create_session"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-030",
+      "server": "figma",
+      "tool": "create_branch",
+      "prompt": "Use create_branch to create a new branch of the test Figma design file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "create_branch"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-031",
+      "server": "figma",
+      "tool": "get_libraries",
+      "prompt": "Use get_libraries to list the design libraries associated with the test Figma file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_libraries"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-032",
+      "server": "figma",
+      "tool": "search_design_system",
+      "prompt": "Search for a button component in my design system.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "search_design_system"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-033",
+      "server": "figma",
+      "tool": "create_new_file",
+      "prompt": "Create a new Figma file called \"Homepage Redesign.\"",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "create_new_file"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-034",
+      "server": "figma",
+      "tool": "send_code_to_figma",
+      "prompt": "Use send_code_to_figma to import a small local project into a Figma Make or Design code layer.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "send_code_to_figma"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-035",
+      "server": "figma",
+      "tool": "upload_assets",
+      "prompt": "Use upload_assets to upload a small SVG icon into the test Figma file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "upload_assets"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-036",
+      "server": "figma",
+      "tool": "html_to_figma",
+      "prompt": "Create a style sheet from our design tokens and add it to https://www.figma.com/design/izWTtDxzzsdcA5ZWyaquvS.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "html_to_figma"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-037",
+      "server": "figma",
+      "tool": "download_assets",
+      "prompt": "Export these icons from my Figma file as SVGs.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "download_assets"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-038",
+      "server": "figma",
+      "tool": "list_file_shaders",
+      "prompt": "Use list_file_shaders to list the shader effects and fills used in the test Figma file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "list_file_shaders"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-039",
+      "server": "figma",
+      "tool": "list_shaders",
+      "prompt": "List the shaders in my library.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "list_shaders"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-040",
+      "server": "figma",
+      "tool": "get_shader",
+      "prompt": "Show me the source for my star field shader.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "get_shader"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-041",
+      "server": "figma",
+      "tool": "list_generative_plugins",
+      "prompt": "List my generative plugins.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "list_generative_plugins"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-042",
+      "server": "figma",
+      "tool": "get_generative_plugin",
+      "prompt": "Show me the source for my layer-renaming plugin.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "get_generative_plugin"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-043",
+      "server": "figma",
+      "tool": "create_generative_plugin",
+      "prompt": "Create a new generative plugin called \"Layer renamer\" in my team plan.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "create_generative_plugin"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-044",
+      "server": "figma",
+      "tool": "create_shader",
+      "prompt": "Create a shader fill called \"Topographic contours\" in my team plan.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "create_shader"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-045",
+      "server": "figma",
+      "tool": "update_generative_plugin",
+      "prompt": "Use update_generative_plugin to update the Layer renamer generative plugin with a commit message.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "update_generative_plugin"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-046",
+      "server": "figma",
+      "tool": "update_shader",
+      "prompt": "Use update_shader to update the Topographic contours shader fill with a commit message.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "update_shader"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    }
+  ]
+}
