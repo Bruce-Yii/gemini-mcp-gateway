@@ -125,11 +125,14 @@ no credentials; results:
   with client credentials. Figma's docs say it directly: "Only clients listed in
   the Figma MCP catalog … can connect"; developers of new clients must join a
   waitlist.
+- A self-created Figma OAuth app **cannot request the MCP scope**: the
+  authorization endpoint answers `Invalid scope: mcp:connect`. So even with app
+  credentials, the gateway cannot obtain a token the remote MCP server accepts.
 
 Conclusion: the remote Figma server cannot be used by this gateway until Figma
-allowlists it. There is no documented static-token path. If you have a Figma
-OAuth access token issued to a supported client you can test it with
-`tokenEnv`, but that is not a supported production setup.
+allowlists it (or grants `mcp:connect` to your OAuth app). The gateway-initiated
+OAuth flow is therefore not usable for Figma today, though it works for providers
+that grant the scope.
 
 **Desktop server:** the Figma desktop app can expose a local MCP server at
 `http://127.0.0.1:3845/mcp` without OAuth. Use

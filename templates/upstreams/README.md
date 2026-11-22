@@ -23,7 +23,7 @@ documented in [docs/CREDENTIALS.md](../../docs/CREDENTIALS.md).
 | `neon.json` | `https://mcp.neon.tech/mcp` | OAuth DCR or API key | API key works as a Bearer header; add `?readonly=true` / `?projectId=...` to scope access. |
 | `google-drive.json` | `https://drivemcp.googleapis.com/mcp/v1` | OAuth 2.0 + refresh | Requires your own Google OAuth client with "Let AI agents use this client" and `access_type=offline`. The refresh flow needs the client id **and secret** (`clientSecretEnv`). |
 | `figma-desktop.json` | `http://127.0.0.1:3845/mcp` | none (localhost) | **Local gateway only.** Figma's desktop MCP server runs on the machine with the Figma desktop app; a hosted gateway (Vercel) cannot reach it. |
-| `figma-oauth.json` | `https://mcp.figma.com/mcp` | OAuth via gateway | Requires a Figma OAuth app (`FIGMA_CLIENT_ID`/`FIGMA_CLIENT_SECRET`), a registered callback, and `UPSTREAM_OAUTH_ADMIN_KEY` on the gateway. Figma may still reject non-catalog clients; use the status page to confirm. |
+| `figma-oauth.json` | `https://mcp.figma.com/mcp` | OAuth via gateway | **Currently blocked for custom apps:** Figma rejects the `mcp:connect` scope with `Invalid scope` for a self-created OAuth app; only catalog clients get it. Keep for providers that grant the scope; use the desktop template for local work. |
 
 ## Sources
 
