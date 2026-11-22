@@ -26,7 +26,7 @@
 | B5 | Gemini 真实任务反馈：GitHub 冗余/截断/格式/二进制 | ⚠️ 进行中（代码层已修，真实客户端重测未做） | batch-5-gemini-feedback.md |
 | B6 | 新增上游导致既有检索回归：按服务索引 + 窄别名 | ✅ 通过（G4 既有子集恢复） | batch-6-search-attribution.md |
 | B7 | G6 全量重测发现：sandbox 无 Intl + detector 误归因 | ✅ 通过（修复后重跑，无新网关功能 bug） | batch-7-g6-findings.md |
-| B8 | Gemini 大文件/多文件工作流反馈：canonical 结果、行区间、patch、行号映射 | ⚠️ 部分完成（B8-1/2/3 已实现；B8-4 未闭环：生产 QuickJS 栈不暴露真实行号） | batch-8-gemini-file-workflow.md |
+| B8 | Gemini 大文件/多文件工作流反馈：canonical 结果、行区间、patch、行号映射 | ⚠️ 部分完成（B8-1/2/3 已实现；B8-4 改用行标记，线上复验待做） | batch-8-gemini-file-workflow.md |
 
 ## 门控规则
 

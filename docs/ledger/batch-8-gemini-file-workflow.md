@@ -86,19 +86,18 @@
   写前预览用。
 - 测试：`tests/codemode-edit-helpers.test.js`（6 条，含 mismatch 不修改原文）。
 
-### B8-4：错误行号（未闭环：生产 QuickJS 栈限制）
+### B8-4：错误行号（已改用行标记，线上复验待做）
 
 - 线上诊断：`userStart=362`、`cal=3`，栈帧
   `__dshUserFn (run.js:352)` / `__dshFn (run.js:363)` / `<anonymous> (run.js:365)`。
-- 这些 `__dshUserFn` / `__dshFn` / `__dshUserStart` / `__dshCal` 都是**网关沙箱注入的**；
-  不是 Gemini 自己的执行环境。
-- 根因：Vercel `run` SDK 的 QuickJS 栈只暴露**函数帧/包装帧**，不暴露用户脚本的真实 throw 行；
-  因此无论怎么校准 `codeStart`，生产上都无法从栈里恢复精确行号。
-- 本地测试能映射 `script line 1/4` 是因为本地帧布局不同，不能代表生产。
-- 结论：不再宣称"已修精确行号"；B8-4 未闭环。后续二选一：
-  1. 错误里保留 `script frame` + `userStart` 原始帧（可诊断，但不假装精确行号）；
-  2. 需要精确行号就换带 source map/行跟踪的执行机制（成本高）。
-- `diffSummary` 已提供 dry-run 摘要基础；独立 dry-run 工具未做。
+- 根因：Vercel `run` SDK 的 QuickJS 栈只暴露函数帧/包装帧，不暴露用户脚本的真实 throw 行；
+  靠栈校准只能得到函数起始行，不能得到错误行。
+- 修复：不再依赖栈。host 侧用 `acorn` 解析用户函数，在每个 block statement 前插入
+  `__dshLine(原始行号);`；guest 记录最后执行的行，出错时把 `line` 带回 host。
+- 效果：单行/多行错误都能拿到**最后执行的语句行**（例如多行测试第 4 行 throw → `script line 4`）；
+  非 Error 抛出（plain string/object）不带行号，保持旧行为。
+- 测试：`tests/codemode-rest.test.js` #12 覆盖 4 行 throw；全量 363/363。
+- 尚未在线复验；`acorn` 已加入依赖。
 
 ## 优先级与依赖（历史计划）
 

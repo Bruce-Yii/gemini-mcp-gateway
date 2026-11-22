@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Local credential vault schema + `scripts/figma-token.mjs` (one-time Figma authorization, non-interactive refresh) and `vercel-auth.json` backup; Vercel refreshed tokens synced back via CLI.
 - `data/tool-snapshots/figma.json` captured (50 tools) and `data/tool-dataset.json` synced to 506; `check-config` now prints `total/exposed/denied`; `scripts/audit-tools.mjs` added to CI.
 - G6 full exploration (228 tasks, five upstreams) found a real sandbox gap: QuickJS has no `Intl`; most other gateway-attributed anomalies were model/upstream account/detector artifacts. Recorded in `docs/ledger/batch-7-g6-findings.md`; G6 remains ❌ until fixed and retested.
-- B8-4: sentinel-based (`__dshCodeStart`) script-line mapping; no longer depends on prelude/tool-binding length or first run.js frame.
+- B8-4: acorn-based statement line markers (`__dshLine(n)`) replace unreliable QuickJS stack mapping; non-Error throws keep old shape.
 - B8 helpers: `codemode.sliceLines` (line-range reads), `codemode.fileResult`/`prResult` (canonical flat views), `codemode.replaceLines`/`applyPatch`/`diffSummary` (safe line/patch edits with strict context); tests and guidance added.
 - G7 verified from Gemini web against the deployed gateway: Vercel read (project/deployment READY) and Figma whoami/pages succeeded; B4 G1–G7 now complete.
 - G6 rerun after Intl/detector fixes: 228 tasks, 363 anomalies, gateway 86 all upstream/account/data after triage, no new functional gateway bug; `codemode.formatDate/nowISO` + guidance added.

@@ -17,6 +17,7 @@
  */
 import { createRunner } from 'run';
 import { createHash } from 'node:crypto';
+import { parse } from 'acorn';
 import { normalizeCode, sanitizeToolName } from './codemode-util.js';
 import { normalizeToolArguments } from './sanitize.js';
 import { searchEntries } from './catalog.js';
@@ -78,6 +79,8 @@ const SERVICES_GUIDANCE = ' Use codemode.services() for a cold-start snapshot of
 const GUEST_PRELUDE = [
   'const __dshCal = (() => { const m = /run\\.js:(\\d+)/.exec(String(new Error().stack || "")); return m ? Number(m[1]) : 1; })();',
   'const __dshHide = (f) => { try { Object.defineProperty(f, "constructor", { value: undefined, configurable: true }); } catch (_) {} return f; };',
+  'let __dshLineNo = 0;',
+  'const __dshLine = __dshHide((n) => { __dshLineNo = n; });',
   'const __dshInvoke = (name, args) => { const r = __bridge.invoke(name, args); if (r && r.__hostError) { const e = new Error(r.message); e.name = r.type; e.__dshHostOrigin = true; throw e; } return r.value; };',
   'const __dshStr = (x) => { if (typeof x === "string") return x; try { const s = JSON.stringify(x); return s === undefined ? "" : s; } catch (_) { return String(x); } };',
   'const console = __dshHide({ log: __dshHide((...a) => __dshInvoke("log", ["", a.map(__dshStr)])), info: __dshHide((...a) => __dshInvoke("log", ["", a.map(__dshStr)])), debug: __dshHide((...a) => __dshInvoke("log", ["", a.map(__dshStr)])), warn: __dshHide((...a) => __dshInvoke("log", ["WARN", a.map(__dshStr)])), error: __dshHide((...a) => __dshInvoke("log", ["ERROR", a.map(__dshStr)])) });',
@@ -415,6 +418,48 @@ function withDeadline(promise, ms, message, onTimeout) {
 /** Uniform structured error output, shared by the sandbox error path and the
  * (#46) host deadline path. */
 /**
+ * Best-effort statement-line instrumentation. QuickJS/Vercel only exposes
+ * function frames in production, so instead of reverse-engineering the stack we
+ * mark each block statement with its original line. The last marker before a
+ * throw is the closest reliable line. Parse failures leave the source untouched.
+ */
+export function instrumentLineMarkers(source) {
+  try {
+    const ast = parse(source, {
+      ecmaVersion: 'latest', locations: true, allowAwaitOutsideFunction: true, sourceType: 'script',
+    });
+    const expr = ast.body[0]?.expression;
+    if (!expr || expr.type !== 'ArrowFunctionExpression' || expr.body?.type !== 'BlockStatement') return source;
+    const inserts = [];
+    const visit = (node) => {
+      if (!node || typeof node !== 'object') return;
+      if (node.type === 'BlockStatement') {
+        for (const stmt of node.body) {
+          // Keep directive prologues ("use strict") first.
+          if (stmt.type === 'ExpressionStatement' && stmt.directive) { visit(stmt); continue; }
+          inserts.push({ pos: stmt.start, line: stmt.loc.start.line });
+          visit(stmt);
+        }
+        return;
+      }
+      for (const key of Object.keys(node)) {
+        if (key === 'loc' || key === 'start' || key === 'end' || key === 'range' || key === 'parent') continue;
+        const value = node[key];
+        if (Array.isArray(value)) value.forEach(visit);
+        else visit(value);
+      }
+    };
+    visit(expr.body);
+    inserts.sort((a, b) => b.pos - a.pos);
+    let out = source;
+    for (const { pos, line } of inserts) out = out.slice(0, pos) + `__dshLine(${line});` + out.slice(pos);
+    return out;
+  } catch {
+    return source;
+  }
+}
+
+/**
  * Map SDK `run.js:LINE:COL` stack frames back to the guest script line using
  * the `__dshCodeStart` sentinel (the run.js line of the wrapper immediately
  * before the user function). This is independent of prelude/tool-binding length
@@ -507,6 +552,7 @@ export function searchWithFallback(tools, query, limit = 8) {
  */
 export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CALLS, maxResultChars = DEFAULT_MAX_RESULT_CHARS, timeout = EXEC_TIMEOUT_MS, totalTimeout, unavailableTools = [], servicesInfo = { services: [] } }) {
   const normalized = normalizeCode(code);
+  const instrumented = instrumentLineMarkers(normalized);
   const logs = [];
   const toolCalls = [];
   // In-process dedup cache, scoped to THIS execute() run. Identical read-only
@@ -649,7 +695,7 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
     // Keep the user function source untouched (works for block and expression
     // arrow bodies). The wrapper samples its own run.js line immediately after
     // the user function definition; mapping uses the fixed 3-line delta.
-    `const __dshUserFn = (${normalized});`,
+    `const __dshUserFn = (${instrumented});`,
     'let __dshUserStart = 0;',
     'const __dshFn = async () => {',
     '  __dshUserStart = (() => { const m = /run\\.js:(\\d+)/.exec(String(new Error().stack || "")); return m ? Number(m[1]) : 0; })();',
@@ -657,7 +703,7 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
     '};',
     'return Promise.resolve().then(() => __dshFn()).then(',
     '  (v) => ({ __ok: true, v: v, cal: __dshCal, codeStart: __dshUserStart }),',
-    '  (e) => ({ __ok: false, cal: __dshCal, codeStart: __dshUserStart, err: { message: e != null && e.message !== undefined ? String(e.message) : String(e), type: (e instanceof Error) ? String(e.name || "Error") : "UnknownError", hostOrigin: !!(e && e.__dshHostOrigin), stack: e && e.stack ? String(e.stack) : "" } })',
+    '  (e) => ({ __ok: false, cal: __dshCal, codeStart: __dshUserStart, line: __dshLineNo, err: { message: e != null && e.message !== undefined ? String(e.message) : String(e), type: (e instanceof Error) ? String(e.name || "Error") : "UnknownError", hostOrigin: !!(e && e.__dshHostOrigin), stack: e && e.stack ? String(e.stack) : "" } })',
     ');',
   ].join('\n');
 
@@ -685,8 +731,12 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
     if (!env.__ok) {
       const e = env.err && typeof env.err === 'object' ? env.err : {};
       let scriptLoc;
-      if (!e.hostOrigin && typeof e.stack === 'string') {
-        scriptLoc = pickScriptLoc(e.stack, Number(env.codeStart), normalized.split('\n').length);
+      if (!e.hostOrigin) {
+        // Prefer the last executed statement marker: it is source-line data we
+        // control, independent of the SDK's production stack shape.
+        const markerLine = Number(env.line);
+        if (e.type !== 'UnknownError' && Number.isFinite(markerLine) && markerLine > 0) scriptLoc = { line: markerLine, column: 1 };
+        else if (typeof e.stack === 'string') scriptLoc = pickScriptLoc(e.stack, Number(env.codeStart), normalized.split('\n').length);
       }
       const err = new Error(String(e.message ?? ''));
       err.name = String(e.type || 'Error');
