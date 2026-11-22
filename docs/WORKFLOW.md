@@ -168,6 +168,7 @@ G7 交付 ─────测试/CI/部署/hash/真实调用/秘密/文档/台账
 | 1.4 | config 校验通过，secret 不在仓库/日志 | `node scripts/check-config.mjs` |
 | 1.5 | token 生命周期/刷新实测 | 强刷记录（不打印 token） |
 | 1.6 | 至少一次真实读调用 | 返回结果/URL |
+| 1.7 | **tools/list 快照已入库** `data/tool-snapshots/<server>.json`，且 live `tools/list` 与快照一致 | 快照文件 + `node scripts/audit-tools.mjs --server <name> --write-snapshot` 重放 |
 
 **门禁：以上全满足才进入 G2。**
 
@@ -204,8 +205,19 @@ G7 交付 ─────测试/CI/部署/hash/真实调用/秘密/文档/台账
 | 2.3 | 存疑全部放行；写工具未被仅因写而删 | 对照表 |
 | 2.4 | config/文档/台账三处数量一致 | `check-config` 输出 |
 | 2.5 | 既有搜索指标不回归 | `eval-search` |
+| 2.6 | **deny 对照脚本通过**：官方清单 vs snapshot vs deny 自动 diff，无"无理由 deny"/"存疑 deny"/未声明 extra | `node scripts/audit-tools.mjs --server <name>` |
+| 2.7 | `check-config` 能显示 `total/exposed/denied`，不依赖本地缓存或 token | `node scripts/check-config.mjs` |
 
 **反面案例（已纠正）**：Figma 第一版按名字 cut 22 个，其中 18 个是官方 Weave/Shader/Generative plugin 工具；复核官方 Tools 文档后放回，最终 deny 4 个 ChatGPT/UI 内部工具，保留 46。规则：**没有描述/官方依据，不许 deny**。
+
+### 评审整改（2026-11-22，conditional pass）
+
+评审指出两条必须升格为 DoD，已落实：
+
+| 条件 | 整改 | 状态 |
+|---|---|---|
+| 证据必须入库、换人可复核 | `data/tool-snapshots/<server>.json` 入库；`check-config` 输出 `total/exposed/denied`；`data/tool-dataset.json` 同步 | 四个旧上游已用 legacy dataset 生成快照；**Figma 快照待一次 live OAuth 后生成**，B4 不能 ✅ |
+| deny 对照脚本化 | `scripts/audit-tools.mjs` + `data/official-tools/figma.json` + `data/tool-policy/figma.json`；任何 deny 必须有显式类别/理由，extra 必须声明 | 脚本 + 单测已完成；Figma 快照缺失时脚本按设计 exit 2（拒绝假通过） |
 
 ---
 
@@ -439,14 +451,14 @@ Fallback：Framelink PAT（只读）/ 桌面 server / 等待目录开放
 | Notion | B0–B3 | ✅ | deny 24；53 暴露；refresh/CAS 修复 |
 | Linear | B0–B3 | ✅ | deny 24；36 暴露；无权威 benchmark（结构性缺口已登记） |
 | Vercel | B0–B3 | ✅ | deny 213；60 暴露；平台 API 噪音大 |
-| Figma | B4 | ⚠️ 进行中 | 50 工具；deny 4；保留 46；G1/G2 基本完成；G3 0/46；G4–G6 未做；G7 部分 |
+| Figma | B4 | ⚠️ 进行中 | 50 工具；deny 4；保留 46；G1/G2 基本完成；**快照/deny 审计未闭环**；G3 0/46；G4–G6 未做；G7 部分 |
 
 ### Figma B4 逐门状态
 
 | 门 | 状态 | 说明 |
 |---|---|---|
-| G1 | ⚠️ | 接入/实测/config ✅；token 强刷未单独复验；真实建文件 ✅ |
-| G2 | ✅ | deny 4（ChatGPT/UI 内部）；46 保留；误伤已纠正 |
+| G1 | ⚠️ | 接入/实测/config ✅；token 强刷未单独复验；真实建文件 ✅；**tools/list 快照未入库（需一次 OAuth）** |
+| G2 | ⚠️ | deny 4（ChatGPT/UI 内部）+ policy/审计脚本 ✅；**快照缺失导致 audit-tools 不能通过**，因此不能算 ✅ |
 | G3 | ❌ | 任务覆盖 0/46 |
 | G4 | ❌ | Figma 未纳入 measure/eval；仅本地 E2E |
 | G5 | ❌ | 无 Figma 根因报告 |
@@ -454,12 +466,13 @@ Fallback：Framelink PAT（只读）/ 桌面 server / 等待目录开放
 | G7 | ⚠️ | 部署/hash/servers ✅；线上带客户端 token 真实调用 ❌ |
 
 ### 已知欠账
-1. Figma 46 工具任务集 + 覆盖矩阵（G3）。
-2. Figma 纳入 `measure-context`/`eval-search`，同子集对比（G4）。
-3. Figma 根因报告（G5）。
-4. Figma 全量重测（G6）。
-5. 线上带客户端 token 的真实 Figma 调用（G7）。
-6. 仓库 README 引用的 `ledger.json`（机器可读总账）当前不存在；需确认是否补建/删除引用。
+1. **Figma live `tools/list` 快照入库**（一次 OAuth 授权；Vercel 敏感 env 拉不出来）→ 通过后 G1/G2 才能 ✅。
+2. Figma 46 工具任务集 + 覆盖矩阵（G3）。
+3. Figma 纳入 `measure-context`/`eval-search`，同子集对比（G4）。
+4. Figma 根因报告（G5）。
+5. Figma 全量重测（G6）。
+6. 线上带客户端 token 的真实 Figma 调用（G7）。
+7. 仓库 README 引用的 `ledger.json`（机器可读总账）当前不存在；需确认是否补建/删除引用。
 
 ---
 
@@ -507,6 +520,8 @@ Fallback：Framelink PAT（只读）/ 桌面 server / 等待目录开放
 ```bash
 npm test
 node scripts/check-config.mjs config.example.json
+node scripts/audit-tools.mjs --server figma
+node scripts/audit-tools.mjs --server figma --write-snapshot --sync-dataset
 node scripts/eval-search.mjs
 node scripts/measure-context.mjs
 node bench/run.mjs --dry-run

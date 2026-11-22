@@ -41,7 +41,7 @@ const EXEC_BOUNDARY_GUIDANCE = " Boundary: if the task exceeds the available too
 
 // Gemini feedback #3: upstreams do not share one result shape. One short line
 // nudges the model to defend before field access instead of crashing mid-script.
-const RETURN_SHAPE_GUIDANCE = ' Results differ by service: Notion/Linear mostly return objects, GitHub often JSON text or arrays, Vercel mostly objects — guard with Array.isArray(x) / typeof x === "string" before reading fields; safeAll(tasks) keeps a batch alive when one sub-task fails; grepSnippet(text, keyword, window) extracts context slices from long results.';
+const RETURN_SHAPE_GUIDANCE = ' Results differ by service: Notion/Linear mostly return objects, GitHub often JSON text or arrays, Vercel mostly objects — guard with Array.isArray(x) / typeof x === "string" before reading fields; safeAll(tasks) keeps a batch alive when one sub-task fails; grepSnippet(text, keyword, window) extracts context slices from long results. codemode.unwrap(x) normalizes JSON text, {result}, {text,resources} and content arrays.';
 
 // Gemini feedback #2: tell the model which identifier is actually callable.
 const CALLNAME_GUIDANCE = ' Each result carries "callName": pass that exact identifier to codemode (the "name" field may contain hyphens — do not copy it literally into codemode["..."]).';
@@ -118,6 +118,13 @@ const GUEST_PRELUDE = [
   // {index, text} snippets; case-insensitive; capped at 10 snippets.
   'const __dshGrepSnippet = (input, keyword, window) => { const s = typeof input === "string" ? input : JSON.stringify(input); if (!s || !keyword) return []; const w = Math.max(20, Math.min(Number(window) || 300, 4000)); const needle = String(keyword).toLowerCase(); const hay = s.toLowerCase(); const out = []; let from = 0; while (out.length < 10) { const i = hay.indexOf(needle, from); if (i < 0) break; const start = Math.max(0, i - Math.floor(w / 2)); out.push({ index: i, text: s.slice(start, Math.min(s.length, start + w)) }); from = i + needle.length; } return out; };',
   'const grepSnippet = __dshHide(__dshGrepSnippet); codemode.grepSnippet = grepSnippet;',
+  // Inconsistent upstream result shapes: normalize defensively without ever
+  // throwing. Ambiguous payloads are returned untouched so the model can still
+  // inspect the original envelope (mirrors tool-format.js's unwrapResult
+  // conventions: structuredContent wins when sole, text beats duplicate
+  // resource bodies, mixed/non-text blocks stay un-collapsed).
+  'const __dshUnwrap = (value) => { try { if (typeof value === "string") { try { return JSON.parse(value); } catch (_) { return value; } } if (value === null || typeof value !== "object" || Array.isArray(value)) return value; const own = (k) => Object.prototype.hasOwnProperty.call(value, k); const hasText = own("text") && typeof value.text === "string"; const hasContent = own("content") && Array.isArray(value.content); const hasResult = own("result"); const hasSC = own("structuredContent") && value.structuredContent !== undefined; if (hasSC && !hasText && !hasContent && !hasResult) return value.structuredContent; if (hasResult && !hasSC && !hasText && !hasContent) return value.result; if (hasText && own("resources") && Array.isArray(value.resources)) return value.text; if (hasContent) { const candidates = []; for (const c of value.content) { if (!c || typeof c !== "object") return value; let body; if (c.type === "text" || c.type === undefined) { if (typeof c.text !== "string") return value; body = c.text; } else if (c.type === "resource") { const res = c.resource; if (!res || typeof res !== "object" || typeof res.text !== "string") return value; body = res.text; } else { return value; } if (candidates.indexOf(body) < 0) candidates.push(body); } if (candidates.length !== 1) return value; const s = candidates[0]; try { return JSON.parse(s); } catch (_) { return s; } } return value; } catch (_) { return value; } };',
+  'const unwrap = __dshHide(__dshUnwrap); codemode.unwrap = unwrap;',
 ].join('\n');
 const GUEST_PREFIX_LINES = GUEST_PRELUDE.split('\n').length;
 

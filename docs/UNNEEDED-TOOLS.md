@@ -99,6 +99,11 @@ Vercel 的 259 个工具里绝大多数是细碎底层 API 和企业运维功能
 
 写工具同样**没有**因为"是写操作"被删；判"用不上"的标准与四个旧上游一致：个人日常场景无交集或内部机制专属。
 
+机器可读依据：`data/official-tools/figma.json`（官方 44 工具）+
+`data/tool-policy/figma.json`（4 deny 理由 + 2 个 live 快照额外工具声明）+
+`scripts/audit-tools.mjs`（官方清单 vs snapshot vs deny 自动 diff）。
+**Figma `tools/list` 快照仍需一次 live OAuth 后入库**；缺失时审计脚本按设计失败。
+
 ---
 
 ## 关键结论

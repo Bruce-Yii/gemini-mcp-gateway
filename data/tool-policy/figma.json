@@ -1,0 +1,38 @@
+{
+  "server": "figma",
+  "source": "docs/UNNEEDED-TOOLS.md + review 2026-11-22",
+  "deny": [
+    {
+      "name": "authorize_mcp_app",
+      "category": "internal-ui",
+      "reason": "ChatGPT app auth helper; not in official Figma Tools docs"
+    },
+    {
+      "name": "open_figma_mcp_app",
+      "category": "internal-ui",
+      "reason": "ChatGPT app UI launcher; not useful in Gemini web"
+    },
+    {
+      "name": "open_figma_mcp_app_in_thread",
+      "category": "internal-ui",
+      "reason": "ChatGPT app UI launcher; not useful in Gemini web"
+    },
+    {
+      "name": "get_profile_for_chatgpt",
+      "category": "internal-ui",
+      "reason": "ChatGPT profile helper; whoami covers this"
+    }
+  ],
+  "allowExtra": [
+    {
+      "name": "create_session",
+      "category": "workflow-support",
+      "reason": "Session required by use_figma/file-tool workflows; not listed in official docs table"
+    },
+    {
+      "name": "create_branch",
+      "category": "workflow-support",
+      "reason": "Branch support for file workflows; not listed in official docs table"
+    }
+  ]
+}

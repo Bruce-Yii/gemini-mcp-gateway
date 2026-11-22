@@ -296,6 +296,11 @@ export function unwrapResult(result) {
   const contents = Array.isArray(r.content) ? r.content : [];
 
   const texts = [];
+  // Bodies that came from an explicit `text` block. GitHub's get_file_contents
+  // echoes the SAME body in a text block and a resource block; tracking this
+  // set lets us drop the redundant copy in `resources[].text` while keeping the
+  // resource's uri/mimeType metadata.
+  const textBlockBodies = new Set();
   const resources = [];
   const images = [];
   const audios = [];
@@ -305,7 +310,10 @@ export function unwrapResult(result) {
     if (!c || typeof c !== 'object') continue;
     switch (c.type) {
       case 'text':
-        if (typeof c.text === 'string') texts.push(c.text);
+        if (typeof c.text === 'string') {
+          textBlockBodies.add(c.text);
+          if (!texts.includes(c.text)) texts.push(c.text);
+        }
         break;
       case 'resource': {
         const res = c.resource && typeof c.resource === 'object' ? c.resource : {};
@@ -317,8 +325,15 @@ export function unwrapResult(result) {
           try { body = Buffer.from(res.blob, 'base64').toString('utf8'); }
           catch { body = res.blob; }
         }
-        resources.push({ uri: res.uri, mimeType: res.mimeType, text: body });
-        if (body) texts.push(body);
+        if (body && !texts.includes(body)) texts.push(body);
+        resources.push({
+          uri: res.uri,
+          mimeType: res.mimeType,
+          // Only omit the body when a text block already carried that exact
+          // body (the GitHub duplication bug). A resource-only result keeps
+          // its `text` so existing consumers still see the payload here.
+          ...(body === '' || !textBlockBodies.has(body) ? { text: body } : {}),
+        });
         break;
       }
       case 'image':
@@ -340,7 +355,7 @@ export function unwrapResult(result) {
         resourceLinks.push(pickMeta(c, ['uri', 'name', 'mimeType', 'description', 'size']));
         break;
       default:
-        if (typeof c.text === 'string') texts.push(c.text);
+        if (typeof c.text === 'string' && !texts.includes(c.text)) texts.push(c.text);
     }
   }
 
@@ -373,7 +388,9 @@ export function unwrapResult(result) {
       images,
       ...(audios.length > 0 ? { audios } : {}),
       ...(resourceLinks.length > 0 ? { resourceLinks } : {}),
-      ...(resources.length > 0 ? { content: resources.map((x) => x.text).join('\n') } : {}),
+      // NOTE: no `content` alias. All distinct bodies already live in `text`
+      // (and, where needed, `resources[].text`), so a `content` echo would be
+      // a third copy of the same payload and could trigger false truncation.
     };
   }
   if (r.structuredContent !== undefined) return r.structuredContent;

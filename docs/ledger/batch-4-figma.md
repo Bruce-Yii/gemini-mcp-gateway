@@ -5,6 +5,24 @@
 > 目前只完成"接入 + 工具收口 + 本地端到端"，**任务覆盖与重测尚未做**，按台账
 > 规则登记为欠账，不冒充已通过 B1/B3。
 
+## 评审（2026-11-22）：有条件通过
+
+独立窗口审 `docs/WORKFLOW.md` 给出 conditional pass，两条条件：
+
+1. **证据必须入库、换人可复核**：Figma 50/46 的 `tools/list` 原始证据此前只在 gitignored 的
+   `work/`，`data/tool-dataset.json` 中 figma=0；换人 clone 只能看到 deny=4。
+2. **G2 deny 对照需脚本化**：不能靠人工对照官方 Tools 文档。
+
+整改：
+
+- 新增 `data/tool-snapshots/<server>.json` 机制；四个旧上游用 legacy dataset 生成快照；
+  `check-config` 现在输出 `total/exposed/denied`。**Figma 快照仍未生成（需要一次 live
+  OAuth；Vercel 敏感 env 不可拉取）**，所以 Figma 的 G1/G2 仍是 ⚠️，不是 ✅。
+- 新增 `scripts/audit-tools.mjs` + `data/official-tools/figma.json` +
+  `data/tool-policy/figma.json`：官方工具清单 vs snapshot vs deny 自动 diff；任何 deny
+  必须有显式类别/理由，extra 必须声明；缺快照时按设计 exit 2，拒绝假通过。
+- `docs/WORKFLOW.md` G1/G2 DoD 已加入上述两条。
+
 ## SCENARIO（测评场景）
 
 - 官方 Figma MCP 暴露 50 个工具（2026-11-22 实测），deny 4 个 ChatGPT/UI 内部工具后保留 46 个；18 个 Weave/Shader/Generative plugin 按"存疑放行"保留。
@@ -23,8 +41,9 @@
 
 ## TEST（验证）
 
-- `node scripts/check-config.mjs config.example.json` → config OK，figma deny=4。
-- `npm test` → 308/308。
+- `node scripts/check-config.mjs config.example.json` → config OK，figma deny=4；Figma `tools total=?`（快照待生成）。
+- `node scripts/audit-tools.mjs --server figma` → 按设计 exit 2：snapshot missing；不伪造。
+- `npm test` → 327/327。
 - 本地网关 → 官方 Figma MCP：50 工具可被 `search` 检索；`execute` 调
   `figma__create_new_file` 创建真实文件
   <https://www.figma.com/design/izWTtDxzzsdcA5ZWyaquvS>。
@@ -41,6 +60,7 @@
 
 ## 欠账（下一步）
 
+0. **生成并入库 Figma `tools/list` 快照**（`node scripts/audit-tools.mjs --server figma --write-snapshot --sync-dataset`，需一次 live OAuth）；通过后 G1/G2 才能 ✅。
 1. 20-30 条 Figma 任务覆盖 46 个保留工具（28 核心 + 18 存疑放行；官方 prompt + schema 驱动），按 B1 权威等级标注。
 2. Figma 加入 `measure-context` 与 `eval-search` 的口径（当前统计仍是 4 上游 456 工具）。
 3. B3 式全量重测，并核实线上（带客户端 token）实际调用。

@@ -54,6 +54,12 @@ function errorMessage(error) {
  * Works on the MCP result shape { content: [{type:'text', text}, ...] }.
  * Non-text content (images etc.) is left untouched.
  */
+function truncationSuffix(removed, maxChars, original) {
+  return `\n\n… [truncated ${removed} chars by gateway: ` +
+    `limit ${maxChars} chars, original ${original} chars. ` +
+    `Use a narrower query or gateway_call with specific args to fetch less.]`;
+}
+
 export function boundResult(result, maxChars = DEFAULT_MAX_RESULT_CHARS) {
   if (!result || typeof result !== 'object' || !Array.isArray(result.content)) return result;
   let truncated = false;
@@ -61,10 +67,30 @@ export function boundResult(result, maxChars = DEFAULT_MAX_RESULT_CHARS) {
     if (!item || item.type !== 'text' || typeof item.text !== 'string') return item;
     if (item.text.length <= maxChars) return item;
     truncated = true;
-    const head = item.text.slice(0, maxChars);
-    const tail = `\n\n… [truncated ${item.text.length - maxChars} chars by gateway. ` +
-      `Use a narrower query or gateway_call with specific args to fetch less.]`;
-    return { ...item, text: head + tail };
+    const original = item.text.length;
+    // The suffix states the exact number of dropped chars, which depends on
+    // how much head we keep — and that depends on the suffix length. Iterate
+    // to a fixed point so head + suffix is always <= maxChars.
+    let keep = Math.max(0, maxChars);
+    let tail = truncationSuffix(original - keep, maxChars, original);
+    for (let i = 0; i < 4; i++) {
+      const nextKeep = Math.max(0, maxChars - tail.length);
+      const nextTail = truncationSuffix(original - nextKeep, maxChars, original);
+      if (nextKeep === keep && nextTail === tail) break;
+      keep = nextKeep;
+      tail = nextTail;
+    }
+    let out = item.text.slice(0, keep) + tail;
+    while (keep > 0 && out.length > maxChars) {
+      keep = Math.max(0, keep - (out.length - maxChars));
+      tail = truncationSuffix(original - keep, maxChars, original);
+      out = item.text.slice(0, keep) + tail;
+    }
+    if (out.length <= maxChars) return { ...item, text: out };
+    // Pathologically small maxChars: even the suffix does not fit. Keep a
+    // minimal bounded marker rather than exceeding the cap.
+    const marker = '…[truncated]';
+    return { ...item, text: item.text.slice(0, Math.max(0, maxChars - marker.length)) + marker.slice(0, Math.max(0, maxChars)) };
   });
   return truncated ? { ...result, content } : result;
 }

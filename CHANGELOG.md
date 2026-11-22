@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   instead of a hardcoded provider list.
 - [docs/UPSTREAMS.md](docs/UPSTREAMS.md), [docs/CLIENTS.md](docs/CLIENTS.md),
   [docs/CREDENTIALS.md](docs/CREDENTIALS.md) and ready-to-use `examples/` configs.
-- Upstream-config and generic-auth tests (suite now 308).
+- Upstream-config and generic-auth tests (suite now 327).
 - `clientSecretEnv` support for confidential OAuth refresh (Google Workspace, Slack, Atlassian, ...).
 - `authScheme: "basic"` for static Basic credentials (e.g. Atlassian personal API tokens); any provider scheme (e.g. `Sentry-Bearer`) is sent verbatim.
 - Slack template verified (registered internal/published app, no DCR, optional refresh) and **Sentry template via `Sentry-Bearer` user auth token**; credential guides updated.
@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Figma official remote MCP can be configured with `FIGMA_ACCESS_TOKEN`/refresh env vars via a community OAuth allowlist workaround (50 tools, incl. `create_new_file` and `use_figma`); `config.example.json` includes the server (skipped when env vars are unset). Verified end-to-end: gateway created a real Figma file.
 - Figma tool curation corrected after auditing Figma's official Tools docs: the first pass over-denied 18 official tools (Weave/Shader/Generative plugin) by name; final `denyTools` is 4 ChatGPT/UI-internal tools, 46 kept. Recorded as a process lesson in `docs/UNNEEDED-TOOLS.md` and `docs/ledger/batch-4-figma.md`.
 - `docs/WORKFLOW.md`: end-to-end upstream onboarding + quality-gate workflow distilled from B0–B4 (G1 access → G2 tool curation → G3 scenario coverage → G4 baseline → G5 root cause → G6 retest → G7 delivery), with checklists and current upstream status.
+- Review remediation: committed `tools/list` snapshots for the four existing upstreams (`data/tool-snapshots/`), `scripts/audit-tools.mjs` (official-list vs snapshot vs deny diff, refuses to pass without a snapshot), official Figma tool list + deny policy (`data/official-tools/`, `data/tool-policy/`), and `check-config` now prints `total/exposed/denied` per server.
+- Gemini feedback (B5): deduplicated GitHub text/resource/`content` results (`src/tool-format.js`), made the `boundResult` truncation suffix state the exact `limit/original` with a true cap (`src/server.js`), and added the `codemode.unwrap(value)` sandbox helper (`src/codemode.js`); new tests for all three. Binary/image resource handling analyzed but not yet implemented.
 
 ## [0.1.0] - 2026-11-22
 

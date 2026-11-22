@@ -33,7 +33,8 @@
     "check": "node --check src/server.js",
     "check:config": "node scripts/check-config.mjs",
     "bench": "node bench/run.mjs",
-    "bench:dry": "node bench/run.mjs --dry-run"
+    "bench:dry": "node bench/run.mjs --dry-run",
+    "audit:tools": "node scripts/audit-tools.mjs --server figma"
   },
   "engines": {
     "node": ">=20.19.0"

@@ -11,9 +11,39 @@
  * No network calls, no credentials needed.
  */
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { validateConfig } from '../src/config.js';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+function snapshotCounts(server) {
+  const snapshotPath = resolve(root, 'data', 'tool-snapshots', `${server.name}.json`);
+  let snapshot;
+  try {
+    snapshot = JSON.parse(readFileSync(snapshotPath, 'utf8'));
+  } catch {
+    return null;
+  }
+  const tools = Array.isArray(snapshot.tools) ? snapshot.tools.map((tool) => tool.name).filter(Boolean) : [];
+  const matches = (pattern, tool) => {
+    const value = String(pattern);
+    if (value.includes('/')) {
+      const [service, name] = value.split('/', 2);
+      if (service !== server.name && service !== '*') return false;
+      return name === '*' || name === tool;
+    }
+    return value === tool;
+  };
+  const denied = tools.filter((tool) => (server.denyTools ?? []).some((pattern) => matches(pattern, tool)));
+  const exposed = tools.filter((tool) => {
+    if ((server.denyTools ?? []).some((pattern) => matches(pattern, tool))) return false;
+    if (!Array.isArray(server.allowTools) || server.allowTools.length === 0) return true;
+    return server.allowTools.some((pattern) => matches(pattern, tool));
+  });
+  return { total: tools.length, exposed: exposed.length, denied: denied.length };
+}
 
 const args = process.argv.slice(2);
 const positional = args.find((arg) => !arg.startsWith('-'));
@@ -45,7 +75,11 @@ try {
     const auth = server.refreshEnv ? 'oauth-refresh' : server.tokenEnv ? 'bearer-env' : 'static';
     const filters = `allow=${server.allowTools?.length ?? 0} deny=${server.denyTools?.length ?? 0}`;
     const target = server.transport === 'http' ? server.url : `${server.command} ${server.args?.join(' ') ?? ''}`.trim();
-    console.log(`  - ${server.name} [${server.transport}/${auth}] ${target} (${filters})`);
+    const counts = snapshotCounts(server);
+    const tools = counts
+      ? `; tools total=${counts.total} exposed=${counts.exposed} denied=${counts.denied}`
+      : '; tools total=? exposed=? denied=? (snapshot missing in data/tool-snapshots/)';
+    console.log(`  - ${server.name} [${server.transport}/${auth}] ${target} (${filters}${tools})`);
   }
   if (warnings.length > 0) {
     console.log('warnings:');

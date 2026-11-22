@@ -20,7 +20,18 @@
 这是 Anthropic spill 机制的轻量版，也是 CData harness 采用的业界标准（其工具结果截断阈值就是 8000 字符）。网关单边可控，不需要 Gemini 配合。
 
 ### 状态更新（2026-11-22）
+
 完整 Code Mode **已实现并上线**：`search` + `execute`/`execute_read`，结果在沙箱里处理只回摘要。沙箱用 Vercel `run` SDK（QuickJS，真隔离，非 Node vm）。此段旧文字"仍未做"已过期，保留仅作历史。详见 `docs/ledger/batch-0-history.md`、`docs/SANDBOX-SECURITY.md`。
+
+### 截断预算（三层，当前未统一）
+
+| 层 | 位置 | 默认 | 行为 |
+|---|---|---|---|
+| 上游结果单文本块 | `src/server.js` `boundResult` | `GATEWAY_MAX_RESULT_CHARS`（8000） | 超出时 true cap（head+suffix ≤ maxChars），suffix 写明 `limit/original` |
+| `execute()` 返回值 | `src/codemode.js` | 20000 | 结构化截断（同形状 JSON） |
+| 模板/文本结果 | `src/tool-format.js` `truncateResponseText` | 24000 | 文本截断 + 定位提示 |
+
+模型看到的上限取决于路径不同；B5 已把 `boundResult` 的提示显式化，三层是否统一/文档化仍是待办（见 `docs/ledger/batch-5-gemini-feedback.md` ISSUE-2）。
 
 ## 关切二：准确性
 

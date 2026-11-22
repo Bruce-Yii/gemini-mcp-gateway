@@ -1,0 +1,228 @@
+{
+  "server": "figma",
+  "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+  "capturedAt": "2026-11-22",
+  "note": "Official Tools table. Snapshot has 6 undocumented extras: 4 denied ChatGPT/UI internals + create_session/create_branch kept for use_figma workflows.",
+  "tools": [
+    {
+      "name": "get_design_context",
+      "category": "design-to-code",
+      "type": "read"
+    },
+    {
+      "name": "get_comments",
+      "category": "design-to-code",
+      "type": "read"
+    },
+    {
+      "name": "get_metadata",
+      "category": "design-to-code",
+      "type": "read"
+    },
+    {
+      "name": "get_screenshot",
+      "category": "design-to-code",
+      "type": "read"
+    },
+    {
+      "name": "download_assets",
+      "category": "design-to-code",
+      "type": "read"
+    },
+    {
+      "name": "export_video",
+      "category": "design-to-code",
+      "type": "read"
+    },
+    {
+      "name": "get_variable_defs",
+      "category": "design-to-code",
+      "type": "read"
+    },
+    {
+      "name": "get_motion_context",
+      "category": "design-to-code",
+      "type": "read"
+    },
+    {
+      "name": "get_figjam",
+      "category": "design-to-code",
+      "type": "read"
+    },
+    {
+      "name": "use_figma",
+      "category": "code-to-design",
+      "type": "write"
+    },
+    {
+      "name": "generate_figma_design",
+      "category": "code-to-design",
+      "type": "write"
+    },
+    {
+      "name": "create_new_file",
+      "category": "code-to-design",
+      "type": "write"
+    },
+    {
+      "name": "upload_assets",
+      "category": "code-to-design",
+      "type": "write"
+    },
+    {
+      "name": "generate_diagram",
+      "category": "code-to-design",
+      "type": "write"
+    },
+    {
+      "name": "html_to_figma",
+      "category": "code-to-design",
+      "type": "write"
+    },
+    {
+      "name": "generate_image",
+      "category": "code-to-design",
+      "type": "write"
+    },
+    {
+      "name": "generate_vector_illustration",
+      "category": "code-to-design",
+      "type": "write"
+    },
+    {
+      "name": "get_libraries",
+      "category": "design-systems",
+      "type": "read"
+    },
+    {
+      "name": "search_design_system",
+      "category": "design-systems",
+      "type": "read"
+    },
+    {
+      "name": "get_code_connect_map",
+      "category": "design-systems",
+      "type": "read"
+    },
+    {
+      "name": "add_code_connect_map",
+      "category": "design-systems",
+      "type": "write"
+    },
+    {
+      "name": "get_code_connect_suggestions",
+      "category": "design-systems",
+      "type": "read"
+    },
+    {
+      "name": "get_context_for_code_connect",
+      "category": "design-systems",
+      "type": "read"
+    },
+    {
+      "name": "send_code_connect_mappings",
+      "category": "design-systems",
+      "type": "write"
+    },
+    {
+      "name": "list_generative_plugins",
+      "category": "generative-plugins-shaders",
+      "type": "read"
+    },
+    {
+      "name": "get_generative_plugin",
+      "category": "generative-plugins-shaders",
+      "type": "read"
+    },
+    {
+      "name": "create_generative_plugin",
+      "category": "generative-plugins-shaders",
+      "type": "write"
+    },
+    {
+      "name": "update_generative_plugin",
+      "category": "generative-plugins-shaders",
+      "type": "write"
+    },
+    {
+      "name": "list_shaders",
+      "category": "generative-plugins-shaders",
+      "type": "read"
+    },
+    {
+      "name": "get_shader",
+      "category": "generative-plugins-shaders",
+      "type": "read"
+    },
+    {
+      "name": "create_shader",
+      "category": "generative-plugins-shaders",
+      "type": "write"
+    },
+    {
+      "name": "update_shader",
+      "category": "generative-plugins-shaders",
+      "type": "write"
+    },
+    {
+      "name": "list_file_shaders",
+      "category": "generative-plugins-shaders",
+      "type": "read"
+    },
+    {
+      "name": "send_code_to_figma",
+      "category": "figma-make",
+      "type": "write"
+    },
+    {
+      "name": "whoami",
+      "category": "account",
+      "type": "read"
+    },
+    {
+      "name": "weave_list_tools",
+      "category": "weave",
+      "type": "read"
+    },
+    {
+      "name": "weave_get_tool_inputs",
+      "category": "weave",
+      "type": "read"
+    },
+    {
+      "name": "weave_upload_asset",
+      "category": "weave",
+      "type": "write"
+    },
+    {
+      "name": "weave_run_tool",
+      "category": "weave",
+      "type": "write"
+    },
+    {
+      "name": "weave_get_tool_run_output",
+      "category": "weave",
+      "type": "read"
+    },
+    {
+      "name": "weave_cancel_tool_run",
+      "category": "weave",
+      "type": "write"
+    },
+    {
+      "name": "weave_find_model",
+      "category": "weave",
+      "type": "read"
+    },
+    {
+      "name": "weave_run_model",
+      "category": "weave",
+      "type": "write"
+    },
+    {
+      "name": "weave_get_model_run_output",
+      "category": "weave",
+      "type": "read"
+    }
+  ]
+}
