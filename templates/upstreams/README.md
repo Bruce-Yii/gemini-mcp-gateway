@@ -1,16 +1,19 @@
 # Upstream templates
 
-Verified `servers[]` entries for public MCP servers. Each file is a single
+`servers[]` entries for public MCP servers, checked against official docs (Slack is flagged experimental). Each file is a single
 server object: copy it into your config's `servers` array (or into a minimal
 config), then export the env vars it names.
 
 These were checked against **official docs** in November 2026. Endpoints and
 auth requirements can change; verify against the linked docs before relying on
-them. Nothing here contains credentials.
+them. Nothing here contains credentials. Per-provider credential acquisition is
+documented in [docs/CREDENTIALS.md](../../docs/CREDENTIALS.md).
 
 | Template | Endpoint | Auth | Notes |
 |---|---|---|---|
-| `slack.json` | `https://mcp.slack.com/mcp` | OAuth (pre-registered Slack app) | Streamable HTTP; Slack does **not** support DCR. Use a user token from your Slack app's OAuth flow. Long-lived user tokens work as a static Bearer; rotation needs client id + secret, which is not preconfigured here. |
+| `slack.json` | `https://mcp.slack.com/mcp` | OAuth (pre-registered Slack app) | **Experimental:** endpoint and OAuth flow are documented, but Slack requires the MCP client to be backed by a registered app and does not document how a gateway presents that identity. See [docs/CREDENTIALS.md](../../docs/CREDENTIALS.md#slack). |
+| `atlassian-service-account.json` | `https://mcp.atlassian.com/v2/mcp?tools=all` | API key (Bearer) | Rovo MCP for Jira/Confluence. The `?tools=all` query parameter is required for gateways that need the complete tool list. Or use the personal-token variant below. |
+| `atlassian-personal-token.json` | `https://mcp.atlassian.com/v2/mcp?tools=all` | API token (Basic) | Same endpoint; `authScheme: "basic"` with `base64(email:token)` in the env var. Your org admin must enable API-token auth. |
 | `twilio-docs.json` | `https://mcp.twilio.com/docs` | none | Read-only public API-docs server (Public Beta). No Twilio account or token needed. |
 | `zapier.json` | `https://mcp.zapier.com/api/v1/connect` | static Bearer | Create a server at `mcp.zapier.com` and use its connection token. |
 | `cloudflare.json` | `https://mcp.cloudflare.com/mcp` | OAuth or static Bearer | Cloudflare API MCP (Code Mode). OAuth for interactive use; an API token works as a Bearer header for automation. |
@@ -22,6 +25,7 @@ them. Nothing here contains credentials.
 ## Sources
 
 - Slack: <https://docs.slack.dev/ai/slack-mcp-server/> — "All requests should be sent to: https://mcp.slack.com/mcp … We do not support … Dynamic Client Registration at this time."
+- Atlassian: <https://developer.atlassian.com/cloud/rovo-mcp/guides/getting-started/> and <https://developer.atlassian.com/cloud/rovo-mcp/guides/configuring-authentication-via-api-token/> — `?tools=all` for gateways; service-account API key (Bearer) and personal API token (Basic).
 - Twilio: <https://www.twilio.com/docs/ai/mcp> — "Hosted MCP server | `https://mcp.twilio.com/docs` | None".
 - Zapier: <https://docs.zapier.com/mcp/get-started/connect/other> — connection token to `https://mcp.zapier.com/api/v1/connect` as `Authorization: Bearer`.
 - Cloudflare: <https://developers.cloudflare.com/agents/model-context-protocol/cloudflare/servers-for-cloudflare/> — endpoint `https://mcp.cloudflare.com/mcp`; API token as Bearer for automation.
@@ -32,14 +36,16 @@ them. Nothing here contains credentials.
 
 ## Why some candidates are missing
 
-- **Atlassian Rovo MCP** (`https://mcp.atlassian.com/v2/mcp`) is verified, but its
-  OAuth client is confidential and token refresh specifics vary; a static token
-  expires quickly. Add `refreshUrl` + `clientSecretEnv` once you confirm the
-  token endpoint for your OAuth app.
 - **Microsoft 365** remote MCP endpoints are tenant-scoped
   (`agent365.svc.cloud.microsoft/agents/tenants/{tenant_id}/...`), so there is no
-  universal template.
-- **Sentry** (https://mcp.sentry.dev/mcp, OAuth/DCR only) and **Figma** (https://mcp.figma.com/mcp, auth mode not officially documented) have no static-token template yet.
+  universal template. See [docs/CREDENTIALS.md](../../docs/CREDENTIALS.md).
+- **Sentry** (`https://mcp.sentry.dev/mcp`) is OAuth/DCR only and has no
+  documented static token; the gateway does not implement upstream OAuth, so
+  there is no supported template yet.
+- **Figma** (`https://mcp.figma.com/mcp`) auth mode is not officially documented
+  as DCR vs pre-registered; no template until verified.
+- **Google Workspace** has a template for Drive, but its refresh flow needs a
+  Google OAuth client with a client secret (see `clientSecretEnv`).
 - Providers whose MCP server needs a pre-registered OAuth client with a client
   secret can use the generic refresh path: `refreshEnv`, `clientIdEnv`,
   `clientSecretEnv`, `refreshUrl`.

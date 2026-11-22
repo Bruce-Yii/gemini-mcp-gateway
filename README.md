@@ -87,7 +87,7 @@ upstream payloads are filtered/aggregated inside the sandbox.
   of the runtime sources.
 - **Upstream-agnostic** — any MCP server over Streamable HTTP or stdio; add one
   with a config entry (see [docs/UPSTREAMS.md](docs/UPSTREAMS.md)).
-- **Offline tests** — 301 unit/integration tests and a fake-upstream harness;
+- **Offline tests** — 302 unit/integration tests and a fake-upstream harness;
   no network or credentials needed.
 
 ## Quick start (local)
@@ -189,7 +189,7 @@ All numbers below are reproducible offline against the bundled catalog:
 | Tool-definition context, this gateway | 3 tools ≈ 1,286 tokens (**-99.4%**) |
 | Offline search recall (191 tool-level tasks, English) | top1 **56.5%**, top5 **72.3%** |
 | Offline search recall (19 realistic Chinese queries) | top1 **84%**, top5 **95%** |
-| Offline tests | **301** passing |
+| Offline tests | **302** passing |
 
 ```bash
 npm test
@@ -226,6 +226,7 @@ deployment between users. The sandbox provides isolation, not authorization.
 
 - [docs/WHY.md](docs/WHY.md) — problem, measurements, external evidence
 - [docs/UPSTREAMS.md](docs/UPSTREAMS.md) — add an upstream (config, auth patterns, verification)
+- [docs/CREDENTIALS.md](docs/CREDENTIALS.md) — how to obtain tokens for Slack/Atlassian/etc.
 - [docs/CLIENTS.md](docs/CLIENTS.md) — client compatibility matrix
 - [docs/ADOPTION-RANKINGS.md](docs/ADOPTION-RANKINGS.md) — what public data says about MCP/connector adoption
 - [templates/upstreams/](templates/upstreams/README.md) — verified drop-in upstream entries

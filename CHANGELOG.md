@@ -14,14 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   the refresh lifecycle for any provider; Notion/Linear keep built-in defaults.
 - `scripts/seed-upstream-tokens.mjs` now seeds every configured refresh upstream
   instead of a hardcoded provider list.
-- [docs/UPSTREAMS.md](docs/UPSTREAMS.md), [docs/CLIENTS.md](docs/CLIENTS.md) and
-  ready-to-use `examples/` configs.
-- Upstream-config and generic-auth tests (suite now 301).
-- clientSecretEnv support for confidential OAuth refresh (Google Workspace, Slack, Atlassian, ...).
-- Verified upstream templates in 	emplates/upstreams/ (Slack, Twilio, Zapier, Cloudflare, Stripe, Supabase, Neon, Google Drive) with official-doc links.
-- Model-in-loop benchmark harness (ench/, 
-pm run bench, CI dry run); validated live against a free OpenAI-compatible model (5/5 deterministic tasks).
-
+- [docs/UPSTREAMS.md](docs/UPSTREAMS.md), [docs/CLIENTS.md](docs/CLIENTS.md),
+  [docs/CREDENTIALS.md](docs/CREDENTIALS.md) and ready-to-use `examples/` configs.
+- Upstream-config and generic-auth tests (suite now 302).
+- `clientSecretEnv` support for confidential OAuth refresh (Google Workspace, Slack, Atlassian, ...).
+- `authScheme: "basic"` for static Basic credentials (e.g. Atlassian personal API tokens).
+- Verified upstream templates in `templates/upstreams/` (Slack, Twilio, Zapier,
+  Cloudflare, Stripe, Supabase, Neon, Google Drive, Atlassian) with official-doc links.
+- Model-in-loop benchmark harness (`bench/`, `npm run bench`, CI dry run);
+  validated live against a free OpenAI-compatible model (5/5 deterministic tasks).
+- Slack/Atlassian credential-acquisition notes and Sentry/Figma gap notes in `docs/CREDENTIALS.md`.
 ## [0.1.0] - 2026-11-22
 
 Initial public snapshot.

@@ -57,6 +57,7 @@ sanity check is to search for one of its tool names:
 | `env` | stdio | Extra environment variables for the child process (string map) |
 | `headers` | http | Extra request headers (string map); do not put secrets here — use `tokenEnv` |
 | `tokenEnv` | http | Env var holding a Bearer token |
+| `authScheme` | no | `bearer` (default) or `basic`; Basic expects `base64(user:token)` in the env var |
 | `refreshEnv`, `clientIdEnv` | OAuth | Refresh token + public OAuth client id env vars |
 | `clientSecretEnv` | OAuth | Client secret env var, for confidential OAuth clients (Google/Slack/etc.) |
 | `expiresInEnv`, `obtainedAtEnv` | OAuth | Optional token lifetime + real issuance time; used to compute expiry honestly |
@@ -70,11 +71,21 @@ Top-level options: `mode` (`codemode` default, or legacy `whitelist`),
 
 ## Auth patterns
 
-**Static Bearer token (most common).** PAT/API token in an env var:
+**Static bearer token (most common).** PAT/API token in an env var:
 
 ```json
 { "name": "github", "transport": "http", "url": "https://api.githubcopilot.com/mcp/", "tokenEnv": "GITHUB_TOKEN" }
 ```
+
+**Static Basic credential.** Set `authScheme: "basic"` and put
+`base64(user:token)` in the env var (used by Atlassian personal API tokens):
+
+```json
+{ "name": "atlassian", "transport": "http", "url": "https://mcp.atlassian.com/v2/mcp?tools=all", "tokenEnv": "ATLASSIAN_BASIC_TOKEN", "authScheme": "basic" }
+```
+
+Credential acquisition for providers that need app registration/OAuth is
+documented in [CREDENTIALS.md](CREDENTIALS.md).
 
 **Static headers.** For servers that need extra headers. Keep secrets in env
 vars if the server supports templating; otherwise this field is best for
