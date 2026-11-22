@@ -23,6 +23,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
 import { validateConfig } from '../src/config.js';
+import { getAccessToken as getVaultFigmaToken } from './figma-token.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -149,8 +150,16 @@ function loadServer(config) {
 }
 
 async function writeSnapshot(server) {
-  const token = server.tokenEnv ? process.env[server.tokenEnv] : '';
+  let token = server.tokenEnv ? process.env[server.tokenEnv] : '';
+  let tokenSource = server.tokenEnv ? 'env' : 'none';
+  if (!token && server.name === 'figma') {
+    // One-time Figma authorization is stored in the local vault; refresh it
+    // non-interactively instead of asking the user for another login.
+    token = await getVaultFigmaToken();
+    tokenSource = 'vault';
+  }
   if (!token) throw new Error(`cannot capture snapshot: ${server.tokenEnv ?? 'tokenEnv'} is not set`);
+  if (tokenSource === 'vault') console.log('[audit-tools] using Figma token from local vault');
   const headers = { accept: 'application/json, text/event-stream', 'content-type': 'application/json' };
   const headerName = server.tokenHeader ?? 'Authorization';
   if (headerName.toLowerCase() === 'authorization') {

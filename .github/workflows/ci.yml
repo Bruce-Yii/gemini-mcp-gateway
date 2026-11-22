@@ -25,6 +25,8 @@ jobs:
       - run: npm ci
       - name: Unit + integration tests
         run: npm test
+      - name: Audit committed tool snapshots
+        run: node scripts/audit-tools.mjs --server figma
       - name: Validate example configs
         run: |
           node scripts/check-config.mjs config.example.json

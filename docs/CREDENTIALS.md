@@ -7,12 +7,46 @@ upstreams that need more than a simple PAT, and what is supported today.
 
 Nothing here should be committed. Put values in environment variables only.
 
+## Local credential vault (one-time)
+
+To stop asking for the same authorization in every window, local credentials
+live in a **vault outside the repo**:
+
+- Default path: `D:\12412\dsh-home\.secrets\gemini-mcp-gateway`
+  (override with `GATEWAY_SECRET_DIR`)
+- `figma-oauth.json` — Figma OAuth client id/secret + access/refresh token
+- `vercel-auth.json` — backup of the Vercel CLI auth file (restore to
+  `%APPDATA%\com.vercel.cli\Data\auth.json` if a fresh profile loses login)
+
+Commands:
+
+```bash
+node scripts/figma-token.mjs status          # configured? expiry? no tokens printed
+node scripts/figma-token.mjs refresh         # refresh from stored refresh token
+node scripts/figma-token.mjs run -- node src/server.js --config work/figma-official-local.json --port 3971
+node scripts/audit-tools.mjs --server figma --write-snapshot --sync-dataset
+```
+
+`scripts/audit-tools.mjs` falls back to the vault for Figma when
+`FIGMA_ACCESS_TOKEN` is absent. A new window must **not** ask the user for a new
+Figma PAT/OAuth token while the vault is valid; if the refresh token is dead,
+one authorization is unavoidable and should be treated as a one-off event.
+
+**What still prompts (cannot be fixed by the gateway):**
+
+- Gemini's own per-tool approval for write tools (`execute` is destructive).
+  Batch writes and grant persistent approval once in Gemini's UI.
+- Vercel CLI device login only if the CLI auth profile is lost; the vault backup
+  exists for restore.
+- Upstream OAuth only if the provider revokes/expires the refresh token.
+
 ## Token models supported by the gateway
 
 | Model | Config | Notes |
 |---|---|---|
 | Static bearer / API token | `tokenEnv` | Simplest; PAT/API keys that do not expire quickly |
-| Static Basic credential | `tokenEnv` + `authScheme: "basic"` | Env value is the pre-encoded `base64(user:token)` |`n| Static provider scheme | `tokenEnv` + `authScheme: "Sentry-Bearer"` (or similar) | The scheme is sent verbatim before the token |
+| Static Basic credential | `tokenEnv` + `authScheme: "basic"` | Env value is the pre-encoded `base64(user:token)` |
+| Static provider scheme | `tokenEnv` + `authScheme: "Sentry-Bearer"` (or similar) | The scheme is sent verbatim before the token |
 | OAuth + refresh | `tokenEnv` + `refreshEnv` + `clientIdEnv` (+ `clientSecretEnv`) + `refreshUrl` | The gateway refreshes before expiry and persists rotated tokens in KV |
 | Gateway-initiated OAuth | `authorizeUrl` + `refreshUrl` + `clientIdEnv` (+ `clientSecretEnv`) + optional `oauthScopes` / `oauthRedirectUri`, plus `UPSTREAM_OAUTH_ADMIN_KEY` | The gateway runs the authorization-code + PKCE flow at `/upstream/oauth/start` and stores the result in KV |
 

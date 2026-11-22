@@ -102,7 +102,8 @@ Vercel 的 259 个工具里绝大多数是细碎底层 API 和企业运维功能
 机器可读依据：`data/official-tools/figma.json`（官方 44 工具）+
 `data/tool-policy/figma.json`（4 deny 理由 + 2 个 live 快照额外工具声明）+
 `scripts/audit-tools.mjs`（官方清单 vs snapshot vs deny 自动 diff）。
-**Figma `tools/list` 快照仍需一次 live OAuth 后入库**；缺失时审计脚本按设计失败。
+Figma `tools/list` 快照已入库 `data/tool-snapshots/figma.json`（50 tools，capturedAt）；
+`check-config` 显示 50 total / 46 exposed / 4 denied。
 
 ---
 
