@@ -1,0 +1,159 @@
+{
+  "date": "2026-11-22",
+  "metrics": {
+    "requests": 20,
+    "mcpRequests": 9,
+    "nonMcpRequests": 11,
+    "errors": 10,
+    "mcpErrors": 0,
+    "statuses": {
+      "200": 8,
+      "202": 2,
+      "404": 8,
+      "405": 2
+    },
+    "errorClasses": {},
+    "routeErrors": {
+      "upstream_4xx": 10
+    },
+    "tools": {
+      "initialize": 1,
+      "tools/call": 3,
+      "notifications/initialized": 2,
+      "tools/list": 3
+    },
+    "upstreams": {
+      "execute_read": 3
+    },
+    "durations": [
+      4,
+      6,
+      6,
+      6,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      8,
+      8,
+      8,
+      9,
+      28,
+      513,
+      724,
+      775,
+      6228
+    ],
+    "bytes": 54637,
+    "truncated": 0,
+    "overflow": 0,
+    "truncationRate": 0,
+    "overflowRate": 0,
+    "errorRate": 0.5,
+    "byDay": {
+      "2026-11-22": 20
+    },
+    "byHour": {
+      "20": 11,
+      "21": 9
+    },
+    "byDayHour": {
+      "2026-11-22T20": 11,
+      "2026-11-22T21": 9
+    },
+    "byRoute": {
+      "GET /": {
+        "calls": 8,
+        "errors": 8,
+        "errorRate": 1,
+        "p50Ms": 7,
+        "p95Ms": 8,
+        "avgMs": 7,
+        "errorClasses": {
+          "upstream_4xx": 8
+        },
+        "truncated": 0,
+        "overflow": 0
+      },
+      "GET /healthz": {
+        "calls": 1,
+        "errors": 0,
+        "errorRate": 0,
+        "p50Ms": 9,
+        "p95Ms": 9,
+        "avgMs": 9,
+        "errorClasses": {},
+        "truncated": 0,
+        "overflow": 0
+      },
+      "GET /mcp": {
+        "calls": 2,
+        "errors": 2,
+        "errorRate": 1,
+        "p50Ms": 6,
+        "p95Ms": 775,
+        "avgMs": 391,
+        "errorClasses": {
+          "upstream_4xx": 2
+        },
+        "truncated": 0,
+        "overflow": 0
+      },
+      "POST /mcp": {
+        "calls": 9,
+        "errors": 0,
+        "errorRate": 0,
+        "p50Ms": 8,
+        "p95Ms": 6228,
+        "avgMs": 836,
+        "errorClasses": {},
+        "truncated": 0,
+        "overflow": 0
+      }
+    },
+    "upstreamStats": {
+      "github": {
+        "calls": 3,
+        "errors": 0,
+        "errorRate": 0,
+        "p50Ms": 724,
+        "p95Ms": 6228,
+        "avgMs": 2488,
+        "errorClasses": {},
+        "truncated": 0,
+        "overflow": 0
+      },
+      "unknown": {
+        "calls": 6,
+        "errors": 0,
+        "errorRate": 0,
+        "p50Ms": 7,
+        "p95Ms": 28,
+        "avgMs": 10,
+        "errorClasses": {},
+        "truncated": 0,
+        "overflow": 0
+      }
+    },
+    "toolStats": {
+      "execute_read": {
+        "calls": 3,
+        "errors": 0,
+        "errorRate": 0,
+        "p50Ms": 724,
+        "p95Ms": 6228,
+        "avgMs": 2488,
+        "errorClasses": {},
+        "truncated": 0,
+        "overflow": 0
+      }
+    },
+    "p50Ms": 7,
+    "p95Ms": 775,
+    "avgMs": 419,
+    "date": "2026-11-22"
+  }
+}
