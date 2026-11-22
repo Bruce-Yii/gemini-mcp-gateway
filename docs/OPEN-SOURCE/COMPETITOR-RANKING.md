@@ -56,34 +56,37 @@
 
 | 排名 | 项目 | 总分 | 人群 | 痛点 | 优化 | 执行/评测 | Web | 自托管 | 一句话判断 |
 |---:|---|---:|---:|---:|---:|---:|---:|---:|---|
-| 1 | **agentgateway** | **69** | 2 | 5 | 4 | 3 | 2 | 5 | 开源企业网关，progressive disclosure + Code Mode；强在 K8s/策略，不是 Web 单用户 |
-| 2 | **Bifrost** | **69** | 2 | 5 | 4 | 3 | 2 | 5 | Code Mode 四 meta-tools，宣称 -92.8% 定义 token；企业网关路线 |
-| 3 | **toolgate** | **68** | 3 | 5 | 4 | 1 | 2 | 5 | 最接近我们的 `search`：2 工具 + BM25/embedding/rerank + eval；但没有 Code Mode/写路径/Web 实测 |
-| 4 | **Cloudflare MCP Portals context optimization** | **65** | 2 | 5 | 5 | 3 | 2 | 1 | 功能最同轴：`minimize_tools` + `search_and_execute`；但闭源平台、企业向、非单用户 Web，所以人群/自托管拉低总分 |
-| 5 | **gemini-bastion-mcp** | **64** | 4 | 2 | 1 | 4 | 5 | 5 | 人群最接近（Web Gemini/Claude/ChatGPT），但 10 固定工具、无 Code Mode、无定义压缩；优化的是审批 UX |
-| 6 | **Speakeasy MCP Gateway** | **64** | 3 | 4 | 4 | 3 | 2 | 2 | 明确“Code Mode 放在 gateway”；一个 execute + live tool search；商业/企业向 |
-| 7 | **Limen / corrreia/dev-mcp / Forgemax / mcp_codemode** | **61** | 3 | 4 | 3 | 2 | 1 | 5 | Code Mode 同轴，但多已停滞/实验性；没有 Web 客户端/eval |
-| 8 | **Consiliency/pmcp** | **60** | 3 | 4 | 3 | 1 | 2 | 5 | 开源 Progressive MCP gateway；`catalog_search` + lazy servers；缺执行/写/评测 |
-| 9 | **Stacklok MCP Optimizer** | **54** | 3 | 3 | 3 | 1 | 2 | 4 | 工具检索/优化器；可对标 eval，但不做执行/写 |
-| 10 | **IBM ContextForge** | **51** | 2 | 3 | 2 | 3 | 1 | 5 | 企业控制面；TOON 只压 tool result 且默认 disabled；无 tool search/Code Mode；叙事竞品 |
+| 1 | **Cloudflare MCP Portals context optimization** | **65** | 2 | 5 | 5 | 3 | 2 | 1 | 功能最同轴：`minimize_tools` + `search_and_execute`（代理）+ `codemode`（JS，分开）；但闭源企业平台、非 Web 单用户，人群/自托管拉低 |
+| 2 | **gemini-bastion-mcp** | **64** | 4 | 2 | 1 | 4 | 5 | 5 | 人群最接近（Web Gemini/Claude/ChatGPT），但 10 固定工具、无 Code Mode、无定义压缩；优化的是审批 UX |
+| 3 | **Speakeasy MCP Gateway** | **64** | 3 | 4 | 4 | 3 | 2 | 2 | 明确“Code Mode 放在 gateway”；一个 execute + live tool search；商业/企业向 |
+| 4 | **Bifrost** | **62** | 2 | 4 | 4 | 2 | 2 | 5 | 9.9k★ 但主体是 LLM gateway；Code Mode 4 工具 + Starlark 沙箱；无 Gemini/ChatGPT、无任务 eval |
+| 5 | **Limen / corrreia/dev-mcp / Forgemax / mcp_codemode** | **61** | 3 | 4 | 3 | 2 | 1 | 5 | Code Mode 同轴，但多已停滞/实验性；没有 Web 客户端/eval |
+| 6 | **Consiliency/pmcp** | **60** | 3 | 4 | 3 | 1 | 2 | 5 | 开源 Progressive MCP gateway；`catalog_search` + lazy servers；缺执行/写/评测 |
+| 7 | **toolgate** | **60** | 3 | 4 | 3 | 1 | 2 | 5 | 0★ PoC；BM25/rerank/eval harness 真实，但默认假模型、无 Code Mode/写/OAuth、无任务成功证据 |
+| 8 | **Stacklok MCP Optimizer** | **54** | 3 | 3 | 3 | 1 | 2 | 4 | 工具检索/优化器；可对标 eval，不做执行/写 |
+| 9 | **IBM ContextForge** | **51** | 2 | 3 | 2 | 3 | 1 | 5 | 企业控制面；TOON 只压 tool result 且默认 disabled；无 tool search/Code Mode；叙事竞品 |
+| 10 | **agentgateway** | **46** | 2 | 3 | 1 | 2 | 2 | 5 | **源码核验：没有 progressive disclosure/Code Mode**；PR #3859 被 maintainer 明确拒绝（“proxy 不该内置 bespoke MCP server”）；相邻治理网关，不是同轴竞品 |
 | 11 | **Anthropic Tool Search / OpenAI `tool_search` / MCP Groups** | **45–50** | 3 | 4 | 3 | 1 | 2 | 0 | 长期协议/宿主威胁；按用户实测当前 Web 客户端效果不好，暂列 watch |
 | 12 | **MCPHub / MetaMCP / Unla / Docker MCP Gateway / 纯聚合** | **35–45** | 2 | 2 | 1 | 2 | 1 | 5 | 聚合/控制面，不是同一优化轴；只作为相邻基础设施 |
 
-> **分数解释**：Cloudflare 在“功能同轴度”上其实最高（优化 5/5），但本榜权重把“单用户/自托管/Web 人群”看得很重，所以它总分低于 agentgateway/Bifrost/toolgate。若只看“平台级功能威胁”，Cloudflare 应为第一。
+> **分数解释**：Cloudflare 在“功能同轴度”上最高（优化 5/5），但本榜权重把“单用户/自托管/Web 人群”看得很重，所以它排名靠前但总分不是压倒性。若只看“平台级功能威胁”，Cloudflare 仍是第一。
+>
+> **深度核验修正**：agentgateway 从最初的“#1 同轴”降到 #10；toolgate 从 #3 降到 #7；Bifrost 从 #2 降到 #4。原因见 [deep/README.md](deep/README.md) 与各仓库源码报告。
 
 ## 3. 按“威胁类型”重排（老板视角）
 
 | 威胁类型 | 项目 | 为什么 |
 |---|---|---|
-| **平台级直接替代** | Cloudflare Portals、agentgateway、Bifrost | 功能同轴，若用户愿意上企业平台/网关，会先选它们 |
-| **开源直接竞品** | toolgate、Consiliency/pmcp、Limen/dev-mcp | 同问题、同技术路线，star 少但可被开发者直接 clone |
+| **平台级直接替代** | Cloudflare Portals、Bifrost、Speakeasy | 功能同轴，若用户愿意上企业平台/网关，会先选它们 |
+| **开源直接竞品** | toolgate、Consiliency/pmcp、Limen/dev-mcp | 同问题、同技术路线，star 少但可被开发者直接 clone；toolgate 目前是 PoC |
 | **Web 人群直接竞品** | gemini-bastion-mcp | 同样打 Gemini/Claude/ChatGPT web；但它不解决上下文/工具定义压缩 |
 | **叙事/搜索词竞品** | IBM ContextForge | 4.9k★ + IBM 品牌会抢“MCP context optimization”搜索结果，但压的是结果不是定义 |
 | **长期结构性威胁** | Anthropic Tool Search、OpenAI `tool_search`、MCP Groups | 宿主/协议原生做掉 progressive disclosure；但当前 Web 客户端效果不好 |
+| **明确让位者** | agentgateway | 源码无 progressive disclosure/Code Mode；PR #3859 被拒绝，maintainer 明确说“proxy 不该内置 bespoke MCP server”——反而证明我们在做的事不是它要做的 |
 
 ## 4. 我们真正该赢的对比
 
-### vs Cloudflare / agentgateway / Bifrost
+### vs Cloudflare / Bifrost / Speakeasy
 
 它们赢在：企业部署、策略、K8s、品牌、生态。
 我们赢在：
@@ -127,7 +130,7 @@
 
 > **单用户 + 自托管 + Web 客户端 + 工具定义压缩 + Code Mode + 读写分层 + 全量评测**
 
-- Cloudflare/agentgateway/Bifrost 有“上下文 + Code Mode”，但没有“单用户 Web + 读写语义 + 任务级 eval”；
+- Cloudflare/Bifrost/Speakeasy 有“上下文 + Code Mode”，但没有“单用户 Web + 读写语义 + 任务级 eval”；
 - toolgate/pmcp 有“检索/渐进发现”，但没有“执行/写/评测”；
 - gemini-bastion 有“Web 人群”，但没有“上下文/工具定义优化”；
 - IBM 有“企业压缩叙事”，但压的是结果、不是定义，且不是 Web 单用户。
