@@ -27,7 +27,7 @@
 
 | 项目 | 证据 | 为什么同轴 |
 |---|---|---|
-| **IBM/mcp-context-forge** | 4,875★，2026-11-21 仍活跃；MCP/A2A/REST 网关，明确写 **TOON compression**、tool gateway、registry、guardrails、observability | 大厂开源网关，直接做工具面聚合 + 上下文压缩 + 观测；之前完全漏掉 |
+| **IBM/mcp-context-forge** | 4,875★，2026-11-21 仍活跃；MCP/A2A/REST 网关，企业控制面；**TOON 插件压工具结果（`tool_post_invoke`），默认 `mode:disabled`、`PLUGINS_ENABLED=false`；不压工具定义，无 tool search/progressive disclosure、无 Code Mode/guest 沙箱** | 大厂开源网关，直接做工具聚合 + 观测；但和我们不是同一压缩轴：它压结果，我们压定义；它面向企业多租户，我们面向单用户 Web 客户端。详见 [IBM-CONTEXTFORGE-VS-US.md](IBM-CONTEXTFORGE-VS-US.md) |
 | **RajeshwariVelmurugan/MCP-Tool-Retrieval-Gateway (toolgate)** | 2 tools `search_tools` / `call_tool`；BM25 / embeddings / hybrid RRF / reranker；自带 Recall@k/MRR/nDCG/token/latency 评测；对比 Anthropic native tool search | 和我们的 `search` + 工具调用最接近的“检索型网关”；虽然 0★，但概念完全同轴 |
 | **vrraj/axiolex** | intent-ranked Top-K retrieval；MCP/A2A/internal tools；BM25S + ColBERT；namespace/catalog | 工具发现/检索层竞品 |
 | **dehydrator** | client-side BM25 tool search；把完整 tool list 换成一个 `tool_search` | 说明“工具检索”正在变成通用能力，不一定需要网关 |

@@ -13,8 +13,11 @@ real same-axis competitors. A problem-space search (`tool retrieval`, `tool
 search`, `progressive disclosure`, `context reduction`, `TOON compression`)
 found:
 
-- **IBM/mcp-context-forge** — 4.9k★ open-source tool gateway with TOON
-  compression and tool optimization; the biggest missed competitor.
+- **IBM/mcp-context-forge** — 4.9k★ open-source enterprise tool gateway. Its
+  "TOON compression" is a **tool-result** plugin (`tool_post_invoke`), disabled
+  by default, not tool-definition compression; it has no tool search, Code Mode,
+  or guest sandbox. Different compression axis and buyer. Full source audit:
+  [IBM-CONTEXTFORGE-VS-US.md](IBM-CONTEXTFORGE-VS-US.md).
 - **toolgate** — 2 tools `search_tools` / `call_tool`, BM25/embeddings/hybrid
   + reranker, with its own Recall@k/MRR/token eval harness.
 - **axiolex / dehydrator** — intent-ranked / client-side tool retrieval.
