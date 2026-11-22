@@ -421,15 +421,18 @@ function withDeadline(promise, ms, message, onTimeout) {
  * and SDK wrapper offsets. Pick the first positive candidate: wrapper frames
  * before the user code are <=0, the user frame is >0.
  */
-export function pickScriptLoc(stack, codeStartLine) {
+export function pickScriptLoc(stack, codeStartLine, codeLines = 1) {
   if (typeof stack !== 'string' || stack === '') return null;
   if (!Number.isFinite(Number(codeStartLine)) || Number(codeStartLine) <= 0) return null;
   const frames = [...stack.matchAll(/run\.js:(\d+):(\d+)/g)];
-  for (const frame of frames) {
-    const line = Number(frame[1]) - Number(codeStartLine);
-    const column = Number(frame[2]);
-    if (line > 0 && Number.isFinite(column)) return { line, column };
-  }
+  if (frames.length === 0) return null;
+  // The first run.js frame is the user function start. The wrapper sentinel is
+  // codeLines + 3 source lines after the function definition, so this offset
+  // maps the function frame back to the user's source line.
+  const frame = frames[0];
+  const line = Number(frame[1]) - Number(codeStartLine) + Number(codeLines) + 3;
+  const column = Number(frame[2]);
+  if (line > 0 && Number.isFinite(column)) return { line, column };
   return null;
 }
 
@@ -643,14 +646,18 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
   const source = [
     GUEST_PRELUDE,
     ...toolLines,
-    // Calibration sentinel immediately before the user function: its run.js
-    // line is the stable origin for script-line mapping (independent of SDK
-    // wrapper offsets, prelude length and dynamically generated tool bindings).
-    'const __dshCodeStart = (() => { const m = /run\\.js:(\\d+)/.exec(String(new Error().stack || "")); return m ? Number(m[1]) : 0; })();',
-    `const __dshFn = (${normalized});`,
+    // Keep the user function source untouched (works for block and expression
+    // arrow bodies). The wrapper samples its own run.js line immediately after
+    // the user function definition; mapping uses the fixed 3-line delta.
+    `const __dshUserFn = (${normalized});`,
+    'let __dshUserStart = 0;',
+    'const __dshFn = async () => {',
+    '  __dshUserStart = (() => { const m = /run\\.js:(\\d+)/.exec(String(new Error().stack || "")); return m ? Number(m[1]) : 0; })();',
+    '  return await __dshUserFn();',
+    '};',
     'return Promise.resolve().then(() => __dshFn()).then(',
-    '  (v) => ({ __ok: true, v: v, cal: __dshCal, codeStart: __dshCodeStart }),',
-    '  (e) => ({ __ok: false, cal: __dshCal, codeStart: __dshCodeStart, err: { message: e != null && e.message !== undefined ? String(e.message) : String(e), type: (e instanceof Error) ? String(e.name || "Error") : "UnknownError", hostOrigin: !!(e && e.__dshHostOrigin), stack: e && e.stack ? String(e.stack) : "" } })',
+    '  (v) => ({ __ok: true, v: v, cal: __dshCal, codeStart: __dshUserStart }),',
+    '  (e) => ({ __ok: false, cal: __dshCal, codeStart: __dshUserStart, err: { message: e != null && e.message !== undefined ? String(e.message) : String(e), type: (e instanceof Error) ? String(e.name || "Error") : "UnknownError", hostOrigin: !!(e && e.__dshHostOrigin), stack: e && e.stack ? String(e.stack) : "" } })',
     ');',
   ].join('\n');
 
@@ -679,7 +686,7 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
       const e = env.err && typeof env.err === 'object' ? env.err : {};
       let scriptLoc;
       if (!e.hostOrigin && typeof e.stack === 'string') {
-        scriptLoc = pickScriptLoc(e.stack, Number(env.codeStart));
+        scriptLoc = pickScriptLoc(e.stack, Number(env.codeStart), normalized.split('\n').length);
       }
       const err = new Error(String(e.message ?? ''));
       err.name = String(e.type || 'Error');

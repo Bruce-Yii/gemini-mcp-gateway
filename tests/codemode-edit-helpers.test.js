@@ -99,10 +99,13 @@ test('thrown guest errors are mapped to the user script line, not run.js', async
 });
 
 
-test('pickScriptLoc picks the last positive run.js frame, not the wrapper frame', () => {
-  const stack = 'TypeError: not a function\n    at __dshFn (run.js:354:20)\n    at <anonymous> (run.js:374:37)';
-  assert.deepEqual(pickScriptLoc(stack, 360), { line: 14, column: 37 });
-  assert.equal(pickScriptLoc('Error\n at x (run.js:10:2)', 300, 60), null);
+test('pickScriptLoc maps the user frame with the wrapper offset', () => {
+  const stack = 'TypeError: not a function\n    at __dshUserFn (run.js:374:37)';
+  assert.deepEqual(pickScriptLoc(stack, 360), { line: 18, column: 37 });
+  assert.equal(pickScriptLoc('Error\n at x (run.js:10:2)', 300), null);
   assert.equal(pickScriptLoc('', 1), null);
 });
+
+
+
 
