@@ -114,6 +114,51 @@ test('file：MCP content 数组 envelope（{type,text}）→ 解出 content', ()
   assert.equal(out.content, 'part1\npart2');
 });
 
+test('file：真实 capture——下载提示 + resource.text 混排，选正文而非提示', () => {
+  const body = `# gemini-mcp-gateway\n\n${'这是一段真实文件正文。\n'.repeat(600)}`;
+  const notice = `successfully downloaded text file (SHA: 1234abcd5678ef01, 81 chars)`;
+  const input = {
+    content: [
+      { type: 'text', text: notice },
+      {
+        type: 'resource',
+        resource: {
+          uri: 'repo://main/README.md',
+          mimeType: 'text/plain; charset=utf-8',
+          text: body,
+        },
+      },
+    ],
+  };
+  const out = normalizeFileResult(input);
+  assert.ok(out.content.length > 1000, `content length=${out.content.length}`);
+  assert.ok(out.content.includes('# gemini-mcp-gateway'));
+  assert.equal(out.content, body, '正文必须来自 resource.text，不能被下载提示冒充');
+  assert.equal(out.content.includes('successfully downloaded'), false);
+  assert.equal(out.raw, input, 'raw 必须保留原始返回');
+});
+
+test('file：多个候选时选最长且非下载提示的正文', () => {
+  const out = normalizeFileResult({
+    content: [
+      { type: 'text', text: 'successfully downloaded text file (SHA: abcdef123456)' },
+      { type: 'resource', resource: { text: 'short body' } },
+      { type: 'resource', resource: { text: 'long body '.repeat(200) } },
+      { type: 'text', text: 'fetched file successfully' },
+    ],
+  });
+  assert.ok(out.content.startsWith('long body'));
+  assert.ok(out.content.length > 1000);
+  assert.equal(out.content.includes('successfully downloaded'), false);
+  assert.equal(out.content.includes('fetched file successfully'), false);
+});
+
+test('file：只有下载提示时仍返回它（无正文可选，不返回 null）', () => {
+  const notice = 'successfully downloaded text file (SHA: abcdef123456, 81 chars)';
+  const out = normalizeFileResult({ content: [{ type: 'text', text: notice }] });
+  assert.equal(out.content, notice);
+});
+
 test('file：--- TRUNCATED --- 标记与已有 truncated 都识别', () => {
   assert.equal(normalizeFileResult({ content: 'a--- TRUNCATED --- 10 chars total' }).truncated, true);
   assert.equal(normalizeFileResult({ content: 'ok', truncated: true }).truncated, true);

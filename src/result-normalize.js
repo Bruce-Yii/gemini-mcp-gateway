@@ -79,11 +79,16 @@ function unwrap(value) {
     }
   }
   // MCP content 数组：[{type:'text',text:'...'}] -> 合并文本。
+  // 但如果含嵌套 resource 块，不能在此展平（否则会只留下下载提示），
+  // 保留数组交给 contentArrayToString 选真正的正文。
   if (Array.isArray(v)) {
-    const texts = v
-      .map((item) => (isObj(item) ? get(item, 'text') : item))
-      .filter((t) => typeof t === 'string');
-    if (texts.length) v = texts.join('\n');
+    const hasNestedResource = v.some((item) => isObj(item) && isObj(get(item, 'resource')));
+    if (!hasNestedResource) {
+      const texts = v
+        .map((item) => (isObj(item) ? get(item, 'text') : item))
+        .filter((t) => typeof t === 'string');
+      if (texts.length) v = texts.join('\n');
+    }
   }
   if (typeof v === 'string') {
     const parsed = parseJsonText(v);
@@ -92,21 +97,59 @@ function unwrap(value) {
   return { value: v, sawString: typeof v === 'string' };
 }
 
+/**
+ * 识别"下载成功"提示文本（GitHub get_file_contents 常见），它不是文件正文。
+ * 只做窄匹配，避免把真实正文里恰好提到 "downloaded" 的内容误杀。
+ */
+function isDownloadNotice(text) {
+  if (typeof text !== 'string') return false;
+  const t = text.trim();
+  if (t.length > 300) return false; // 正文不会这么短地被当提示
+  return /^(successfully\s+)?(downloaded|fetched|retrieved)\b/i.test(t) || /\bSHA:\s*[0-9a-f]{7,}/i.test(t);
+}
+
+/** 从一个 content/resource 项里取出可能的正文字符串（含嵌套 resource.text）。 */
+function extractBodyText(item) {
+  if (typeof item === 'string') return item;
+  if (!isObj(item)) return null;
+  // 直接 text / content / data
+  const direct = pick(item, ['text', 'content', 'data']);
+  if (typeof direct === 'string') return direct;
+  // MCP resource block: {type:'resource', resource:{uri, mimeType, text}}
+  const resource = get(item, 'resource');
+  if (isObj(resource)) {
+    const nested = pick(resource, ['text', 'content', 'data']);
+    if (typeof nested === 'string') return nested;
+  }
+  return null;
+}
+
+/**
+ * 把 content 数组折叠成正文。真实 capture 里 GitHub 会同时返回
+ * "successfully downloaded text file (SHA: ...)" 提示和真正的文件内容
+ * （在 {type:'resource', resource:{text}} 里）。此时不能被提示冒充正文：
+ * 排除下载提示后，选最长的候选作为正文。
+ * 没有下载提示、没有嵌套 resource 时，保持原有的逐项合并行为。
+ */
+function contentArrayToString(array) {
+  const items = array.map(extractBodyText).filter((t) => t !== null);
+  if (!items.length) return null;
+  const hasDownloadNotice = items.some(isDownloadNotice);
+  const hasNestedResource = array.some(
+    (item) => isObj(item) && isObj(get(item, 'resource')),
+  );
+  if (hasDownloadNotice || hasNestedResource) {
+    const bodies = items.filter((t) => !isDownloadNotice(t));
+    const pool = bodies.length ? bodies : items;
+    return pool.reduce((best, t) => (t.length > best.length ? t : best), '');
+  }
+  return items.join('\n');
+}
+
 /** 把任意 content 漂移（字符串/数组/对象/resource 列表）折叠成字符串或 null。 */
 function contentToString(value) {
   if (typeof value === 'string') return value;
-  if (Array.isArray(value)) {
-    // GitHub content 数组：每项可能是 {text} / {content} / 字符串。
-    const parts = value
-      .map((item) => {
-        if (typeof item === 'string') return item;
-        if (!isObj(item)) return null;
-        const text = pick(item, ['text', 'content', 'data']);
-        return typeof text === 'string' ? text : null;
-      })
-      .filter((part) => part !== null);
-    return parts.length ? parts.join('\n') : null;
-  }
+  if (Array.isArray(value)) return contentArrayToString(value);
   if (isObj(value)) {
     const text = pick(value, ['text', 'content', 'data']);
     if (typeof text === 'string') return text;
