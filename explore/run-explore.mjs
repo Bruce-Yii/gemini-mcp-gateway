@@ -92,10 +92,15 @@ function readTokenFile(file, hint) {
 }
 const n = readTokenFile(path.join(TOKEN_DIR, 'notion.json'), 'set GEMINI_GATEWAY_TOKENS_DIR or create the file');
 const l = readTokenFile(path.join(TOKEN_DIR, 'linear.json'), 'set GEMINI_GATEWAY_TOKENS_DIR or create the file');
-const cop = readTokenFile(
-  path.join(os.homedir(), '.cc-switch', 'copilot_auth.json'),
-  'export GITHUB_TOKEN instead, or create ~/.cc-switch/copilot_auth.json',
-);
+// GITHUB_TOKEN from the environment is sufficient (CI uses GH_PAT/GITHUB_TOKEN);
+// only fall back to the local Copilot auth file when no env token is present.
+let cop = {};
+if (!process.env.GITHUB_TOKEN) {
+  cop = readTokenFile(
+    path.join(os.homedir(), '.cc-switch', 'copilot_auth.json'),
+    'export GITHUB_TOKEN instead, or create ~/.cc-switch/copilot_auth.json',
+  );
+}
 process.env.GITHUB_TOKEN = process.env.GITHUB_TOKEN || Object.values(cop.accounts ?? {})[0]?.github_token || '';
 process.env.NOTION_TOKEN = n.access_token; process.env.NOTION_REFRESH_TOKEN = n.refresh_token;
 process.env.NOTION_CLIENT_ID = n.client_id; process.env.NOTION_EXPIRES_IN = String(n.expires_in);
