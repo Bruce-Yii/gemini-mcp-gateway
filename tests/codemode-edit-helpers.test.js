@@ -109,3 +109,13 @@ test('pickScriptLoc maps the user frame with the wrapper offset', () => {
 
 
 
+
+test('expression-bodied arrow errors still get a script line marker', async () => {
+  const out = await runInSandbox({
+    code: 'async () => codemode.notARealTool()',
+    tools: [],
+    callTool: async () => ({}),
+  });
+  assert.equal(out.isError, true);
+  assert.match(out.result, /script line 1(?::\d+)?/);
+});

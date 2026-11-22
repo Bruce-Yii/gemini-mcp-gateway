@@ -429,7 +429,26 @@ export function instrumentLineMarkers(source) {
       ecmaVersion: 'latest', locations: true, allowAwaitOutsideFunction: true, sourceType: 'script',
     });
     const expr = ast.body[0]?.expression;
-    if (!expr || expr.type !== 'ArrowFunctionExpression' || expr.body?.type !== 'BlockStatement') return source;
+    if (!expr || expr.type !== 'ArrowFunctionExpression') return source;
+    if (expr.body?.type !== 'BlockStatement') {
+      // Expression-bodied arrow: wrap in a block so the line marker runs and
+      // the original value/async semantics are preserved. Keep parenthesized
+      // expression bodies intact (e.g. `() => ({...})`) by replacing the whole
+      // parenthesized body, not just the inner object expression.
+      const body = expr.body;
+      if (!body || typeof body.start !== 'number' || typeof body.end !== 'number') return source;
+      let bodyStart = body.start;
+      let bodyEnd = body.end;
+      const leading = source.slice(expr.start, bodyStart);
+      const open = leading.lastIndexOf('(');
+      if (open >= 0 && leading.slice(open + 1).trim() === '' && /^\s*\)/.test(source.slice(bodyEnd))) {
+        bodyStart = expr.start + open;
+        bodyEnd += /^\s*\)/.exec(source.slice(bodyEnd))[0].length;
+      }
+      const bodySource = source.slice(body.start, body.end);
+      const line = body.loc?.start?.line ?? 1;
+      return source.slice(0, bodyStart) + `{ __dshLine(${line}); return (${bodySource}); }` + source.slice(bodyEnd);
+    }
     const inserts = [];
     const visit = (node) => {
       if (!node || typeof node !== 'object') return;

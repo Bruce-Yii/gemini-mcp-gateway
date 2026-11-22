@@ -94,9 +94,9 @@
   靠栈校准只能得到函数起始行，不能得到错误行。
 - 修复：不再依赖栈。host 侧用 `acorn` 解析用户函数，在每个 block statement 前插入
   `__dshLine(原始行号);`；guest 记录最后执行的行，出错时把 `line` 带回 host。
-- 效果：单行/多行错误都能拿到**最后执行的语句行**（例如多行测试第 4 行 throw → `script line 4`）；
+- 效果：单行/多行错误、block/expression 函数体都能拿到**最后执行的语句行**（例如多行测试第 4 行 throw → `script line 4`）；
   非 Error 抛出（plain string/object）不带行号，保持旧行为。
-- 测试：`tests/codemode-rest.test.js` #12 覆盖 4 行 throw；全量 363/363。
+- 测试：`tests/codemode-rest.test.js` #12 覆盖 4 行 throw；全量 364/364。
 - 尚未在线复验；`acorn` 已加入依赖。
 
 ## 优先级与依赖（历史计划）
