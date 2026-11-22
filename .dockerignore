@@ -1,0 +1,22 @@
+# Keep the build context small and, above all, keep secrets out of layers.
+.git
+.gitignore
+node_modules
+npm-debug.log*
+.env
+.env.*
+*.local.json
+my-gateway.local.json
+work/
+captures/
+coverage/
+.vscode
+.DS_Store
+# Docs, tests, scripts and templates are not needed by the running image.
+tests/
+scripts/
+docs/
+templates/
+bench/
+harness/
+*.md

@@ -4,21 +4,29 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.19-339933.svg)](package.json)
 
-**A Code Mode MCP gateway for web-based MCP clients.** It collapses hundreds of
-upstream MCP tool definitions into **three stable tools** and keeps tool payloads
-out of the model's context.
+**A continuously optimized context & tool-call layer for web-based AI clients.**
+Connecting five upstream MCP servers directly puts **506 tool definitions
+(~245,377 tokens)** into the model context; this gateway exposes **3 stable tools
+(~1,520 tokens)** — a **99.4% reduction** — while the same upstream tools remain
+callable inside an isolated sandbox.
 
-Measured on the bundled catalog: connecting five upstream MCP servers directly
-puts **506 tool definitions (~245,377 tokens)** into the model context. This
-gateway exposes **3 tools (~1,520 tokens)**, a **99.4% reduction** — while the
-same upstream tools stay callable inside an isolated sandbox.
+This is not just aggregation. The model discovers tools progressively with
+`search` (BM25 ranking, compact signatures, `select:<name>` for full schemas on
+demand), then orchestrates calls in a QuickJS sandbox through a read/write split:
+`execute_read` for read-only calls and `execute` for reads and writes. **Only the
+sandbox return value enters the conversation** — raw upstream payloads stay out.
+Results are normalized into canonical file/PR/Issue shapes, carry line ranges,
+and are explicitly truncated with markers instead of silently cut.
 
-The model first calls `search` to discover tools, then writes a short JavaScript
-function that calls `execute_read` (read-only) or `execute` (read/write). Only
-the function's return value enters the conversation.
+Optimization here is a **continuous eval loop, not a one-time benchmark**:
+full-fidelity `capture` → `digest` → analyzer (advisory hypotheses only) →
+L1 smoke / G6 scorecards → regression tests. Every change is checked against
+real sessions and a fixed task set; see
+[docs/OBSERVABILITY-AND-EVAL.md](docs/OBSERVABILITY-AND-EVAL.md).
 
-> **Status: v0.1 alpha, single-user / self-hosted.** Tested with Gemini web
-> custom apps. Other MCP clients are expected to work but are not yet verified.
+> **Status: v0.1 alpha, single-owner / self-hosted.** One person's upstreams in
+> one gateway; no multi-tenant credential isolation is provided or promised.
+> Tested with Gemini web custom apps; other clients are targets, not claims.
 > APIs and configuration may change before 1.0.
 
 **中文文档: [README.zh-CN.md](README.zh-CN.md)**
@@ -26,12 +34,10 @@ the function's return value enters the conversation.
 ## Why
 
 Web MCP clients inject every connected tool's full definition (name,
-description, JSON schema) into the prompt. With four upstream servers that is
-already ~218k tokens of constant overhead, squeezing out conversation history,
-documents and reasoning.
-
-This gateway makes the model-facing surface constant and small, and moves tool
-orchestration into a sandbox:
+description, JSON schema) into the prompt. With several upstream servers that is
+a huge fixed overhead, squeezing out conversation history, documents and
+reasoning. Most gateways make tools *reachable*; this gateway makes them *cheap
+to discover, safe to execute, and measurable to improve*.
 
 ```
 Gemini / MCP client
@@ -59,36 +65,59 @@ Gemini / MCP client
 ```
 
 Only `return` values and compact `search` results reach the model. Large
-upstream payloads are filtered/aggregated inside the sandbox.
+upstream payloads are filtered, normalized and aggregated inside the sandbox.
 
-## Features
+## What we optimize
 
-- **Three stable tools** — `search`, `execute_read`, `execute`. The tool surface
-  never changes mid-session (Gemini does not consume
-  `notifications/tools/list_changed`).
-- **Engine-level sandbox** — QuickJS in a worker thread via the Vercel `run`
-  SDK; guest code has no `process`, `require`, `fetch` or Node globals. Escape
-  regression tests included.
-- **Progressive discovery** — BM25 + identifier-aware ranking, `select:<name>`
-  for full JSON schemas, and a small Chinese-query synonym layer.
-- **Context discipline** — compact result projection, structured truncation,
-  per-run read-only dedup, a per-execution call budget, and `safeAll()` for
-  partial-batch failures.
-- **OAuth 2.1 authorization server** — DCR, PKCE S256, state passthrough,
-  non-rotating refresh tokens, optional locked-client mode
-  (`ALLOWED_CLIENT_ID`).
-- **Upstream token lifecycle** — refresh/rotation, CAS fencing, invalid-grant
-  terminal state and self-healing for Notion/Linear; static bearer/env tokens
-  for GitHub/Vercel.
-- **Gemini-safe schemas** — every registered tool schema passes `sanitizeTool`
-  (arrays get `items`, multi-types collapse, deep `oneOf` truncated); results
-  are text JSON (no `structuredContent`).
-- **Deploy verification** — `GET /healthz` exposes the build commit and a hash
-  of the runtime sources.
-- **Upstream-agnostic** — any MCP server over Streamable HTTP or stdio; add one
-  with a config entry (see [docs/UPSTREAMS.md](docs/UPSTREAMS.md)).
-- **Offline tests** — 364 unit/integration tests and a fake-upstream harness;
-  no network or credentials needed.
+| Layer | What we do |
+|---|---|
+| **Tool-definition context** | 506 upstream schemas (~245,377 tokens) → 3 stable tools (~1,520 tokens), -99.4%; the surface never changes mid-session (Gemini ignores `notifications/tools/list_changed`). |
+| **Progressive discovery** | BM25 + identifier-aware ranking, compact signatures, `select:<name>` for full JSON schemas, a small Chinese-query synonym layer. |
+| **Result context** | Only the sandbox return value enters context; canonical file/PR/Issue shapes, line ranges, structured truncation markers. |
+| **Read/write split** | `execute_read` stubs out write tools in read mode; `execute` allows writes. Per-tool read/write labels and a per-execution call budget. |
+| **Tool-call correctness** | `server__tool` names, every schema through `sanitizeTool`, flat params, stable tool order, text-JSON results (no `structuredContent`). |
+| **Continuous eval** | Full-fidelity capture → digest → analyzer (advisory) → L1/G6 → regression. Model suggestions are hypotheses, never auto-applied; see [AGENTS.md](AGENTS.md). |
+| **Isolation** | QuickJS in a worker thread via the Vercel `run` SDK; no `process`, `require`, `fetch` or Node globals, with escape regression tests. |
+
+Upstreams are added with a config entry over Streamable HTTP or stdio (see
+[docs/UPSTREAMS.md](docs/UPSTREAMS.md)). OAuth 2.1 DCR + PKCE S256, upstream
+token refresh/rotation and deploy verification (`GET /healthz`) are supporting
+plumbing, not the headline.
+
+## Clients
+
+| Client | Status |
+|---|---|
+| **Gemini web custom apps** | **Tested.** Settings → Connected Apps → Custom apps → add `https://<your-domain>/mcp`. Locked mode needs `ALLOWED_CLIENT_ID` / `ALLOWED_CLIENT_SECRET`. Google restricts custom apps to personal accounts, 18+, in the US, using English. |
+| **Claude.ai custom connectors** | **Target** — low-effort adapter (explicit `readOnlyHint`/`destructiveHint`, result-size limits). Not yet verified end-to-end here. |
+| **MCP Inspector / local stdio + HTTP** | **Reproducibility target** for tool-surface and smoke checks; use this before claiming any new client works. |
+| **ChatGPT Business / Enterprise / Edu** | **Documented, not promised.** Full MCP is plan-gated; Pro is read/fetch only; schema-token limits are undocumented. Adapter work (result encoding, safety hints) is not done — do not assume it works. |
+| **Other web clients / consumer plans / mobile** | **Not promised.** See [docs/OPEN-SOURCE/WEB-CLIENTS.md](docs/OPEN-SOURCE/WEB-CLIENTS.md) and [docs/CLIENTS.md](docs/CLIENTS.md) for the research and caveats. |
+
+## Why another Code Mode gateway?
+
+Code Mode and tool-retrieval gateways are no longer unique: Cloudflare Code Mode
+/Portals, Limen, Limen-style `dev-mcp`, toolgate, IBM's `mcp-context-forge` and
+others compress tool surfaces or retrieve tools. This project is **not the only
+context optimizer**, and aggregation is a side effect, not the product.
+
+Our position is the intersection: **web-client delivery + Code Mode
+orchestration + read/write isolation + canonical result context + a full-fidelity
+eval loop**, self-hosted for a single owner. Host-native tool search (Anthropic,
+OpenAI, MCP Groups) is a long-term watch item, not something we claim to replace
+or permanently beat. The short comparison and threat model live in
+[docs/OPEN-SOURCE/DIFFERENTIATION.md](docs/OPEN-SOURCE/DIFFERENTIATION.md) and
+[docs/OPEN-SOURCE/COMPETITORS.md](docs/OPEN-SOURCE/COMPETITORS.md) §0.2; we
+intentionally do not maintain a long aggregator feature table.
+
+## Not trying to be
+
+- Multi-tenant / RBAC / organization control plane — **single-owner by design**.
+- An enterprise policy gateway or general LLM router.
+- A universal "all MCP clients verified" project — compatibility claims stay
+  narrow and evidence-based.
+- A Docker-first platform: a single-container Docker path exists for local
+  self-hosting, but Vercel remains the reference deployment.
 
 ## Quick start (local)
 
@@ -98,7 +127,7 @@ Requirements: **Node.js >= 20.19**.
 git clone https://github.com/Bruce-Yii/gemini-mcp-gateway.git
 cd gemini-mcp-gateway
 npm ci
-npm test            # offline: 300 tests
+npm test            # offline suite
 npm run smoke       # fake upstream MCP server, no credentials
 node scripts/check-config.mjs  # validate config + env warnings
 npm start           # http://localhost:3000/mcp
@@ -182,28 +211,22 @@ can be seeded into the hosted KV store with
 See **[DEPLOY.md](DEPLOY.md)** for a Vercel + Upstash KV walkthrough, the exact
 environment variables, safe deployment defaults, and verification steps
 (`/healthz`, well-known metadata, `/mcp` 401 with `WWW-Authenticate`).
+For a single-container local deployment, see
+**[docs/OPEN-SOURCE/DOCKER.md](docs/OPEN-SOURCE/DOCKER.md)**: build with
+`docker compose up --build`, pass `--host 0.0.0.0` (the CLI defaults to
+loopback), and use the TCP healthcheck because `/healthz` exists only in the
+Vercel entry.
 
-## Connect a client
+## Evaluation and testing
 
-- **Gemini web (tested):** Settings → Connected Apps → Custom apps → add
-  `https://<your-domain>/mcp`. In locked mode, enter your `ALLOWED_CLIENT_ID` /
-  `ALLOWED_CLIENT_SECRET`. Google currently limits custom apps to personal
-  accounts, 18+, in the US, using English.
-- **Other clients:** see [docs/CLIENTS.md](docs/CLIENTS.md) for the compatibility matrix. Any client supporting Streamable HTTP and
-  either a static `Authorization` header or OAuth 2.1 should work. Please report
-  compatibility results in an issue.
-
-## Benchmarks and testing
-
-All numbers below are reproducible offline against the bundled catalog:
+Reproducible offline measurements (no model calls, no credentials):
 
 | Metric | Result |
 |---|---|
 | Tool-definition context, 5 upstreams directly | 506 tools ≈ 245,377 tokens |
 | Tool-definition context, this gateway | 3 tools ≈ 1,520 tokens (**-99.4%**) |
-| Offline search recall (191 tool-level tasks, English) | top1 **56.5%**, top5 **72.3%** |
-| Offline search recall (19 realistic Chinese queries) | top1 **84%**, top5 **95%** |
-| Offline tests | **364** passing |
+| Offline search recall | top1 **56.5%**, top5 **72.3%** (English, tool-level tasks); Chinese queries improved with a synonym layer |
+| Offline suite | `npm test` — unit + integration tests with a fake-upstream harness; no network or credentials needed |
 
 ```bash
 npm test
@@ -213,16 +236,21 @@ node bench/run.mjs --dry-run      # model-in-loop harness check (no model calls)
 ```
 
 These are lexical-search and token-estimate measurements, not end-to-end model
-benchmarks; see [docs/WHY.md](docs/WHY.md) for methodology and caveats. For a
-model-in-loop harness (real OpenAI-compatible model, deterministic fake upstream),
-see [bench/README.md](bench/README.md).
+benchmarks; methodology and caveats are in [docs/WHY.md](docs/WHY.md). The
+ongoing capture → digest → analyzer → L1/G6 loop is described in
+[docs/OBSERVABILITY-AND-EVAL.md](docs/OBSERVABILITY-AND-EVAL.md); analyzer output
+is advisory and must be verified against a `requestId` and a local reproduction
+before any change ([AGENTS.md](AGENTS.md)). A model-in-loop harness (real
+OpenAI-compatible model, deterministic fake upstream) is in
+[bench/README.md](bench/README.md).
 
 ## Security
 
 Read **[SECURITY.md](SECURITY.md)** before deploying. In short: this is a
-**single-user** gateway that holds real upstream credentials. Always set
-`ALLOWED_CLIENT_ID`, use least-privilege upstream tokens, and never share a
-deployment between users. The sandbox provides isolation, not authorization.
+**single-owner / self-hosted** gateway that holds real upstream credentials.
+Always set `ALLOWED_CLIENT_ID`, use least-privilege upstream tokens, and never
+share a deployment between users — there is no multi-tenant isolation. The
+sandbox provides isolation, not authorization.
 
 ## Repository layout
 
@@ -239,10 +267,14 @@ deployment between users. The sandbox provides isolation, not authorization.
 ## Docs
 
 - [docs/WHY.md](docs/WHY.md) — problem, measurements, external evidence
+- [docs/OPEN-SOURCE/DIFFERENTIATION.md](docs/OPEN-SOURCE/DIFFERENTIATION.md) — positioning: continuous context/tool-call optimization
+- [docs/OPEN-SOURCE/COMPETITORS.md](docs/OPEN-SOURCE/COMPETITORS.md) — competitor research, §0.2 threat model
+- [docs/OPEN-SOURCE/WEB-CLIENTS.md](docs/OPEN-SOURCE/WEB-CLIENTS.md) — web-client adaptation survey
 - [docs/UPSTREAMS.md](docs/UPSTREAMS.md) — add an upstream (config, auth patterns, verification)
 - [docs/WORKFLOW.md](docs/WORKFLOW.md) — upstream onboarding + quality gates (B1–B4 workflow)
-- [docs/OBSERVABILITY-AND-EVAL.md](docs/OBSERVABILITY-AND-EVAL.md) — zero-impact telemetry + evaluation loop design (B9, design only)
-- [docs/PLAN-2026-11-23.md](docs/PLAN-2026-11-23.md) — current global gaps, parallel workstreams, acceptance criteria (no calendar)\n- [docs/HANDOFF-2026-11-23.md](docs/HANDOFF-2026-11-23.md) — resume point: current state, active work, next actions
+- [docs/OBSERVABILITY-AND-EVAL.md](docs/OBSERVABILITY-AND-EVAL.md) — zero-impact telemetry + evaluation loop design
+- [docs/PLAN-2026-11-23.md](docs/PLAN-2026-11-23.md) — current global gaps, parallel workstreams, acceptance criteria (no calendar)
+- [docs/HANDOFF-2026-11-23.md](docs/HANDOFF-2026-11-23.md) — resume point: current state, active work, next actions
 - [docs/CREDENTIALS.md](docs/CREDENTIALS.md) — how to obtain tokens for Slack/Atlassian/etc.
 - [docs/CLIENTS.md](docs/CLIENTS.md) — client compatibility matrix
 - [docs/ADOPTION-RANKINGS.md](docs/ADOPTION-RANKINGS.md) — what public data says about MCP/connector adoption
@@ -256,14 +288,17 @@ deployment between users. The sandbox provides isolation, not authorization.
 
 ## Known limitations
 
-- Single-tenant by design; there is no multi-tenant credential isolation.
+- Single-owner / self-hosted by design; no multi-tenant credential isolation.
 - Upstream credential acquisition (OAuth flows for Notion/Linear/etc.) is out of
   scope; bring tokens.
-- Only four upstream templates ship in the box; adding a fifth is configuration
-  plus documentation, not code, but it has not been packaged as a wizard yet.
+- Only a few upstream templates ship in the box; adding one is configuration
+  plus documentation, not a wizard.
 - Gemini custom apps have regional/account restrictions imposed by Google.
 - The outer tool surface is intentionally stable; breaking changes require a
   versioned endpoint and a client reconnect.
+- Docker is supported for single-container self-hosting; Cloudflare Workers is
+  not shipped. Claude.ai and ChatGPT connectors are targets/documented, not
+  verified claims.
 
 ## License
 

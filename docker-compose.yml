@@ -1,0 +1,23 @@
+# Real, runnable single-container deploy for the standalone CLI gateway.
+# Copy templates/local/config.local.example.json to ./my-gateway.local.json
+# (untracked) and fill an untracked .env before `docker compose up --build`.
+# No real tokens belong in this file, the config, or the image.
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gemini-mcp-gateway:local
+    ports:
+      # Bind to loopback on the host by default; change the left side to
+      # 0.0.0.0:3000 only when you have auth/TLS in front of it.
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - .env
+    volumes:
+      # Untracked config with no secrets, mounted read-only.
+      - ./my-gateway.local.json:/app/gateway-config.json:ro
+      # Optional capture durability (CAPTURE_SINK=file, CAPTURE_MODE=meta|full).
+      - ./work/capture:/app/work/capture
+    command: ["node", "src/server.js", "--config", "/app/gateway-config.json", "--host", "0.0.0.0", "--port", "3000"]
+    restart: unless-stopped

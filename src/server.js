@@ -495,12 +495,13 @@ export function createMcpRequestHandler(upstreamManager, options = {}) {
  * @returns {Promise<http.Server>} the listening HTTP server
  */
 export async function startHttpServer(upstreamManager, port = 3000, options = {}) {
+  const host = options.host ?? '127.0.0.1';
   const handleMcp = createMcpRequestHandler(upstreamManager, options);
   const httpServer = http.createServer((req, res) => { void handleMcp(req, res); });
 
   await new Promise((resolveListen, rejectListen) => {
     httpServer.once('error', rejectListen);
-    httpServer.listen(port, '127.0.0.1', () => {
+    httpServer.listen(port, host, () => {
       httpServer.off('error', rejectListen);
       resolveListen();
     });
@@ -508,8 +509,12 @@ export async function startHttpServer(upstreamManager, port = 3000, options = {}
   return httpServer;
 }
 
-function parseCliArgs(argv) {
-  const out = { config: undefined, port: undefined, stdio: false };
+/** Default bind address. Kept as a constant so CLI and tests share one source of truth. */
+export const DEFAULT_HOST = '127.0.0.1';
+
+/** Parse CLI args into { config, port, host, stdio }. Pure: no fs/env reads. */
+export function parseCliArgs(argv) {
+  const out = { config: undefined, port: undefined, host: undefined, stdio: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--stdio') {
@@ -523,6 +528,10 @@ function parseCliArgs(argv) {
       const port = Number.parseInt(value, 10);
       if (!Number.isFinite(port) || port < 0 || port > 65535) throw new Error(`invalid --port: ${value}`);
       out.port = port;
+    } else if (arg === '--host' || arg.startsWith('--host=')) {
+      const value = arg === '--host' ? argv[++i] : arg.slice('--host='.length);
+      if (!value || value.startsWith('-')) throw new Error('--host requires an address');
+      out.host = value;
     } else {
       throw new Error(`unknown argument: ${arg}`);
     }
@@ -531,6 +540,11 @@ function parseCliArgs(argv) {
     throw new Error('--port and --stdio are mutually exclusive');
   }
   return out;
+}
+
+/** Resolve the effective bind address: explicit --host, else the loopback default. */
+export function resolveHost(args) {
+  return args.host ?? DEFAULT_HOST;
 }
 
 function isMain() {
@@ -564,9 +578,10 @@ async function runCli() {
     await gatewayServer.connect(new StdioServerTransport());
   } else {
     const port = args.port ?? 3000;
-    httpServer = await startHttpServer(upstreamManager, port, gatewayOptions);
+    const host = resolveHost(args);
+    httpServer = await startHttpServer(upstreamManager, port, { ...gatewayOptions, host });
     const boundPort = httpServer.address()?.port ?? port;
-    console.error(`[gemini-mcp-gateway] Streamable HTTP endpoint: http://127.0.0.1:${boundPort}/mcp`);
+    console.error(`[gemini-mcp-gateway] Streamable HTTP endpoint: http://${host}:${boundPort}/mcp (host=${host}, port=${boundPort})`);
   }
 
   let closing = false;
