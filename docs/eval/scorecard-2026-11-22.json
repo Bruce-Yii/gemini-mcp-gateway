@@ -4,17 +4,17 @@
     "requests": 20,
     "mcpRequests": 9,
     "nonMcpRequests": 11,
-    "errors": 10,
+    "errors": 11,
     "mcpErrors": 0,
     "statuses": {
-      "200": 8,
+      "200": 7,
       "202": 2,
-      "404": 8,
+      "404": 9,
       "405": 2
     },
     "errorClasses": {},
     "routeErrors": {
-      "upstream_4xx": 10
+      "upstream_4xx": 11
     },
     "tools": {
       "initialize": 1,
@@ -40,52 +40,41 @@
       8,
       8,
       8,
-      9,
+      8,
       28,
       513,
       724,
       775,
       6228
     ],
-    "bytes": 54637,
+    "bytes": 54321,
     "truncated": 0,
     "overflow": 0,
     "truncationRate": 0,
     "overflowRate": 0,
-    "errorRate": 0.5,
+    "errorRate": 0.55,
     "byDay": {
       "2026-11-22": 20
     },
     "byHour": {
-      "20": 11,
-      "21": 9
+      "20": 10,
+      "21": 10
     },
     "byDayHour": {
-      "2026-11-22T20": 11,
-      "2026-11-22T21": 9
+      "2026-11-22T20": 10,
+      "2026-11-22T21": 10
     },
     "byRoute": {
       "GET /": {
-        "calls": 8,
-        "errors": 8,
+        "calls": 9,
+        "errors": 9,
         "errorRate": 1,
         "p50Ms": 7,
         "p95Ms": 8,
         "avgMs": 7,
         "errorClasses": {
-          "upstream_4xx": 8
+          "upstream_4xx": 9
         },
-        "truncated": 0,
-        "overflow": 0
-      },
-      "GET /healthz": {
-        "calls": 1,
-        "errors": 0,
-        "errorRate": 0,
-        "p50Ms": 9,
-        "p95Ms": 9,
-        "avgMs": 9,
-        "errorClasses": {},
         "truncated": 0,
         "overflow": 0
       },
