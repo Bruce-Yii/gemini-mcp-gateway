@@ -19,6 +19,36 @@
 
 ---
 
+## 0.2 第二轮：按“问题空间”重搜（第一次方法有缺陷）
+
+第一次搜索按品类词 `MCP gateway` + star 排序，漏掉了真正同轴的竞品。第二次改为按问题搜索：
+`tool retrieval`、`tool search`、`progressive disclosure`、`context reduction`、`tool definition tokens`、
+`TOON compression`、`MCP Groups`。结果如下（这些才是实质竞品）：
+
+| 项目 | 证据 | 为什么同轴 |
+|---|---|---|
+| **IBM/mcp-context-forge** | 4,875★，2026-11-21 仍活跃；MCP/A2A/REST 网关，明确写 **TOON compression**、tool gateway、registry、guardrails、observability | 大厂开源网关，直接做工具面聚合 + 上下文压缩 + 观测；之前完全漏掉 |
+| **RajeshwariVelmurugan/MCP-Tool-Retrieval-Gateway (toolgate)** | 2 tools `search_tools` / `call_tool`；BM25 / embeddings / hybrid RRF / reranker；自带 Recall@k/MRR/nDCG/token/latency 评测；对比 Anthropic native tool search | 和我们的 `search` + 工具调用最接近的“检索型网关”；虽然 0★，但概念完全同轴 |
+| **vrraj/axiolex** | intent-ranked Top-K retrieval；MCP/A2A/internal tools；BM25S + ColBERT；namespace/catalog | 工具发现/检索层竞品 |
+| **dehydrator** | client-side BM25 tool search；把完整 tool list 换成一个 `tool_search` | 说明“工具检索”正在变成通用能力，不一定需要网关 |
+| **modus-data/mcp_codemode** | 6-step Code Mode pipeline；工具过滤 + TS API + 沙箱 | Code Mode 库级竞品，不是网关但可被集成 |
+| **MCP Groups / Progressive Disclosure WG** | SEP-2084 / PR #2110；Groups 原语；官方 WG 2026-11 仍在推进 | **协议原生**的分组/延迟发现；如果客户端采用，我们的 `search` 价值会被部分吸收 |
+| **Anthropic MCP Tool Search / Programmatic Tool Calling** | Claude Code 的 MCP 工具搜索 + 代码调用 | 宿主原生能力，直接替代“网关帮我省 schema”的一部分 |
+| **OpenAI `tool_search`** | gpt-5.4+ Responses API，`defer_loading` + MCP server/namespace 搜索 | 同上，宿主原生延迟加载 |
+
+### 这改变了威胁模型
+
+| 威胁 | 影响 | 我们的应对 |
+|---|---|---|
+| 宿主原生 tool search / MCP Groups 普及 | 客户端自己就能延迟加载工具，`search` 不再是独有卖点 | 聚焦**没有原生 tool search 的网页客户端**（Gemini web 当前没有）；强化 Code Mode 编排、读写分层、结果投影 |
+| 检索型网关（toolgate/axiolex/dehydrator） | 直接竞争“工具发现 + 少 schema” | 我们的差异不是检索本身，而是**检索后能写代码编排 + 读写隔离 + 全量 capture/eval + 真实写路径** |
+| IBM ContextForge 这类大厂网关 | 功能面/生态/部署更强 | 不做企业控制面；做单用户、Web 客户端、Code Mode、可评测的轻量层 |
+| Cloudflare Code Mode / Portals | 平台级 Code Mode 免费/默认 | 提供可移植、可自托管、面向 web 客户端、带 eval 的版本 |
+
+**结论：实质竞品是存在的，而且比第一次列的多。** 我们不是“没有竞品”，而是“竞品分布在不同层”：
+宿主原生能力、检索网关、Code Mode 平台、企业网关、Web 垂直网关。我们的位置是
+**“Web 客户端可用的 Code Mode + 读写隔离 + 全量评测”**，不是“唯一会省 context 的网关”。
+
 ## 1. 竞品矩阵
 
 ### 1.1 主表（按相关度分组）

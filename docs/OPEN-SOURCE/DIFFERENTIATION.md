@@ -6,6 +6,26 @@
 > clients. Competitors that only aggregate or only add auth are not the main
 > comparison.
 
+## 0. Correction after second-pass research
+
+The first competitor pass searched by category (`MCP gateway`) and missed the
+real same-axis competitors. A problem-space search (`tool retrieval`, `tool
+search`, `progressive disclosure`, `context reduction`, `TOON compression`)
+found:
+
+- **IBM/mcp-context-forge** — 4.9k★ open-source tool gateway with TOON
+  compression and tool optimization; the biggest missed competitor.
+- **toolgate** — 2 tools `search_tools` / `call_tool`, BM25/embeddings/hybrid
+  + reranker, with its own Recall@k/MRR/token eval harness.
+- **axiolex / dehydrator** — intent-ranked / client-side tool retrieval.
+- **MCP Groups + Progressive Disclosure WG**, **Anthropic MCP Tool Search**,
+  **OpenAI `tool_search`** — host/protocol-native lazy tool loading.
+
+This means the moat is **not** “we are the only context compressor”. The moat is
+the combination: web-client delivery + Code Mode orchestration + read/write
+isolation + write semantics + full-fidelity capture/eval. See
+[COMPETITORS.md](COMPETITORS.md) §0.2 for the threat model.
+
 ## 1. What we actually optimize
 
 | Layer | What we do | Why it matters | Evidence |
