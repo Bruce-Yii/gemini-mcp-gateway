@@ -1,0 +1,6 @@
+{
+  "name": "stripe",
+  "transport": "http",
+  "url": "https://mcp.stripe.com",
+  "tokenEnv": "STRIPE_AGENT_API_KEY"
+}

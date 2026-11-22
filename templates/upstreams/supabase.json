@@ -1,0 +1,6 @@
+{
+  "name": "supabase",
+  "transport": "http",
+  "url": "https://mcp.supabase.com/mcp",
+  "tokenEnv": "SUPABASE_ACCESS_TOKEN"
+}

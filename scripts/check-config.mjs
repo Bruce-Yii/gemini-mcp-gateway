@@ -31,6 +31,11 @@ try {
   process.exit(2);
 }
 
+// Also accept a single `servers[]` entry (the format in templates/upstreams/).
+if (value && typeof value === 'object' && !Array.isArray(value) && value.servers === undefined && value.name) {
+  value = { servers: [value] };
+}
+
 try {
   const { config, warnings } = validateConfig(value);
   console.log(`config: ${process.env.UPSTREAMS_JSON ? '<UPSTREAMS_JSON env>' : configPath}`);

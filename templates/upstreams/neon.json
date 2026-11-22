@@ -1,0 +1,6 @@
+{
+  "name": "neon",
+  "transport": "http",
+  "url": "https://mcp.neon.tech/mcp",
+  "tokenEnv": "NEON_API_KEY"
+}

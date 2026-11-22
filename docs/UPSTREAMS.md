@@ -58,6 +58,7 @@ sanity check is to search for one of its tool names:
 | `headers` | http | Extra request headers (string map); do not put secrets here — use `tokenEnv` |
 | `tokenEnv` | http | Env var holding a Bearer token |
 | `refreshEnv`, `clientIdEnv` | OAuth | Refresh token + public OAuth client id env vars |
+| `clientSecretEnv` | OAuth | Client secret env var, for confidential OAuth clients (Google/Slack/etc.) |
 | `expiresInEnv`, `obtainedAtEnv` | OAuth | Optional token lifetime + real issuance time; used to compute expiry honestly |
 | `refreshUrl` | OAuth | Token endpoint for non-built-in providers (built-ins: Notion, Linear) |
 | `allowTools` | no | Allowlist. Empty/absent = all tools. Patterns: `tool`, `server/tool`, `server/*` |
@@ -96,15 +97,21 @@ refresh): `GEMINI_GATEWAY_TOKENS_DIR=~/.gemini-gateway-tokens node scripts/seed-
 
 **OAuth refresh (any other provider).** Add `refreshUrl` (token endpoint) and
 the same env fields; the refresh lifecycle (lock, CAS fencing, invalid_grant
-terminal state) is provider-agnostic:
+terminal state) is provider-agnostic. Confidential clients also set
+`clientSecretEnv`; the secret is sent to the token endpoint only:
 
 ```json
 {
   "name": "acme", "transport": "http", "url": "https://mcp.acme.example/mcp",
   "tokenEnv": "ACME_TOKEN", "refreshEnv": "ACME_REFRESH_TOKEN",
-  "clientIdEnv": "ACME_CLIENT_ID", "refreshUrl": "https://auth.acme.example/token"
+  "clientIdEnv": "ACME_CLIENT_ID", "clientSecretEnv": "ACME_CLIENT_SECRET",
+  "refreshUrl": "https://auth.acme.example/token"
 }
 ```
+
+Verified drop-in entries for public servers (Slack, Twilio, Zapier, Google
+Drive) live in [`templates/upstreams/`](../templates/upstreams/README.md); copy one
+into `servers` and export its env vars.
 
 The token endpoint must accept the standard `grant_type=refresh_token` form
 (`refresh_token`, `client_id`) and return `access_token` (+ rotating

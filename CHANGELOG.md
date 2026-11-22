@@ -16,7 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   instead of a hardcoded provider list.
 - [docs/UPSTREAMS.md](docs/UPSTREAMS.md), [docs/CLIENTS.md](docs/CLIENTS.md) and
   ready-to-use `examples/` configs.
-- Upstream-config and generic-auth tests (suite now 300).
+- Upstream-config and generic-auth tests (suite now 301).
+- clientSecretEnv support for confidential OAuth refresh (Google Workspace, Slack, Atlassian, ...).
+- Verified upstream templates in 	emplates/upstreams/ (Slack, Twilio, Zapier, Cloudflare, Stripe, Supabase, Neon, Google Drive) with official-doc links.
+- Model-in-loop benchmark harness (ench/, 
+pm run bench, CI dry run).
 
 ## [0.1.0] - 2026-11-22
 
@@ -36,7 +40,7 @@ Initial public snapshot.
   invalid-grant terminal state) for GitHub / Notion / Linear / Vercel.
 - Schema sanitizing for Gemini function declarations, image passthrough,
   structured result truncation, per-run read-only dedup, and `safeAll`.
-- 300 offline tests, fake upstream harness, context/search measurement scripts.
+- 301 offline tests, fake upstream harness, context/search measurement scripts.
 - `GET /healthz` with build identity and a source hash for deployment
   verification.
 

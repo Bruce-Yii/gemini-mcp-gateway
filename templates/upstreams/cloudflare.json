@@ -1,0 +1,6 @@
+{
+  "name": "cloudflare",
+  "transport": "http",
+  "url": "https://mcp.cloudflare.com/mcp",
+  "tokenEnv": "CLOUDFLARE_API_TOKEN"
+}

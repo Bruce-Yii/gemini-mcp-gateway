@@ -1,0 +1,6 @@
+{
+  "name": "zapier",
+  "transport": "http",
+  "url": "https://mcp.zapier.com/api/v1/connect",
+  "tokenEnv": "ZAPIER_MCP_TOKEN"
+}

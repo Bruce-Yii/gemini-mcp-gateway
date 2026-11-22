@@ -1,0 +1,6 @@
+{
+  "name": "slack",
+  "transport": "http",
+  "url": "https://mcp.slack.com/mcp",
+  "tokenEnv": "SLACK_MCP_USER_TOKEN"
+}

@@ -87,7 +87,7 @@ upstream payloads are filtered/aggregated inside the sandbox.
   of the runtime sources.
 - **Upstream-agnostic** — any MCP server over Streamable HTTP or stdio; add one
   with a config entry (see [docs/UPSTREAMS.md](docs/UPSTREAMS.md)).
-- **Offline tests** — 300 unit/integration tests and a fake-upstream harness;
+- **Offline tests** — 301 unit/integration tests and a fake-upstream harness;
   no network or credentials needed.
 
 ## Quick start (local)
@@ -107,7 +107,9 @@ npm start -- --config examples/local-stdio-fake.json  # local stdio example
 
 `npm start` uses `config.example.json`; upstreams whose `tokenEnv` variables are
 unset are skipped, so you can inspect the three-tool surface first (e.g. with
-MCP Inspector). To use real upstreams, export the tokens listed below.
+MCP Inspector). To use real upstreams, export the tokens listed below. Verified
+drop-in entries for public servers are in
+[`templates/upstreams/`](templates/upstreams/README.md).
 
 Measurement scripts (offline, no model calls):
 
@@ -187,16 +189,19 @@ All numbers below are reproducible offline against the bundled catalog:
 | Tool-definition context, this gateway | 3 tools ≈ 1,286 tokens (**-99.4%**) |
 | Offline search recall (191 tool-level tasks, English) | top1 **56.5%**, top5 **72.3%** |
 | Offline search recall (19 realistic Chinese queries) | top1 **84%**, top5 **95%** |
-| Offline tests | **300** passing |
+| Offline tests | **301** passing |
 
 ```bash
 npm test
 node scripts/eval-search.mjs
 node scripts/measure-context.mjs
+node bench/run.mjs --dry-run      # model-in-loop harness check (no model calls)
 ```
 
 These are lexical-search and token-estimate measurements, not end-to-end model
-benchmarks; see [docs/WHY.md](docs/WHY.md) for methodology and caveats.
+benchmarks; see [docs/WHY.md](docs/WHY.md) for methodology and caveats. For a
+model-in-loop harness (real OpenAI-compatible model, deterministic fake upstream),
+see [bench/README.md](bench/README.md).
 
 ## Security
 
@@ -222,6 +227,8 @@ deployment between users. The sandbox provides isolation, not authorization.
 - [docs/WHY.md](docs/WHY.md) — problem, measurements, external evidence
 - [docs/UPSTREAMS.md](docs/UPSTREAMS.md) — add an upstream (config, auth patterns, verification)
 - [docs/CLIENTS.md](docs/CLIENTS.md) — client compatibility matrix
+- [templates/upstreams/](templates/upstreams/README.md) — verified drop-in upstream entries
+- [bench/README.md](bench/README.md) — model-in-loop benchmark harness
 - [docs/SANDBOX-SECURITY.md](docs/SANDBOX-SECURITY.md) — sandbox model and caveats
 - [docs/CODEMODE-SURVEY.md](docs/CODEMODE-SURVEY.md) — Code Mode landscape survey
 - [docs/UNNEEDED-TOOLS.md](docs/UNNEEDED-TOOLS.md) — how the bundled tool denylist was chosen

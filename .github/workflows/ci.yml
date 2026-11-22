@@ -29,9 +29,12 @@ jobs:
         run: |
           node scripts/check-config.mjs config.example.json
           for f in examples/*.json; do node scripts/check-config.mjs "$f"; done
+          for f in templates/upstreams/*.json; do node scripts/check-config.mjs "$f"; done
       - name: Offline search evaluation
         run: node scripts/eval-search.mjs
       - name: Tool-face context measurement
         run: node scripts/measure-context.mjs
+      - name: Benchmark harness dry run
+        run: node bench/run.mjs --dry-run
       - name: Build identity self-check
         run: node scripts/write-build-info.mjs --print

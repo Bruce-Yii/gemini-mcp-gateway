@@ -99,3 +99,15 @@ test('the shipped config and all examples validate', () => {
   assert.ok(examples.length >= 3);
   for (const file of examples) validateConfig(readJson(path.join('examples', file)), noEnv);
 });
+
+test('all upstream templates are valid single-server entries', () => {
+  const dir = path.join(root, 'templates', 'upstreams');
+  const templates = readdirSync(dir).filter((name) => name.endsWith('.json'));
+  assert.ok(templates.length >= 3);
+  for (const file of templates) {
+    const entry = readJson(path.join('templates', 'upstreams', file));
+    const { config } = validateConfig({ mode: 'codemode', servers: [entry] }, noEnv);
+    assert.equal(config.servers.length, 1, `${file} should contain one server entry`);
+    assert.ok(entry.name, `${file} needs a name`);
+  }
+});
