@@ -1,7 +1,8 @@
-# 四个 MCP 里"基本用不上"的工具（调研报告）
+# 五个 MCP 里"基本用不上"的工具（调研报告）
 
-> 日期 2026-11-20。基于当时的实际工具清单（442 个工具的 name+description）逐项分析；该清单现已增至 456 个（Vercel 259→273），新增工具未逐项标注。
-> **本报告的标注已落到配置**：`config.example.json` 的 `denyTools` 现为 GitHub 4 / Notion 24 / Linear 24 / Vercel 213——**当前不是全量放行**，不要按"全量"理解现状。
+> 日期 2026-11-20（前四个）；2026-11-22 补充第五个 Figma（50 → deny 22 → 保留 28）。
+> 基于当时的实际工具清单（442 个工具的 name+description）逐项分析；该清单现已增至 456 个（Vercel 259→273），新增工具未逐项标注。
+> **本报告的标注已落到配置**：`config.example.json` 的 `denyTools` 现为 GitHub 4 / Notion 24 / Linear 24 / Vercel 213 / Figma 22——**当前不是全量放行**，不要按"全量"理解现状。
 > 场景锚点：个人用户，通过 Gemini 网页版对 GitHub / Notion / Linear / Vercel 做日常查看与管理。
 
 ## 总览
@@ -12,7 +13,8 @@
 | Notion | 77 | 24 | 32 | 21 |
 | Linear | 60 | 24 | 16 | 20 |
 | Vercel | 259 | 212 | 33 | 14 |
-| **合计** | **442** | **264** | **88** | **90** |
+| Figma（2026-11-22 补） | 50 | 22 | — | 28（deny 后） |
+| **合计** | **492** | **286** | **88** | **118** |
 
 注意：写操作**没有**因为是写操作就被判"用不上"——建 issue/页面/PR、save_issue、create_pull_request 等全部在保留组。判"用不上"的标准是"个人日常场景无交集"或"企业/内部机制专属"。
 
@@ -79,13 +81,29 @@ Vercel 的 259 个工具里绝大多数是细碎底层 API 和企业运维功能
 
 ---
 
+## Figma（50 → 用不上 22）
+
+第五个上游，2026-11-22 接入（官方 MCP + 社区 OAuth workaround；见 `docs/ledger/batch-4-figma.md`）。
+
+**明确用不上（22）：**
+- **ChatGPT/UI 内部（4）**：`authorize_mcp_app`、`open_figma_mcp_app`、`open_figma_mcp_app_in_thread`、`get_profile_for_chatgpt`
+- **Figma Weave（9）**：`weave_list_tools`、`weave_get_tool_inputs`、`weave_run_tool`、`weave_upload_asset`、`weave_get_tool_run_output`、`weave_cancel_tool_run`、`weave_find_model`、`weave_run_model`、`weave_get_model_run_output`
+- **Shader（5）**：`list_file_shaders`、`list_shaders`、`get_shader`、`create_shader`、`update_shader`
+- **Generative plugin（4）**：`list_generative_plugins`、`get_generative_plugin`、`create_generative_plugin`、`update_generative_plugin`
+
+**保留 28 个**：`create_new_file`、`use_figma`、`get_design_context`、`get_metadata`、`get_screenshot`、`get_comments`、`get_variable_defs`、`search_design_system`、Code Connect 组、`generate_figma_design`/`send_code_to_figma`/`html_to_figma`、`generate_diagram`/`generate_image`/`generate_vector_illustration`、FigJam、变量/库、创建 session/branch、`whoami` 等。
+
+写工具同样**没有**因为"是写操作"被删；判"用不上"的标准与四个旧上游一致：个人日常场景无交集或内部机制专属。
+
+---
+
 ## 关键结论
 
-1. **真正"用不上"的大头在 Vercel**（212/259）——它是把整个 Vercel 平台 API 都搬成了 MCP，个人场景只碰其中 14 个。
+1. **真正"用不上"的大头在 Vercel**（212/259）——它是把整个 Vercel 平台 API 都搬成了 MCP，个人场景只碰其中 14 个；Figma（22/50）其次。
 2. **GitHub 几乎全能用**（只 4 个用不上）——它本来就是面向个人开发者的工具集。
 3. **Notion/Linear 的"用不上"主要是内部机制**（agent session、skill、团队管理、发布管理），不是核心文档/issue 能力。
 4. **写操作全部保留**——本轮没有任何工具因为"是写操作"被判用不上。
-5. 本报告的"明确用不上"已按服务写入 `config.example.json` 的 `denyTools`（GitHub 4 / Notion 24 / Linear 24 / Vercel 213；本报告写 Vercel 212，快照后该服务工具数从 259 变为 273）；"存疑"项仍全部放行，未逐项收敛。
+5. 本报告的"明确用不上"已按服务写入 `config.example.json` 的 `denyTools`（GitHub 4 / Notion 24 / Linear 24 / Vercel 213 / Figma 22；本报告写 Vercel 212，快照后该服务工具数从 259 变为 273）；"存疑"项仍全部放行，未逐项收敛。
 
 ## 来源
 - 工具清单：`data/tool-dataset.json`（分析时 442 个工具的 name+description，实测抓取；当前文件为 456 个）

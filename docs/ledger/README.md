@@ -22,6 +22,7 @@
 | B1 | 阶段一：测评场景覆盖全且权威 | ✅ 通过（附条件） | batch-1-scenario.md |
 | B2 | 阶段二：问题逐条根因追溯 + 修复 | ✅ 通过 | batch-2-rootcause.md |
 | B3 | 阶段三：优化后全量重测 | ✅ 通过 | batch-3-retest.md |
+| B4 | 第五个上游 Figma：接入 + deny 收口 + 本地 E2E（任务覆盖/重测未做） | ⚠️ 进行中 | batch-4-figma.md |
 
 ## 门控规则
 

@@ -323,7 +323,31 @@
       "clientSecretEnv": "FIGMA_CLIENT_SECRET",
       "expiresInEnv": "FIGMA_EXPIRES_IN",
       "obtainedAtEnv": "FIGMA_OBTAINED_AT",
-      "refreshUrl": "https://api.figma.com/v1/oauth/token"
+      "refreshUrl": "https://api.figma.com/v1/oauth/token",
+      "denyTools": [
+        "authorize_mcp_app",
+        "open_figma_mcp_app",
+        "open_figma_mcp_app_in_thread",
+        "get_profile_for_chatgpt",
+        "weave_list_tools",
+        "weave_get_tool_inputs",
+        "weave_run_tool",
+        "weave_upload_asset",
+        "weave_get_tool_run_output",
+        "weave_cancel_tool_run",
+        "weave_find_model",
+        "weave_run_model",
+        "weave_get_model_run_output",
+        "list_file_shaders",
+        "list_shaders",
+        "get_shader",
+        "create_shader",
+        "update_shader",
+        "list_generative_plugins",
+        "get_generative_plugin",
+        "create_generative_plugin",
+        "update_generative_plugin"
+      ]
     }
   ]
 }
