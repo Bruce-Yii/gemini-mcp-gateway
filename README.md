@@ -85,7 +85,9 @@ upstream payloads are filtered/aggregated inside the sandbox.
   are text JSON (no `structuredContent`).
 - **Deploy verification** — `GET /healthz` exposes the build commit and a hash
   of the runtime sources.
-- **Offline tests** — 288 unit/integration tests and a fake-upstream harness;
+- **Upstream-agnostic** — any MCP server over Streamable HTTP or stdio; add one
+  with a config entry (see [docs/UPSTREAMS.md](docs/UPSTREAMS.md)).
+- **Offline tests** — 300 unit/integration tests and a fake-upstream harness;
   no network or credentials needed.
 
 ## Quick start (local)
@@ -96,9 +98,11 @@ Requirements: **Node.js >= 20.19**.
 git clone https://github.com/Bruce-Yii/gemini-mcp-gateway.git
 cd gemini-mcp-gateway
 npm ci
-npm test            # offline: 288 tests
+npm test            # offline: 300 tests
 npm run smoke       # fake upstream MCP server, no credentials
+node scripts/check-config.mjs  # validate config + env warnings
 npm start           # http://localhost:3000/mcp
+npm start -- --config examples/local-stdio-fake.json  # local stdio example
 ```
 
 `npm start` uses `config.example.json`; upstreams whose `tokenEnv` variables are
@@ -114,6 +118,9 @@ node scripts/write-build-info.mjs --print # current commit + runtime source hash
 ```
 
 ## Configuration
+
+For a step-by-step guide to adding a server, see
+**[docs/UPSTREAMS.md](docs/UPSTREAMS.md)**; minimal configs live in `examples/`.
 
 Configuration lives in `config.example.json` (copy it and point
 `GATEWAY_CONFIG` at your copy, or pass `--config`). Upstream entries support:
@@ -132,8 +139,9 @@ Configuration lives in `config.example.json` (copy it and point
 }
 ```
 
-OAuth-capable upstreams also take `refreshEnv`, `clientIdEnv`, `expiresInEnv`
-and `obtainedAtEnv` (see `config.example.json` for Notion/Linear).
+OAuth-capable upstreams also take `refreshEnv`, `clientIdEnv`, `expiresInEnv`,
+`obtainedAtEnv` and, for providers other than the built-in Notion/Linear,
+`refreshUrl` (the token endpoint). See `config.example.json`.
 
 Environment variables used by the reference deployment:
 
@@ -165,7 +173,7 @@ environment variables, safe deployment defaults, and verification steps
   `https://<your-domain>/mcp`. In locked mode, enter your `ALLOWED_CLIENT_ID` /
   `ALLOWED_CLIENT_SECRET`. Google currently limits custom apps to personal
   accounts, 18+, in the US, using English.
-- **Other MCP clients (untested):** any client supporting Streamable HTTP and
+- **Other clients:** see [docs/CLIENTS.md](docs/CLIENTS.md) for the compatibility matrix. Any client supporting Streamable HTTP and
   either a static `Authorization` header or OAuth 2.1 should work. Please report
   compatibility results in an issue.
 
@@ -179,7 +187,7 @@ All numbers below are reproducible offline against the bundled catalog:
 | Tool-definition context, this gateway | 3 tools ≈ 1,286 tokens (**-99.4%**) |
 | Offline search recall (191 tool-level tasks, English) | top1 **56.5%**, top5 **72.3%** |
 | Offline search recall (19 realistic Chinese queries) | top1 **84%**, top5 **95%** |
-| Offline tests | **288** passing |
+| Offline tests | **300** passing |
 
 ```bash
 npm test
@@ -212,6 +220,8 @@ deployment between users. The sandbox provides isolation, not authorization.
 ## Docs
 
 - [docs/WHY.md](docs/WHY.md) — problem, measurements, external evidence
+- [docs/UPSTREAMS.md](docs/UPSTREAMS.md) — add an upstream (config, auth patterns, verification)
+- [docs/CLIENTS.md](docs/CLIENTS.md) — client compatibility matrix
 - [docs/SANDBOX-SECURITY.md](docs/SANDBOX-SECURITY.md) — sandbox model and caveats
 - [docs/CODEMODE-SURVEY.md](docs/CODEMODE-SURVEY.md) — Code Mode landscape survey
 - [docs/UNNEEDED-TOOLS.md](docs/UNNEEDED-TOOLS.md) — how the bundled tool denylist was chosen

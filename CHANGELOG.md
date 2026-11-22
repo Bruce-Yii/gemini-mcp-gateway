@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Config validation (`src/config.js`, `scripts/check-config.mjs`, `npm run check:config`):
+  actionable errors and env warnings, used at Vercel and CLI startup.
+- Generic OAuth-refresh upstreams: set `refreshUrl` on a server config to use
+  the refresh lifecycle for any provider; Notion/Linear keep built-in defaults.
+- `scripts/seed-upstream-tokens.mjs` now seeds every configured refresh upstream
+  instead of a hardcoded provider list.
+- [docs/UPSTREAMS.md](docs/UPSTREAMS.md), [docs/CLIENTS.md](docs/CLIENTS.md) and
+  ready-to-use `examples/` configs.
+- Upstream-config and generic-auth tests (suite now 300).
+
 ## [0.1.0] - 2026-11-22
 
 Initial public snapshot.
@@ -24,7 +36,7 @@ Initial public snapshot.
   invalid-grant terminal state) for GitHub / Notion / Linear / Vercel.
 - Schema sanitizing for Gemini function declarations, image passthrough,
   structured result truncation, per-run read-only dedup, and `safeAll`.
-- 288 offline tests, fake upstream harness, context/search measurement scripts.
+- 300 offline tests, fake upstream harness, context/search measurement scripts.
 - `GET /healthz` with build identity and a source hash for deployment
   verification.
 

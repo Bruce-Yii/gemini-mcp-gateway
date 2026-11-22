@@ -44,7 +44,7 @@ npm run smoke                     # local fake-upstream smoke test
 5. **Search changes need evidence.** Include before/after
    `node scripts/eval-search.mjs` numbers (and the Chinese query cases when
    relevant).
-6. **New upstream support** means: config entry + README/docs note + a
+6. **New upstream support** means: config entry per [docs/UPSTREAMS.md](docs/UPSTREAMS.md) + docs note + a
    contract-style test (tool list shape, annotation handling, error shape) —
    "it connected once" is not enough.
 

@@ -61,12 +61,13 @@ Gemini / MCP 客户端
   `safeAll()` 局部失败隔离。
 - **OAuth 2.1 授权服务器**：DCR、PKCE S256、state 透传、不轮换 refresh token；
   可选锁定单客户端（`ALLOWED_CLIENT_ID`）。
-- **上游 token 生命周期**：Notion/Linear 的刷新/轮换、CAS fencing、invalid_grant
-  终态与自愈；GitHub/Vercel 静态 Bearer / 环境变量。
+- **上游 token 生命周期**：内置 Notion/Linear 的刷新/轮换、CAS fencing、invalid_grant
+  终态与自愈；其他 OAuth provider 配 `refreshUrl` 即走同一生命周期；GitHub/Vercel 用静态 Bearer。
 - **Gemini 安全 schema**：所有注册工具过 `sanitizeTool`（array 补 items、多类型收敛、
   深 oneOf 截断）；结果用文本 JSON（不用 `structuredContent`）。
 - **部署校验**：`GET /healthz` 返回构建 commit 和运行时源码哈希。
-- **离线测试**：288 项单测/集成测试 + 假上游 harness，不需要网络或凭据。
+- **上游无关**：任何 Streamable HTTP / stdio MCP server，加一个配置条目即可（见 [docs/UPSTREAMS.md](docs/UPSTREAMS.md)）。
+- **离线测试**：300 项单测/集成测试 + 假上游 harness，不需要网络或凭据。
 
 ## 快速开始（本地）
 
@@ -76,9 +77,11 @@ Gemini / MCP 客户端
 git clone https://github.com/Bruce-Yii/gemini-mcp-gateway.git
 cd gemini-mcp-gateway
 npm ci
-npm test            # 离线 288 项
+npm test            # 离线 300 项
 npm run smoke       # 假上游 MCP server，无需凭据
+node scripts/check-config.mjs  # 校验配置 + 环境变量警告
 npm start           # http://localhost:3000/mcp
+npm start -- --config examples/local-stdio-fake.json  # 本地 stdio 示例
 ```
 
 `npm start` 使用 `config.example.json`；未设置 `tokenEnv` 环境变量的上游会被跳过，
@@ -93,6 +96,8 @@ node scripts/write-build-info.mjs --print # 当前 commit + 运行时源码哈�
 ```
 
 ## 配置
+
+加上游的完整步骤见 **[docs/UPSTREAMS.md](docs/UPSTREAMS.md)**；最小示例在 `examples/`。
 
 配置在 `config.example.json`（复制一份，用 `GATEWAY_CONFIG` 指向它，或给 `--config`）。上游条目：
 
@@ -140,7 +145,7 @@ node scripts/write-build-info.mjs --print # 当前 commit + 运行时源码哈�
 - **Gemini 网页版（已验证）**：Settings → Connected Apps → Custom apps → 添加
   `https://<your-domain>/mcp`。锁定模式需要填 `ALLOWED_CLIENT_ID` /
   `ALLOWED_CLIENT_SECRET`。Google 目前限制：个人账号、18+、美国、英文界面。
-- **其他 MCP 客户端（未验证）**：支持 Streamable HTTP + 静态 `Authorization`
+- **其他客户端**：兼容性矩阵见 [docs/CLIENTS.md](docs/CLIENTS.md)。支持 Streamable HTTP + 静态 `Authorization`
   或 OAuth 2.1 的客户端理论上都能连，欢迎在 issue 里反馈兼容性。
 
 ## 评测与测试
@@ -153,7 +158,7 @@ node scripts/write-build-info.mjs --print # 当前 commit + 运行时源码哈�
 | 本网关的工具定义上下文 | 3 个工具 ≈ 1,286 tokens（**-99.4%**） |
 | 离线搜索召回（191 条工具级任务，英文） | top1 **56.5%**、top5 **72.3%** |
 | 离线搜索召回（19 条真实风格中文查询） | top1 **84%**、top5 **95%** |
-| 离线测试 | **288** 项通过 |
+| 离线测试 | **300** 项通过 |
 
 ```bash
 npm test
@@ -185,6 +190,8 @@ node scripts/measure-context.mjs
 ## 文档
 
 - [docs/WHY.md](docs/WHY.md) — 问题、实测数据、外部证据
+- [docs/UPSTREAMS.md](docs/UPSTREAMS.md) — 加上游：配置、鉴权模式、验证
+- [docs/CLIENTS.md](docs/CLIENTS.md) — 客户端兼容性矩阵
 - [docs/SANDBOX-SECURITY.md](docs/SANDBOX-SECURITY.md) — 沙箱模型与局限
 - [docs/CODEMODE-SURVEY.md](docs/CODEMODE-SURVEY.md) — Code Mode 横向调研
 - [docs/UNNEEDED-TOOLS.md](docs/UNNEEDED-TOOLS.md) — 内置工具黑名单的依据
