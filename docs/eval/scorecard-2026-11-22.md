@@ -3,27 +3,27 @@
 | Metric | Value |
 |---|---|
 | Requests | 20 |
-| MCP POST requests | 10 |
-| Non-MCP routes | 10 |
+| MCP POST requests | 8 |
+| Non-MCP routes | 12 |
 | Errors (HTTP >= 400) | 9 |
 | MCP errors | 0 |
 | p50 latency | 7 ms |
 | p95 latency | 845 ms |
-| Avg latency | 379 ms |
-| Response bytes | 61965 |
+| Avg latency | 365 ms |
+| Response bytes | 58295 |
 | Truncated responses | 0 |
 | Overflow captures | 0 |
 
 ## Tool calls (MCP method)
-- initialize: 4
-- tools/call: 4
+- initialize: 3
+- tools/call: 3
 - notifications/initialized: 1
 - tools/list: 1
 
 ## Top upstream tools
 | Tool | Calls |
 |---|---|
-| execute_read | 3 |
+| execute_read | 2 |
 | search | 1 |
 
 ## Error classes (MCP only)
