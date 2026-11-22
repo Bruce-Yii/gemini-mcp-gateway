@@ -29,6 +29,7 @@
 | B8 | Gemini 大文件/多文件工作流反馈：canonical 结果、行区间、patch、行号映射 | ✅ 通过（B8-1/2/3/4，线上行号已复验） | batch-8-gemini-file-workflow.md |
 | B9 | 透明观测与评测体系：Gemini 无感采集 + 原始日志 + 迭代闭环 | 🔨 P1/P2 全量 capture + analyzer + L1 smoke 已落地 | ../OBSERVABILITY-AND-EVAL.md |
 | B10 | Gemini PR #14–#41 工程总控反馈映射 | ⚠️ P0/P1 host helper 已实现；接入 codemode/上游、merge/rebase 未做 | batch-10-pr-workflow.md |
+| B11 | 全局审视与执行计划（capture 完整性、写路径、Gemini 自适应、MCP 2026） | 🔨 执行中（无排期，按依赖并行） | ../PLAN-2026-11-23.md |
 
 ## 门控规则
 

@@ -242,6 +242,7 @@ deployment between users. The sandbox provides isolation, not authorization.
 - [docs/UPSTREAMS.md](docs/UPSTREAMS.md) — add an upstream (config, auth patterns, verification)
 - [docs/WORKFLOW.md](docs/WORKFLOW.md) — upstream onboarding + quality gates (B1–B4 workflow)
 - [docs/OBSERVABILITY-AND-EVAL.md](docs/OBSERVABILITY-AND-EVAL.md) — zero-impact telemetry + evaluation loop design (B9, design only)
+- [docs/PLAN-2026-11-23.md](docs/PLAN-2026-11-23.md) — current global gaps, parallel workstreams, acceptance criteria (no calendar)
 - [docs/CREDENTIALS.md](docs/CREDENTIALS.md) — how to obtain tokens for Slack/Atlassian/etc.
 - [docs/CLIENTS.md](docs/CLIENTS.md) — client compatibility matrix
 - [docs/ADOPTION-RANKINGS.md](docs/ADOPTION-RANKINGS.md) — what public data says about MCP/connector adoption
