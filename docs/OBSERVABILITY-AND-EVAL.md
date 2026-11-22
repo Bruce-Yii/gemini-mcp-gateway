@@ -1,6 +1,6 @@
 # 透明观测与评测体系（Full-Fidelity Observability + Evaluation）
 
-> 状态：**设计稿（DOC ONLY，未实现）** · 2026-11-23
+> 状态：**P1 已实现（HTTP/MCP 请求/响应全量 capture + file/http sink）；P2 上游/sandbox 明细待做** · 2026-11-23
 > 目标：Gemini 侧完全无感；网关把**边界内所有可观测事件**按原始保真度记录下来，
 > 不采样、不按主观判断裁剪；用这些数据做回放、回归和迭代。
 
@@ -187,6 +187,32 @@ Vercel `waitUntil` 可在响应后继续短任务（[Functions API](https://verc
 如果要“零新增存储”，最低配是 **私有 GitHub 仓库 + 每天一个压缩包**；但它是冷归档，
 不适合当在线查询/回放的主存储，且 TTL 删除需要额外轮转策略。Notion 不建议承载 raw。
 
+### 6.2 其他存储产品（免费/付费都可）
+
+> 价格/额度以厂商页面为准；下表是选型维度，不是报价单。
+
+| 产品 | 免费额度（约） | 付费 | 适合 | 注意 |
+|---|---|---|---|---|
+| **Cloudflare R2** | 10 GB-month；Class A 1M/月、Class B 10M/月；出站免费 | $0.015/GB-month 起 | **原始事件 Blob**（推荐） | S3 API；需要 Worker/签名 |
+| **Backblaze B2** | 10 GB；出站 3× 存储/月 | $6/TB-month | 原始事件冷存储 | S3 兼容；延迟高于 R2 |
+| **Vercel Blob** | Hobby/Pro 有 included 额度 | 按存储/流量 | 已在 Vercel 的最少配置 | 私有 store；和部署同域 |
+| **Supabase** | 500 MB DB + 1 GB Storage | $25/月起 | 索引 + 小原文 | Postgres 查询方便 |
+| **Neon** | 0.5 GB 存储 | 按用量 | **索引/聚合**（推荐配 R2） | Serverless Postgres |
+| **Upstash Redis** | 256 MB、10k commands/天 | 按量 | 最近事件/索引/去重 | 不适合大原文 |
+| **Axiom / Grafana Loki** | 有免费日志额度 | 按量 | 元数据日志/检索/告警 | 日志不等于原文仓库 |
+| **Langfuse** | 有 free/hobby 额度 | 按量/自托管 | LLM/tool trace、可视化 | 外部托管需评估隐私 |
+| **GitHub 私有仓库** | 免费；LFS 1 GB 免费 | LFS/存储按量 | **冷归档/蒸馏任务** | 不适合热数据；TTL 删除难 |
+| **Notion** | 免费个人版 | 按套餐 | **周报/dashboard/决策** | API 3 req/s，不适合 raw |
+
+**推荐组合**：
+
+- **零预算**：R2（raw）+ Neon（索引）+ GitHub Actions（日报/回归）+ 主仓库 `docs/eval/`（scorecard）。
+- **最少配置**：Vercel Blob（raw）+ Upstash（索引）+ Vercel Cron。
+- **人看**：Notion 只放周报和链接，不放原文。
+
+Cloudflare R2 的免费额度对“每天几十~几百次网关调用、每次几十 KB”的量级足够；
+如果原文很大（Figma/Notion 大结果），优先 R2/B2，不要用 Redis/Notion 硬扛。
+
 ## 7. 从全量数据到迭代
 
 ```text
@@ -231,8 +257,8 @@ Vercel `waitUntil` 可在响应后继续短任务（[Functions API](https://verc
 | 阶段 | 内容 | 预估 |
 |---|---|---|
 | P0 | 本文档 + envelope schema | 完成 |
-| P1 | HTTP/MCP 原始 tap + Blob 原文 + 索引 + 开关 | 2–3 天 |
-| P2 | Code Mode/sandbox/upstream 全量 tap | 1–2 天 |
+| P1 | HTTP/MCP 原始 tap + file/http sink + 开关 | ✅ 已实现（`src/capture.js` + 4 tests） |
+| P2 | Code Mode/sandbox/upstream 明细 tap + Blob/R2 适配 | 1–2 天 |
 | P3 | 回放脚本 + 错误聚类 + scorecard | 2 天 |
 | P4 | L1 smoke 定时任务 | 1–2 天 |
 | P5 | L3 judge/人工（可选） | 按需 |

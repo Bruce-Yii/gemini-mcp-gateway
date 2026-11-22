@@ -1,0 +1,154 @@
+/**
+ * Full-fidelity gateway capture (P1).
+ *
+ * The capture path is deliberately boring: copy request/response bytes, redact
+ * credentials, and hand the envelope to an async sink. It never awaits the sink
+ * and never throws into the MCP handler.
+ *
+ * Storage is intentionally pluggable. P1 ships file/HTTP/console sinks; object
+ * storage adapters (R2/S3/Blob) can be added without touching the gateway.
+ */
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
+const SECRET_HEADER_RE = /^(authorization|cookie|set-cookie|proxy-authorization|x-api-key|api-key)$/i;
+const MAX_BODY_BYTES = 32 * 1024 * 1024;
+
+export function redactHeaders(headers = {}) {
+  const out = {};
+  for (const [name, value] of Object.entries(headers)) {
+    if (SECRET_HEADER_RE.test(name)) {
+      const text = Array.isArray(value) ? value.join(',') : String(value ?? '');
+      out[name] = `[redacted:${createHash('sha256').update(text).digest('hex').slice(0, 12)}]`;
+    } else {
+      out[name] = value;
+    }
+  }
+  return out;
+}
+
+function configFromOptions(options = {}, env = process.env) {
+  const mode = options.mode ?? env.CAPTURE_MODE ?? 'off';
+  return {
+    mode: mode === 'full' || mode === 'meta' ? mode : 'off',
+    sink: options.sink ?? env.CAPTURE_SINK ?? 'file',
+    fileDir: options.fileDir ?? env.CAPTURE_FILE_DIR ?? join(process.cwd(), 'work', 'capture'),
+    httpUrl: options.httpUrl ?? env.CAPTURE_HTTP_URL ?? '',
+    httpToken: options.httpToken ?? env.CAPTURE_HTTP_TOKEN ?? '',
+    maxBytes: Number(options.maxBytes ?? env.CAPTURE_MAX_BYTES ?? MAX_BODY_BYTES),
+  };
+}
+
+async function writeFileSink(cfg, envelope) {
+  await mkdir(cfg.fileDir, { recursive: true });
+  const name = `${envelope.ts.replace(/[:.]/g, '-')}-${envelope.requestId}.json`;
+  await writeFile(join(cfg.fileDir, name), JSON.stringify(envelope), 'utf8');
+}
+
+async function writeHttpSink(cfg, envelope) {
+  if (!cfg.httpUrl) return;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    await fetch(cfg.httpUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(cfg.httpToken ? { authorization: `Bearer ${cfg.httpToken}` } : {}),
+      },
+      body: JSON.stringify(envelope),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function writeSink(cfg, envelope) {
+  if (cfg.sink === 'console') {
+    // Debug only: Vercel log limits are not a durable raw store.
+    console.log(`[capture] ${JSON.stringify(envelope)}`);
+    return Promise.resolve();
+  }
+  if (cfg.sink === 'http') return writeHttpSink(cfg, envelope);
+  return writeFileSink(cfg, envelope);
+}
+
+/**
+ * Start capture for one /mcp POST. Returns null when disabled.
+ * The returned object is intentionally tiny and has no protocol surface.
+ */
+export function startCapture(req, res, options = {}) {
+  const cfg = configFromOptions(options);
+  if (cfg.mode === 'off') return null;
+
+  const started = Date.now();
+  const requestId = randomUUID();
+  const chunks = [];
+  let bytes = 0;
+  let overflow = false;
+
+  const originalWrite = res.write.bind(res);
+  const originalEnd = res.end.bind(res);
+  let finished = false;
+
+  res.write = function captureWrite(chunk, encoding, callback) {
+    if (chunk && !overflow) {
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), typeof encoding === 'string' ? encoding : 'utf8');
+      bytes += buf.length;
+      if (bytes > cfg.maxBytes) {
+        overflow = true;
+        chunks.length = 0;
+      } else {
+        chunks.push(buf);
+      }
+    }
+    return originalWrite(chunk, encoding, callback);
+  };
+
+  res.end = function captureEnd(chunk, encoding, callback) {
+    if (finished) return originalEnd(chunk, encoding, callback);
+    finished = true;
+    if (chunk && !overflow) {
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk), typeof encoding === 'string' ? encoding : 'utf8');
+      bytes += buf.length;
+      if (bytes > cfg.maxBytes) overflow = true;
+      else chunks.push(buf);
+    }
+    const result = originalEnd(chunk, encoding, callback);
+    // Never await: sink failure must not change the MCP response.
+    queueMicrotask(() => {
+      const envelope = {
+        schema: 'gmg.capture.v1',
+        ts: new Date(started).toISOString(),
+        requestId,
+        mode: cfg.mode,
+        request: {
+          method: req.method,
+          url: req.url,
+          headers: redactHeaders(req.headers),
+          raw: req.__gatewayRawBody ?? null,
+        },
+        response: {
+          status: res.statusCode,
+          headers: redactHeaders(res.getHeaders?.() ?? {}),
+          raw: overflow ? null : Buffer.concat(chunks).toString('utf8'),
+          bytes,
+          overflow,
+          durationMs: Date.now() - started,
+        },
+      };
+      Promise.resolve()
+        .then(() => writeSink(cfg, envelope))
+        .catch((error) => console.warn('[capture] sink failed:', error?.message ?? String(error)));
+    });
+    return result;
+  };
+
+  return { requestId };
+}
+
+export function captureEnabled(env = process.env) {
+  return (env.CAPTURE_MODE ?? 'off') === 'full' || (env.CAPTURE_MODE ?? 'off') === 'meta';
+}

@@ -159,6 +159,11 @@ Environment variables used by the reference deployment:
 | `ALLOWED_CLIENT_ID`, `ALLOWED_CLIENT_SECRET` | Lock the gateway to one pre-registered OAuth client (**required for production**) |
 | `UPSTREAM_OAUTH_ADMIN_KEY` | Optional. Enables `/upstream/oauth/start` for servers configured with `authorizeUrl` (see [docs/CREDENTIALS.md](docs/CREDENTIALS.md)) |
 | `GATEWAY_CONFIG`, `UPSTREAMS_JSON` | Optional inline config overrides |
+| `CAPTURE_MODE` | Optional full-fidelity capture: `off`（默认）/`full`/`meta`；见 [docs/OBSERVABILITY-AND-EVAL.md](docs/OBSERVABILITY-AND-EVAL.md) |
+| `CAPTURE_SINK` | `file`（本地）/`http`（collector）/`console`（仅 debug） |
+| `CAPTURE_FILE_DIR` | File sink directory (default `work/capture`) |
+| `CAPTURE_HTTP_URL`, `CAPTURE_HTTP_TOKEN` | HTTP collector endpoint + bearer token |
+| `CAPTURE_MAX_BYTES` | Per-response raw cap (default 32 MiB) |
 
 **Bring your own upstream credentials by default.** Obtain a PAT/API token
 yourself and pass it via env. For providers that only support OAuth, the gateway

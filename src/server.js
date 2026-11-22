@@ -29,6 +29,7 @@ import { searchEntries } from './catalog.js';
 import { UpstreamManager } from './upstreams.js';
 import { createCodeModeTools } from './codemode.js';
 import { validateConfig } from './config.js';
+import { startCapture } from './capture.js';
 
 const SERVER_INFO = { name: 'gemini-mcp-gateway', version: '0.1.0' };
 
@@ -338,11 +339,14 @@ function readJsonBody(req) {
     });
     req.on('end', () => {
       if (chunks.length === 0) {
+        req.__gatewayRawBody = '';
         resolveBody(undefined);
         return;
       }
+      const raw = Buffer.concat(chunks).toString('utf8');
+      req.__gatewayRawBody = raw;
       try {
-        resolveBody(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+        resolveBody(JSON.parse(raw));
       } catch {
         rejectBody(new Error('invalid JSON body'));
       }
@@ -374,6 +378,7 @@ export function createMcpRequestHandler(upstreamManager, options = {}) {
 
       const method = req.method;
       if (method === 'POST') {
+        startCapture(req, res);
         const body = await readJsonBody(req);
         let gatewayServer;
         const transport = new StreamableHTTPServerTransport({
