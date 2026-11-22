@@ -766,6 +766,7 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
     if (!env.__ok) {
       const e = env.err && typeof env.err === 'object' ? env.err : {};
       let scriptLoc;
+      if (process.env.DEBUG_LINE_MAP) console.info('[line-debug]', JSON.stringify({ marker: env.line, type: e.type, host: e.hostOrigin, stack: e.stack }));
       if (!e.hostOrigin) {
         // Prefer the last executed statement marker: it is source-line data we
         // control, independent of the SDK's production stack shape.
