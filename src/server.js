@@ -29,7 +29,7 @@ import { searchEntries } from './catalog.js';
 import { UpstreamManager } from './upstreams.js';
 import { createCodeModeTools } from './codemode.js';
 import { validateConfig } from './config.js';
-import { captureEvent } from './capture.js';
+import { captureEvent, startCapture, captureSkip } from './capture.js';
 
 const SERVER_INFO = { name: 'gemini-mcp-gateway', version: '0.1.0' };
 
@@ -388,17 +388,52 @@ export function createMcpRequestHandler(upstreamManager, options = {}) {
   // and is discarded. sessionIdGenerator: undefined keeps the transport from
   // requiring a sticky session. This matches Google's stateless-server guidance.
   return async (req, res) => {
+    const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
+    const method = req.method;
+
+    // P0 capture audit: production already called startCapture at the top of
+    // the Vercel app handler. Here we only avoid a double envelope — we read
+    // the existing context instead of creating a second one. Standalone use
+    // (local startHttpServer / direct handler calls) starts capture itself.
+    let capture;
+    if (pathname === '/mcp' && method === 'POST') {
+      if (req.__gatewayCaptureStarted) {
+        capture = req.__gatewayCapture ?? null;
+      } else {
+        capture = startCapture(req, res, {
+          ...options,
+          path: pathname,
+          bodyBuffered: req.__gatewayRawBody !== undefined,
+        });
+      }
+    } else if (!req.__gatewayCaptureStarted) {
+      // Non-POST /mcp or non-/mcp: explicitly auditable as not eligible.
+      // Never carry header/body values into the skip line.
+      captureSkip(req, {
+        path: pathname,
+        reason: 'non_post',
+        detail: pathname === '/mcp' ? 'GET/DELETE/other /mcp method' : 'not /mcp route',
+      });
+    }
+
     try {
-      const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
       if (pathname !== '/mcp') {
         res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
         res.end('Not found. MCP endpoint is /mcp.');
         return;
       }
 
-      const method = req.method;
       if (method === 'POST') {
-        const body = await readJsonBody(req);
+        let body;
+        try {
+          body = await readJsonBody(req);
+        } catch (error) {
+          // Body read failed before any handler work. The response still
+          // goes through res.end (sendJsonRpcError) so [capture_done] fires;
+          // mark the skip reason explicitly for audit.
+          if (capture?.skip) capture.skip('body_buffer_failed');
+          throw error;
+        }
         let gatewayServer;
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: undefined, // stateless: no sticky session required
@@ -432,6 +467,7 @@ export function createMcpRequestHandler(upstreamManager, options = {}) {
       res.writeHead(405, { Allow: 'GET, POST, DELETE' });
       res.end();
     } catch (error) {
+      if (capture?.skip && !res.headersSent) capture.skip('handler_error');
       if (!res.headersSent) {
         sendJsonRpcError(res, 500, -32603, `Internal error: ${errorMessage(error)}`);
       } else {

@@ -1,9 +1,21 @@
 /**
- * Full-fidelity gateway capture (P1).
+ * Full-fidelity gateway capture (P1) + request-level audit trail (P0).
  *
  * The capture path is deliberately boring: copy request/response bytes and
  * headers verbatim, and hand the envelope to an async sink. It never awaits the
  * sink and never throws into the MCP handler.
+ *
+ * P0 addition: every request that enters a capture-enabled route emits a
+ * structured `[capture_ack]` synchronously (with a stable requestId) and a
+ * `[capture_done]` when the response finishes. When capture cannot run for a
+ * request, a `[capture_skipped]` line records the exact reason. These lines
+ * exist so Vercel logs can be reconciled against R2 objects by requestId.
+ *
+ * IMPORTANT (P0 fix): the sink is queued *eagerly* inside `res.end`, and
+ * `waitUntil()` is called before `res.end` returns. Previously both were
+ * deferred into a `queueMicrotask`; on Vercel the runtime may freeze the
+ * function as soon as the response is finalized, so the microtask never ran —
+ * producing a missing capture AND no `capture_dropped` log.
  *
  * Storage is intentionally pluggable. P1 ships file/HTTP/console/R2 sinks.
  */
@@ -64,6 +76,37 @@ function configFromOptions(options = {}, env = process.env) {
     fallbackHttpToken: options.fallbackHttpToken ?? env.CAPTURE_FALLBACK_HTTP_TOKEN ?? '',
     fetchImpl: options.fetchImpl ?? fetch,
   };
+}
+
+/**
+ * Structured, low-cardinality audit line. Never includes auth values or body.
+ * Exported so callers can emit a skip from outside startCapture when the route
+ * is not eligible (e.g. a non-POST /mcp request).
+ */
+export function captureLog(tag, fields) {
+  console.log(`[${tag}]`, JSON.stringify(fields));
+}
+
+// capture_skipped reasons are a closed enum. Free-form text is never accepted
+// as a reason/detail so an auth value or body can never leak into this line.
+const SAFE_SKIP_REASONS = new Set([
+  'capture_disabled',
+  'capture_mode_off',
+  'env_missing',
+  'not_eligible',
+  'already_started',
+  'non_post',
+  'body_buffer_failed',
+  'handler_error',
+]);
+function safeSkipReason(reason) {
+  return SAFE_SKIP_REASONS.has(reason) ? reason : 'not_eligible';
+}
+function safeSkipDetail(detail) {
+  // Only short, fixed diagnostics are allowed. No header/token/body content.
+  return typeof detail === 'string' && detail.length <= 120 && !/bearer|token|authorization|secret|cookie/i.test(detail)
+    ? detail
+    : undefined;
 }
 
 async function writeFileSink(cfg, envelope) {
@@ -159,23 +202,78 @@ async function postFallback(cfg, record) {
 
 /**
  * Start capture for one /mcp POST. Returns null when disabled.
- * The returned object is intentionally tiny and has no protocol surface.
+ * The returned object has no protocol surface; it only carries the requestId
+ * and helpers used by the route to enrich the audit trail.
+ *
+ * @param {any} req
+ * @param {any} res
+ * @param {{
+ *   mode?: string, sink?: string, [key: string]: any,
+ *   bodyBuffered?: boolean, path?: string, route?: string,
+ *   log?: (tag: string, fields: object) => void,
+ * }} [options]
  */
 export function startCapture(req, res, options = {}) {
+  // Idempotency guard: production wires startCapture at the top of the app
+  // handler, and the local /mcp handler may also attempt it. Never create two
+  // envelopes (and two [capture_ack] lines) for the same request.
+  if (req && req.__gatewayCaptureStarted) {
+    return req.__gatewayCapture ?? null;
+  }
   const cfg = configFromOptions(options);
-  if (cfg.mode === 'off') return null;
+  const log = typeof options.log === 'function' ? options.log : captureLog;
+  const path = options.path ?? req?.url ?? '/';
+  const method = typeof req?.method === 'string' ? req.method.toUpperCase() : 'GET';
+  const enabled = cfg.mode !== 'off';
+  const requestId = options.requestId ?? randomUUID();
+  const requestBytes = Number(options.requestBytes ?? req?.__gatewayRawBody?.length ?? 0) || 0;
+
+  if (req) req.__gatewayCaptureStarted = true;
+
+  if (!enabled) {
+    // A disabled capture must be auditable: otherwise "no capture" and
+    // "capture silently lost" are indistinguishable in Vercel logs.
+    log('capture_skipped', {
+      requestId,
+      path,
+      method,
+      sink: cfg.sink,
+      enabled: false,
+      reason: safeSkipReason('capture_disabled'),
+      detail: safeSkipDetail('CAPTURE_MODE is off/unset on this deployment'),
+      build: BUILD,
+    });
+    const disabled = { requestId, enabled: false, skip() {} };
+    if (req) req.__gatewayCapture = disabled;
+    return null;
+  }
 
   const started = Date.now();
-  const requestId = randomUUID();
   const context = { requestId, started, events: [] };
   captureStore.enterWith(context);
   const chunks = [];
   let bytes = 0;
   let overflow = false;
 
+  // Synchronous ack: emitted before any handler work so every request that
+  // entered the route is visible in Vercel logs with a stable requestId.
+  log('capture_ack', {
+    requestId,
+    path,
+    method,
+    mode: cfg.mode,
+    sink: cfg.sink,
+    enabled: true,
+    requestBytes,
+    bodyBuffered: Boolean(options.bodyBuffered ?? req?.__gatewayRawBody !== undefined),
+    build: BUILD,
+  });
+
   const originalWrite = res.write.bind(res);
   const originalEnd = res.end.bind(res);
   let finished = false;
+  let sinkQueued = false;
+  let sinkError = null;
 
   res.write = function captureWrite(chunk, encoding, callback) {
     if (chunk && !overflow) {
@@ -201,57 +299,131 @@ export function startCapture(req, res, options = {}) {
       else chunks.push(buf);
     }
     const result = originalEnd(chunk, encoding, callback);
-    // Never await: sink failure must not change the MCP response.
-    queueMicrotask(() => {
-      const envelope = {
-        schema: 'gmg.capture.v1',
-        ts: new Date(started).toISOString(),
+    const duration = Date.now() - started;
+
+    // Build the envelope eagerly. Do NOT defer with queueMicrotask: Vercel can
+    // freeze the function immediately after res.end, so waitUntil must already
+    // hold the sink promise by then.
+    const envelope = {
+      schema: 'gmg.capture.v1',
+      ts: new Date(started).toISOString(),
+      requestId,
+      mode: cfg.mode,
+      deployment: BUILD,
+      request: {
+        method: req.method,
+        url: req.url,
+        headers: captureHeaders(req.headers),
+        raw: req.__gatewayRawBody ?? null,
+      },
+      events: context.events,
+      response: {
+        status: res.statusCode,
+        headers: captureHeaders(res.getHeaders?.() ?? {}),
+        raw: overflow ? null : Buffer.concat(chunks).toString('utf8'),
+        bytes,
+        overflow,
+        durationMs: duration,
+      },
+    };
+
+    // Record the drop in Vercel logs unconditionally, even when `waitUntil`
+    // is unavailable or throws. The Promise chain owns its own .catch, so the
+    // structured line lands regardless of platform support.
+    const onSinkError = (error) => {
+      sinkQueued = false;
+      sinkError = error?.message ?? String(error);
+      droppedCount += 1;
+      const record = {
+        schema: 'gmg.capture_dropped.v1',
+        ts: new Date().toISOString(),
         requestId,
-        mode: cfg.mode,
-        deployment: BUILD,
-        request: {
-          method: req.method,
-          url: req.url,
-          headers: captureHeaders(req.headers),
-          raw: req.__gatewayRawBody ?? null,
-        },
-        events: context.events,
-        response: {
-          status: res.statusCode,
-          headers: captureHeaders(res.getHeaders?.() ?? {}),
-          raw: overflow ? null : Buffer.concat(chunks).toString('utf8'),
-          bytes,
-          overflow,
-          durationMs: Date.now() - started,
-        },
+        sink: cfg.sink,
+        dropped: droppedCount,
+        error: sinkError,
       };
-      const task = Promise.resolve()
-        .then(() => writeSink(cfg, envelope))
-        .catch((error) => {
-          droppedCount += 1;
-          const record = {
-            schema: 'gmg.capture_dropped.v1',
-            ts: new Date().toISOString(),
-            requestId,
-            sink: cfg.sink,
-            dropped: droppedCount,
-            error: error?.message ?? String(error),
-          };
-          // Vercel logs always get the structured line, even if the fallback
-          // endpoint is also down.
-          console.error('[capture_dropped]', JSON.stringify(record));
-          // Best-effort remote copy of the dropped envelope. Includes the full
-          // original envelope so a dead R2 bucket does not lose the capture.
-          postFallback(cfg, { ...record, envelope }).catch(() => {});
-        });
-      // Keep the function alive after the response where the platform allows
-      // it; locally waitUntil may throw, in which case the task still runs.
-      try { waitUntil(task); } catch { /* best-effort local runtime */ }
+      console.error('[capture_dropped]', JSON.stringify(record));
+      // Best-effort remote copy of the dropped envelope. Includes the full
+      // original envelope so a dead R2 bucket does not lose the capture.
+      postFallback(cfg, { ...record, envelope }).catch(() => {});
+    };
+
+    const task = Promise.resolve()
+      .then(() => writeSink(cfg, envelope))
+      .catch(onSinkError);
+
+    // Keep the function alive after the response where the platform allows it.
+    // Called synchronously in res.end, before it returns, so Vercel sees the
+    // pending work before the response is finalized. Locally waitUntil may
+    // throw; the Promise still runs and still logs a drop on failure.
+    try { waitUntil(task); } catch { /* best-effort local runtime */ }
+    sinkQueued = true; // queued (not necessarily completed) before res.end returns
+
+    log('capture_done', {
+      requestId,
+      path,
+      method,
+      status: res.statusCode,
+      duration,
+      sink: cfg.sink,
+      sinkQueued,
+      ...(sinkError ? { sinkError } : {}),
     });
     return result;
   };
 
-  return { requestId };
+  const capture = {
+    requestId,
+    mode: cfg.mode,
+    sink: cfg.sink,
+    enabled: true,
+    /** Mark the request as skipped after capture started (e.g. handler error). */
+    skip(reason, detail) {
+      log('capture_skipped', {
+        requestId,
+        path,
+        method,
+        sink: cfg.sink,
+        enabled: true,
+        reason: safeSkipReason(reason),
+        ...(safeSkipDetail(detail) ? { detail: safeSkipDetail(detail) } : {}),
+      });
+    },
+    /** Exposed for tests/routes: what the sync ack reported. */
+    ack: {
+      requestId,
+      path,
+      method,
+      mode: cfg.mode,
+      sink: cfg.sink,
+      enabled: true,
+      requestBytes,
+      bodyBuffered: Boolean(options.bodyBuffered ?? req?.__gatewayRawBody !== undefined),
+    },
+  };
+  if (req) req.__gatewayCapture = capture;
+  return capture;
+}
+
+/**
+ * Emit a standalone `[capture_skipped]` line when capture never started for a
+ * request that the route considered (e.g. a GET /mcp probe, or an early auth
+ * rejection before startCapture was wired in). Returns the supplied/generated
+ * requestId so callers can reference it from other log lines.
+ */
+export function captureSkip(req, options = {}) {
+  const log = typeof options.log === 'function' ? options.log : captureLog;
+  const requestId = options.requestId ?? randomUUID();
+  log('capture_skipped', {
+    requestId,
+    path: options.path ?? req?.url ?? '/',
+    method: typeof req?.method === 'string' ? req.method.toUpperCase() : 'GET',
+    sink: options.sink ?? process.env.CAPTURE_SINK ?? 'file',
+    enabled: captureEnabled(),
+    reason: safeSkipReason(options.reason ?? 'not_eligible'),
+    ...(safeSkipDetail(options.detail) ? { detail: safeSkipDetail(options.detail) } : {}),
+  });
+  return requestId;
 }
 
 export function captureEnabled(env = process.env) {

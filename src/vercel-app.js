@@ -15,7 +15,7 @@ import { createOAuthHandlers, resolveBaseUrl } from './oauth.js';
 import { UpstreamManager } from './upstreams.js';
 import { createUpstreamOAuthHandlers } from './upstream-oauth.js';
 import { createMcpRequestHandler } from './server.js';
-import { startCapture, captureEnabled } from './capture.js';
+import { startCapture, captureEnabled, captureSkip } from './capture.js';
 import { BUILD } from './build-info.js';
 import { validateConfig } from './config.js';
 
@@ -195,14 +195,27 @@ export function createAppHandler(options = {}) {
     });
   }
 
-  async function handleMcp(req, res) {
-    // Buffer the raw body before auth so a 401 still has a complete request
-    // envelope; the MCP handler consumes this buffer instead of the stream.
-    if (captureEnabled() && req.method === 'POST' && req.__gatewayRawBody === undefined) {
-      const chunks = [];
-      for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-      req.__gatewayRawBody = Buffer.concat(chunks).toString('utf8');
+  /**
+   * Buffer the raw request body before auth so every POST /mcp — including
+   * 401/403 rejections — has a complete capture envelope. Returns the buffered
+   * byte count (0 when nothing was read). Never throws: a read failure is
+   * recorded by the route's capture.skip('body_buffer_failed').
+   */
+  async function bufferCaptureBody(req) {
+    if (!captureEnabled() || req?.method !== 'POST' || req.__gatewayRawBody !== undefined) {
+      return req?.__gatewayRawBody?.length ?? 0;
     }
+    const chunks = [];
+    for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    req.__gatewayRawBody = Buffer.concat(chunks).toString('utf8');
+    return req.__gatewayRawBody.length;
+  }
+
+  async function handleMcp(req, res) {
+    // Body buffering is done centrally by appHandler before startCapture so
+    // the [capture_ack] carries accurate requestBytes/bodyBuffered. This is a
+    // no-op here when already buffered.
+    await bufferCaptureBody(req);
     const metadataUrl = `${resolveBaseUrl(options, req)}/.well-known/oauth-protected-resource`;
     const authorization = typeof req?.headers?.authorization === 'string'
       ? req.headers.authorization
@@ -233,13 +246,33 @@ export function createAppHandler(options = {}) {
   }
 
   return async function appHandler(req, res) {
-    startCapture(req, res);
+    const url = new URL(req?.url ?? '/', 'http://localhost');
+    let pathname = url.pathname;
+    if (pathname.length > 1) pathname = pathname.replace(/\/+$/, '');
+    const method = typeof req?.method === 'string' ? req.method.toUpperCase() : 'GET';
+    console.log(`[req] ${method} ${pathname}`);
+
+    // P0: one capture per request, started at the outermost edge so 401/403,
+    // 404, 405, body-read failures and MCP early returns are all covered. Only
+    // POST /mcp produces an envelope; other routes get an explicit skip.
+    if (pathname === '/mcp' && method === 'POST') {
+      let requestBytes = 0;
+      let bodyBuffered = false;
+      let bodyBufferFailed = false;
+      try {
+        requestBytes = await bufferCaptureBody(req);
+        bodyBuffered = req.__gatewayRawBody !== undefined;
+      } catch {
+        bodyBufferFailed = true;
+        bodyBuffered = false;
+      }
+      const capture = startCapture(req, res, { path: pathname, bodyBuffered, requestBytes });
+      if (bodyBufferFailed && capture?.skip) capture.skip('body_buffer_failed');
+    } else if (pathname === '/mcp' && !req.__gatewayCaptureStarted) {
+      // Non-POST /mcp probes (GET/DELETE/405) are not captured but are audited.
+      captureSkip(req, { path: pathname, reason: 'non_post', detail: 'non-POST /mcp method' });
+    }
     try {
-      const url = new URL(req?.url ?? '/', 'http://localhost');
-      let pathname = url.pathname;
-      if (pathname.length > 1) pathname = pathname.replace(/\/+$/, '');
-      const method = typeof req?.method === 'string' ? req.method.toUpperCase() : 'GET';
-      console.log(`[req] ${method} ${pathname}`);
 
       if (method === 'OPTIONS') {
         return sendNoContent(res, {
