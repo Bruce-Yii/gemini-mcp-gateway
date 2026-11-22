@@ -25,9 +25,9 @@ tools/list → transport.sessionId 保持同一个值
 
 测试：`tests/mcp-session.test.js`（1 项），全量 550 项通过。
 
-## 边界
+## Gemini 实测（2026-11-22T22:34Z）\n\n新窗口实测通过：\n\n- `initialize` 返回 sessionId `641ffd4f-8c40-462e-8938-b7b11d9d595f`，`clientInfo={name:"Gemini",version:"1.0.0"}`；\n- 后续 `notifications/initialized`、`execute_read` 都回传同一个 `mcp-session-id`；\n- 同一时段还能看到 `6ef4f489-...`、`cb65fcae-...`、`0499380b-...` 多个不同 session，说明窗口重连/刷新能被正确切开；\n- 该窗口的 execute_read 仍走 `/mcp`，capture 记录完整（约 930ms）。\n\n结论：Gemini 会回传 legacy `Mcp-Session-Id`，标记方案有效；不需要让模型记任何东西。\n\n## 边界
 
-- 如果 Gemini 不回传 `Mcp-Session-Id`，只有 `initialize` 请求有 sessionId；
+- 如果其他客户端不回传 `Mcp-Session-Id`，只有 `initialize` 请求有 sessionId；
   后续请求只能按 `clientInfo + 时间/刷新边界` 离线归组。
 - 旧窗口不一定重新 `initialize`；要拿到稳定 sessionId，需要新窗口或客户端主动重连。
 - 现代 MCP 2026-07-28 已移除 session 头；未来升级时要保留 `clientInfo` 作为兜底。
