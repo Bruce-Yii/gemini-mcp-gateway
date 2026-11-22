@@ -50,6 +50,27 @@ export function captureHeaders(headers = {}) {
   return out;
 }
 
+/**
+ * Low-cardinality MCP request metadata for audit lines. Never includes the body
+ * or arguments; used to diagnose "host stopped registering tools" incidents.
+ */
+function captureMcpInfo(req) {
+  const raw = req?.__gatewayRawBody;
+  if (typeof raw !== 'string' || raw.length === 0 || raw.length > 1_000_000) {
+    return { mcpMethod: null, mcpTool: null, mcpId: null };
+  }
+  try {
+    const body = JSON.parse(raw);
+    return {
+      mcpMethod: typeof body?.method === 'string' ? body.method : null,
+      mcpTool: typeof body?.params?.name === 'string' ? body.params.name : null,
+      mcpId: body?.id ?? null,
+    };
+  } catch (_) {
+    return { mcpMethod: null, mcpTool: null, mcpId: null };
+  }
+}
+
 /* ------------------------------------------------------------------ *
  * Model-output truncation audit (P0, batch 11)
  *
@@ -350,6 +371,7 @@ export function startCapture(req, res, options = {}) {
   const enabled = cfg.mode !== 'off';
   const requestId = options.requestId ?? randomUUID();
   const requestBytes = Number(options.requestBytes ?? req?.__gatewayRawBody?.length ?? 0) || 0;
+  const mcpInfo = captureMcpInfo(req);
 
   if (req) req.__gatewayCaptureStarted = true;
 
@@ -389,6 +411,9 @@ export function startCapture(req, res, options = {}) {
     enabled: true,
     requestBytes,
     bodyBuffered: Boolean(options.bodyBuffered ?? req?.__gatewayRawBody !== undefined),
+    mcpMethod: mcpInfo.mcpMethod,
+    mcpTool: mcpInfo.mcpTool,
+    sessionId: req?.__gatewaySessionId ?? req?.headers?.['mcp-session-id'] ?? null,
     build: BUILD,
   });
 
@@ -568,6 +593,8 @@ export function captureSkip(req, options = {}) {
     sink: options.sink ?? process.env.CAPTURE_SINK ?? 'file',
     enabled: captureEnabled(),
     reason: safeSkipReason(options.reason ?? 'not_eligible'),
+    mcpMethod: captureMcpInfo(req).mcpMethod,
+    sessionId: req?.__gatewaySessionId ?? req?.headers?.['mcp-session-id'] ?? null,
     ...(safeSkipDetail(options.detail) ? { detail: safeSkipDetail(options.detail) } : {}),
   });
   return requestId;

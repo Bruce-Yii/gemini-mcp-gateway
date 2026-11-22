@@ -1,7 +1,10 @@
 {
-  "description": "L1 smoke baseline. Top-level = REAL baseline derived from the 2026-11-22 G6 full run, filtered to the 50 smoke task ids. `fake` section = deterministic offline reference used only by fake-dry-run CI mode (all-pass wiring check).",
+  "description": "L1 smoke baseline. Top-level = REAL baseline derived from the 2026-11-22 G6 full run, filtered to the 50 smoke task ids. `byServer` / `serverSets` = immutable per-server snapshots for real runs that skip Figma (20 vs 10 tasks per server). `fake` section = deterministic offline reference used only by fake-dry-run CI mode (all-pass wiring check). This file is the ONLY baseline source at run time; the runner must never derive a baseline from explore/results/* (that is the current run output in real mode).",
   "capturedAt": "2026-11-22T17:50:59.641Z",
-  "source": "explore/results/metrics.json + explore/results/anomalies.json from G6 run 6b4254c (228 tasks, hy4-flash-free), filtered to explore/tasks-smoke.json ids. Completion uses the anomaly-based proxy (no runner_error / max_turns_exceeded), not the raw `finished` boolean (see docs/eval/L1-SMOKE.md).",
+  "source": "One-time offline computation from explore/results/metrics.json + explore/results/anomalies.json of G6 run 6b4254c / run-1795368949291-1d86ee2a (228 tasks, hy4-flash-free), filtered to explore/tasks-smoke.json ids; snapshot frozen into this file on 2026-11-23. Completion uses the anomaly-based proxy (no runner_error / max_turns_exceeded), not the raw `finished` boolean (see docs/eval/L1-SMOKE.md). Not recomputed at run time.",
+  "runId": "run-1795368949291-1d86ee2a",
+  "gitSha": "6b4254c",
+  "computedFrom": "explore/results/metrics.json + explore/results/anomalies.json (2026-11-22 G6 full run; one-time snapshot, see docs/eval/l1-real-2026-11-22.md)",
   "metrics": {
     "tasks": 50,
     "measuredTasks": 50,
@@ -13,6 +16,84 @@
     "toolHitRate": 51.3,
     "tokensPerTask": 15691,
     "p95LatencyMs": 22025
+  },
+  "byServer": {
+    "_note": "Frozen per-server L1 smoke metrics from the same G6 run (10 smoke tasks each). Keys are server names; `_note` is metadata, not a server. Used by deriveBaselineForServers() to build a like-for-like baseline for real runs that skip one or more servers.",
+    "github": {
+      "tasks": 10,
+      "measuredTasks": 10,
+      "completed": 10,
+      "completionRate": 100,
+      "gatewayAnomalyCount": 1,
+      "anomalyCount": 8,
+      "searchHitRate": 100,
+      "toolHitRate": 100,
+      "tokensPerTask": 8486,
+      "p95LatencyMs": 14210
+    },
+    "notion": {
+      "tasks": 10,
+      "measuredTasks": 10,
+      "completed": 5,
+      "completionRate": 50,
+      "gatewayAnomalyCount": 3,
+      "anomalyCount": 27,
+      "searchHitRate": 62.5,
+      "toolHitRate": 0,
+      "tokensPerTask": 29398,
+      "p95LatencyMs": 25632
+    },
+    "linear": {
+      "tasks": 10,
+      "measuredTasks": 10,
+      "completed": 6,
+      "completionRate": 60,
+      "gatewayAnomalyCount": 8,
+      "anomalyCount": 27,
+      "searchHitRate": 75,
+      "toolHitRate": 62.5,
+      "tokensPerTask": 20303,
+      "p95LatencyMs": 27296
+    },
+    "vercel": {
+      "tasks": 10,
+      "measuredTasks": 10,
+      "completed": 10,
+      "completionRate": 100,
+      "gatewayAnomalyCount": 6,
+      "anomalyCount": 10,
+      "searchHitRate": 90,
+      "toolHitRate": 70,
+      "tokensPerTask": 8003,
+      "p95LatencyMs": 12435
+    },
+    "figma": {
+      "tasks": 10,
+      "measuredTasks": 10,
+      "completed": 7,
+      "completionRate": 70,
+      "gatewayAnomalyCount": 3,
+      "anomalyCount": 20,
+      "searchHitRate": 100,
+      "toolHitRate": 44.4,
+      "tokensPerTask": 12266,
+      "p95LatencyMs": 18563
+    }
+  },
+  "serverSets": {
+    "_note": "Precomputed exact 40-task snapshot (github/notion/linear/vercel, Figma skipped) from the same G6 run; preferred over averaging p95 across byServer when this exact server set is used. Keys are comma-separated sorted server lists.",
+    "github,notion,linear,vercel": {
+      "tasks": 40,
+      "measuredTasks": 40,
+      "completed": 31,
+      "completionRate": 77.5,
+      "gatewayAnomalyCount": 18,
+      "anomalyCount": 72,
+      "searchHitRate": 82.4,
+      "toolHitRate": 53.3,
+      "tokensPerTask": 16547,
+      "p95LatencyMs": 22709
+    }
   },
   "fake": {
     "source": "deterministic simulation (scripts/run-l1-smoke.mjs fakeMetrics). Not a gateway measurement; wiring check only.",
