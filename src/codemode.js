@@ -425,27 +425,41 @@ function withDeadline(promise, ms, message, onTimeout) {
  */
 export function instrumentLineMarkers(source) {
   try {
-    const ast = parse(source, {
-      ecmaVersion: 'latest', locations: true, allowAwaitOutsideFunction: true, sourceType: 'script',
-    });
-    const expr = ast.body[0]?.expression;
-    if (!expr || expr.type !== 'ArrowFunctionExpression') return source;
+    let ast;
+    let offset = 0;
+    try {
+      ast = parse(source, { ecmaVersion: 'latest', locations: true, allowAwaitOutsideFunction: true, sourceType: 'script' });
+    } catch {
+      ast = parse(`(${source})`, { ecmaVersion: 'latest', locations: true, allowAwaitOutsideFunction: true, sourceType: 'script' });
+      offset = 1;
+    }
+    const first = ast.body[0];
+    const candidate = first?.type === 'ExpressionStatement'
+      ? first.expression
+      : (first?.type === 'FunctionDeclaration' ? first : null);
+    if (!candidate || !['ArrowFunctionExpression', 'FunctionExpression', 'FunctionDeclaration'].includes(candidate.type)) {
+      console.warn('[line-markers] unsupported source shape:', first?.type ?? 'empty');
+      return source;
+    }
+    const expr = candidate;
+    const exprStart = expr.start - offset;
     if (expr.body?.type !== 'BlockStatement') {
+      if (expr.type !== 'ArrowFunctionExpression') return source;
       // Expression-bodied arrow: wrap in a block so the line marker runs and
       // the original value/async semantics are preserved. Keep parenthesized
       // expression bodies intact (e.g. `() => ({...})`) by replacing the whole
       // parenthesized body, not just the inner object expression.
       const body = expr.body;
       if (!body || typeof body.start !== 'number' || typeof body.end !== 'number') return source;
-      let bodyStart = body.start;
-      let bodyEnd = body.end;
-      const leading = source.slice(expr.start, bodyStart);
+      let bodyStart = body.start - offset;
+      let bodyEnd = body.end - offset;
+      const leading = source.slice(exprStart, bodyStart);
       const open = leading.lastIndexOf('(');
       if (open >= 0 && leading.slice(open + 1).trim() === '' && /^\s*\)/.test(source.slice(bodyEnd))) {
-        bodyStart = expr.start + open;
+        bodyStart = exprStart + open;
         bodyEnd += /^\s*\)/.exec(source.slice(bodyEnd))[0].length;
       }
-      const bodySource = source.slice(body.start, body.end);
+      const bodySource = source.slice(body.start - offset, body.end - offset);
       const line = body.loc?.start?.line ?? 1;
       return source.slice(0, bodyStart) + `{ __dshLine(${line}); return (${bodySource}); }` + source.slice(bodyEnd);
     }
@@ -456,7 +470,7 @@ export function instrumentLineMarkers(source) {
         for (const stmt of node.body) {
           // Keep directive prologues ("use strict") first.
           if (stmt.type === 'ExpressionStatement' && stmt.directive) { visit(stmt); continue; }
-          inserts.push({ pos: stmt.start, line: stmt.loc.start.line });
+          inserts.push({ pos: stmt.start - offset, line: stmt.loc.start.line });
           visit(stmt);
         }
         return;
@@ -472,8 +486,10 @@ export function instrumentLineMarkers(source) {
     inserts.sort((a, b) => b.pos - a.pos);
     let out = source;
     for (const { pos, line } of inserts) out = out.slice(0, pos) + `__dshLine(${line});` + out.slice(pos);
+    console.info(`[line-markers] inserted ${inserts.length}`);
     return out;
-  } catch {
+  } catch (error) {
+    console.warn('[line-markers] parse failed:', error?.message ?? String(error));
     return source;
   }
 }
