@@ -1,8 +1,14 @@
 name: l1-smoke
 
+# L1 smoke cadence:
+#   - daily  (fake): offline wiring check, no secrets, no network calls
+#   - weekly (real): Monday regression against 4 free upstreams; Figma is
+#                    SKIPPED by default so the Starter quota is never burned
+#   - manual dispatch: choose fake or real explicitly
 on:
   schedule:
-    - cron: '0 18 * * *' # 02:00 Asia/Singapore next day (daily)
+    - cron: '0 18 * * *'   # daily 02:00 Asia/Singapore next day — fake
+    - cron: '0 18 * * 1'   # Monday 02:00 Asia/Singapore — real regression
   workflow_dispatch:
     inputs:
       mode:
@@ -26,16 +32,41 @@ jobs:
           cache: npm
       - run: npm ci
 
+      # Resolve the mode from the event: daily schedule -> fake, weekly Monday
+      # schedule -> real, manual dispatch -> requested input. Keeping this in a
+      # single step makes the cron choice statically verifiable in tests.
+      - name: Resolve smoke mode
+        id: resolve
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CRON: ${{ github.event.schedule }}
+          DISPATCH_MODE: ${{ inputs.mode }}
+        run: |
+          if [ "$EVENT_NAME" = "schedule" ]; then
+            # Exact weekly cron match; the daily cron is the fallback.
+            if [ "$CRON" = "0 18 * * 1" ]; then MODE=real; else MODE=fake; fi
+          else
+            case "$DISPATCH_MODE" in
+              real) MODE=real ;;
+              *)    MODE=fake ;;
+            esac
+          fi
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+          echo "[l1-smoke] resolved mode=$MODE"
+
       # Default: deterministic fake/dry-run. No tokens, no network calls,
       # no real results fabricated — only verifies the L1 pipeline wiring.
       - name: L1 smoke (fake / offline)
-        if: ${{ github.event_name == 'schedule' || inputs.mode != 'real' }}
+        if: ${{ steps.resolve.outputs.mode == 'fake' }}
         run: node scripts/run-l1-smoke.mjs --mode fake
 
-      # Optional real run: needs free model key + upstream tokens in secrets.
-      # Secrets are injected as env vars only; never printed or committed.
+      # Weekly real regression (or manual dispatch real): needs the FREE model
+      # key + 4 upstreams. Figma is deliberately excluded from EXPLORE_SERVERS
+      # so no Starter-quota calls are made; it is reported as skipped.
       - name: L1 smoke (real upstreams)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'real' }}
+        if: ${{ steps.resolve.outputs.mode == 'real' }}
         env:
           EXPLORE_MODEL_KEY: ${{ secrets.OPENCODE_GO_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -46,8 +77,9 @@ jobs:
           LINEAR_REFRESH_TOKEN: ${{ secrets.LINEAR_REFRESH_TOKEN }}
           LINEAR_CLIENT_ID: ${{ secrets.LINEAR_CLIENT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          FIGMA_TOKEN: ${{ secrets.FIGMA_TOKEN }}
           GEMINI_GATEWAY_TOKENS_DIR: ${{ runner.temp }}/gateway-tokens
+          # Figma credentials are intentionally NOT injected: Starter quota protected.
+          L1_DATE: ${{ steps.resolve.outputs.date }}
         run: |
           # run-explore.mjs reads Notion/Linear token JSON files from the token
           # dir; build them from secrets at runtime so nothing lands in git.
@@ -58,14 +90,21 @@ jobs:
           printf '{"access_token":"%s","refresh_token":"%s","client_id":"%s","expires_in":0,"obtained_at":"%s"}' \
             "$LINEAR_TOKEN" "${LINEAR_REFRESH_TOKEN:-}" "${LINEAR_CLIENT_ID:-}" "$(date -u +%FT%TZ)" \
             > "$GEMINI_GATEWAY_TOKENS_DIR/linear.json"
-          node scripts/run-l1-smoke.mjs --mode real
+          node scripts/run-l1-smoke.mjs --mode real \
+            --servers github,notion,linear,vercel --date "$L1_DATE"
 
+      # Artifacts are retained on both success and failure. Real reports are
+      # dated and kept as history; the fake report is overwritten each day.
       - name: Upload L1 report
-        if: always()
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: l1-smoke-report
+          name: l1-smoke-${{ steps.resolve.outputs.mode }}-${{ steps.resolve.outputs.date }}
           path: |
-            docs/eval/l1-smoke.md
+            docs/eval/l1-smoke-report.md
             docs/eval/l1-smoke.json
-          retention-days: 14
+            docs/eval/l1-real-*.md
+            docs/eval/l1-real-*.json
+            docs/eval/l1-real-state.json
+          if-no-files-found: warn
+          retention-days: 30

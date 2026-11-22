@@ -4,7 +4,7 @@ import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { gunzipSync } from 'node:zlib';
-import { startCapture, captureHeaders, captureEvent } from '../src/capture.js';
+import { startCapture, captureHeaders, captureEvent, captureFailureStats } from '../src/capture.js';
 
 function fakeRes() {
   const body = [];
@@ -34,7 +34,7 @@ test('capture preserves credential headers verbatim and preserves response bytes
     res.write('{"jsonrpc":"2.0",');
     res.end('"result":{}}');
     assert.equal(Buffer.concat(res.body).toString(), '{"jsonrpc":"2.0","result":{}}');
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await new Promise((resolve) => setTimeout(resolve, 150));
     const files = await readdir(dir);
     assert.equal(files.length, 1);
     const envelope = JSON.parse(await readFile(join(dir, files[0]), 'utf8'));
@@ -73,7 +73,7 @@ test('capture sink failure never throws into the response path', async () => {
   startCapture(req, res, { mode: 'full', sink: 'http', httpUrl: 'http://127.0.0.1:1/capture', httpToken: '' });
   res.end('ok');
   assert.equal(Buffer.concat(res.body).toString(), 'ok');
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  await new Promise((resolve) => setTimeout(resolve, 100));
 });
 
 test('R2 sink uploads gzipped raw envelope to the private capture bucket', async () => {
@@ -110,7 +110,7 @@ test('captureEvent adds upstream/sandbox events to the active envelope', async (
     captureEvent('upstream', { server: 'github', tool: 'get_file_contents', args: { path: 'README.md' }, result: { ok: true } });
     captureEvent('sandbox', { tool: 'execute', code: 'async () => 1', output: { result: '1' } });
     res.end('ok');
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await new Promise((resolve) => setTimeout(resolve, 150));
     const files = await readdir(dir);
     const envelope = JSON.parse(await readFile(join(dir, files[0]), 'utf8'));
     assert.equal(envelope.events.length, 2);
@@ -139,7 +139,7 @@ test('tapTransport records both upstream directions as raw frames', async () => 
     await transport.send({ jsonrpc: '2.0', method: 'tools/list', id: 1 });
     transport.onmessage({ jsonrpc: '2.0', result: { tools: [] }, id: 1 });
     res.end('ok');
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await new Promise((resolve) => setTimeout(resolve, 150));
     const files = await readdir(dir);
     const envelope = JSON.parse(await readFile(join(dir, files[0]), 'utf8'));
     const frames = envelope.events.filter((event) => event.type === 'upstream_frame');
@@ -164,7 +164,7 @@ test('capture sink failure emits a structured capture_dropped event', async () =
     const res = fakeRes();
     startCapture(req, res, { mode: 'full', sink: 'http', httpUrl: 'http://127.0.0.1:1/capture' });
     res.end('ok');
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await new Promise((resolve) => setTimeout(resolve, 150));
   } finally {
     console.error = original;
   }
@@ -181,7 +181,7 @@ test('capture preserves Uint8Array response chunks as text, not comma-separated 
     startCapture(req, res, { mode: 'full', sink: 'file', fileDir: dir });
     res.write(new TextEncoder().encode('event: message\n'));
     res.end(new TextEncoder().encode('data: {"ok":true}\n'));
-    await new Promise((resolve) => setTimeout(resolve, 80));
+    await new Promise((resolve) => setTimeout(resolve, 150));
     const files = await readdir(dir);
     const envelope = JSON.parse(await readFile(join(dir, files[0]), 'utf8'));
     assert.equal(envelope.response.raw, 'event: message\ndata: {"ok":true}\n');
@@ -189,4 +189,58 @@ test('capture preserves Uint8Array response chunks as text, not comma-separated 
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test('capture_dropped includes fallback envelope and increments the counter once', async () => {
+  const before = captureFailureStats().dropped;
+  const posts = [];
+  const errors = [];
+  const originalError = console.error;
+  console.error = (...args) => errors.push(args.join(' '));
+  try {
+    const req = { method: 'POST', url: '/mcp', headers: { 'x-t': 'v' }, __gatewayRawBody: '{"q":1}' };
+    const res = fakeRes();
+    startCapture(req, res, {
+      mode: 'full', sink: 'r2', fetchImpl: async (url, init) => {
+        posts.push({ url, init });
+        return { ok: true, status: 200 };
+      },
+      r2AccountId: '', // forces a failure inside writeR2Sink
+      fallbackHttpUrl: 'https://fb.example/capture',
+    });
+    res.end('done');
+    await new Promise((r) => setTimeout(r, 80));
+  } finally {
+    console.error = originalError;
+  }
+  assert.equal(captureFailureStats().dropped, before + 1);
+  assert.equal(posts.length, 1);
+  const body = JSON.parse(posts[0].init.body);
+  assert.equal(body.schema, 'gmg.capture_dropped.v1');
+  assert.equal(body.envelope.request.headers['x-t'], 'v');
+  assert.equal(body.envelope.response.raw, 'done');
+  assert.ok(errors.some((l) => l.includes('[capture_dropped]')));
+});
+
+test('capture fallback is disabled when no fallback URL is configured', async () => {
+  const before = captureFailureStats().dropped;
+  let fetchCalls = 0;
+  const errors = [];
+  const originalError = console.error;
+  console.error = (...args) => errors.push(args.join(' '));
+  try {
+    const req = { method: 'POST', url: '/mcp', headers: {} };
+    const res = fakeRes();
+    startCapture(req, res, {
+      mode: 'full', sink: 'r2', fetchImpl: async () => { fetchCalls += 1; return { ok: true }; },
+      r2AccountId: '',
+    });
+    res.end('ok');
+    await new Promise((r) => setTimeout(r, 80));
+  } finally {
+    console.error = originalError;
+  }
+  assert.equal(captureFailureStats().dropped, before + 1);
+  assert.equal(fetchCalls, 0);
+  assert.ok(errors.some((l) => l.includes('[capture_dropped]')));
 });

@@ -95,7 +95,16 @@ export class UpstreamAuth {
         },
         body: requestBody,
       });
-      captureEvent('upstream_http', { phase: 'response', server, url, status: r.status, headers: Object.fromEntries(r.headers) });
+      // Token endpoints return small JSON; read a bounded copy from a clone so
+      // the original response is untouched. Best-effort: never fail verification.
+      let responseBody = null;
+      try {
+        if (typeof r.clone === 'function') {
+          const text = await r.clone().text();
+          responseBody = text.length > 64 * 1024 ? `${text.slice(0, 64 * 1024)}…[truncated]` : text;
+        }
+      } catch { /* capture is best-effort */ }
+      captureEvent('upstream_http', { phase: 'response', server, url, status: r.status, headers: Object.fromEntries(r.headers), body: responseBody });
       return r.ok;
     } catch { return false; }
   }

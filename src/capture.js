@@ -16,6 +16,9 @@ import { waitUntil } from '@vercel/functions';
 import { BUILD } from './build-info.js';
 
 const MAX_BODY_BYTES = 32 * 1024 * 1024;
+// Fallback POST timeout — keep it short so a dead endpoint never holds the
+// function open long enough to matter.
+const FALLBACK_TIMEOUT_MS = 3000;
 export const captureStore = new AsyncLocalStorage();
 let droppedCount = 0;
 
@@ -57,6 +60,8 @@ function configFromOptions(options = {}, env = process.env) {
     r2AuthKey: options.r2AuthKey ?? env.R2_AUTH_KEY ?? '',
     r2ApiToken: options.r2ApiToken ?? env.R2_API_TOKEN ?? '',
     r2Prefix: options.r2Prefix ?? env.R2_PREFIX ?? 'capture',
+    fallbackHttpUrl: options.fallbackHttpUrl ?? env.CAPTURE_FALLBACK_HTTP_URL ?? '',
+    fallbackHttpToken: options.fallbackHttpToken ?? env.CAPTURE_FALLBACK_HTTP_TOKEN ?? '',
     fetchImpl: options.fetchImpl ?? fetch,
   };
 }
@@ -123,6 +128,33 @@ function writeSink(cfg, envelope) {
   if (cfg.sink === 'http') return writeHttpSink(cfg, envelope);
   if (cfg.sink === 'r2') return writeR2Sink(cfg, envelope);
   return writeFileSink(cfg, envelope);
+}
+
+/**
+ * Last-resort POST when the primary sink fails. Fire-and-forget: never throws,
+ * never blocks the response, and silently ignores its own failure. When R2 is
+ * down this still leaves a structured record at the fallback endpoint (and the
+ * `[capture_dropped]` console line above always lands in Vercel logs).
+ */
+async function postFallback(cfg, record) {
+  if (!cfg.fallbackHttpUrl) return;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FALLBACK_TIMEOUT_MS);
+  try {
+    await cfg.fetchImpl(cfg.fallbackHttpUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(cfg.fallbackHttpToken ? { authorization: `Bearer ${cfg.fallbackHttpToken}` } : {}),
+      },
+      body: JSON.stringify(record),
+      signal: controller.signal,
+    });
+  } catch {
+    // Fallback failure is intentionally silent — we already logged dropped.
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
@@ -197,14 +229,20 @@ export function startCapture(req, res, options = {}) {
         .then(() => writeSink(cfg, envelope))
         .catch((error) => {
           droppedCount += 1;
-          console.error('[capture_dropped]', JSON.stringify({
+          const record = {
             schema: 'gmg.capture_dropped.v1',
             ts: new Date().toISOString(),
             requestId,
             sink: cfg.sink,
             dropped: droppedCount,
             error: error?.message ?? String(error),
-          }));
+          };
+          // Vercel logs always get the structured line, even if the fallback
+          // endpoint is also down.
+          console.error('[capture_dropped]', JSON.stringify(record));
+          // Best-effort remote copy of the dropped envelope. Includes the full
+          // original envelope so a dead R2 bucket does not lose the capture.
+          postFallback(cfg, { ...record, envelope }).catch(() => {});
         });
       // Keep the function alive after the response where the platform allows
       // it; locally waitUntil may throw, in which case the task still runs.

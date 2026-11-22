@@ -6,13 +6,19 @@
  *   --mode fake                deterministic, offline, NO credentials (default)
  *   --mode real                runs explore/run-explore.mjs with EXPLORE_SUITE=smoke
  *                              (needs free model key + upstream tokens), then
- *                              converts its artifacts into L1 metrics.
+ *                              converts its artifacts into L1 metrics. Figma is
+ *                              skipped by default (no Starter-quota burn).
  *   --mode replay --input FILE reuse an existing explore/results/anomalies.json
  *                              (+ sibling metrics.json) offline.
  *
  * Outputs:
- *   docs/eval/l1-smoke.md       human-readable report (always regenerated)
- *   docs/eval/l1-smoke.json     machine-readable result (always regenerated)
+ *   fake / replay:
+ *     docs/eval/l1-smoke-report.md  human-readable report (always regenerated)
+ *     docs/eval/l1-smoke.json       machine-readable result (always regenerated)
+ *   real (dated, kept as history; never overwritten):
+ *     docs/eval/l1-real-YYYY-MM-DD.md
+ *     docs/eval/l1-real-YYYY-MM-DD.json
+ *     docs/eval/l1-real-state.json  consecutive-failure state for the ALERT rule
  *
  * Exit code: 0 = within thresholds, 1 = regression vs baseline, 2 = bad input.
  *
@@ -29,8 +35,12 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(HERE, '..');
 const SMOKE_TASKS = path.join(ROOT, 'explore/tasks-smoke.json');
 const BASELINE_FILE = path.join(ROOT, 'explore/baselines/l1-smoke.json');
-const REPORT_MD = path.join(ROOT, 'docs/eval/l1-smoke.md');
+const REPORT_MD = path.join(ROOT, 'docs/eval/l1-smoke-report.md');
 const REPORT_JSON = path.join(ROOT, 'docs/eval/l1-smoke.json');
+const REAL_STATE = path.join(ROOT, 'docs/eval/l1-real-state.json');
+const G6_METRICS = path.join(ROOT, 'explore/results/metrics.json');
+const G6_ANOMALIES = path.join(ROOT, 'explore/results/anomalies.json');
+const VALID_MODES = new Set(['fake', 'real', 'replay']);
 
 /* ------------------------------------------------------------------ *
  * Pure helpers (unit-tested in tests/l1-smoke.test.js)
@@ -150,18 +160,23 @@ export function renderReport(result) {
   const b = result.baseline?.metrics ?? {};
   const cmp = result.comparison ?? { checks: [] };
   const lines = [
-    '# L1 Smoke Report',
+    `# ${result.title ?? 'L1 Smoke Report'}`,
     '',
     `- Generated: ${result.generatedAt ?? '(unknown)'}`,
     `- Mode: \`${result.mode ?? '(unknown)'}\``,
+    `- Trigger: \`${result.trigger ?? '(unknown)'}\``,
     `- Run id: ${result.runId ?? '(none)'}`,
-    `- Result: **${result.ok ? 'PASS' : 'FAIL'}**`,
-    '',
-    '## Metrics',
-    '',
-    '| Metric | Current | Baseline | Threshold | Status |',
-    '|---|---:|---:|---:|---|',
+    `- Result: **${result.ok ? 'PASS' : 'FAIL'}**${result.alert ? ' — **ALERT**' : ''}`,
   ];
+  if (result.skippedServers?.length) {
+    lines.push(`- Skipped servers: ${result.skippedServers.map((s) => `\`${s}\``).join(', ')} (no upstream calls, no quota burned)`);
+  }
+  if (result.alert) {
+    lines.push(`- Free-model volatility: **ALERT** — ${result.alertReason ?? 'consecutive regressions'}`);
+  } else if (result.mode === 'real' && !result.ok) {
+    lines.push('- Free-model volatility: single red run — no ALERT yet (see L1-SMOKE.md)');
+  }
+  lines.push('', '## Metrics', '', '| Metric | Current | Baseline | Threshold | Status |', '|---|---:|---:|---:|---|');
   const label = {
     tasks: 'Tasks', completionRate: 'Completion rate (%)',
     gatewayAnomalyCount: 'Gateway-attributed anomalies',
@@ -185,6 +200,98 @@ export function renderReport(result) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Argument / mode / server parsing (pure, unit-tested)
+ * ------------------------------------------------------------------ */
+
+/**
+ * Parse CLI args into a normalized options object. Unknown modes are returned
+ * as-is so the caller can report them with exit code 2.
+ */
+export function parseArgs(argv = []) {
+  const arg = (name) => {
+    const eq = argv.find((a) => a.startsWith(`--${name}=`));
+    if (eq) return eq.slice(name.length + 3);
+    const i = argv.indexOf(`--${name}`);
+    return i >= 0 ? argv[i + 1] : undefined;
+  };
+  const servers = arg('servers');
+  return {
+    mode: arg('mode') ?? 'fake',
+    input: arg('input'),
+    baseline: arg('baseline') ?? 'explore/baselines/l1-smoke.json',
+    date: arg('date') ?? new Date().toISOString().slice(0, 10),
+    // Comma-separated allow-list. Empty string => all servers (legacy replay).
+    servers: servers === undefined || servers === '' ? null
+      : servers.split(',').map((s) => s.trim()).filter(Boolean),
+  };
+}
+
+/**
+ * Resolve the effective mode from a workflow event.
+ * - daily schedule (cron at 18:00 UTC) => fake
+ * - weekly Monday schedule (cron at 18:00 UTC) => real
+ * - workflow_dispatch => the requested input (fake|real), default fake
+ */
+export function resolveMode({ eventName, schedule, dispatchMode } = {}) {
+  if (eventName === 'workflow_dispatch') {
+    return VALID_MODES.has(dispatchMode) ? dispatchMode : 'fake';
+  }
+  if (eventName === 'schedule') {
+    const cron = String(schedule ?? '');
+    return /^\s*\d+\s+\d+\s+\*\s+\*\s+1\b/.test(cron) ? 'real' : 'fake';
+  }
+  return 'fake';
+}
+
+/** Default real-mode upstreams: everything except Figma (Starter quota). */
+export const DEFAULT_REAL_SERVERS = ['github', 'notion', 'linear', 'vercel'];
+export const SKIPPED_SERVERS = ['figma'];
+
+/** Filter tasks to the allowed servers; return both the kept tasks and skips. */
+export function selectTasksByServers(tasks, servers) {
+  if (!servers) return { tasks, skippedServers: [] };
+  const allow = new Set(servers);
+  const kept = tasks.filter((t) => allow.has(t.server));
+  const present = new Set(tasks.map((t) => t.server));
+  const skippedServers = [...present].filter((s) => !allow.has(s));
+  return { tasks: kept, skippedServers };
+}
+
+/** Date-stamped real report paths (kept as history, never overwritten). */
+export function realReportPaths(date) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new TypeError(`bad date: ${date}`);
+  return {
+    md: path.join(ROOT, 'docs/eval', `l1-real-${date}.md`),
+    json: path.join(ROOT, 'docs/eval', `l1-real-${date}.json`),
+  };
+}
+
+/**
+ * Consecutive-failure state for the free-model volatility rule.
+ * ALERT only after TWO consecutive real-mode failures. A pass resets the
+ * streak to zero. A single red run still exits 1 (existing behaviour) but is
+ * labelled "single red — no ALERT yet" in the report.
+ */
+export function evaluateConsecutiveAlerts(state, { ok, date, runId }) {
+  const streak = ok ? 0 : (Number(state?.consecutiveFailures) || 0) + 1;
+  const alert = streak >= 2;
+  return {
+    state: {
+      consecutiveFailures: streak,
+      lastRunDate: date,
+      lastRunId: runId ?? null,
+      lastResult: ok ? 'pass' : 'fail',
+      alert,
+      updatedAt: new Date().toISOString(),
+    },
+    alert,
+    alertReason: alert
+      ? `${streak} consecutive real-mode failures (free model may be volatile; check upstream/model signals before filing a gateway defect)`
+      : null,
+  };
+}
+
+/* ------------------------------------------------------------------ *
  * Run modes
  * ------------------------------------------------------------------ */
 
@@ -192,10 +299,28 @@ function loadJson(file) {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-function runRealMode(tasks) {
+/**
+ * Derive a server-filtered baseline from the committed G6 artifacts so real
+ * runs that skip Figma compare against a like-for-like 40-task reference
+ * instead of the 50-task aggregate. Pure: no network, no new credentials.
+ */
+export function deriveBaselineForServers(tasks, thresholds = DEFAULT_THRESHOLDS) {
+  const metrics = loadJson(G6_METRICS);
+  const anomalies = loadJson(G6_ANOMALIES);
+  const computed = metricsFromExplore({
+    tasks,
+    perTask: metrics.perTask ?? [],
+    anomalies: anomalies.anomalies ?? [],
+    source: `G6 run ${metrics.runId} filtered to ${tasks.length} smoke tasks (Figma excluded)`,
+  });
+  return { source: computed.source, capturedAt: null, metrics: computed, thresholds };
+}
+
+function runRealMode(tasks, servers) {
   // Delegate to the existing runner with the smoke suite. It writes its own
   // artifacts under explore/results/; we convert them immediately afterwards.
-  const env = { ...process.env, EXPLORE_SUITE: 'smoke', EXPLORE_SERVERS: [...new Set(tasks.map((t) => t.server))].join(',') };
+  const allow = (servers ?? [...new Set(tasks.map((t) => t.server))]).join(',');
+  const env = { ...process.env, EXPLORE_SUITE: 'smoke', EXPLORE_SERVERS: allow };
   const res = spawnSync(process.execPath, [path.join(ROOT, 'explore/run-explore.mjs')], {
     cwd: ROOT, env, stdio: 'inherit',
   });
@@ -203,7 +328,10 @@ function runRealMode(tasks) {
   const metrics = loadJson(path.join(ROOT, 'explore/results/metrics.json'));
   const anomalies = loadJson(path.join(ROOT, 'explore/results/anomalies.json'));
   return {
-    metrics: metricsFromExplore({ tasks, perTask: metrics.perTask, anomalies: anomalies.anomalies, source: `run-explore.mjs suite=smoke (${metrics.runId})` }),
+    metrics: metricsFromExplore({
+      tasks, perTask: metrics.perTask, anomalies: anomalies.anomalies,
+      source: `run-explore.mjs suite=smoke servers=${allow} (${metrics.runId})`,
+    }),
     runId: metrics.runId,
   };
 }
@@ -225,49 +353,73 @@ function runReplayMode(tasks, input) {
 }
 
 function main() {
-  const argv = process.argv.slice(2);
-  const arg = (name) => {
-    const eq = argv.find((a) => a.startsWith(`--${name}=`));
-    if (eq) return eq.slice(name.length + 3);
-    const i = argv.indexOf(`--${name}`);
-    return i >= 0 ? argv[i + 1] : undefined;
-  };
-  const mode = arg('mode') ?? 'fake';
-  const input = arg('input');
-  const baselinePath = path.resolve(ROOT, arg('baseline') ?? 'explore/baselines/l1-smoke.json');
-
-  const smoke = loadJson(SMOKE_TASKS);
-  const tasks = smoke.tasks;
-  const baseline = loadJson(baselinePath);
-  let metrics, runId = null, notes = [];
-
-  if (mode === 'fake') {
-    metrics = fakeMetrics(tasks);
-    notes.push('fake-dry-run: deterministic simulation, no model/upstream calls; only verifies runner + compare + report wiring.');
-  } else if (mode === 'real') {
-    ({ metrics, runId } = runRealMode(tasks));
-  } else if (mode === 'replay') {
-    ({ metrics, runId } = runReplayMode(tasks, input));
-  } else {
+  const opts = parseArgs(process.argv.slice(2));
+  const { mode, input, date } = opts;
+  if (!VALID_MODES.has(mode)) {
     console.error(`[l1-smoke] unknown mode: ${mode}`);
     process.exit(2);
   }
 
+  const smoke = loadJson(SMOKE_TASKS);
+  const allTasks = smoke.tasks;
+  const baselineDoc = loadJson(path.resolve(ROOT, opts.baseline));
+  const isReal = mode === 'real';
+  const { tasks, skippedServers } = isReal
+    ? selectTasksByServers(allTasks, opts.servers ?? DEFAULT_REAL_SERVERS)
+    : { tasks: allTasks, skippedServers: [] };
+
+  let metrics, runId = null;
+  const notes = [];
+  if (mode === 'fake') {
+    metrics = fakeMetrics(tasks);
+    notes.push('fake-dry-run: deterministic simulation, no model/upstream calls; only verifies runner + compare + report wiring.');
+  } else if (isReal) {
+    ({ metrics, runId } = runRealMode(tasks, opts.servers ?? DEFAULT_REAL_SERVERS));
+    if (skippedServers.length) {
+      notes.push(`skipped servers (${skippedServers.join(', ')}): no upstream calls made — Figma Starter quota preserved; mark as skipped, not failed.`);
+    }
+    notes.push('Free-model volatility: a single red run still exits 1, but ALERT is only raised after two consecutive real-mode failures.');
+  } else {
+    ({ metrics, runId } = runReplayMode(tasks, input));
+  }
+
   // Real/replay runs are compared to the real G6-derived baseline; fake mode
   // is compared to the fake baseline entry so CI stays green without secrets.
-  const effectiveBaseline = (mode === 'fake' && baseline.fake) ? baseline.fake : baseline;
-  const comparison = compareWithBaseline(metrics, effectiveBaseline, baseline.thresholds ?? DEFAULT_THRESHOLDS);
-  // Task count must always match the committed smoke set.
+  // Real runs that skip Figma get a like-for-like baseline derived from the
+  // committed G6 artifacts (same task ids), so count metrics stay comparable.
+  const effectiveBaseline = isReal && skippedServers.length
+    ? deriveBaselineForServers(tasks, baselineDoc.thresholds ?? DEFAULT_THRESHOLDS)
+    : (mode === 'fake' && baselineDoc.fake) ? baselineDoc.fake : baselineDoc;
+  const comparison = compareWithBaseline(metrics, effectiveBaseline, baselineDoc.thresholds ?? DEFAULT_THRESHOLDS);
+  // Task count must always match the effective smoke set.
   const countOk = metrics.tasks === tasks.length;
   const ok = comparison.ok && countOk;
   if (!countOk) notes.push(`task count mismatch: expected ${tasks.length}, got ${metrics.tasks}`);
 
+  let alert = false, alertReason = null;
+  const paths = isReal ? realReportPaths(date) : { md: REPORT_MD, json: REPORT_JSON };
+  if (isReal) {
+    const state = fs.existsSync(REAL_STATE) ? loadJson(REAL_STATE) : null;
+    const evaluated = evaluateConsecutiveAlerts(state, { ok, date, runId });
+    alert = evaluated.alert;
+    alertReason = evaluated.alertReason;
+    fs.mkdirSync(path.dirname(REAL_STATE), { recursive: true });
+    fs.writeFileSync(REAL_STATE, JSON.stringify(evaluated.state, null, 2) + '\n');
+  }
+
   const result = {
     generatedAt: new Date().toISOString(),
+    title: isReal ? `L1 Real Regression — ${date}` : 'L1 Smoke Report',
     mode: mode === 'fake' ? 'fake-dry-run' : mode,
+    trigger: process.env.GITHUB_EVENT_NAME ?? 'local',
+    date: isReal ? date : null,
     runId,
     ok,
+    alert,
+    alertReason,
+    skippedServers,
     taskCount: tasks.length,
+    fullSmokeTaskCount: allTasks.length,
     datasetSha256: null,
     metrics,
     baseline: {
@@ -279,11 +431,12 @@ function main() {
     notes,
   };
 
-  fs.mkdirSync(path.dirname(REPORT_MD), { recursive: true });
-  fs.writeFileSync(REPORT_JSON, JSON.stringify(result, null, 2) + '\n');
-  fs.writeFileSync(REPORT_MD, renderReport(result));
+  fs.mkdirSync(path.dirname(paths.md), { recursive: true });
+  fs.writeFileSync(paths.json, JSON.stringify(result, null, 2) + '\n');
+  fs.writeFileSync(paths.md, renderReport(result));
 
-  console.log(`[l1-smoke] ${result.mode}: ${ok ? 'PASS' : 'FAIL'} | tasks=${metrics.tasks} completion=${metrics.completionRate}% gatewayAnomalies=${metrics.gatewayAnomalyCount} searchHit=${metrics.searchHitRate}% toolHit=${metrics.toolHitRate}% tokens/task=${metrics.tokensPerTask} p95=${metrics.p95LatencyMs}ms`);
+  console.log(`[l1-smoke] ${result.mode}: ${ok ? 'PASS' : 'FAIL'}${alert ? ' ALERT' : ''} | tasks=${metrics.tasks}/${allTasks.length} skipped=${skippedServers.join(',') || 'none'} completion=${metrics.completionRate}% gatewayAnomalies=${metrics.gatewayAnomalyCount} searchHit=${metrics.searchHitRate}% toolHit=${metrics.toolHitRate}% tokens/task=${metrics.tokensPerTask} p95=${metrics.p95LatencyMs}ms`);
+  console.log(`[l1-smoke] report: ${path.relative(ROOT, paths.md)}`);
   for (const c of comparison.checks) if (c.status === 'fail') console.error(`[l1-smoke] REGRESSION ${c.metric}: ${c.current} vs baseline ${c.baseline} (${c.direction} tolerance ${c.tolerance})`);
   process.exit(ok ? 0 : 1);
 }

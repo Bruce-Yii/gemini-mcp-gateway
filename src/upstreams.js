@@ -35,7 +35,73 @@ export function tapTransport(transport, server) {
   return transport;
 }
 
-function makeCaptureFetch(server) {
+/** Max bytes of an upstream HTTP response body kept in a capture event.
+ * Bounded so a runaway upstream cannot bloat the envelope; the SDK always gets
+ * the full, untouched response regardless of this limit. */
+const MAX_UPSTREAM_RESPONSE_BODY = 64 * 1024;
+
+function responseHeader(headers, name) {
+  if (!headers) return null;
+  if (typeof headers.get === 'function') return headers.get(name);
+  const key = Object.keys(headers).find((k) => k.toLowerCase() === name.toLowerCase());
+  return key ? headers[key] : null;
+}
+
+function isStreamingResponse(response) {
+  const type = responseHeader(response?.headers, 'content-type') ?? '';
+  return /text\/event-stream/i.test(String(type));
+}
+
+/** Read up to `maxBytes` from a cloned response body without consuming the
+ * original. Returns `{ text, truncated }`; failures degrade to an empty read
+ * so capture can never break the SDK's response. */
+async function readResponseBodyCapped(response, maxBytes) {
+  if (!response || typeof response.clone !== 'function') {
+    return { text: null, truncated: false, skipped: 'no-clone' };
+  }
+  let clone;
+  try { clone = response.clone(); } catch { return { text: null, truncated: false, skipped: 'clone-failed' }; }
+  if (!clone?.body || typeof clone.body.getReader !== 'function') {
+    if (typeof clone?.text === 'function') {
+      try {
+        const full = await clone.text();
+        const truncated = full.length > maxBytes;
+        return { text: truncated ? full.slice(0, maxBytes) : full, truncated };
+      } catch { return { text: null, truncated: false, skipped: 'read-failed' }; }
+    }
+    return { text: null, truncated: false, skipped: 'no-body' };
+  }
+  const reader = clone.body.getReader();
+  const decoder = new TextDecoder();
+  let text = '';
+  let bytes = 0;
+  let truncated = false;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (bytes + value.byteLength > maxBytes) {
+        const remaining = maxBytes - bytes;
+        if (remaining > 0) text += decoder.decode(value.subarray(0, remaining), { stream: true });
+        truncated = true;
+        // Do NOT call reader.cancel() — on Node's Response-backed streams that
+        // can hang. Just stop reading; the clone is discarded with the GC.
+        break;
+      }
+      text += decoder.decode(value, { stream: true });
+      bytes += value.byteLength;
+    }
+    text += decoder.decode();
+  } catch {
+    // Partial text is still useful; never throw into the caller.
+  }
+  return { text, truncated };
+}
+
+/** Wrap a fetch implementation so every upstream HTTP call emits structured
+ * `upstream_http` request/response capture events. The returned Response is
+ * the original object — cloning and body reads happen off the critical path. */
+export function makeCaptureFetch(server) {
   return async (input, init = {}) => {
     const request = input instanceof Request ? input : null;
     const url = typeof input === 'string' ? input : (input?.url ?? String(input));
@@ -49,11 +115,25 @@ function makeCaptureFetch(server) {
       body: typeof body === 'string' ? body : (body ? Buffer.from(body).toString('utf8') : null),
     });
     const response = await fetch(input, init);
-    captureEvent('upstream_http', {
+    const responseHeaders = Object.fromEntries(response?.headers ?? []);
+    const event = {
       phase: 'response', server, url,
-      status: response.status,
-      headers: Object.fromEntries(response.headers),
-    });
+      status: response?.status,
+      headers: responseHeaders,
+    };
+    if (isStreamingResponse(response)) {
+      // SSE / streaming: never wait for the body — the stream may never end.
+      event.bodySkipped = 'stream';
+    } else {
+      // Read from a clone so the SDK-facing Response is untouched. The read is
+      // bounded (64KB) and awaited here to make the capture deterministic;
+      // streaming responses take the non-blocking path above instead.
+      const { text, truncated, skipped } = await readResponseBodyCapped(response, MAX_UPSTREAM_RESPONSE_BODY);
+      event.body = text;
+      if (truncated) event.bodyTruncated = true;
+      if (skipped) event.bodySkipped = skipped;
+    }
+    captureEvent('upstream_http', event);
     return response;
   };
 }
