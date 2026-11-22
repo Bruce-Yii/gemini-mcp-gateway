@@ -298,7 +298,6 @@ export function startCapture(req, res, options = {}) {
       if (bytes > cfg.maxBytes) overflow = true;
       else chunks.push(buf);
     }
-    const result = originalEnd(chunk, encoding, callback);
     const duration = Date.now() - started;
 
     // Build the envelope eagerly. Do NOT defer with queueMicrotask: Vercel can
@@ -369,6 +368,8 @@ export function startCapture(req, res, options = {}) {
       sinkQueued,
       ...(sinkError ? { sinkError } : {}),
     });
+    // Send the response only after waitUntil() has seen the pending sink task.
+    const result = originalEnd(chunk, encoding, callback);
     return result;
   };
 
