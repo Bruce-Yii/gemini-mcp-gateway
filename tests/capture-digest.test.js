@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { aggregateEnvelopes, classifyError, renderScorecard } from '../scripts/capture-digest.mjs';
 
 const envelope = (status, durationMs, raw = '{}') => ({
-  request: { raw: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: 'github__get_file_contents' } }) },
+  request: { method: 'POST', url: '/mcp', raw: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: 'github__get_file_contents' } }) },
   response: { status, durationMs, bytes: raw.length, raw, overflow: false },
 });
 
@@ -33,3 +33,4 @@ test('capture digest classifies auth/timeout/rate-limit and renders a scorecard'
   assert.match(md, /Requests \| 1/);
   assert.match(md, /Raw payloads remain in R2/);
 });
+
