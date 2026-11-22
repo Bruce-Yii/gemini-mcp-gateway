@@ -96,9 +96,10 @@ test('R2 sink uploads gzipped raw envelope to the private capture bucket', async
   assert.match(captured.url, /accounts\/acct\/r2\/buckets\/bucket\/objects\/capture\/\d{4}-\d{2}-\d{2}\//);
   assert.equal(captured.init.method, 'PUT');
   assert.equal(captured.init.headers['x-auth-email'], 'u@example.com');
-  assert.equal(captured.init.headers['content-encoding'], 'gzip');
+  assert.equal(captured.init.headers['content-type'], 'application/gzip');
   const envelope = JSON.parse(gunzipSync(captured.init.body).toString('utf8'));
   assert.equal(envelope.request.raw, '{"a":1}');
   assert.equal(envelope.response.raw, '{"ok":true}');
 });
+
 

@@ -84,8 +84,7 @@ async function writeR2Sink(cfg, envelope) {
   const encodedKey = key.split('/').map(encodeURIComponent).join('/');
   const url = `https://api.cloudflare.com/client/v4/accounts/${cfg.r2AccountId}/r2/buckets/${cfg.r2Bucket}/objects/${encodedKey}`;
   const headers = {
-    'content-type': 'application/json',
-    'content-encoding': 'gzip',
+    'content-type': 'application/gzip',
   };
   if (cfg.r2ApiToken) headers.authorization = `Bearer ${cfg.r2ApiToken}`;
   else {
