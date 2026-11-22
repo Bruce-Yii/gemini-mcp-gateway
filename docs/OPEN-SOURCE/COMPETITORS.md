@@ -49,6 +49,41 @@
 宿主原生能力、检索网关、Code Mode 平台、企业网关、Web 垂直网关。我们的位置是
 **“Web 客户端可用的 Code Mode + 读写隔离 + 全量评测”**，不是“唯一会省 context 的网关”。
 
+## 0.3 Firecrawl 问题空间搜索（2026-11-23 第三轮）
+
+用 `firecrawl_search` 按“上下文优化 / progressive disclosure / tool retrieval / Code Mode / web client limits”搜到的
+新增实质竞品与事实（比前两轮完整）：
+
+| 项目/能力 | 证据 | 对我们的意义 |
+|---|---|---|
+| **Cloudflare MCP Portals: Context optimization** | 官方 changelog：`minimize_tools` 只保留工具名，最多省 5x token；`search_and_execute` 只暴露 `query` + `execute`，在 Dynamic Worker 里执行 | 大厂把“工具定义压缩 + Code Mode”做成门户默认能力；我们不能再把 Code Mode 当独有；差异在自托管、Web 客户端、读写分层、eval |
+| **agentgateway Progressive Disclosure** | Solo.io 文章：`toolMode: Search`，自称省 91% token；OpenAPI→MCP + `run_code` | 企业网关直接竞品；它强在 K8s/策略，我们强在 Web 客户端/单用户/评测 |
+| **Bifrost** | 开源 gateway，Code Mode 四个 meta-tools，宣称工具定义 token 降 92.8% | 又一个 Code Mode 网关；需要看它是否做 Web 客户端/session/capture |
+| **Speakeasy MCP Gateway Code Mode** | 文章明确“Code Mode 属于 gateway 而不是单个 MCP server”；一个 `execute` 工具 + live tool search | 方向和我们一致，说明“网关层 Code Mode”是品类；差异仍是 Web/read-write/eval |
+| **Stacklok MCP Optimizer** | 与 Anthropic Tool Search 做 head-to-head 检索准确率对比 | “工具优化器”独立品类；我们应把 eval 做成可比指标 |
+| **Consiliency/pmcp (Progressive MCP)** | 开源 gateway，`catalog_search` + lazy servers + progressive disclosure | 直接竞品；需要逐项比较 |
+| **toolgate** | 2 tools `search_tools`/`call_tool`，BM25/embedding/rerank + Recall@k/MRR/token eval | 检索型网关直接竞品；它没有 Code Mode/读写分层/Web 实测 |
+| **IBM ContextForge** | 企业控制面；TOON 只压 tool result，默认 disabled；无 tool search/Code Mode | 不同轴；叙事竞品 |
+| **MCP Groups / Anthropic Tool Search / OpenAI tool_search** | 协议/宿主原生 progressive disclosure | 长期 watch；按用户实测，当前 Web 客户端效果不好 |
+
+### 最关键的新证据：检索提升 ≠ 任务成功
+
+OpenAI 社区 2026-11 的实验：MCP 工具检索 top-1 从 50.3% 提到 93.3%，但 25 个 agent 工具使用任务从 16/25 降到 14/25；
+模型经常**根本不咨询 discovery gateway**。另一篇 2026-11 arXiv 预注册研究直接比较 Code Mode / decision layer 的成本与正确率。
+
+对我们的含义：
+
+1. **只卖“search/检索”不够**，检索准确率不等于任务成功率；
+2. 我们的 **L1/G6 + capture/eval** 不是附属品，而是证明“优化真的有用”的核心；
+3. 读写分层、写语义、真实 replay 这些“执行侧”能力，比再做一个 retrieval 网关更难被复制；
+4. README 不该用“token 降 99%”当唯一卖点，必须跟“任务成功率/工具命中/写回放”一起讲。
+
+### 平台限制（决定 Web 客户端适配）
+
+- ChatGPT MCP connector：社区报告单工具描述/结果有 **5,000 token 限制**，超限要拆成单独 schema 工具；这解释了为什么我们的 3 工具面是优势。
+- Gemini Enterprise custom MCP：官方建议 **同时启用的 actions 限制在 100**；Web Gemini custom apps 有地区/账号限制。
+- 结论：Web 客户端不是“通用的”，必须按客户端做 schema/结果/annotation 适配；这正是我们的工程差异。
+
 ## 1. 竞品矩阵
 
 ### 1.1 主表（按相关度分组）

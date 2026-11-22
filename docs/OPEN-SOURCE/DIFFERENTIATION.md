@@ -38,6 +38,31 @@ item**, not an immediate structural threat. Do not build the strategy around
 "the host will never do it"; do build it around the current gap and our
 read/write/eval advantages.
 
+### The third-pass lesson: retrieval ≠ task success
+
+Firecrawl's 2026-11 problem-space search found an OpenAI community experiment
+where MCP tool retrieval top-1 went **50.3% → 93.3%**, but agent task grades went
+**16/25 → 14/25**; the model often did not consult the discovery gateway at all.
+A 2026-11 arXiv pre-registered study also compares Code Mode / decision layers on
+cost and correctness.
+
+Implication: **do not sell search alone.** The differentiator is the loop that
+proves task-level improvement: read/write split, real write replay, full
+capture, L1/G6, and direct Web-client measurements. That is harder to copy than
+another retrieval gateway.
+
+### New same-axis competitors (Firecrawl, 2026-11)
+
+| Project/capability | What it does | Why it matters |
+|---|---|---|
+| Cloudflare MCP Portals context optimization | `minimize_tools` (up to 5x), `search_and_execute` (`query` + `execute` in Dynamic Worker) | Platform default for definition compression + Code Mode |
+| agentgateway progressive disclosure | `toolMode: Search`, claims 91% token cut, `run_code` | Enterprise gateway on the same axis |
+| Bifrost | Code Mode meta-tools, claims 92.8% definition-token reduction | Another Code Mode gateway |
+| Speakeasy MCP Gateway | One `execute` tool + live tool search, argues gateway is the right place | Validates category; not Web-focused |
+| Stacklok MCP Optimizer | Head-to-head vs Anthropic tool search | Tool-optimizer category |
+| Consiliency/pmcp | `catalog_search` + lazy servers + progressive disclosure | Direct open-source gateway |
+| toolgate | 2 tools + BM25/embedding/rerank + eval harness | Retrieval-axis competitor |
+
 ## 1. What we actually optimize
 
 | Layer | What we do | Why it matters | Evidence |
