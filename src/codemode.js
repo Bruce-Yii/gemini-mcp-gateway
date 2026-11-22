@@ -51,7 +51,7 @@ const EXEC_BOUNDARY_GUIDANCE = " Boundary: if the task exceeds the available too
 
 // Gemini feedback #3: upstreams do not share one result shape. One short line
 // nudges the model to defend before field access instead of crashing mid-script.
-const RETURN_SHAPE_GUIDANCE = ' Results differ by service: Notion/Linear mostly return objects, GitHub often JSON text or arrays, Vercel mostly objects — guard with Array.isArray(x) / typeof x === "string" before reading fields; safeAll(tasks) keeps a batch alive when one sub-task fails; grepSnippet(text, keyword, window) extracts context slices from long results (each clipped snippet is now marked truncated); codemode.unwrap(x) normalizes JSON text, {result}, {text,resources} and content arrays; fileResult(x)/prResult(x) flatten common file/PR shapes. Intl is unavailable in the sandbox: use codemode.formatDate(value, {date:true,time:true,ms:true}) or Date UTC getters. NO SILENT CHARACTER TRUNCATION: never write `l.slice(0, 150)`, `line.substring(0, N)` or any other manual per-line character cut — that silently destroys data and is the P0 bug this guidance fixes. To control context, read with codemode.readFileRange({path,startLine,endLine,maxCharsPerLine?}) (returns {lines,truncated,truncation?,nextStart,totalLines}; NO maxCharsPerLine means full lines, with it every cut line is flagged) or codemode.sliceLines(text,start,end) (line-based, reports truncated) and REPORT the truncated flag in your answer; follow nextStart to page through. grepSnippet also reports truncated on clipped windows. Never patch or write a read whose truncated flag is true — re-read the full file first. Edit with codemode.replaceLines/applyPatch; call diffSummary before writing. codemode.normalizeFile/normalizePr/normalizeIssue/normalizeResult give canonical field sets (raw kept; truncated is true on any upstream/marker/nested flag); codemode.applyFilePatch previews/writes via GitHub tools (dryRun by default; refuses truncated reads); codemode.ensureBranch/upsertPr/fetchAllPages/repoGrep wrap injected GitHub tools. Unified writes: codemode.applyFilePatch/writeFiles accept {patches:[{path,patch,sha?}]} (or single path+patch), auto-fill sha from the read, precheck JSON/JS-TS before writing, and return top-level {sha,commitSha,number?,url?}; codemode.canonicalize/normalizeMerge give {number,url,sha}; codemode.createBranchIfMissing creates from base when absent; codemode.precheckText is a lightweight write-before check (JSON strict, JS/TS brackets only — not a compiler).';
+const RETURN_SHAPE_GUIDANCE = ' Results differ by service: Notion/Linear mostly return objects, GitHub often JSON text or arrays, Vercel mostly objects — guard with Array.isArray(x) / typeof x === "string" before reading fields; safeAll(tasks) keeps a batch alive when one sub-task fails; grepSnippet(text, keyword, window) extracts context slices from long results (each clipped snippet is now marked truncated); codemode.unwrap(x) normalizes JSON text, {result}, {text,resources} and content arrays; fileResult(x)/prResult(x) flatten common file/PR shapes. Intl is unavailable in the sandbox: use codemode.formatDate(value, {date:true,time:true,ms:true}) or Date UTC getters. NO SILENT CHARACTER TRUNCATION: never write `l.slice(0, 150)`, `line.substring(0, N)` or any other manual per-line character cut — that silently destroys data and is the P0 bug this guidance fixes. To control context, read with codemode.readFileRange({path,startLine,endLine,maxCharsPerLine?}) (returns {lines,truncated,truncation?,nextStart,totalLines}; NO maxCharsPerLine means full lines, with it every cut line is flagged) or codemode.sliceLines(text,start,end) (line-based, reports truncated) and REPORT the truncated flag in your answer; follow nextStart to page through. grepSnippet also reports truncated on clipped windows. Never patch or write a read whose truncated flag is true — re-read the full file first. Edit with codemode.replaceLines/applyPatch; call diffSummary before writing. codemode.normalizeFile/normalizePr/normalizeIssue/normalizeResult give canonical field sets (raw kept; truncated is true on any upstream/marker/nested flag); codemode.applyFilePatch previews/writes via GitHub tools (dryRun by default; refuses truncated reads); codemode.ensureBranch/upsertPr/fetchAllPages/repoGrep wrap injected GitHub tools. Batch 11 atomic writes: when github__push_files is available, codemode.writeFiles commits all staged files in ONE push (atomic:true); if a push fails nothing is written. Without it, per-file writes are non-atomic — a mid-batch failure returns partial:true plus written[] and a compensation hint, and explicitly requesting atomic:true without push_files fails with zero writes. Unified writes: codemode.applyFilePatch/writeFiles accept {patches:[{path,patch,sha?}]} (or single path+patch), auto-fill sha from the read, precheck JSON/JS-TS before writing, and return top-level {sha,commitSha,number?,url?}; codemode.canonicalize/normalizeMerge give {number,url,sha}; codemode.createBranchIfMissing creates from base when absent; codemode.precheckText is a lightweight write-before check (JSON strict, JS/TS brackets only — not a compiler).';
 
 // Gemini feedback #2: tell the model which identifier is actually callable.
 const CALLNAME_GUIDANCE = ' Each result carries "callName": pass that exact identifier to codemode (the "name" field may contain hyphens — do not copy it literally into codemode["..."]).';
@@ -277,10 +277,16 @@ const GUEST_PRELUDE = [
   // update does not need a separate get_file_contents round trip by the model.
   'const __dshB10ApplyFilePatch = async (opts) => {',
   '  const o = opts && typeof opts === "object" ? opts : {};',
-  '  const names = __dshB10Cfg(o.tools, { readTool: "github__get_file_contents", writeTool: "github__create_or_update_file" });',
+  '  const names = __dshB10Cfg(o.tools, { readTool: "github__get_file_contents", writeTool: "github__create_or_update_file", pushTool: "github__push_files" });',
   '  const list = Array.isArray(o.patches) ? o.patches : [{ path: o.path, patch: o.patch, sha: o.sha }];',
   '  if (!list.length) return { ok: false, error: "patches must be a non-empty array (or provide path+patch)" };',
   '  const dryRun = o.dryRun !== false;',
+  // Batch 11: atomic mode is ON by default when github__push_files is exposed.
+  '  const pushAvailable = __dshInvoke("hasTool", [names.pushTool]) === true;',
+  '  const atomic = o.atomic === true ? true : (o.atomic === false ? false : pushAvailable);',
+  '  const atomicReason = atomic ? null : (pushAvailable ? "atomic write explicitly disabled by caller" : "github__push_files unavailable; using per-file writes");',
+  // Explicit atomic:true with no committer is a HARD failure: zero reads, zero writes.
+  '  if (o.atomic === true && !pushAvailable) return { ok: false, error: "atomic write requested but github__push_files is unavailable", atomic: false, reason: "github__push_files unavailable", files: [], written: [], writtenFiles: [], partial: false };',
   '  const staged = [];',
   '  for (const item of list) {',
   '    if (!item || typeof item.path !== "string" || !item.path) return { ok: false, error: "path must be a non-empty string" };',
@@ -311,20 +317,40 @@ const GUEST_PRELUDE = [
   '    return { path: s.path, added: s.added, removed: s.removed, hunks: s.hunks, diff: header };',
   '  });',
   '  const files = staged.map((s) => ({ path: s.path, sha: s.sha }));',
-  '  const out = { ok: true, files: files, diff: staged.length === 1 ? diffs[0] : diffs };',
-  '  if (dryRun) return out;',
+  '  const diff = staged.length === 1 ? diffs[0] : diffs;',
+  '  const out = { ok: true, files: files, diff: diff };',
+  '  if (dryRun) {',
+  // B10 compatibility: preserve the legacy dry-run shape in non-atomic mode.
+  '    if (!atomic) return out;',
+  '    return Object.assign({}, out, { atomic: true });',
+  '  }',
+  // ---- atomic path: one push_files call, zero partial writes on failure ----
+  '  if (atomic) {',
+  '    const pushArgs = Object.assign({}, o.pushArgs || {}, { owner: o.owner, repo: o.repo, branch: o.branch, files: staged.map((s) => ({ path: s.path, content: s.text })), message: o.message === undefined ? "batch write via codemode" : o.message });',
+  '    let pr;',
+  '    try { pr = await __dshCallTool(names.pushTool, pushArgs); } catch (e) { __dshB10Rethrow(e); return { ok: false, error: "atomic commit failed: " + __dshB10Str(e && e.message ? e.message : e), atomic: false, files: [], written: [], writtenFiles: [], partial: false, diff: diff }; }',
+  '    const pv = pr && typeof pr === "object" && pr.ok === false ? pr : (() => { try { return typeof pr === "string" ? JSON.parse(pr) : pr; } catch (_) { return pr; } })();',
+  '    if (pv && typeof pv === "object" && pv.ok === false) return { ok: false, error: __dshB10Str(pv.error || "atomic commit failed"), atomic: false, files: [], written: [], writtenFiles: [], partial: false, diff: diff };',
+  '    const top = __dshInvoke("normalizeWriteResult", [pv, staged[staged.length - 1].sha]);',
+  '    return Object.assign({}, out, top, { atomic: true });',
+  '  }',
+  // ---- non-atomic / fallback: legacy per-file writes with honest partial report ----
+  '  const written = [];',
   '  let last;',
+  '  const __dshB10Partial = (error) => ({ ok: false, error: error, atomic: false, partial: true, written: written.slice(), writtenFiles: written.slice(), remaining: staged.slice(written.length).map((s) => s.path), compensation: written.length ? "Restore the " + written.length + " already-written file(s) from their previous contents, or re-run with atomic:true (github__push_files) so the whole batch commits once." : "No files were written; safe to retry.", files: files, diff: diff, reason: atomicReason });',
   '  for (const s of staged) {',
   '    const writeArgs = Object.assign({}, o.writeArgs || {}, { owner: o.owner, repo: o.repo, path: s.path, content: s.text, branch: o.branch, message: o.message === undefined ? "patch via codemode" : o.message });',
   '    if (s.sha) writeArgs.sha = s.sha;',
   '    let wr;',
-  '    try { wr = await __dshCallTool(names.writeTool, writeArgs); } catch (e) { __dshB10Rethrow(e); return { ok: false, error: "write failed for " + s.path + ": " + __dshB10Str(e && e.message ? e.message : e), diff: staged.length === 1 ? diffs[0] : diffs }; }',
+  '    try { wr = await __dshCallTool(names.writeTool, writeArgs); } catch (e) { __dshB10Rethrow(e); return __dshB10Partial("write failed for " + s.path + ": " + __dshB10Str(e && e.message ? e.message : e)); }',
   '    const wv = wr && typeof wr === "object" && wr.ok === false ? wr : (() => { try { return typeof wr === "string" ? JSON.parse(wr) : wr; } catch (_) { return wr; } })();',
-  '    if (wv && typeof wv === "object" && wv.ok === false) return { ok: false, error: __dshB10Str(wv.error || "write failed"), diff: staged.length === 1 ? diffs[0] : diffs };',
+  '    if (wv && typeof wv === "object" && wv.ok === false) return __dshB10Partial(__dshB10Str(wv.error || "write failed"));',
+  '    written.push(s.path);',
   '    last = wv;',
   '  }',
   '  const top = __dshInvoke("normalizeWriteResult", [last, staged[staged.length - 1].sha]);',
   '  if (last && typeof last === "object" && last.content !== undefined) top.content = last.content;',
+  // B10 compatibility: no `atomic` key on legacy non-atomic success.
   '  return Object.assign({}, out, top);',
   '};',
   'codemode.applyFilePatch = __dshHide(__dshB10ApplyFilePatch);',
@@ -863,6 +889,8 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
     canonicalize: (value) => canonicalResult(value),
     precheckText: (text, path) => precheckText(text, path),
     normalizeWriteResult: (value, sha) => normalizeWriteResult(value, { sha }),
+    // Batch 11: exact tool availability check (no tool-call budget consumed).
+    hasTool: (name) => byIdent.has(String(name)),
     stub: (name) => {
       throw new Error(`${name} is a write tool and unavailable in execute_read; use execute() instead`);
     },

@@ -438,6 +438,56 @@ export function canonicalResult(value) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Batch 11 write transaction: GitHub push_files (one commit, many files).
+// ---------------------------------------------------------------------------
+
+/** Canonical tool name for GitHub's one-commit-many-files write. */
+export const PUSH_FILES_TOOL = 'github__push_files';
+
+/**
+ * Detect whether the atomic `github__push_files` write is reachable.
+ *
+ * Accepts either a tools array (`[{name:'github__push_files', ...}]`) or a set
+ * of exposed callables (`{github__push_files: fn}`). Never throws; missing or
+ * malformed inputs simply report `available:false` with an actionable reason.
+ *
+ * @param {object} opts
+ * @param {Array}  [opts.tools] tool descriptors from codemode.listTools()
+ * @param {object} [opts.callables] object with tool-name keys
+ * @returns {{available:boolean, tool:string, reason:string|null}}
+ */
+export function detectPushFiles({ tools, callables } = {}) {
+  const tool = PUSH_FILES_TOOL;
+  const inTools = Array.isArray(tools) && tools.some((t) => {
+    if (typeof t === 'string') return t === tool;
+    return t && typeof t === 'object' && (t.name === tool || t.tool === `push_files`);
+  });
+  const inCallables = !!(callables && typeof callables[tool] === 'function');
+  if (inTools || inCallables) return { available: true, tool, reason: null };
+  return {
+    available: false,
+    tool,
+    reason: 'github__push_files is not available in this tool set; multi-file writes will be non-atomic',
+  };
+}
+
+/**
+ * Build the exact `push_files` argument object from staged files.
+ * Schema: {owner, repo, branch, files:[{path,content}], message}
+ */
+export function buildPushFilesArgs({ owner, repo, branch, message, files, extraArgs } = {}) {
+  if (!Array.isArray(files) || files.length === 0) throw new TypeError('files must be a non-empty array');
+  return {
+    ...(extraArgs && typeof extraArgs === 'object' ? extraArgs : {}),
+    owner,
+    repo,
+    branch,
+    files: files.map((f) => ({ path: f.path, content: f.content })),
+    message: message === undefined ? 'batch write via codemode' : message,
+  };
+}
+
 export default {
   ensureBranch,
   createBranchIfMissing,
@@ -447,4 +497,7 @@ export default {
   upsertPr,
   fetchAllPages,
   repoGrep,
+  PUSH_FILES_TOOL,
+  detectPushFiles,
+  buildPushFilesArgs,
 };

@@ -12,6 +12,17 @@
  *   - applyFilePatch NEVER writes on failure, and NEVER writes when
  *     `dryRun` is true (the default). A write is attempted only after a
  *     successful patch application in non-dry-run mode.
+ *
+ * Batch 11 write-transaction (multi-file atomicity):
+ *   - `applyFilePatches` / `writeFiles` gained an `atomic` option and an
+ *     injected `commitFiles` callback (GitHub `push_files`: one commit for all
+ *     staged files). When `commitFiles` is available, `atomic` defaults to
+ *     true; all reads/patches/prechecks happen first, then ONE commit call.
+ *   - If the atomic commit fails, ZERO files are written. If atomic mode is
+ *     unavailable or explicitly disabled, the legacy per-file write path is
+ *     used; a mid-batch failure is reported as `atomic:false, partial:true`
+ *     with the exact list of already-written files (never faked as success).
+ *   - Single-file `applyFilePatch` is unchanged (B10契约保持).
  */
 
 /** Normalize CRLF / lone CR to LF so context comparison is line-ending agnostic. */
@@ -405,6 +416,51 @@ async function resolveSha({ path, sha, getSha }) {
 }
 
 /**
+ * Batch 11: describe atomic-commit capability in a single place so host and
+ * sandbox callers report the SAME reason strings.
+ *
+ * `commitFiles` is the injected one-commit-many-files callback (the host
+ * adapter for GitHub `github__push_files`). When it is missing, atomic mode is
+ * impossible and the caller must fall back to the legacy per-file write path.
+ */
+export function describeAtomicCapability(commitFiles, atomic) {
+  if (atomic === true && typeof commitFiles !== 'function') {
+    return {
+      atomic: false,
+      supported: false,
+      reason: 'atomic write requested but github__push_files (commitFiles) is unavailable',
+    };
+  }
+  if (atomic === false) {
+    return {
+      atomic: false,
+      supported: typeof commitFiles === 'function',
+      reason: 'atomic write explicitly disabled by caller',
+    };
+  }
+  if (typeof commitFiles === 'function') {
+    return { atomic: true, supported: true, reason: null };
+  }
+  return {
+    atomic: false,
+    supported: false,
+    reason: 'github__push_files (commitFiles) unavailable; using per-file writes',
+  };
+}
+
+/** Build the `files[]` payload for a single atomic commit (path + full text). */
+export function buildAtomicFiles(staged) {
+  return staged.map((s) => ({ path: s.path, content: s.applied.content }));
+}
+
+/** Extract a failure message from an atomic committer result without faking success. */
+function atomicCommitError(value) {
+  if (!value || typeof value !== 'object') return null;
+  if (value.ok === false) return String(value.error || 'atomic commit failed');
+  return null;
+}
+
+/**
  * Normalize an upstream write response into the unified top-level field set.
  * `{number?, url?, sha, commitSha}` — `number`/`url` are optional (present only
  * when the upstream actually returned them); `sha` and `commitSha` are always
@@ -454,11 +510,23 @@ export function normalizeWriteResult(value, { sha } = {}) {
  * `write(path, text, {sha, path})` receives the resolved sha as its third arg.
  * Every precheck/patch failure aborts the whole batch before any write; a
  * later write failure is reported, never faked as success.
+ *
+ * Batch 11 atomicity:
+ *  - `commitFiles({files, owner, repo, branch, message})` is the injected
+ *    one-commit-many-files callback (GitHub `push_files`). When present,
+ *    `atomic` defaults to true and the staged files are committed ONCE after
+ *    every read/patch/precheck succeeded. Any failure → ZERO writes.
+ *  - When unavailable, `atomic` defaults to false and the legacy per-file
+ *    write loop runs. A mid-batch failure returns
+ *    `{ok:false, atomic:false, partial:true, written, remaining, compensation}`
+ *    so the caller knows exactly what landed and how to clean up.
  */
 export async function applyFilePatches({
   read,
   write,
   getSha,
+  commitFiles,
+  atomic,
   path,
   patch,
   patches,
@@ -467,7 +535,23 @@ export async function applyFilePatches({
   ...rest
 } = {}) {
   if (typeof read !== 'function') return { ok: false, error: 'read must be a function' };
-  if (!dryRun && typeof write !== 'function') return { ok: false, error: 'write must be a function when dryRun is false' };
+  if (!dryRun && typeof write !== 'function' && typeof commitFiles !== 'function') {
+    return { ok: false, error: 'write must be a function when dryRun is false' };
+  }
+
+  // Batch 11: fail fast on an impossible atomic request — before any read or
+  // precheck work, and with ZERO writes of any kind.
+  if (atomic === true && typeof commitFiles !== 'function') {
+    return {
+      ok: false,
+      error: 'atomic write requested but github__push_files (commitFiles) is unavailable',
+      atomic: false,
+      files: [],
+      written: [],
+      writtenFiles: [],
+      partial: false,
+    };
+  }
 
   const list = patches !== undefined
     ? (Array.isArray(patches) ? patches : null)
@@ -499,17 +583,66 @@ export async function applyFilePatches({
   }
 
   const diffs = staged.map((s) => s.applied.diff);
+  const files = staged.map((s) => ({ path: s.path, sha: s.sha ?? null }));
+  const diff = list.length === 1 ? diffs[0] : diffs;
+  const capability = describeAtomicCapability(commitFiles, atomic);
+  const mode = capability.atomic;
+
   if (dryRun) {
     return {
       ok: true,
-      files: staged.map((s) => ({ path: s.path, sha: s.sha ?? null })),
-      diff: list.length === 1 ? diffs[0] : diffs,
+      files,
+      diff,
       sha: null,
       commitSha: null,
+      atomic: mode,
+      ...(capability.reason ? { reason: capability.reason } : {}),
     };
   }
 
-  // All files passed validation — now write them in order.
+  // ---------------------------------------------------------------------------
+  // Atomic path: ONE commit for all staged files, after every precheck passed.
+  // ---------------------------------------------------------------------------
+  if (mode) {
+    let commitResult;
+    try {
+      commitResult = await commitFiles({
+        files: buildAtomicFiles(staged),
+        ...(rest.commitArgs || {}),
+      });
+    } catch (e) {
+      return {
+        ok: false,
+        error: `atomic commit failed: ${String(e && e.message ? e.message : e)}`,
+        atomic: false,
+        files: [],
+        written: [],
+        writtenFiles: [],
+        partial: false,
+        diff,
+      };
+    }
+    const commitErr = atomicCommitError(commitResult);
+    if (commitErr) {
+      return {
+        ok: false,
+        error: commitErr,
+        atomic: false,
+        files: [],
+        written: [],
+        writtenFiles: [],
+        partial: false,
+        diff,
+      };
+    }
+    const top = normalizeWriteResult(commitResult, { sha: staged[staged.length - 1].sha });
+    return { ok: true, files, diff, ...top, atomic: true };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Non-atomic / fallback: legacy per-file writes, with honest partial report.
+  // ---------------------------------------------------------------------------
+  const written = [];
   let lastWriteResult;
   for (const s of staged) {
     const text = s.applied.content;
@@ -517,24 +650,64 @@ export async function applyFilePatches({
     try {
       writeResult = await write(s.path, text, { sha: s.sha, path: s.path });
     } catch (e) {
-      return { ok: false, error: `write failed for ${s.path}: ${String(e && e.message ? e.message : e)}`, diff: list.length === 1 ? diffs[0] : diffs };
+      return partialFailure({
+        error: `write failed for ${s.path}: ${String(e && e.message ? e.message : e)}`,
+        written, remaining: staged.slice(written.length).map((x) => x.path), diff, files, reason: capability.reason,
+      });
     }
     if (writeResult && typeof writeResult === 'object' && writeResult.ok === false) {
-      return { ok: false, error: writeResult.error || `write failed for ${s.path}`, diff: list.length === 1 ? diffs[0] : diffs };
+      return partialFailure({
+        error: writeResult.error || `write failed for ${s.path}`,
+        written, remaining: staged.slice(written.length).map((x) => x.path), diff, files, reason: capability.reason,
+      });
     }
+    written.push(s.path);
     lastWriteResult = writeResult;
   }
 
   const top = normalizeWriteResult(lastWriteResult, { sha: staged[staged.length - 1].sha });
   return {
     ok: true,
-    files: staged.map((s) => ({ path: s.path, sha: s.sha ?? null })),
-    diff: list.length === 1 ? diffs[0] : diffs,
+    files,
+    diff,
     ...top,
+    atomic: false,
+    ...(capability.reason ? { reason: capability.reason } : {}),
+  };
+}
+
+/**
+ * Non-atomic mid-batch failure: never claim success. `written` is the exact
+ * list of files that landed; `compensation` tells the caller how to clean up.
+ */
+function partialFailure({ error, written, remaining, diff, files, reason }) {
+  return {
+    ok: false,
+    error,
+    atomic: false,
+    partial: true,
+    written: [...written],
+    writtenFiles: [...written],
+    remaining: [...remaining],
+    compensation: written.length
+      ? `Restore the ${written.length} already-written file(s) from their previous contents, or re-run with atomic:true (github__push_files) so the whole batch commits once.`
+      : 'No files were written; safe to retry.',
+    files,
+    diff,
+    ...(reason ? { reason } : {}),
   };
 }
 
 /** Alias for callers that prefer a write-oriented name. */
 export const writeFiles = applyFilePatches;
 
-export default { applyTextPatch, applyFilePatch, applyFilePatches, writeFiles, precheckText, normalizeWriteResult };
+export default {
+  applyTextPatch,
+  applyFilePatch,
+  applyFilePatches,
+  writeFiles,
+  precheckText,
+  normalizeWriteResult,
+  describeAtomicCapability,
+  buildAtomicFiles,
+};

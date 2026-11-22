@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Local credential vault schema + `scripts/figma-token.mjs` (one-time Figma authorization, non-interactive refresh) and `vercel-auth.json` backup; Vercel refreshed tokens synced back via CLI.
 - `data/tool-snapshots/figma.json` captured (50 tools) and `data/tool-dataset.json` synced to 506; `check-config` now prints `total/exposed/denied`; `scripts/audit-tools.mjs` added to CI.
 - G6 full exploration (228 tasks, five upstreams) found a real sandbox gap: QuickJS has no `Intl`; most other gateway-attributed anomalies were model/upstream account/detector artifacts. Recorded in `docs/ledger/batch-7-g6-findings.md`; G6 remains ❌ until fixed and retested.
+- Atomic multi-file writes: github__push_files transaction, fallback partial list/compensation.
 - Session clustering: deterministic windowId + session-aware digest/analyzer + explicit-taskId join.
 - Truncation primitives: readFileRange, no default char truncation, applyFilePatch hard-stop on truncated read.
 - Session marker: Mcp-Session-Id on initialize + clientInfo in capture (stateless, correlation only).
