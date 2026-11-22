@@ -1,5 +1,7 @@
 # 接口契约（并发开发的唯一真相来源）
 
+> **Historical document.** This contract covers the early whitelist + `gateway_call` phase. The current Code Mode implementation (`search` / `execute_read` / `execute`) is authoritative in `src/` and `tests/`.
+
 所有子代理必须严格遵守本文件的文件路径与导出接口，不得自行改接口名、不得写别人的文件。
 
 ## 项目目标

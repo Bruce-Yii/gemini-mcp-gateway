@@ -7,7 +7,7 @@
 > （`octocat/Hello-World`、`#123`、`abc1234` 这类在真实账号里必然 404），改成"我"的真实账号任务；
 > 同时刻意覆盖：search 发现、select 取 schema、大结果沙箱过滤、跨服务编排、读写判断、无法完成时的拒绝。
 >
-> 版本：2026-11-22。线上运行时以 `https://gemini-mcp-gateway-yu-ac3a.vercel.app/healthz` 的 commit 为准，
+> 版本：2026-11-22。线上运行时以 `https://<your-domain>/healthz` 的 commit 为准，
 > 贴回来时附上更好；没有也能跑。
 
 ## 怎么跑

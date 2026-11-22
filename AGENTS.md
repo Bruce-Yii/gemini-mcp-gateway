@@ -5,7 +5,7 @@
 ## 本项目的坑
 
 - **契约按阶段归档，Code Mode 以源码为准**：`CONTRACT.md` 只覆盖历史 whitelist + `gateway_call` / `gateway_search` 阶段，`CONTRACT.vercel.md` 只覆盖 Vercel / OAuth 阶段。当前 Code Mode（`search` / `execute_read` / `execute`）仍在演进（search 排序刚重构过，上游 `@cloudflare/codemode` 自己仍标 Experimental），不写进契约——其行为与接口以 `src/` + `tests/` 为准。并发开发时每个 agent 只写自己的文件，跨文件需求先给 lead 发消息，不要擅自改契约或写别人的文件。
-- **已部署 Vercel，不再是本地 MVP**：OAuth 2.1 DCR + PKCE 已实现并线上运行（`src/oauth.js` / `src/vercel-app.js` / `api/index.js`，稳定域名 `gemini-mcp-gateway-yu-ac3a.vercel.app`），不要按"不实现 OAuth / DCR / Vercel 部署"理解现状。本地仍用 MCP Inspector 或冒烟脚本验证工具列表（`search` / `execute_read` / `execute`）。
+- **已部署 Vercel，不再是本地 MVP**：OAuth 2.1 DCR + PKCE 已实现并线上运行（`src/oauth.js` / `src/vercel-app.js` / `api/index.js`，稳定域名 `<your-domain>`），不要按"不实现 OAuth / DCR / Vercel 部署"理解现状。本地仍用 MCP Inspector 或冒烟脚本验证工具列表（`search` / `execute_read` / `execute`）。
 - **不碰真实凭据**：`config.example.json` 只能有占位符；真实 token / client secret 不进仓库、不进 git、不进日志。测试只用 `harness/fake-upstream.mjs`。
 - **schema 必须过 sanitize**：Gemini 对 function declaration 有硬性约束（`type:"array"` 必须有 `items`、多类型会被拆坏、超深 oneOf 超限）。任何注册给 Gemini 的工具 schema 都必须经过 `sanitizeTool`，否则 Gemini 侧直接 400。
 - **工具列表必须稳定**：白名单工具按固定顺序注册（排序后），不要在会话中途改工具定义——Gemini 不消费 `notifications/tools/list_changed`，改 schema 要换版本路径。

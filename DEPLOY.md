@@ -1,79 +1,140 @@
-# 部署交接文档（给 Vercel 窗口）
+# Deploying gemini-mcp-gateway
 
-本仓库是给 Gemini 网页版自定义连接器用的 MCP 网关。本窗口已把代码全部写好并推到 GitHub；**请用你的 Vercel 窗口照下面步骤导入部署**，部署完成后回到本窗口，把部署后的 URL 给我，我做联调测试。
+This guide deploys the gateway as a **single-user** service on Vercel: one
+MCP endpoint (`/mcp`), OAuth 2.1 authorization, and Upstash Redis for
+client/token storage. The same code also runs locally (`npm start`); Vercel is
+just the reference deployment.
 
-## 一句话背景
+> **Do not share a deployment between users.** The gateway holds the upstream
+> tokens you give it. One deployment = one owner. See
+> [SECURITY.md](SECURITY.md).
 
-Gemini 通过 OAuth + DCR 连本网关的 `/mcp`，网关把 GitHub 等上游 MCP 的几十个工具收敛成"白名单工具 + gateway_call 兜底"。GitHub token 由网关代持，从环境变量读，不进文件。
+## Prerequisites
 
-## 部署步骤
+- A Vercel account (Hobby is enough for personal use; runtime logs are retained
+  for 1 hour on Hobby).
+- An Upstash Redis database attached via the Vercel Marketplace (free tier is
+  enough).
+- Upstream credentials (see [Upstream tokens](#upstream-tokens)).
 
-### 1. 从 GitHub 导入
+## 1. Import the repository
 
-- Vercel → Add New → Project → Import 这个仓库。
-- Framework Preset：**Other**（`vercel.json` 里 `framework: null`）。
-- Root Directory：默认（仓库根，含 `api/index.js` 和 `vercel.json`）。
-- Build Command / Output Directory：留默认（`vercel.json` 已配）。
-- 直接 Deploy。**先别填环境变量也没关系**，但此时 `/mcp` 会因缺 KV 而报错——下一步配好即可。
+- Vercel → **Add New → Project → Import** this repository.
+- Framework preset: **Other** (`vercel.json` sets `framework: null`).
+- Root directory: repository root.
+- Leave Build Command / Output Directory at their defaults — `vercel.json` runs
+  `node scripts/write-build-info.mjs && npm run build --if-present`.
+- Deploy. It can boot without environment variables, but `/mcp` will not work
+  until KV and tokens are configured.
 
-### 2. 添加 KV 存储（关键）
+## 2. Create the KV store
 
-Gemini 的 OAuth 授权需要持久化 client/code/token。用 Vercel Marketplace 免费 KV：
+- Project → **Storage → Create Database → Upstash Redis** (Marketplace).
+- Vercel injects `KV_REST_API_URL` and `KV_REST_API_TOKEN`. Confirm both exist
+  under **Settings → Environment Variables** for Production (and Preview if you
+  use it).
 
-- 项目 → Storage → Create Database → 选 **Upstash Redis**（或 Marketplace 里的 KV，免费层）。
-- 创建后 Vercel 会自动把 `KV_REST_API_URL`、`KV_REST_API_TOKEN` 注入到项目环境变量。
-- **确认这两个变量已出现在 Environment Variables 里**（所有环境 Production/Preview/Development 都勾上）。
+## 3. Set environment variables
 
-### 3. 配环境变量
+| Variable | Value |
+|---|---|
+| `PUBLIC_BASE_URL` | Your deployment origin, no trailing slash, e.g. `https://<your-app>.vercel.app` |
+| `ALLOWED_CLIENT_ID` | **Required.** A client id you generate, e.g. `gmc_` + random hex |
+| `ALLOWED_CLIENT_SECRET` | Strongly recommended. A random secret (32+ bytes) |
+| `GITHUB_TOKEN` | GitHub MCP bearer token (PAT or Copilot token) |
+| `NOTION_TOKEN` / `NOTION_REFRESH_TOKEN` / `NOTION_CLIENT_ID` / `NOTION_EXPIRES_IN` / `NOTION_OBTAINED_AT` | Notion upstream credentials (optional if you do not connect Notion) |
+| `LINEAR_TOKEN` / `LINEAR_REFRESH_TOKEN` / `LINEAR_CLIENT_ID` / `LINEAR_EXPIRES_IN` / `LINEAR_OBTAINED_AT` | Linear upstream credentials (optional) |
+| `VERCEL_TOKEN` | Vercel MCP bearer token (optional) |
+| `GATEWAY_CONFIG` / `UPSTREAMS_JSON` | Optional inline config override; normally leave unset to use `config.example.json` |
 
-在项目 → Settings → Environment Variables 添加：
+Setting `ALLOWED_CLIENT_ID` locks the gateway to one pre-registered OAuth
+client **and disables dynamic client registration**. Without it, DCR is open to
+anyone on the internet (the redirect allowlist only accepts Google-hosted
+redirect URIs). Treat `ALLOWED_CLIENT_SECRET` like any other secret: never commit
+it, store it as a Vercel sensitive environment variable.
 
-| 变量 | 值 | 说明 |
-|---|---|---|
-| `GITHUB_TOKEN` | GitHub token | 网关代持的 GitHub 凭证。**从我这个窗口给的临时值填入**（或你自己生成一个 fine-grained PAT）。注意 GitHub 现用全读写端点（与 `config.example.json` 一致），PAT 需带**写权限**（如 fine-grained PAT 的 Contents/Issues 读写）；旧文案"只读端点只需 repo 读权限"已过期。 |
-| `PUBLIC_BASE_URL` | 部署后的域名 | 如 `https://xxx.vercel.app`（不带尾斜杠）。若留空，代码会从请求 host 推导。建议显式填。 |
-| `GATEWAY_CONFIG` | 可选 | 若不用仓库里的 `config.example.json`，可传一段 JSON 字符串覆盖 server 配置。一般不用填。 |
-| `UPSTREAMS_JSON` | 可选 | 直接传 server 配置数组 JSON。一般不用填。 |
+Generate values locally, for example:
 
-> ⚠️ `GITHUB_TOKEN` 是敏感值：Vercel 里勾 "Sensitive"（若可选），不要写进任何文件或提交。
+```bash
+node -e "const c=require('node:crypto');console.log('gmc_'+c.randomBytes(16).toString('hex'));console.log(c.randomBytes(32).toString('base64url'))"
+```
 
-### 4. 重新部署
+## 4. Redeploy
 
-配完环境变量后，项目 → Deployments → 点最新一次 → Redeploy（勾 "Use existing Build Cache" 即可）。
+After adding variables: **Deployments → latest → Redeploy** (build cache is
+fine). Commits to `main` trigger automatic deployments once the project is
+connected to the repository.
 
-### 5. 验证部署
+## 5. Verify
 
-浏览器打开（把 `<BASE>` 换成你的域名）：
+Replace `<BASE>` with `PUBLIC_BASE_URL`:
 
-- `https://<BASE>/.well-known/oauth-authorization-server` → 应返回一段 JSON（含 `registration_endpoint` 等字段），**不能是 404**。
-- `https://<BASE>/.well-known/oauth-protected-resource` → 应返回 JSON。
-- `https://<BASE>/mcp` → 应返回 401（无 token），且响应头有 `WWW-Authenticate`。
+| Check | Expected |
+|---|---|
+| `GET <BASE>/healthz` | `200` JSON with `commit`, `buildHash`, `mode`, `servers` |
+| `GET <BASE>/.well-known/oauth-authorization-server` | `200` JSON, has `registration_endpoint` |
+| `GET <BASE>/.well-known/oauth-protected-resource` | `200` JSON |
+| `POST <BASE>/oauth/register` (when locked) | `403 dynamic client registration is disabled` |
+| `POST <BASE>/mcp` without auth | `401` with `WWW-Authenticate: Bearer resource_metadata=".../oauth-protected-resource"` |
 
-三项都符合就说明 HTTP 层正常，把 `<BASE>` 发给我，我做完整 OAuth 握手 + 工具列表测试。
+`/healthz`'s `buildHash` can be compared with a local checkout:
+`node scripts/write-build-info.mjs --print`.
 
-### 6. Gemini 侧填写（联调通过后）
+## 6. Connect Gemini
 
-- `gemini.google.com` → Settings → Connected Apps → Custom apps → Add
-- MCP server URL 填 `https://<BASE>/mcp`
-- Client ID / Client Secret **留空**（网关支持 DCR，Gemini 会自动注册）
-- Next → 同意授权 → Connect
+1. `gemini.google.com` → **Settings → Connected Apps → Custom apps → Add**.
+2. MCP server URL: `<BASE>/mcp`.
+3. Open **Advanced features → Show more** and enter your `ALLOWED_CLIENT_ID` and
+   `ALLOWED_CLIENT_SECRET` (locked mode requires them).
+4. Approve the consent page, then try: *"List my GitHub repositories."*
 
-## 已知约束 / 注意
+Google currently limits custom apps to personal Google accounts, 18+, in the
+US, with English UI — this is a Gemini-side restriction.
 
-- 要求个人 Google 账号、18+、美国、History 开启、英文界面——这是 Gemini 侧限制，与部署无关。
-- GitHub 用全读写端点 `https://api.githubcopilot.com/mcp/`（与 `config.example.json:8` 一致），不再是 `/mcp/readonly`；工具可见性由配置里的 `denyTools` 黑名单（+ 可选 `allowTools`）控制，不假设"只读端点 + 只读白名单"。对应 token 需有写权限的 PAT。
-- Notion 暂未接入（缺 token + 需单独 OAuth），后续再加。
-- 网关工具列表是静态快照，Gemini 不消费 `notifications/tools/list_changed`；改工具要换新版本路径（如 `/mcp/v2`）。
+## Upstream tokens
 
-## 出问题怎么定位
+This repository does **not** implement OAuth acquisition for upstream services.
+You need to provide tokens yourself:
 
-- `/mcp` 返回 401 但没有 `WWW-Authenticate`：检查 `PUBLIC_BASE_URL` 是否填对。
-- DCR 注册报 "redirect URL was rejected"：后端必须接受 >=6 个 Google redirect URI（代码已实现，确认部署的是最新 commit）。
-- 授权后 `/token` 永不到达：同意页 CSP 拦了 Google relay 二次跳转——代码已用 meta refresh 规避，确认版本。
-- 连不上 KV：确认 Upstash 的两个环境变量在所有环境下都注入了，并且 Redeploy 过。
+- **GitHub**: fine-grained PAT (Contents/Issues/Pull requests as needed) or a
+  Copilot token, passed as `GITHUB_TOKEN`. The bundled config points at
+  `https://api.githubcopilot.com/mcp/`; change `url` in the config if you use a
+  different endpoint.
+- **Vercel**: an account token with access to the team/projects you want the
+  model to see, passed as `VERCEL_TOKEN`.
+- **Notion / Linear**: access token + refresh token + client id. You can obtain
+  them through the respective MCP OAuth flow or your own integration, then seed
+  them into the deployed KV store:
 
-## 本窗口能提供的
+```bash
+# Writes ~/.gemini-gateway-tokens/{notion,linear}.json into KV using
+# KV_REST_API_URL / KV_REST_API_TOKEN. Never prints token values.
+node scripts/seed-upstream-tokens.mjs
+```
 
-- GitHub 仓库地址、最新 commit、真实 GitHub token（通过安全渠道给，不写文档）
-- 部署后的联调测试、问题修复、代码更新并推送
-- 你只需：导入部署、加 KV、填 `GITHUB_TOKEN` + `PUBLIC_BASE_URL`、把域名发我
+Run the seed step **after** setting the KV variables, and repeat it whenever you
+re-authorize an upstream (a rotated refresh token must exist in KV before the
+first request of a cold instance).
+
+## Operational notes
+
+- Each `/mcp` POST is handled statelessly (Vercel may route to any instance).
+- Function `maxDuration` is 60 seconds (`vercel.json`).
+- Hobby retains runtime logs for 1 hour; use `/healthz` and structured server
+  logs for post-hoc checks.
+- To change the exposed tool catalog, edit the `denyTools` / `allowTools`
+  arrays. The **outer** tool surface (`search` / `execute_read` / `execute`)
+  should not change; changing it requires a versioned endpoint and a client
+  reconnect.
+
+## Troubleshooting
+
+| Symptom | Likely cause |
+|---|---|
+| `/mcp` 401 without `WWW-Authenticate` | `PUBLIC_BASE_URL` missing or wrong |
+| OAuth metadata 404 | Old deployment; redeploy the current commit |
+| `invalid_request: dynamic client registration is disabled` | Expected in locked mode; enter the client id/secret in the client's advanced settings |
+| Redirect URI rejected | Client must use a Google-hosted redirect URI; registration is limited by design |
+| Consent page redirects but `/token` never arrives | Stale deployment; the consent page uses a meta refresh to survive Google's relay |
+| KV errors | `KV_REST_API_URL` / `KV_REST_API_TOKEN` absent or not applied to the environment, or no redeploy |
+| `invalid_token` / `invalid_grant` from an upstream | Re-authorize the upstream and re-seed KV tokens |

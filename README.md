@@ -1,86 +1,235 @@
 # gemini-mcp-gateway
 
-标准远程 MCP 网关：**核心目的是省上下文**——把 4 个上游 MCP 的 456 个工具定义（约 217,601 tokens）压成固定的 3 个 Code Mode 工具（约 1,286 tokens，省 99.4%），供 Gemini 网页版自定义连接器使用。详见 `docs/WHY.md`。
+[![CI](https://github.com/Bruce-Yii/gemini-mcp-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/Bruce-Yii/gemini-mcp-gateway/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D20.19-339933.svg)](package.json)
 
-模型先 `search` 找到工具，再写一段 JS 用 `execute_read` / `execute` 在沙箱里编排上游工具；只有脚本的 `return` 值进入对话上下文。上游工具本身仍在网关内可调用（当前配置启用 191 个），只是定义不常驻上下文。
+**A Code Mode MCP gateway for web-based MCP clients.** It collapses hundreds of
+upstream MCP tool definitions into **three stable tools** and keeps tool payloads
+out of the model's context.
 
-## 当前状态：已上线
+Measured on the bundled catalog: connecting four upstream MCP servers directly
+puts **456 tool definitions (~217,601 tokens)** into the model context. This
+gateway exposes **3 tools (~1,286 tokens)**, a **99.4% reduction** — while the
+same upstream tools stay callable inside an isolated sandbox.
 
-- [x] catalog / sanitize / upstreams / server / codemode / oauth / store 模块
-- [x] 单元 + 集成测试（288 项通过）
-- [x] OAuth 2.1 DCR + PKCE + Vercel 部署，线上全链路验证通过（6 redirect URI / PKCE / state / token / MCP 握手）
-- [x] 四个上游接入：GitHub / Notion / Linear / Vercel（refresh token 轮换 + 失效自愈）
-- [x] Code Mode 沙箱：Vercel `run` SDK（QuickJS + worker thread）真隔离，有逃逸回归测试
-- [x] 上下文节省实测（`scripts/measure-context.mjs`：217,601 → 1,286 tokens，-99.4%）
-- [x] 在 Gemini 网页版实际连接并用真实任务反馈迭代（见 `docs/GEMINI-REAL-TASK-FEEDBACK.md`）
-- [x] 部署校验：`GET /healthz` 返回 commit / buildHash / mode / servers；本地用 `node scripts/write-build-info.mjs --print` 对照 buildHash
+The model first calls `search` to discover tools, then writes a short JavaScript
+function that calls `execute_read` (read-only) or `execute` (read/write). Only
+the function's return value enters the conversation.
 
-线上域名：`https://gemini-mcp-gateway-yu-ac3a.vercel.app/mcp`　仓库：`https://github.com/Bruce-Yii/gemini-mcp-gateway`
+> **Status: v0.1 alpha, single-user / self-hosted.** Tested with Gemini web
+> custom apps. Other MCP clients are expected to work but are not yet verified.
+> APIs and configuration may change before 1.0.
 
-### Token 注入（重要）
+**中文文档: [README.zh-CN.md](README.zh-CN.md)**
 
-凭据**只走环境变量**，绝不进配置文件/git/日志。HTTP 上游用 `tokenEnv` 字段指定环境变量名，刷新参数用 `refreshEnv` / `clientIdEnv` / `expiresInEnv` / `obtainedAtEnv`：
+## Why
 
-```json
-{ "name": "github", "transport": "http",
-  "url": "https://api.githubcopilot.com/mcp/",
-  "tokenEnv": "GITHUB_TOKEN",
-  "denyTools": ["get_teams", "get_team_members"] }
+Web MCP clients inject every connected tool's full definition (name,
+description, JSON schema) into the prompt. With four upstream servers that is
+already ~218k tokens of constant overhead, squeezing out conversation history,
+documents and reasoning.
+
+This gateway makes the model-facing surface constant and small, and moves tool
+orchestration into a sandbox:
+
+```
+Gemini / MCP client
+        │  Streamable HTTP + OAuth 2.1
+        ▼
+┌──────────────────────────────────────────────┐
+│  gemini-mcp-gateway                           │
+│                                               │
+│  search(query, limit?)     progressive discovery
+│  execute_read(code)        read-only sandbox  │
+│  execute(code)             read/write sandbox │
+│                                               │
+│        QuickJS worker sandbox  (no process,   │
+│        no require, no fetch, no Node globals) │
+│                     │                         │
+│   codemode.github__list_issues({...})         │
+│   codemode.notion__notion_search({...})       │
+│   codemode.linear__list_issues({...})         │
+│   codemode.vercel__list_deployments({...})    │
+└─────────────────────┬─────────────────────────┘
+                      │
+        MCP over Streamable HTTP (with token lifecycle)
+                      │
+      GitHub · Notion · Linear · Vercel · (your upstreams)
 ```
 
-`npm start` 前先注入 token（`setx GITHUB_TOKEN <token>` 或进程环境变量）。`scripts/verify-real-github.mjs` 演示了从 CC Switch 的 Copilot token 读取并注入环境变量（不落盘、不打印）。
+Only `return` values and compact `search` results reach the model. Large
+upstream payloads are filtered/aggregated inside the sandbox.
 
-## 设计
+## Features
 
-Code Mode 形态（`src/codemode.js`）：
+- **Three stable tools** — `search`, `execute_read`, `execute`. The tool surface
+  never changes mid-session (Gemini does not consume
+  `notifications/tools/list_changed`).
+- **Engine-level sandbox** — QuickJS in a worker thread via the Vercel `run`
+  SDK; guest code has no `process`, `require`, `fetch` or Node globals. Escape
+  regression tests included.
+- **Progressive discovery** — BM25 + identifier-aware ranking, `select:<name>`
+  for full JSON schemas, and a small Chinese-query synonym layer.
+- **Context discipline** — compact result projection, structured truncation,
+  per-run read-only dedup, a per-execution call budget, and `safeAll()` for
+  partial-batch failures.
+- **OAuth 2.1 authorization server** — DCR, PKCE S256, state passthrough,
+  non-rotating refresh tokens, optional locked-client mode
+  (`ALLOWED_CLIENT_ID`).
+- **Upstream token lifecycle** — refresh/rotation, CAS fencing, invalid-grant
+  terminal state and self-healing for Notion/Linear; static bearer/env tokens
+  for GitHub/Vercel.
+- **Gemini-safe schemas** — every registered tool schema passes `sanitizeTool`
+  (arrays get `items`, multi-types collapse, deep `oneOf` truncated); results
+  are text JSON (no `structuredContent`).
+- **Deploy verification** — `GET /healthz` exposes the build commit and a hash
+  of the runtime sources.
+- **Offline tests** — 288 unit/integration tests and a fake-upstream harness;
+  no network or credentials needed.
 
+## Quick start (local)
+
+Requirements: **Node.js >= 20.19**.
+
+```bash
+git clone https://github.com/Bruce-Yii/gemini-mcp-gateway.git
+cd gemini-mcp-gateway
+npm ci
+npm test            # offline: 288 tests
+npm run smoke       # fake upstream MCP server, no credentials
+npm start           # http://localhost:3000/mcp
 ```
-Gemini → [网关 /mcp]
-          ├─ search(query, limit?)                  ← 渐进发现上游工具
-          ├─ execute_read(code)                     ← 只读沙箱（客户端可少弹审批）
-          └─ execute(code)                          ← 读写沙箱
-                 └─ 沙箱内 codemode.<server>__<tool>(args) → GitHub / Notion / Linear / Vercel
+
+`npm start` uses `config.example.json`; upstreams whose `tokenEnv` variables are
+unset are skipped, so you can inspect the three-tool surface first (e.g. with
+MCP Inspector). To use real upstreams, export the tokens listed below.
+
+Measurement scripts (offline, no model calls):
+
+```bash
+node scripts/measure-context.mjs          # tool-definition context footprint
+node scripts/eval-search.mjs              # offline search recall
+node scripts/write-build-info.mjs --print # current commit + runtime source hash
 ```
 
-关键约束（含历史原因）：
-- Streamable HTTP、MCP 2025-11-25；工具列表会话中不变（Gemini 不消费 `notifications/tools/list_changed`，改 schema 要换版本路径）
-- schema 过 `sanitizeTool`（array 必须有 items、多类型收敛、深 oneOf 截断）
-- 上游工具名用 `server__tool`（双下划线）；结果用文本 JSON（不用 `structuredContent`）
-- 沙箱真隔离：QuickJS in worker thread，无 process/require/fetch/Node globals
+## Configuration
 
-`whitelist` 模式仍保留（`config.mode` 切换），用于本地调试与对照，不是线上形态。
+Configuration lives in `config.example.json` (copy it and point
+`GATEWAY_CONFIG` at your copy, or pass `--config`). Upstream entries support:
 
-## 快速开始（开发）
-
-```powershell
-cd D:\12412\dsh工作区\projects\gemini-mcp-gateway
-npm install
-npm test
-npm run smoke     # 本地假上游冒烟
-npm start         # http://localhost:3000/mcp
+```jsonc
+{
+  "mode": "codemode",                 // codemode (default) or whitelist (legacy/debug)
+  "servers": [{
+    "name": "github",
+    "transport": "http",              // "http" (Streamable HTTP) or "stdio"
+    "url": "https://api.githubcopilot.com/mcp/",
+    "tokenEnv": "GITHUB_TOKEN",       // bearer token comes from this env var
+    "allowTools": [],                 // optional allowlist (empty = all)
+    "denyTools": ["get_teams"]        // optional denylist
+  }]
+}
 ```
 
-诊断脚本：
+OAuth-capable upstreams also take `refreshEnv`, `clientIdEnv`, `expiresInEnv`
+and `obtainedAtEnv` (see `config.example.json` for Notion/Linear).
 
-```powershell
-node scripts/measure-context.mjs   # 工具面上下文占用（当前 Code Mode 口径）
-node scripts/eval-search.mjs       # 离线搜索召回（生产目录 191 个工具）
-node scripts/write-build-info.mjs --print  # 当前 checkout 的 commit/buildHash
-```
+Environment variables used by the reference deployment:
 
-配置见 `config.example.json`（真实凭据不进仓库）。工具裁剪现状见 `docs/UNNEEDED-TOOLS.md`。
-
-## 目录
-
-| 路径 | 用途 |
+| Variable | Purpose |
 |---|---|
-| `docs/WHY.md` | 项目目的 + 上下文节省实测 |
-| `docs/GEMINI-PROBE.md` | 网页端体感探针：手动任务序列 + 提问脚本（把 Gemini 的回答贴回来即可） |
-| `docs/CODEMODE-SURVEY.md` / `docs/DSH-CODEMODE-FIT.md` | Code Mode 横向调研 / DSH 本地接入调研（快照，非规范） |
-| `CONTRACT.md` / `CONTRACT.vercel.md` | 历史阶段契约（whitelist / Vercel-OAuth）；Code Mode 以 `src/` + `tests/` 为准 |
-| `DEPLOY.md` | 部署交接文档（whitelist 时代，待刷新） |
-| `src/` | catalog / sanitize / upstreams / server / codemode / tool-format / oauth / store / vercel-app |
-| `tests/` | 单元 + 集成测试（288 项） |
-| `harness/` | 假上游 MCP server |
-| `scripts/` | 冒烟 / 真实 GitHub 验证 / 工具采集 / 上下文与搜索评测 / build 信息 |
-| `data/tool-dataset.json` | 4 个上游真实工具 schema（456 个，测量依据） |
+| `GITHUB_TOKEN` | GitHub MCP bearer token (PAT or Copilot token) |
+| `NOTION_TOKEN`, `NOTION_REFRESH_TOKEN`, `NOTION_CLIENT_ID`, `NOTION_EXPIRES_IN`, `NOTION_OBTAINED_AT` | Notion upstream credentials |
+| `LINEAR_TOKEN`, `LINEAR_REFRESH_TOKEN`, `LINEAR_CLIENT_ID`, `LINEAR_EXPIRES_IN`, `LINEAR_OBTAINED_AT` | Linear upstream credentials |
+| `VERCEL_TOKEN` | Vercel MCP bearer token |
+| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Upstash Redis for OAuth client/token storage |
+| `PUBLIC_BASE_URL` | Public base URL of the deployment (e.g. `https://<your-domain>`) |
+| `ALLOWED_CLIENT_ID`, `ALLOWED_CLIENT_SECRET` | Lock the gateway to one pre-registered OAuth client (**required for production**) |
+| `GATEWAY_CONFIG`, `UPSTREAMS_JSON` | Optional inline config overrides |
+
+**Bring your own upstream credentials.** This repository does not implement
+OAuth acquisition for upstream services: obtain a PAT/API token yourself and
+pass it via env. Notion/Linear access+refresh tokens can be seeded into the
+hosted KV store with `scripts/seed-upstream-tokens.mjs`.
+
+## Deploy
+
+See **[DEPLOY.md](DEPLOY.md)** for a Vercel + Upstash KV walkthrough, the exact
+environment variables, safe deployment defaults, and verification steps
+(`/healthz`, well-known metadata, `/mcp` 401 with `WWW-Authenticate`).
+
+## Connect a client
+
+- **Gemini web (tested):** Settings → Connected Apps → Custom apps → add
+  `https://<your-domain>/mcp`. In locked mode, enter your `ALLOWED_CLIENT_ID` /
+  `ALLOWED_CLIENT_SECRET`. Google currently limits custom apps to personal
+  accounts, 18+, in the US, using English.
+- **Other MCP clients (untested):** any client supporting Streamable HTTP and
+  either a static `Authorization` header or OAuth 2.1 should work. Please report
+  compatibility results in an issue.
+
+## Benchmarks and testing
+
+All numbers below are reproducible offline against the bundled catalog:
+
+| Metric | Result |
+|---|---|
+| Tool-definition context, 4 upstreams directly | 456 tools ≈ 217,601 tokens |
+| Tool-definition context, this gateway | 3 tools ≈ 1,286 tokens (**-99.4%**) |
+| Offline search recall (191 tool-level tasks, English) | top1 **56.5%**, top5 **72.3%** |
+| Offline search recall (19 realistic Chinese queries) | top1 **84%**, top5 **95%** |
+| Offline tests | **288** passing |
+
+```bash
+npm test
+node scripts/eval-search.mjs
+node scripts/measure-context.mjs
+```
+
+These are lexical-search and token-estimate measurements, not end-to-end model
+benchmarks; see [docs/WHY.md](docs/WHY.md) for methodology and caveats.
+
+## Security
+
+Read **[SECURITY.md](SECURITY.md)** before deploying. In short: this is a
+**single-user** gateway that holds real upstream credentials. Always set
+`ALLOWED_CLIENT_ID`, use least-privilege upstream tokens, and never share a
+deployment between users. The sandbox provides isolation, not authorization.
+
+## Repository layout
+
+| Path | Purpose |
+|---|---|
+| `src/` | catalog/search, schema sanitizer, upstream client, sandbox, OAuth, Vercel app |
+| `tests/` | offline unit + integration tests |
+| `harness/` | fake upstream MCP server |
+| `scripts/` | smoke, dataset collection, context/search measurement, build info |
+| `data/tool-dataset.json` | real tool schemas used for measurements |
+| `docs/` | design notes, context measurements, sandbox threat notes, research snapshots |
+| `explore/` | optional real-model exploratory harness (not part of CI) |
+
+## Docs
+
+- [docs/WHY.md](docs/WHY.md) — problem, measurements, external evidence
+- [docs/SANDBOX-SECURITY.md](docs/SANDBOX-SECURITY.md) — sandbox model and caveats
+- [docs/CODEMODE-SURVEY.md](docs/CODEMODE-SURVEY.md) — Code Mode landscape survey
+- [docs/UNNEEDED-TOOLS.md](docs/UNNEEDED-TOOLS.md) — how the bundled tool denylist was chosen
+- [docs/GEMINI-OFFICIAL-DOCS.md](docs/GEMINI-OFFICIAL-DOCS.md) — Gemini connector constraints
+- [CONTRIBUTING.md](CONTRIBUTING.md) · [CHANGELOG.md](CHANGELOG.md) · [SECURITY.md](SECURITY.md)
+
+## Known limitations
+
+- Single-tenant by design; there is no multi-tenant credential isolation.
+- Upstream credential acquisition (OAuth flows for Notion/Linear/etc.) is out of
+  scope; bring tokens.
+- Only four upstream templates ship in the box; adding a fifth is configuration
+  plus documentation, not code, but it has not been packaged as a wizard yet.
+- Gemini custom apps have regional/account restrictions imposed by Google.
+- The outer tool surface is intentionally stable; breaking changes require a
+  versioned endpoint and a client reconnect.
+
+## License
+
+[MIT](LICENSE). Not affiliated with Google, Vercel, Cloudflare, GitHub, Notion
+or Linear.

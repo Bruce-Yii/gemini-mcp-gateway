@@ -3,8 +3,8 @@
 > **归档说明（2026-11-22 从 `work/` 移入 `docs/`）**：调研快照，不是规范。DSH 版本与配置字段可能随后升级变化，接入前按文末"版本敏感"一条复核。
 
 > 只读调研，未改任何代码。调研时间 2026-11-22。
-> DSH 版本：`0.2.2-rc.5`（`@deepseek-ai/dsh-desktop-runtime`），profile=`desktop`，`DSH_HOME=D:\12412\dsh-home`。
-> 网关对象：`D:\12412\dsh工作区\projects\gemini-mcp-gateway`（线上 `https://gemini-mcp-gateway-yu-ac3a.vercel.app/mcp`）。
+> DSH 版本：`0.2.2-rc.5`（`@deepseek-ai/dsh-desktop-runtime`），profile=`desktop`，`DSH_HOME=<DSH_HOME>`。
+> 网关对象：`<repo>`（线上 `https://<your-domain>/mcp`）。
 
 ---
 
@@ -45,10 +45,10 @@
 
 1. 本地（或线上域名）确认 `/mcp` 可达；网关保持 `codemode` 模式，只暴露 3 个工具。
 2. 用浏览器走一次网关的 OAuth 同意流程，拿到 `access_token`（PKCE S256、state 约 1400 字符，走网关同意页）。
-3. 在 `D:\12412\dsh-home\profiles\desktop\cordis.patch.yml` 增加一条 `dsh-mcp-client` 条目：
+3. 在 `<DSH_HOME>\profiles\desktop\cordis.patch.yml` 增加一条 `dsh-mcp-client` 条目：
    - `serverName: geminigw`（或 `codemode`）
    - `transport: streamable-http`
-   - `url: https://gemini-mcp-gateway-yu-ac3a.vercel.app/mcp`（或本地 `http://localhost:3000/mcp`）
+   - `url: https://<your-domain>/mcp`（或本地 `http://localhost:3000/mcp`）
    - `headers.Authorization: 'Bearer ${credential:GEMINI_GW_TOKEN}'` + `expandTemplates: true`
    - `failOnStartupError: true`、`toolCallTimeoutMs: 120000`（沙箱 + 上游调用比普通工具慢）
    - token 通过 DSH 凭据存储/环境变量注入，不写进 patch（避免重蹈现有 `mcp-linear` 条目把 Bearer 明文写进配置的覆辙）。
@@ -79,7 +79,7 @@
 
 - **库**：依赖 `@modelcontextprotocol/client` 2.2.0（`dsh-mcp-client/package.json:53`）。README 明确："The official SDK selects the 2026-07-28 protocol when available and falls back to supported legacy revisions."（`README.md:28`）→ 网关的 `2025-11-25` 兼容。
 - **传输**：只支持两种——`stdio` 与 `streamable-http`（`README.md:57`）。`src/transport.ts:40-44` 直接 `new StreamableHTTPClientTransport(new URL(config.url), { requestInit: { headers: config.headers } })`。**不做 SSE fallback、不做 OAuth**。
-- **现成例证**：本机 desktop profile 已经用 streamable-http 连过 Linear（`D:\12412\dsh-home\profiles\desktop\cordis.patch.yml:277-286`：`serverName: linear`、`transport: streamable-http`、`url: https://mcp.linear.app/mcp`、`headers.Authorization: "Bearer …"`）。这直接证明"DSH 本地连远程 HTTP MCP + Bearer header"路径已在本机跑通过。（注意该条目的 token 是明文写在配置里的，新接入不要照抄这个坏习惯。）
+- **现成例证**：本机 desktop profile 已经用 streamable-http 连过 Linear（`<DSH_HOME>\profiles\desktop\cordis.patch.yml:277-286`：`serverName: linear`、`transport: streamable-http`、`url: https://mcp.linear.app/mcp`、`headers.Authorization: "Bearer …"`）。这直接证明"DSH 本地连远程 HTTP MCP + Bearer header"路径已在本机跑通过。（注意该条目的 token 是明文写在配置里的，新接入不要照抄这个坏习惯。）
 - **配置字段**（`README.md:55-71`）：`serverName`（`[A-Za-z0-9_-]{1,32}`）、`transport`、`url`/`headers`、`toolCallTimeoutMs`（默认 60000）、`startupTimeoutMs`、`failOnStartupError`（默认 false）、`reconnect.*`、`expandTemplates`（默认 false）、`maxInstructionBytes`。
 - **凭据**：`expandTemplates: true` 时 `url`/`headers`/`env` 等支持 `${credential:REF}`，由 credentials provider 解析并对诊断信息打码（`README.md:64,101-105`；`dsh-mcp-manager/README.md:82`）。DSH 凭据文件支持 `grant` 类型 + `type: oauth` 记录（`dsh-credentials-local/README.md:93-100`），但**这是通用存储，不是 MCP 的 OAuth 客户端流程**——token 得由外部先拿到再存进去。
 - **OAuth DCR / PKCE**：在 `dsh-mcp-client`、`dsh-mcp-manager` 的源码与文档中**未找到**任何 DCR、authorization code、PKCE challenge 的实现；只支持静态 header。DSH 里确实存在 PKCE 代码，但属于其他子系统：`dsh-deepseek-account`（DeepSeek 账号登录，`README.zh.md:68`）、`dsh-experimental-liveshare`（owner 授权，`src/host/owner-authorization.ts:36,64`）、`dsh-credentials` 的快照字段说明（`docs/subsystems/credentials.md:274`）——**都与 MCP 连接无关**。
@@ -187,7 +187,7 @@ PTC 机制（`dsh-tool-executor-ptc/README.md`）：
 
 ## 8. 证据索引
 
-**DSH 实现 checkout**：`D:\12412\DeepSeek Harness\resources\app.asar\dsh\`（版本 `0.2.2-rc.5`，见 `package.json:2-4,13`；通过 `ELECTRON_RUN_AS_NODE=1` + Electron exe 做 ASAR 内只读检索，Host `read` 工具可直接读 ASAR 内文件）。
+**DSH 实现 checkout**：`<DSH checkout>`（版本 `0.2.2-rc.5`，见 `package.json:2-4,13`；通过 `ELECTRON_RUN_AS_NODE=1` + Electron exe 做 ASAR 内只读检索，Host `read` 工具可直接读 ASAR 内文件）。
 
 - `node_modules/@deepseek-ai/dsh-mcp-client/README.md:12,28,55-71,74-96,101-105,157,193-209,225-237`
 - `node_modules/@deepseek-ai/dsh-mcp-client/src/transport.ts:31-45`
@@ -201,17 +201,17 @@ PTC 机制（`dsh-tool-executor-ptc/README.md`）：
 - `node_modules/@deepseek-ai/dsh-base/cordis.patch.yml:407-411,522-524`
 - `node_modules/@deepseek-ai/dsh-web-app/presets/ptc.patch.yml:127-128`
 - `node_modules/@deepseek-ai/dsh-client-hmr/README.md:12,32,103,118`
-- `D:\12412\dsh-home\profiles\desktop\cordis.patch.yml:93-102`（模型配置）、`:277-286`（已有 Linear streamable-http 例证，含明文 token，勿照抄）、`:342-346`（agent-loop 并发）
-- `D:\12412\dsh-home\profiles\desktop\cordis.yml:1-4`（profile 由 patch 组合）
+- `<DSH_HOME>\profiles\desktop\cordis.patch.yml:93-102`（模型配置）、`:277-286`（已有 Linear streamable-http 例证，含明文 token，勿照抄）、`:342-346`（agent-loop 并发）
+- `<DSH_HOME>\profiles\desktop\cordis.yml:1-4`（profile 由 patch 组合）
 
 **网关侧**：
 
-- `D:\12412\dsh工作区\projects\gemini-mcp-gateway\README.md:7-17,56-63`
-- `D:\12412\dsh工作区\projects\gemini-mcp-gateway\AGENTS.md:8-13`
-- `D:\12412\dsh工作区\projects\gemini-mcp-gateway\CONTRACT.vercel.md:8,15-33,83-96`
-- `D:\12412\dsh工作区\projects\gemini-mcp-gateway\src\codemode.js:885-919`
-- `D:\12412\dsh工作区\projects\gemini-mcp-gateway\src\vercel-app.js:133-144`
-- `D:\12412\dsh工作区\projects\gemini-mcp-gateway\CONTRACT.md:72,91`
+- `<repo>\README.md:7-17,56-63`
+- `<repo>\AGENTS.md:8-13`
+- `<repo>\CONTRACT.vercel.md:8,15-33,83-96`
+- `<repo>\src\codemode.js:885-919`
+- `<repo>\src\vercel-app.js:133-144`
+- `<repo>\CONTRACT.md:72,91`
 
 **官方文档/技能**：`dsh-doc` 技能 `references/mcp-bundle.md:3-5`（配置式 MCP bundle 用 `transport: streamable-http`）、`references/locate-docs.md:23-27,64-66`（Desktop ASAR 读取方式）。
 

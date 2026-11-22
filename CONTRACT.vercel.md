@@ -1,5 +1,7 @@
 # Vercel / OAuth-DCR 阶段接口契约
 
+> **Historical document.** This contract covers the Vercel / OAuth deployment phase. Current behavior is authoritative in `src/` and `tests/`.
+
 本地 MVP 契约见 `CONTRACT.md`（保持不动）。本文件定义 Vercel 部署 + OAuth 授权服务器阶段的所有文件路径与导出接口。所有子代理严格遵守，只写自己的文件。
 
 ## 目标
