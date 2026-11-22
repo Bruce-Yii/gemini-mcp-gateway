@@ -7,6 +7,8 @@
  * Linear/Notion: DSH's cached tool catalog (avoids needing live OAuth tokens).
  */
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
@@ -19,7 +21,9 @@ function ccSwitchGithubToken() {
   } catch { return ''; }
 }
 function dshCached(keyPart) {
-  const f = 'D:\\12412\\dsh-home\\storages\\mcp_connector.json';
+  // Optional: reuse the tool catalog cached by a local DSH installation.
+  const dshHome = process.env.DSH_HOME || path.join(os.homedir(), '.dsh');
+  const f = path.join(dshHome, 'storages', 'mcp_connector.json');
   if (!fs.existsSync(f)) return [];
   const j = JSON.parse(fs.readFileSync(f, 'utf8'));
   const arr = Object.values(j.tables?.tool_catalog ?? {});

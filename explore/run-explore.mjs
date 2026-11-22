@@ -41,17 +41,35 @@ if (/\/inference\/openai\//.test(MODEL_BASE) || !/free/.test(MODEL)) {
 const MODEL_KEY = process.env.EXPLORE_MODEL_KEY || readOpencodeKey();
 
 function readOpencodeKey() {
-  // from DSH credentials refs
-  const c = fs.readFileSync('D:\\12412\\dsh-home\\.credentials.yaml', 'utf8');
-  const m = /^\s{2}OPENCODE_GO_API_KEY:\s*(.+?)\s*$/m.exec(c);
-  return m ? m[1] : '';
+  // Optional local convenience only. Set EXPLORE_MODEL_KEY in CI/other setups.
+  const dshHome = process.env.DSH_HOME || path.join(os.homedir(), '.dsh');
+  const file = path.join(dshHome, '.credentials.yaml');
+  try {
+    const c = fs.readFileSync(file, 'utf8');
+    const m = /^\s{2}OPENCODE_GO_API_KEY:\s*(.+?)\s*$/m.exec(c);
+    return m ? m[1] : '';
+  } catch {
+    return '';
+  }
 }
 
-// ---- upstream tokens (env only) ----
-const n = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.gemini-gateway-tokens/notion.json'), 'utf8'));
-const l = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.gemini-gateway-tokens/linear.json'), 'utf8'));
-const cop = JSON.parse(fs.readFileSync('C:/Users/12412/.cc-switch/copilot_auth.json', 'utf8'));
-process.env.GITHUB_TOKEN = Object.values(cop.accounts ?? {})[0]?.github_token ?? '';
+// ---- upstream tokens (env only; local files are a convenience, never committed) ----
+const TOKEN_DIR = process.env.GEMINI_GATEWAY_TOKENS_DIR || path.join(os.homedir(), '.gemini-gateway-tokens');
+function readTokenFile(file, hint) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    console.error(`[explore] cannot read ${file}: ${hint}`);
+    process.exit(2);
+  }
+}
+const n = readTokenFile(path.join(TOKEN_DIR, 'notion.json'), 'set GEMINI_GATEWAY_TOKENS_DIR or create the file');
+const l = readTokenFile(path.join(TOKEN_DIR, 'linear.json'), 'set GEMINI_GATEWAY_TOKENS_DIR or create the file');
+const cop = readTokenFile(
+  path.join(os.homedir(), '.cc-switch', 'copilot_auth.json'),
+  'export GITHUB_TOKEN instead, or create ~/.cc-switch/copilot_auth.json',
+);
+process.env.GITHUB_TOKEN = process.env.GITHUB_TOKEN || Object.values(cop.accounts ?? {})[0]?.github_token || '';
 process.env.NOTION_TOKEN = n.access_token; process.env.NOTION_REFRESH_TOKEN = n.refresh_token;
 process.env.NOTION_CLIENT_ID = n.client_id; process.env.NOTION_EXPIRES_IN = String(n.expires_in);
 process.env.NOTION_OBTAINED_AT = String(new Date(n.obtained_at).getTime());

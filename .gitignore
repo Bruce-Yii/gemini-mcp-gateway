@@ -8,5 +8,10 @@ work/
 .vercel
 explore/results/traces/
 explore/results/anomalies/
+explore/results/anomalies.json
 explore/results/manifest.json
 explore/results/metrics.json
+
+# Local workflow / internal notes kept out of the public repository.
+docs/HANDOFF.md
+project.json
