@@ -34,7 +34,9 @@
     "check:config": "node scripts/check-config.mjs",
     "bench": "node bench/run.mjs",
     "bench:dry": "node bench/run.mjs --dry-run",
-    "audit:tools": "node scripts/audit-tools.mjs --server figma"
+    "audit:tools": "node scripts/audit-tools.mjs --server figma",
+    "check:tasks": "node scripts/check-task-coverage.mjs --server figma",
+    "gen:tasks": "node scripts/gen-figma-tasks.mjs"
   },
   "engines": {
     "node": ">=20.19.0"

@@ -270,6 +270,42 @@ function pickMeta(source, keys) {
   return out;
 }
 
+/* ------------------------------------------------------------------ *
+ * Binary (image/audio) resource blobs
+ *
+ * MCP embedded resources may carry base64 in `resource.blob` with an
+ * `image/*` or `audio/*` mimeType. Decoding that as UTF-8 produces mojibake
+ * in `text[]` and is useless to the model; the gateway's native image
+ * passthrough needs `{data, mimeType}` in `images[]` instead. Text-ish
+ * resources keep the original UTF-8 decoding path unchanged.
+ * ------------------------------------------------------------------ */
+
+/** Hard cap on a decoded binary resource payload (1 MiB). */
+export const MAX_RESOURCE_BINARY_BYTES = 1024 * 1024;
+
+/** Strict-enough base64 shape check: invalid blobs keep the legacy text path. */
+function isBase64Blob(blob) {
+  return typeof blob === 'string' && blob.length % 4 === 0 &&
+    /^[A-Za-z0-9+/]*={0,2}$/.test(blob);
+}
+
+/** Cheap upper-bound estimate of decoded bytes, avoiding a huge decode just to reject. */
+function estimateDecodedBytes(base64) {
+  const padding = /={1,2}$/.exec(base64)?.[0].length ?? 0;
+  return Math.max(0, Math.floor(base64.length * 3 / 4) - padding);
+}
+
+/** Classify a resource.blob: 'image' | 'audio' | null (legacy text path). */
+function binaryResourceKind(res) {
+  if (typeof res.blob !== 'string' || typeof res.mimeType !== 'string') return null;
+  const mime = res.mimeType.toLowerCase();
+  if (!mime.startsWith('image/') && !mime.startsWith('audio/')) return null;
+  // A malformed blob is not base64: leave it on the legacy UTF-8 path so the
+  // original behavior (including its replacement chars) is preserved.
+  if (!isBase64Blob(res.blob)) return null;
+  return mime.startsWith('image/') ? 'image' : 'audio';
+}
+
 /**
  * Unwrap an upstream MCP tool result, preserving ALL content blocks.
  *
@@ -317,6 +353,35 @@ export function unwrapResult(result) {
         break;
       case 'resource': {
         const res = c.resource && typeof c.resource === 'object' ? c.resource : {};
+        const kind = binaryResourceKind(res);
+
+        if (kind !== null) {
+          // Binary payload: never UTF-8-decode it into `texts` (that yields
+          // mojibake and floods the model context with garbage/base64).
+          const estimated = estimateDecodedBytes(res.blob);
+          const meta = { uri: res.uri, mimeType: res.mimeType, size: estimated };
+          if (estimated > MAX_RESOURCE_BINARY_BYTES) {
+            // Over cap: keep metadata + a short marker; no native image block.
+            resources.push({ ...meta, omitted: 'binary payload over cap' });
+            break;
+          }
+          const size = Buffer.from(res.blob, 'base64').length;
+          const dataLength = res.blob.length;
+          if (kind === 'image') {
+            // `blobRef` points at the entry we are about to add to `images[]`;
+            // server.js's collectImages() turns it into a native MCP image
+            // content block and leaves a compact {__imageRef, mimeType} behind.
+            const blobRef = images.length;
+            images.push({ data: res.blob, mimeType: res.mimeType, size });
+            resources.push({ ...meta, size, dataLength, blobRef });
+          } else {
+            // Audio stays metadata-only: no native image block, no base64 in
+            // text. The payload length tells the model audio was present.
+            resources.push({ ...meta, size, dataLength });
+          }
+          break;
+        }
+
         let body = '';
         if (typeof res.text === 'string') body = res.text;
         else if (typeof res.blob === 'string') {

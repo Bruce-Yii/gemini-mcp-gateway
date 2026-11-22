@@ -1,0 +1,804 @@
+{
+  "generatedAt": "2026-11-22T16:39:25.407Z",
+  "description": "Coverage tasks for every retained Figma tool (one task per tool).",
+  "count": 46,
+  "officialCount": 18,
+  "skipped": 9,
+  "authorityCounts": {
+    "schema-reverse": 28,
+    "official-verbatim": 18
+  },
+  "tasks": [
+    {
+      "id": "FIG-001",
+      "server": "figma",
+      "tool": "get_screenshot",
+      "prompt": "Take a screenshot of a frame in the test Figma file (first call get_metadata to find a page/frame node id).",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_screenshot"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-002",
+      "server": "figma",
+      "tool": "get_design_context",
+      "prompt": "Generate my Figma selection in Vue.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "get_design_context"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-003",
+      "server": "figma",
+      "tool": "get_motion_context",
+      "prompt": "Use get_motion_context to get keyframe animation data for an animated node in the test Figma file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_motion_context"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-004",
+      "server": "figma",
+      "tool": "get_metadata",
+      "prompt": "Use get_metadata to get a lightweight XML outline of the test Figma file pages, then list the page names.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_metadata"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-005",
+      "server": "figma",
+      "tool": "get_comments",
+      "prompt": "Summarize the unread comments in this Figma file: https://www.figma.com/design/izWTtDxzzsdcA5ZWyaquvS.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "get_comments"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-006",
+      "server": "figma",
+      "tool": "get_variable_defs",
+      "prompt": "Get the variables used in my Figma selection.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "get_variable_defs"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-007",
+      "server": "figma",
+      "tool": "get_figjam",
+      "prompt": "Use get_figjam to read the FigJam diagram in the test file and convert it to an XML outline.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_figjam"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-008",
+      "server": "figma",
+      "tool": "generate_image",
+      "prompt": "Generate a hero image of a mountain trail at sunrise for our landing page.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "generate_image"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-009",
+      "server": "figma",
+      "tool": "generate_vector_illustration",
+      "prompt": "Generate a flat vector illustration of a fox jumping over a fence and add it to https://www.figma.com/design/izWTtDxzzsdcA5ZWyaquvS.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "generate_vector_illustration"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-010",
+      "server": "figma",
+      "tool": "generate_figma_design",
+      "prompt": "Use generate_figma_design to capture a live web page into the existing test Figma design file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "generate_figma_design"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-011",
+      "server": "figma",
+      "tool": "generate_diagram",
+      "prompt": "Create a flowchart for the user authentication flow using the Figma MCP generate_diagram tool.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "generate_diagram"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-012",
+      "server": "figma",
+      "tool": "get_code_connect_map",
+      "prompt": "Use get_code_connect_map to get Code Connect mappings for a component instance in the test Figma file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_code_connect_map"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-013",
+      "server": "figma",
+      "tool": "whoami",
+      "prompt": "Get my Figma identity, plans and seats using whoami.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "whoami"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-014",
+      "server": "figma",
+      "tool": "weave_list_tools",
+      "prompt": "Use the Figma MCP tool \"weave_list_tools\" on the test Figma file (izWTtDxzzsdcA5ZWyaquvS) to lists the weave tools the authenticated user can run — published weave workflows — in their active weave workspace: their own, those shared .",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "weave_list_tools"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ],
+      "skipReason": "requires a paid Figma Weave account"
+    },
+    {
+      "id": "FIG-015",
+      "server": "figma",
+      "tool": "weave_get_tool_inputs",
+      "prompt": "Use the Figma MCP tool \"weave_get_tool_inputs\" on the test Figma file (izWTtDxzzsdcA5ZWyaquvS) to gets the input contract of a weave tool (a published weave workflow) — the inputs you fill in to run it.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "weave_get_tool_inputs"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ],
+      "skipReason": "requires a paid Figma Weave account"
+    },
+    {
+      "id": "FIG-016",
+      "server": "figma",
+      "tool": "weave_run_tool",
+      "prompt": "Use the Figma MCP tool \"weave_run_tool\" on the test Figma file (izWTtDxzzsdcA5ZWyaquvS) to runs a weave tool (a published weave workflow) and returns run ids; poll them with weave_get_tool_run_output.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "weave_run_tool"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ],
+      "skipReason": "requires a paid Figma Weave account"
+    },
+    {
+      "id": "FIG-017",
+      "server": "figma",
+      "tool": "weave_upload_asset",
+      "prompt": "Use the Figma MCP tool \"weave_upload_asset\" on the test Figma file (izWTtDxzzsdcA5ZWyaquvS) to uploads a local image, video, audio or 3d file to weave and returns the asset object.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "weave_upload_asset"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ],
+      "skipReason": "requires a paid Figma Weave account"
+    },
+    {
+      "id": "FIG-018",
+      "server": "figma",
+      "tool": "weave_get_tool_run_output",
+      "prompt": "Use the Figma MCP tool \"weave_get_tool_run_output\" on the test Figma file (izWTtDxzzsdcA5ZWyaquvS) to gets the output and status of runs of a weave tool (a published weave workflow).",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "weave_get_tool_run_output"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ],
+      "skipReason": "requires a paid Figma Weave account"
+    },
+    {
+      "id": "FIG-019",
+      "server": "figma",
+      "tool": "weave_cancel_tool_run",
+      "prompt": "Use the Figma MCP tool \"weave_cancel_tool_run\" on the test Figma file (izWTtDxzzsdcA5ZWyaquvS) to cancels one or more in-progress runs of a weave tool (a published weave workflow).",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "weave_cancel_tool_run"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ],
+      "skipReason": "requires a paid Figma Weave account"
+    },
+    {
+      "id": "FIG-020",
+      "server": "figma",
+      "tool": "weave_find_model",
+      "prompt": "Use the Figma MCP tool \"weave_find_model\" on the test Figma file (izWTtDxzzsdcA5ZWyaquvS) to finds a weave ai model by name so it can be run directly with weave_run_model — no weave tool needed.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "weave_find_model"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ],
+      "skipReason": "requires a paid Figma Weave account"
+    },
+    {
+      "id": "FIG-021",
+      "server": "figma",
+      "tool": "weave_run_model",
+      "prompt": "Use the Figma MCP tool \"weave_run_model\" on the test Figma file (izWTtDxzzsdcA5ZWyaquvS) to runs a weave ai model directly — no weave tool needed — and returns a prediction id; poll it with weave_get_model_run_output.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "weave_run_model"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ],
+      "skipReason": "requires a paid Figma Weave account"
+    },
+    {
+      "id": "FIG-022",
+      "server": "figma",
+      "tool": "weave_get_model_run_output",
+      "prompt": "Use the Figma MCP tool \"weave_get_model_run_output\" on the test Figma file (izWTtDxzzsdcA5ZWyaquvS) to gets the output and status of weave model runs started with weave_run_model.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "weave_get_model_run_output"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ],
+      "skipReason": "requires a paid Figma Weave account"
+    },
+    {
+      "id": "FIG-023",
+      "server": "figma",
+      "tool": "add_code_connect_map",
+      "prompt": "Use add_code_connect_map to map a Figma component in the test file to a code component named Button.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "add_code_connect_map"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-024",
+      "server": "figma",
+      "tool": "get_code_connect_suggestions",
+      "prompt": "Use get_code_connect_suggestions to suggest Code Connect mappings for a component instance in the test Figma file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_code_connect_suggestions"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-025",
+      "server": "figma",
+      "tool": "send_code_connect_mappings",
+      "prompt": "Use send_code_connect_mappings to confirm and save the suggested Code Connect mappings for a component in the test file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "send_code_connect_mappings"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-026",
+      "server": "figma",
+      "tool": "export_video",
+      "prompt": "Export this animated frame as an MP4.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "export_video"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-027",
+      "server": "figma",
+      "tool": "get_context_for_code_connect",
+      "prompt": "Use get_context_for_code_connect to get component metadata needed for a Code Connect template from the test file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_context_for_code_connect"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-028",
+      "server": "figma",
+      "tool": "use_figma",
+      "prompt": "Add a new frame to my Figma file.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "use_figma"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-029",
+      "server": "figma",
+      "tool": "create_session",
+      "prompt": "Use create_session to create a Figma session for the test file before starting file-tool work.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "create_session"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-030",
+      "server": "figma",
+      "tool": "create_branch",
+      "prompt": "Use create_branch to create a new branch of the test Figma design file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "create_branch"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-031",
+      "server": "figma",
+      "tool": "get_libraries",
+      "prompt": "Use get_libraries to list the design libraries associated with the test Figma file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "get_libraries"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-032",
+      "server": "figma",
+      "tool": "search_design_system",
+      "prompt": "Search for a button component in my design system.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "search_design_system"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-033",
+      "server": "figma",
+      "tool": "create_new_file",
+      "prompt": "Create a new Figma file called \"Homepage Redesign.\"",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "create_new_file"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-034",
+      "server": "figma",
+      "tool": "send_code_to_figma",
+      "prompt": "Use send_code_to_figma to import a small local project into a Figma Make or Design code layer.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "send_code_to_figma"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-035",
+      "server": "figma",
+      "tool": "upload_assets",
+      "prompt": "Use upload_assets to upload a small SVG icon into the test Figma file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "upload_assets"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-036",
+      "server": "figma",
+      "tool": "html_to_figma",
+      "prompt": "Create a style sheet from our design tokens and add it to https://www.figma.com/design/izWTtDxzzsdcA5ZWyaquvS.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "html_to_figma"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-037",
+      "server": "figma",
+      "tool": "download_assets",
+      "prompt": "Export these icons from my Figma file as SVGs.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "download_assets"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-038",
+      "server": "figma",
+      "tool": "list_file_shaders",
+      "prompt": "Use list_file_shaders to list the shader effects and fills used in the test Figma file.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "list_file_shaders"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-039",
+      "server": "figma",
+      "tool": "list_shaders",
+      "prompt": "List the shaders in my library.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "list_shaders"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-040",
+      "server": "figma",
+      "tool": "get_shader",
+      "prompt": "Show me the source for my star field shader.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "get_shader"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-041",
+      "server": "figma",
+      "tool": "list_generative_plugins",
+      "prompt": "List my generative plugins.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "list_generative_plugins"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-042",
+      "server": "figma",
+      "tool": "get_generative_plugin",
+      "prompt": "Show me the source for my layer-renaming plugin.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "get_generative_plugin"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-043",
+      "server": "figma",
+      "tool": "create_generative_plugin",
+      "prompt": "Create a new generative plugin called \"Layer renamer\" in my team plan.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "create_generative_plugin"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-044",
+      "server": "figma",
+      "tool": "create_shader",
+      "prompt": "Create a shader fill called \"Topographic contours\" in my team plan.",
+      "authority": "official-verbatim",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "official",
+      "official": true,
+      "expectedTools": [
+        "create_shader"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-045",
+      "server": "figma",
+      "tool": "update_generative_plugin",
+      "prompt": "Use update_generative_plugin to update the Layer renamer generative plugin with a commit message.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "update_generative_plugin"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    },
+    {
+      "id": "FIG-046",
+      "server": "figma",
+      "tool": "update_shader",
+      "prompt": "Use update_shader to update the Topographic contours shader fill with a commit message.",
+      "authority": "schema-reverse",
+      "source": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts",
+      "category": "derived",
+      "official": false,
+      "expectedTools": [
+        "update_shader"
+      ],
+      "preconditions": [
+        "test fileKey izWTtDxzzsdcA5ZWyaquvS",
+        "planKey team::1666468412261620272"
+      ]
+    }
+  ]
+}

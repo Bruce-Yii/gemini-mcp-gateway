@@ -451,7 +451,7 @@ Fallback：Framelink PAT（只读）/ 桌面 server / 等待目录开放
 | Notion | B0–B3 | ✅ | deny 24；53 暴露；refresh/CAS 修复 |
 | Linear | B0–B3 | ✅ | deny 24；36 暴露；无权威 benchmark（结构性缺口已登记） |
 | Vercel | B0–B3 | ✅ | deny 213；60 暴露；平台 API 噪音大 |
-| Figma | B4 | ⚠️ 进行中 | 50 工具；deny 4；保留 46；G1/G2 ✅（快照+审计闭环）；G3 0/46；G4–G6 未做；G7 部分 |
+| Figma | B4 | ⚠️ 进行中 | 50 工具；deny 4；保留 46；G1–G5 ✅；G6 未测（缺 4 上游本地凭据）；G7 部分 |
 
 ### Figma B4 逐门状态
 
@@ -459,19 +459,16 @@ Fallback：Framelink PAT（只读）/ 桌面 server / 等待目录开放
 |---|---|---|
 | G1 | ✅ | 接入/实测/config ✅；tools/list 快照入库；token 强刷实测并同步 Vercel；真实建文件 ✅ |
 | G2 | ✅ | deny 4（ChatGPT/UI 内部）+ policy/审计脚本；audit-tools exit 0（50/46/4） |
-| G3 | ❌ | 任务覆盖 0/46 |
-| G4 | ❌ | Figma 未纳入 measure/eval；仅本地 E2E |
-| G5 | ❌ | 无 Figma 根因报告 |
-| G6 | ❌ | 未重测 |
+| G3 | ✅ | 46/46 任务覆盖；18 official / 28 schema；schema 28/28 top-5；9 个 Weave 任务按账号原因 skip |
+| G4 | ✅ | 506 工具 245,377 tokens vs 3 工具 1,335（-99.5%）；既有 191 条 top1 57.1/top5 72.3（B6 修复后）；Figma schema 28/28 |
+| G5 | ✅ | B6 修复新增上游导致的检索回归（按服务索引 + 窄别名）；无其它 Figma 根因 |
+| G6 | ❌ | 未做 5 上游全量重测：本地缺 GitHub/Notion/Linear/Vercel 凭据（vault 仅 Figma） |
 | G7 | ⚠️ | 部署/hash/servers ✅；线上带客户端 token 真实调用 ❌ |
 
 ### 已知欠账
-1. Figma 46 工具任务集 + 覆盖矩阵（G3）。
-2. Figma 纳入 `measure-context`/`eval-search`，同子集对比（G4）。
-3. Figma 根因报告（G5）。
-4. Figma 全量重测（G6）。
-5. 线上带客户端 token 的真实 Figma 调用（G7）。
-6. 仓库 README 引用的 `ledger.json`（机器可读总账）当前不存在；需确认是否补建/删除引用。
+1. G6：5 上游全量重测需要本地凭据补齐（或用户侧 Gemini 真实任务替代）。
+2. G7：线上带客户端 token 的真实 Figma 调用。
+3. 仓库 README 引用的 `ledger.json`（机器可读总账）当前不存在；需确认是否补建/删除引用。
 
 ---
 

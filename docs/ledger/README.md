@@ -23,7 +23,8 @@
 | B2 | 阶段二：问题逐条根因追溯 + 修复 | ✅ 通过 | batch-2-rootcause.md |
 | B3 | 阶段三：优化后全量重测 | ✅ 通过 | batch-3-retest.md |
 | B4 | 第五个上游 Figma：接入 + deny 收口 + 本地 E2E（任务覆盖/重测未做） | ⚠️ 进行中 | batch-4-figma.md |
-| B5 | Gemini 真实任务反馈：GitHub 冗余/截断/格式/二进制 | ⚠️ 进行中（1–3 已修，4 待实现） | batch-5-gemini-feedback.md |
+| B5 | Gemini 真实任务反馈：GitHub 冗余/截断/格式/二进制 | ⚠️ 进行中（代码层已修，真实客户端重测未做） | batch-5-gemini-feedback.md |
+| B6 | 新增上游导致既有检索回归：按服务索引 + 窄别名 | ✅ 通过（G4 既有子集恢复） | batch-6-search-attribution.md |
 
 ## 门控规则
 

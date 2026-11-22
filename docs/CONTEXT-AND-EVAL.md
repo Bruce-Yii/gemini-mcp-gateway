@@ -23,6 +23,16 @@
 
 完整 Code Mode **已实现并上线**：`search` + `execute`/`execute_read`，结果在沙箱里处理只回摘要。沙箱用 Vercel `run` SDK（QuickJS，真隔离，非 Node vm）。此段旧文字"仍未做"已过期，保留仅作历史。详见 `docs/ledger/batch-0-history.md`、`docs/SANDBOX-SECURITY.md`。
 
+### 2026-11-23 五上游实测
+
+| 项 | 结果 |
+|---|---|
+| 直接工具面 | 506 工具 ≈245,377 tokens |
+| 网关 3 工具 | ≈1,335 tokens（search 1,053B / execute_read 2,084B / execute 2,198B） |
+| 挂载节省 | 99.5%（244,042 tokens） |
+| 既有检索（191 条） | top1 57.1%，top5 72.3%（B6 修复后；基线 56.5/72.3） |
+| Figma schema 检索（28 条） | top5 100% |
+
 ### 截断预算（三层，当前未统一）
 
 | 层 | 位置 | 默认 | 行为 |

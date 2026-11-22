@@ -27,6 +27,8 @@ jobs:
         run: npm test
       - name: Audit committed tool snapshots
         run: node scripts/audit-tools.mjs --server figma
+      - name: Check committed task coverage
+        run: node scripts/check-task-coverage.mjs --server figma
       - name: Validate example configs
         run: |
           node scripts/check-config.mjs config.example.json

@@ -46,16 +46,16 @@
   resource→image 的桥；`server.js` 的 image passthrough 只认 `{type:'image',data}`。
 - **L2**：二进制没有独立投影；文本和图片共用一个解码路径。
 - **L3**：结果协议只考虑了文本。
-- **现状**：只做了只读根因分析（`work` 未入库），**未实现**。建议：mimeType 门控
-  （image/audio 才走二进制）、保留 base64 到 `images[]`、按大小上限（默认 1–2MiB）截断为
-  metadata、绝不把二进制塞进 text；离线 fixture 可测。
-- **状态**：⚠️ 待实现；风险：base64 可能放大上下文，必须 cap/opt-in。
+- **现状**：已实现（`src/tool-format.js` + `tests/resource-blob-image.test.js`）：mimeType 门控
+  （image/audio）、图片转 `images[]` native block、1 MiB cap、超限只给 metadata、文本路径不变。
+- **状态**：✅ 实现；风险：cap 为硬编码 1 MiB，超大图片被省略为 metadata（不与 server 原生
+  image 路径混用）；严格 base64 形状检查会把带空白/URL-safe 的 blob 回退为文本。
 
 ## 验证与门控
 
-- `npm test` → 327/327（含 dedupe/truncation/unwrap 新测试）。
-- 未做：真实 Gemini 重测（B5 的 G6 等价项）、token 前后对比、binary 修复的端到端验证。
-- **不能宣称 B5 通过**；ISSUE-1/2/3 已修，ISSUE-4 未修。
+- `npm test` → 343/343（含 dedupe/truncation/unwrap/binary 新测试）。
+- 未做：真实 Gemini 重测（B5 的 G6 等价项）、token 前后对比、binary 修复的端到端真实调用。
+- **不能宣称 B5 通过**；ISSUE-1/2/3/4 代码层已修，真实客户端回归未做。
 
 ## DEC
 

@@ -87,7 +87,7 @@ upstream payloads are filtered/aggregated inside the sandbox.
   of the runtime sources.
 - **Upstream-agnostic** — any MCP server over Streamable HTTP or stdio; add one
   with a config entry (see [docs/UPSTREAMS.md](docs/UPSTREAMS.md)).
-- **Offline tests** — 327 unit/integration tests and a fake-upstream harness;
+- **Offline tests** — 343 unit/integration tests and a fake-upstream harness;
   no network or credentials needed.
 
 ## Quick start (local)
@@ -195,7 +195,7 @@ All numbers below are reproducible offline against the bundled catalog:
 | Tool-definition context, this gateway | 3 tools ≈ 1,286 tokens (**-99.4%**) |
 | Offline search recall (191 tool-level tasks, English) | top1 **56.5%**, top5 **72.3%** |
 | Offline search recall (19 realistic Chinese queries) | top1 **84%**, top5 **95%** |
-| Offline tests | **327** passing |
+| Offline tests | **343** passing |
 
 ```bash
 npm test

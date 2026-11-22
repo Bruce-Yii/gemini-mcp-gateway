@@ -12,6 +12,8 @@
  *   node scripts/eval-search.mjs --show-misses        # + the missed tasks
  *   node scripts/eval-search.mjs --limit=10           # wider recall window
  *   node scripts/eval-search.mjs --all                # old whole-dataset catalog
+ *   node scripts/eval-search.mjs --tasks explore/figma-tasks.json
+ *   node scripts/eval-search.mjs --tasks explore/figma-tasks.json --authority schema-reverse
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -24,8 +26,15 @@ const args = process.argv.slice(2);
 const hasFlag = (name) => args.includes(name);
 const limitArg = args.find((a) => a.startsWith('--limit='));
 const limit = limitArg ? Number(limitArg.split('=')[1]) : 5;
+const valueArg = (name, fallback) => {
+  const index = args.indexOf(name);
+  return index >= 0 ? args[index + 1] : fallback;
+};
 
-const tasks = JSON.parse(fs.readFileSync(path.join(root, 'explore', 'tasks-v2.json'), 'utf8')).tasks;
+const tasksFile = path.resolve(root, valueArg('--tasks', 'explore/tasks-v2.json'));
+const authorityFilter = valueArg('--authority', null);
+let tasks = JSON.parse(fs.readFileSync(tasksFile, 'utf8')).tasks;
+if (authorityFilter) tasks = tasks.filter((task) => task.authority === authorityFilter);
 const allTools = JSON.parse(fs.readFileSync(path.join(root, 'data', 'tool-dataset.json'), 'utf8'));
 const config = JSON.parse(fs.readFileSync(path.join(root, 'config.example.json'), 'utf8'));
 
@@ -49,6 +58,7 @@ for (const task of tasks) {
 
 const pct = (n) => `${(n / tasks.length * 100).toFixed(1)}%`;
 console.log(`catalog: ${hasFlag('--all') ? `ALL ${catalog.length}` : `PRODUCTION ${catalog.length}`} | tasks: ${tasks.length} | limit: ${limit}`);
+console.log(`tasks file: ${tasksFile}${authorityFilter ? ` | authority: ${authorityFilter}` : ''}`);
 console.log(`top1: ${pct(top1)} (${top1}/${tasks.length}) | top${limit}: ${pct(top5)} (${top5}/${tasks.length}) | misses: ${misses.length}`);
 if (hasFlag('--show-misses')) {
   for (const miss of misses) console.log(`- ${miss.tool} :: ${miss.prompt.slice(0, 90)}`);

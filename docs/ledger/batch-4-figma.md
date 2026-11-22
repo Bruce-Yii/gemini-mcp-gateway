@@ -1,9 +1,9 @@
 # B4 · 第五个上游：Figma
 
 > 2026-11-22。前四个（GitHub/Notion/Linear/Vercel）走过的流程：B0-B3 三阶段门控 +
-> `UNNEEDED-TOOLS.md` 的 deny 收口 + 191 条任务覆盖/重测。Figma 是第五个上游，
-> 目前只完成"接入 + 工具收口 + 本地端到端"，**任务覆盖与重测尚未做**，按台账
-> 规则登记为欠账，不冒充已通过 B1/B3。
+> `UNNEEDED-TOOLS.md` 的 deny 收口 + 191 条任务覆盖/重测。Figma 是第五个上游：
+> 已完成 G1 接入、G2 收口、G3 任务覆盖；**G4 基线/G5 根因/G6 重测尚未做**，按台账
+> 规则登记为欠账，不冒充已通过 B3。
 
 ## 评审（2026-11-22）：有条件通过 → 条件已闭环
 
@@ -29,9 +29,8 @@
 ## SCENARIO（测评场景）
 
 - 官方 Figma MCP 暴露 50 个工具（2026-11-22 实测），deny 4 个 ChatGPT/UI 内部工具后保留 46 个；18 个 Weave/Shader/Generative plugin 按"存疑放行"保留。
-- 任务集：**0 条**。Figma 官方文档有示例 prompt（design-to-code、发 UI 到 Figma、
-  生成 FigJam 等），可作为权威来源；schema 驱动任务也还没生成。
-- 覆盖度：0/46，**未通过 B1**。不把"本地能建一个文件"当成场景覆盖。
+- 任务集：`explore/figma-tasks.json`，**46 条任务覆盖 46 个保留工具**（28 核心 + 18 存疑放行）；权威等级：18 条官方逐字、28 条 schema 驱动；9 条 Weave 任务标记 `requires paid Figma Weave account`（跳过但保留覆盖）。
+- 覆盖度：46/46，**G3 通过**；schema 驱动 28/28 top-5 反向验证通过。
 
 ## ROOT / FIX（问题与修复）
 
@@ -46,14 +45,39 @@
 
 - `node scripts/check-config.mjs config.example.json` → config OK；figma `total=50 exposed=46 denied=4`。
 - `node scripts/audit-tools.mjs --server figma` → total=50 exposed=46 denied=4 official=44，6 个 extras 已声明/deny，exit 0。
+- `node scripts/check-task-coverage.mjs --server figma` → retained=46 tasks=46 covered=46；authority 18 official/28 schema；schema 28/28 top-5；skipped=9（Weave 账号）。
 - `node scripts/figma-token.mjs refresh` → 强刷成功；新 token 已同步 Vercel env 并 redeploy。
-- `npm test` → 327/327。
+- `npm test` → 343/343。
 - 本地网关 → 官方 Figma MCP：50 工具可被 `search` 检索；`execute` 调
   `figma__create_new_file` 创建真实文件
   <https://www.figma.com/design/izWTtDxzzsdcA5ZWyaquvS>。
 - 生产 `/healthz` → servers 含 figma；未做"带客户端 token 的线上 MCP 调用"。
 
-## DEC（决策）
+## G4 基线（2026-11-23）
+
+| 项 | 结果 |
+|---|---|
+| 上下文 | 506 工具 ≈245,377 tokens（direct） vs 3 工具 ≈1,335 tokens（gateway），省 **99.5%** |
+| 既有检索子集（191 条） | top1 **57.1%**（109/191）、top5 **72.3%**（138/191）；不回归（B6） |
+| Figma 检索（46 条） | top1 78.3%、top5 93.5%；schema 28/28 top-5；官方 18 条 top1 61.1%/top5 77.8%（单独报告） |
+| 模型在环 | `bench` 既有基线 5/5 确定性任务（22,468 prompt / 919 completion tokens），未为 Figma 单独重跑 |
+| 真实调用 | Figma `get_metadata` 返回 Page 1 node 列表；此前 `create_new_file` 建真实文件；四旧上游有历史真实调用记录 |
+
+## G5 根因（2026-11-23）
+
+- 加入 Figma 后既有 191 条检索从 56.5/72.3 降到 56.0/71.7，违反 G4 "既有子集不得回归"。
+- 根因：IDF 基于全量 catalog + 无服务归属时跨服务同名工具竞争。
+- 修复：按服务重建索引 + 窄别名（repository/repo/octocat→github，deployment→vercel）。
+- 结果：top1 57.1%、top5 72.3%，恢复并略超基线；详见 `docs/ledger/batch-6-search-attribution.md`。
+
+## G6 全量重测（未完成）
+
+- 需要 5 个上游的本地执行凭据；当前 vault 只有 Figma（Vercel 敏感 env 不可拉取），
+  GitHub/Notion/Linear/Vercel 的本地 token 不在 vault。
+- 不能把"图面覆盖 + 单服务真实调用"冒充 5 上游全量重测；G6 保持 ❌，待凭据补齐或改为
+  用户侧 Gemini 真实任务验证（G7）。
+
+
 
 | 决策 | 理由 |
 |---|---|
@@ -64,7 +88,7 @@
 
 ## 欠账（下一步）
 
-1. 20-30 条 Figma 任务覆盖 46 个保留工具（28 核心 + 18 存疑放行；官方 prompt + schema 驱动），按 B1 权威等级标注。
-2. Figma 加入 `measure-context` 与 `eval-search` 的口径（当前统计仍是 4 上游 456 工具）。
-3. B3 式全量重测，并核实线上（带客户端 token）实际调用。
-4. 若 Figma 封禁 workaround，降级到 Framelink PAT（只读）或等待目录开放。
+1. G4 基线：Figma 纳入 `measure-context`/`eval-search`（同子集对比），跑 bench + 真实调用。
+2. G5：Figma 相关根因报告（若有问题）。
+3. G6：全量重测（含 Figma），gateway 新功能 bug = 0。
+4. G7：线上带客户端 token 的真实 Figma 调用。

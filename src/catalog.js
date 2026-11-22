@@ -275,6 +275,14 @@ const STOPWORDS = new Set([
   'will', 'would', 'should', 'using', 'use',
 ]);
 
+// Strong service words that are unambiguous enough to act as a server filter.
+// Kept deliberately small: over-eager aliases would hide same-named tools from
+// other services. Explicit `+server` / `options.server` always wins.
+const SERVER_ALIASES = new Map([
+  ['repository', 'github'], ['repositories', 'github'], ['repo', 'github'],
+  ['octocat', 'github'], ['deployment', 'vercel'], ['deployments', 'vercel'],
+]);
+
 function contentTokens(tokens) {
   return tokens.filter((token) => !STOPWORDS.has(token));
 }
@@ -329,7 +337,6 @@ export function searchEntries(entries, rawQuery, options = {}) {
     };
   }
 
-  const index = buildIndex(entries);
   let serverFilter = explicitServer ?? query.server;
   const haystack = query.query.toLowerCase();
   const queryTokens = tokenize(query.query);
@@ -341,6 +348,22 @@ export function searchEntries(entries, rawQuery, options = {}) {
   for (const tok of queryTokens) {
     if (servers.has(tok) && !serverFilter) serverFilter = tok;
   }
+  // Strong service words (repository/repo/octocat → GitHub, deployment → Vercel)
+  // let scoped queries avoid cross-service competition without requiring the
+  // user to spell the server name. Kept deliberately small to avoid hiding
+  // same-named tools from other services.
+  for (const tok of queryTokens) {
+    const alias = SERVER_ALIASES.get(tok);
+    if (alias && servers.has(alias) && !serverFilter) serverFilter = alias;
+  }
+
+  // Build the index over the attributed service only. This keeps IDF/avg length
+  // stable when a new upstream is added: a Notion-only query must not change
+  // because another service added generic words elsewhere in the catalog.
+  const scopedEntries = serverFilter
+    ? entries.filter((entry) => String(entry.server).toLowerCase() === serverFilter)
+    : entries;
+  const index = buildIndex(scopedEntries);
 
   const normalizedQuery = query.query.trim().toLowerCase();
   const baseContentTokens = contentTokens(queryTokens);
@@ -353,7 +376,6 @@ export function searchEntries(entries, rawQuery, options = {}) {
   const descScoringTokens = [...scoringTokens, ...expandedTokens];
   const queryBigrams = bigrams(scoringTokens);
   for (const doc of index.docs) {
-    if (serverFilter && String(doc.entry.server).toLowerCase() !== serverFilter) continue;
     let score = 0;
     for (const token of scoringTokens) {
       score += NAME_WEIGHT * bm25(doc.nameTf.get(token) ?? 0, doc.nameLen, index.avgNameLen, idf(index, token));

@@ -67,7 +67,7 @@ Gemini / MCP 客户端
   深 oneOf 截断）；结果用文本 JSON（不用 `structuredContent`）。
 - **部署校验**：`GET /healthz` 返回构建 commit 和运行时源码哈希。
 - **上游无关**：任何 Streamable HTTP / stdio MCP server，加一个配置条目即可（见 [docs/UPSTREAMS.md](docs/UPSTREAMS.md)）。
-- **离线测试**：327 项单测/集成测试 + 假上游 harness，不需要网络或凭据。
+- **离线测试**：343 项单测/集成测试 + 假上游 harness，不需要网络或凭据。
 
 ## 快速开始（本地）
 
@@ -77,7 +77,7 @@ Gemini / MCP 客户端
 git clone https://github.com/Bruce-Yii/gemini-mcp-gateway.git
 cd gemini-mcp-gateway
 npm ci
-npm test            # 离线 327 项
+npm test            # 离线 343 项
 npm run smoke       # 假上游 MCP server，无需凭据
 node scripts/check-config.mjs  # 校验配置 + 环境变量警告
 npm start           # http://localhost:3000/mcp
