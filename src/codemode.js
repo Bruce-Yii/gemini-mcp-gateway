@@ -414,6 +414,25 @@ function withDeadline(promise, ms, message, onTimeout) {
 
 /** Uniform structured error output, shared by the sandbox error path and the
  * (#46) host deadline path. */
+/**
+ * Map SDK `run.js:LINE:COL` stack frames back to the guest script line using
+ * the `__dshCodeStart` sentinel (the run.js line of the wrapper immediately
+ * before the user function). This is independent of prelude/tool-binding length
+ * and SDK wrapper offsets. Pick the first positive candidate: wrapper frames
+ * before the user code are <=0, the user frame is >0.
+ */
+export function pickScriptLoc(stack, codeStartLine) {
+  if (typeof stack !== 'string' || stack === '') return null;
+  if (!Number.isFinite(Number(codeStartLine)) || Number(codeStartLine) <= 0) return null;
+  const frames = [...stack.matchAll(/run\.js:(\d+):(\d+)/g)];
+  for (const frame of frames) {
+    const line = Number(frame[1]) - Number(codeStartLine);
+    const column = Number(frame[2]);
+    if (line > 0 && Number.isFinite(column)) return { line, column };
+  }
+  return null;
+}
+
 function makeErrorOutput(err, logs, toolCalls, scriptLoc) {
   const info = errorInfo(err, scriptLoc);
   // Keep the legacy message prefix byte-for-byte for existing callers/tests;
@@ -624,10 +643,14 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
   const source = [
     GUEST_PRELUDE,
     ...toolLines,
+    // Calibration sentinel immediately before the user function: its run.js
+    // line is the stable origin for script-line mapping (independent of SDK
+    // wrapper offsets, prelude length and dynamically generated tool bindings).
+    'const __dshCodeStart = (() => { const m = /run\\.js:(\\d+)/.exec(String(new Error().stack || "")); return m ? Number(m[1]) : 0; })();',
     `const __dshFn = (${normalized});`,
     'return Promise.resolve().then(() => __dshFn()).then(',
-    '  (v) => ({ __ok: true, v: v, cal: __dshCal }),',
-    '  (e) => ({ __ok: false, cal: __dshCal, err: { message: e != null && e.message !== undefined ? String(e.message) : String(e), type: (e instanceof Error) ? String(e.name || "Error") : "UnknownError", hostOrigin: !!(e && e.__dshHostOrigin), stack: e && e.stack ? String(e.stack) : "" } })',
+    '  (v) => ({ __ok: true, v: v, cal: __dshCal, codeStart: __dshCodeStart }),',
+    '  (e) => ({ __ok: false, cal: __dshCal, codeStart: __dshCodeStart, err: { message: e != null && e.message !== undefined ? String(e.message) : String(e), type: (e instanceof Error) ? String(e.name || "Error") : "UnknownError", hostOrigin: !!(e && e.__dshHostOrigin), stack: e && e.stack ? String(e.stack) : "" } })',
     ');',
   ].join('\n');
 
@@ -656,12 +679,7 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
       const e = env.err && typeof env.err === 'object' ? env.err : {};
       let scriptLoc;
       if (!e.hostOrigin && typeof e.stack === 'string') {
-        const m = /run\.js:(\d+):(\d+)/.exec(e.stack);
-        if (m) {
-          const line = Number(m[1]) - wrapperOffset - GUEST_PREFIX_LINES;
-          const column = Number(m[2]);
-          if (line > 0 && Number.isFinite(column)) scriptLoc = { line, column };
-        }
+        scriptLoc = pickScriptLoc(e.stack, Number(env.codeStart));
       }
       const err = new Error(String(e.message ?? ''));
       err.name = String(e.type || 'Error');

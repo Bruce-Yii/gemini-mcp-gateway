@@ -86,12 +86,13 @@
   写前预览用。
 - 测试：`tests/codemode-edit-helpers.test.js`（6 条，含 mismatch 不修改原文）。
 
-### B8-4：错误行号（本地验证通过，线上待复验）
+### B8-4：错误行号（已修，线上待复验）
 
-- 现有 `wrapperOffset + GUEST_PREFIX_LINES` 映射在本地新测试中正常：
-  `codemode.notARealTool()` → `script line 1:41`。
-- 线上任务 6 的 `run.js:369:20` 没有 script line，可能是旧构建或模型引用了栈帧文本；
-  905f97e 之后可在 Gemini 重跑确认。
+- 根因：旧映射只减 `GUEST_PREFIX_LINES`，没有算动态 tool 绑定行；且只取第一个 `run.js` 帧。
+- 修复：在用户函数前注入 `__dshCodeStart` 校准哨兵，按 `runLine - codeStart` 取第一个正数帧；
+  不再依赖 prelude 长度/tool 数量/SDK wrapper 偏移。
+- 本地测试：`codemode.notARealTool()` → `script line 1:41`（有/无工具均正确）。
+- 线上任务 6 的 `run.js:369:20` 无 script line，是旧构建；待 296fa32 之后的部署复验。
 - `diffSummary` 已提供 dry-run 摘要基础；独立 dry-run 工具未做。
 
 ## 优先级与依赖（历史计划）

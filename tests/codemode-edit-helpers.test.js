@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { runInSandbox } from '../src/codemode.js';
+import { runInSandbox, pickScriptLoc } from '../src/codemode.js';
 
 async function evalCode(code) {
   const out = await runInSandbox({ code: `async () => { ${code} }`, tools: [], callTool: async () => ({}) });
@@ -97,3 +97,12 @@ test('thrown guest errors are mapped to the user script line, not run.js', async
   assert.match(out.result, /not a function/);
   assert.match(out.result, /script line 1:\d+/);
 });
+
+
+test('pickScriptLoc picks the last positive run.js frame, not the wrapper frame', () => {
+  const stack = 'TypeError: not a function\n    at __dshFn (run.js:354:20)\n    at <anonymous> (run.js:374:37)';
+  assert.deepEqual(pickScriptLoc(stack, 360), { line: 14, column: 37 });
+  assert.equal(pickScriptLoc('Error\n at x (run.js:10:2)', 300, 60), null);
+  assert.equal(pickScriptLoc('', 1), null);
+});
+
