@@ -8,12 +8,20 @@
  * Storage is intentionally pluggable. P1 ships file/HTTP/console/R2 sinks.
  */
 import { randomUUID } from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { waitUntil } from '@vercel/functions';
 
 const MAX_BODY_BYTES = 32 * 1024 * 1024;
+export const captureStore = new AsyncLocalStorage();
+
+export function captureEvent(type, payload) {
+  const store = captureStore.getStore();
+  if (!store) return;
+  store.events.push({ type, ts: Date.now(), payload });
+}
 
 export function captureHeaders(headers = {}) {
   const out = {};
@@ -114,6 +122,8 @@ export function startCapture(req, res, options = {}) {
 
   const started = Date.now();
   const requestId = randomUUID();
+  const context = { requestId, started, events: [] };
+  captureStore.enterWith(context);
   const chunks = [];
   let bytes = 0;
   let overflow = false;
@@ -159,6 +169,7 @@ export function startCapture(req, res, options = {}) {
           headers: captureHeaders(req.headers),
           raw: req.__gatewayRawBody ?? null,
         },
+        events: context.events,
         response: {
           status: res.statusCode,
           headers: captureHeaders(res.getHeaders?.() ?? {}),

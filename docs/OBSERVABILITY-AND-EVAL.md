@@ -37,14 +37,14 @@
 
 | 层 | 事件 | 记录方式 |
 |---|---|---|
-| HTTP | method、path、query、headers（原样）、body 原文、status、response headers/body | 原始字节 + 结构化 |
-| MCP | 每个 JSON-RPC request/response/notification、`tools/list`、`tools/call`、progress、error | 原始 JSON |
-| SSE | 每个 `event:` / `data:` 帧、顺序、时间 | tee 原始帧 |
-| Code Mode | `search` query/结果、`execute_read/execute` 代码、tool calls/参数/返回、console、错误、最终结果、截断、行标记 | 原始文本 + 元数据 |
-| Upstream | 每个上游 MCP 帧、server/tool、args、raw result、耗时、重试、HTTP 状态 | 原始帧 + 元数据 |
+| HTTP（所有路由，含 401/OAuth） | method、path、query、headers（原样）、body 原文、status、response headers/body | ✅ P1 |
+| MCP | 每个 JSON-RPC request/response/notification、`tools/list`、`tools/call`、progress、error | ✅ P1 |
+| SSE | 每个 `event:` / `data:` 帧、顺序、时间 | ⚠️ 当前 GET 返回 405，无 SSE 流 |
+| Code Mode / sandbox | 代码、logs、toolCalls、错误、最终结果、截断、行标记 | ✅ P2（`captureEvent`） |
+| Upstream | 工具调用 args/raw result/错误/耗时 + connect 元数据 | ⚠️ 工具调用/connect 已采；原始 MCP 帧/重试未采 |
 | Sandbox | 代码、日志、异常栈、行号、超时、资源限制 | 原始文本 |
-| OAuth | grant/refresh 事件、client_id、scope、过期时间、结果 | 原始记录（含 token） |
-| 部署/配置 | commit、buildHash、工具目录快照、feature flags、上游列表 | 快照 |
+| OAuth | grant/refresh 事件、client_id、scope、请求 body、结果 | ✅ P2（`readRawBody`） |
+| 部署/配置 | commit、buildHash、工具目录快照、feature flags、上游列表 | ⚠️ 尚未入 envelope |
 | 客户端 | User-Agent、Accept、MCP-Protocol-Version、session header、IP（可选） | 元数据 |
 
 ## 2. 全量采集架构
@@ -253,7 +253,7 @@ Cloudflare R2 的免费额度对“每天几十~几百次网关调用、每次�
 |---|---|---|
 | P0 | 本文档 + envelope schema | 完成 |
 | P1 | HTTP/MCP 原始 tap + file/http/r2 sink + 开关 | ✅ 已实现（`src/capture.js` + 5 tests；R2 生产已验证 9 条真实 envelope） |
-| P2 | Code Mode/sandbox/upstream 明细 tap + Blob/R2 适配 | 1–2 天 |
+| P2 | Code Mode/sandbox/upstream 明细 tap + R2 适配 | 🔨 部分：sandbox/upstream工具调用/connect已采；原始上游帧待补 |
 | P3 | 回放脚本 + 错误聚类 + scorecard | ✅ `scripts/capture-digest.mjs` 已实现；回放待做 |
 | P4 | L1 smoke 定时任务 | 1–2 天 |
 | P5 | L3 judge/人工（可选） | 按需 |

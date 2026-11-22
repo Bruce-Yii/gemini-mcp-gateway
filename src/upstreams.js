@@ -15,6 +15,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { isAllowed } from './catalog.js';
 import { UpstreamAuth, defaultProvider } from './upstream-auth.js';
 import { normalizeToolArguments } from './sanitize.js';
+import { captureEvent } from './capture.js';
 
 const CLIENT_INFO = { name: 'gemini-mcp-gateway', version: '0.1.0' };
 
@@ -167,9 +168,19 @@ export class UpstreamManager {
         };
 
         let tools;
+        const connectStarted = Date.now();
         try {
           tools = await establish();
+          captureEvent('upstream_connect', {
+            server: name, ok: true, toolCount: tools.length,
+            durationMs: Date.now() - connectStarted,
+          });
         } catch (err) {
+          captureEvent('upstream_connect', {
+            server: name, ok: false,
+            error: { name: err?.name, message: err?.message, stack: err?.stack },
+            durationMs: Date.now() - connectStarted,
+          });
           // A 401/invalid_token is the provider telling us our locally "fresh"
           // token is actually dead. This feedback loop is the only reliable
           // liveness signal — local expiry timestamps cannot be trusted. Force
@@ -256,9 +267,20 @@ export class UpstreamManager {
     // gateway_call handlers (server.js) both call UpstreamManager.callTool.
     const entry = this.entries.find((e) => e.server === server && e.tool === tool);
     const finalArgs = normalizeToolArguments(args, entry?.inputSchema) ?? {};
+    const started = Date.now();
     try {
-      return await record.client.callTool({ name: tool, arguments: finalArgs });
+      const result = await record.client.callTool({ name: tool, arguments: finalArgs });
+      captureEvent('upstream', {
+        server, tool, args: finalArgs, result,
+        durationMs: Date.now() - started,
+      });
+      return result;
     } catch (err) {
+      captureEvent('upstream', {
+        server, tool, args: finalArgs,
+        error: { name: err?.name, message: err?.message, stack: err?.stack },
+        durationMs: Date.now() - started,
+      });
       throw upstreamError(`${server}/${tool}`, '调用失败', err);
     }
   }

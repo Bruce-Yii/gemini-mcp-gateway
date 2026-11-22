@@ -125,9 +125,9 @@ function oauthError(res, status, error, description) {
 
 async function readRawBody(req) {
   if (!req) return '';
-  if (Buffer.isBuffer(req.body)) return req.body.toString('utf8');
-  if (typeof req.body === 'string') return req.body;
-  if (req.body && typeof req.body === 'object') return req.body;
+  if (Buffer.isBuffer(req.body)) { req.__gatewayRawBody = req.body.toString('utf8'); return req.body.toString('utf8'); }
+  if (typeof req.body === 'string') { req.__gatewayRawBody = req.body; return req.body; }
+  if (req.body && typeof req.body === 'object') { req.__gatewayRawBody = JSON.stringify(req.body); return req.body; }
 
   const chunks = [];
   let size = 0;
@@ -153,7 +153,9 @@ async function readRawBody(req) {
       req.on('error', rejectRead);
     });
   }
-  return Buffer.concat(chunks).toString('utf8');
+  const raw = Buffer.concat(chunks).toString('utf8');
+  req.__gatewayRawBody = raw;
+  return raw;
 }
 
 async function readParams(req) {

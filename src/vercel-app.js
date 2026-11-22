@@ -15,6 +15,7 @@ import { createOAuthHandlers, resolveBaseUrl } from './oauth.js';
 import { UpstreamManager } from './upstreams.js';
 import { createUpstreamOAuthHandlers } from './upstream-oauth.js';
 import { createMcpRequestHandler } from './server.js';
+import { startCapture } from './capture.js';
 import { BUILD } from './build-info.js';
 import { validateConfig } from './config.js';
 
@@ -225,6 +226,7 @@ export function createAppHandler(options = {}) {
   }
 
   return async function appHandler(req, res) {
+    startCapture(req, res);
     try {
       const url = new URL(req?.url ?? '/', 'http://localhost');
       let pathname = url.pathname;

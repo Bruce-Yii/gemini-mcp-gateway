@@ -29,7 +29,6 @@ import { searchEntries } from './catalog.js';
 import { UpstreamManager } from './upstreams.js';
 import { createCodeModeTools } from './codemode.js';
 import { validateConfig } from './config.js';
-import { startCapture } from './capture.js';
 
 const SERVER_INFO = { name: 'gemini-mcp-gateway', version: '0.1.0' };
 
@@ -378,7 +377,6 @@ export function createMcpRequestHandler(upstreamManager, options = {}) {
 
       const method = req.method;
       if (method === 'POST') {
-        startCapture(req, res);
         const body = await readJsonBody(req);
         let gatewayServer;
         const transport = new StreamableHTTPServerTransport({

@@ -4,7 +4,7 @@ import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { gunzipSync } from 'node:zlib';
-import { startCapture, captureHeaders } from '../src/capture.js';
+import { startCapture, captureHeaders, captureEvent } from '../src/capture.js';
 
 function fakeRes() {
   const body = [];
@@ -100,3 +100,25 @@ test('R2 sink uploads gzipped raw envelope to the private capture bucket', async
   assert.equal(envelope.request.raw, '{"a":1}');
   assert.equal(envelope.response.raw, '{"ok":true}');
 });
+
+test('captureEvent adds upstream/sandbox events to the active envelope', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gmg-capture-events-'));
+  try {
+    const req = { method: 'POST', url: '/mcp', headers: {}, __gatewayRawBody: '{}' };
+    const res = fakeRes();
+    startCapture(req, res, { mode: 'full', sink: 'file', fileDir: dir });
+    captureEvent('upstream', { server: 'github', tool: 'get_file_contents', args: { path: 'README.md' }, result: { ok: true } });
+    captureEvent('sandbox', { tool: 'execute', code: 'async () => 1', output: { result: '1' } });
+    res.end('ok');
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const files = await readdir(dir);
+    const envelope = JSON.parse(await readFile(join(dir, files[0]), 'utf8'));
+    assert.equal(envelope.events.length, 2);
+    assert.equal(envelope.events[0].type, 'upstream');
+    assert.equal(envelope.events[1].type, 'sandbox');
+    assert.equal(envelope.events[0].payload.tool, 'get_file_contents');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+

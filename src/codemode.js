@@ -20,6 +20,7 @@ import { createHash } from 'node:crypto';
 import { parse } from 'acorn';
 import { normalizeCode, sanitizeToolName } from './codemode-util.js';
 import { normalizeToolArguments } from './sanitize.js';
+import { captureEvent } from './capture.js';
 import { searchEntries } from './catalog.js';
 import {
   unwrapResult,
@@ -1069,6 +1070,11 @@ export function createCodeModeTools(upstreamManager, options = {}) {
       // MakeOutput() attaches a toJSON() that emits the full audit payload;
       // unwrap it first so the projection below is what server.js serializes.
       const wire = typeof full.toJSON === 'function' ? full.toJSON() : full;
+      captureEvent('sandbox', {
+        tool: readOnly ? 'execute_read' : 'execute',
+        code,
+        output: wire,
+      });
       return toModelOutput(wire); // toolCalls + logs never enter model context
     },
   });
