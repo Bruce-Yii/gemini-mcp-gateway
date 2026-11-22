@@ -412,6 +412,254 @@ ${Object.entries(metrics.routeErrors ?? {}).map(([name, count]) => `| ${name} | 
 `;
 }
 
+/* ------------------------------------------------------------------ *
+ * Session / window clustering (batch 11)
+ *
+ * Goal: group ONLINE capture envelopes into sessions so they can be joined
+ * against OFFLINE L1/G6 tasks without any client or SDK cooperation.
+ *
+ * Rules (see docs/ledger/batch-11-session-clustering.md):
+ *   1. Prefer envelope.sessionId (issued by initialize as Mcp-Session-Id).
+ *   2. Without sessionId, cluster deterministically into a synthetic windowId:
+ *      - `initialize` opens a new window;
+ *      - a legacy window with no initialize: the first request opens it, and
+ *        an idle gap > 15 minutes opens a new one;
+ *      - tools/list refresh and clientInfo / client-IP changes are auxiliary
+ *        signals only — they never split a window on their own;
+ *      - original requestId / sessionId are never overwritten; windowId is
+ *        analysis-only metadata on a returned copy.
+ * ------------------------------------------------------------------ */
+
+/** Default idle gap that splits a sessionId-less window (15 minutes, ms). */
+export const DEFAULT_IDLE_MS = 15 * 60 * 1000;
+
+/** Timestamp of an envelope as epoch ms, or null when unparseable. */
+export function requestTimeOf(envelope) {
+  const raw = envelope?.ts ?? envelope?.timestamp ?? envelope?.request?.ts ?? '';
+  const t = Date.parse(raw);
+  return Number.isFinite(t) ? t : null;
+}
+
+/**
+ * Preferred correlation key. The gateway stamps `sessionId` from initialize's
+ * Mcp-Session-Id (src/capture.js); older captures may only echo it on the
+ * request object or header. Never synthesize here — clustering does that.
+ */
+export function sessionIdOf(envelope) {
+  const candidates = [
+    envelope?.sessionId,
+    envelope?.request?.sessionId,
+    envelope?.request?.headers?.['mcp-session-id'],
+    envelope?.request?.headers?.['Mcp-Session-Id'],
+  ];
+  for (const candidate of candidates) {
+    if (candidate !== null && candidate !== undefined && String(candidate) !== '') return String(candidate);
+  }
+  return null;
+}
+
+/** MCP method name from the captured JSON-RPC body, or null. */
+export function mcpMethodOf(envelope) {
+  try {
+    const json = JSON.parse(String(envelope?.request?.raw ?? ''));
+    return typeof json?.method === 'string' ? json.method : null;
+  } catch { return null; }
+}
+
+/** Stable client descriptor (auxiliary signal only, never a split trigger). */
+export function clientInfoOf(envelope) {
+  if (envelope?.clientInfo !== null && envelope?.clientInfo !== undefined) return envelope.clientInfo;
+  if (envelope?.request?.clientInfo !== null && envelope?.request?.clientInfo !== undefined) return envelope.request.clientInfo;
+  const headers = envelope?.request?.headers ?? {};
+  const ip = headers['x-forwarded-for'] ?? headers['x-real-ip'] ?? headers['cf-connecting-ip'] ?? null;
+  return ip ? { ip: String(ip).split(',')[0].trim() } : null;
+}
+
+/** Stable fingerprint used for deterministic tie-breaking when ts is missing. */
+function requestIdOf(envelope, index) {
+  const id = envelope?.requestId ?? envelope?.request?.id ?? envelope?.id;
+  return id !== null && id !== undefined && String(id) !== '' ? String(id) : `idx:${index}`;
+}
+
+/**
+ * Assign an analysis-only `windowId` to every envelope and return copies.
+ * Input is never mutated: requestId / sessionId stay byte-for-byte identical.
+ *
+ * The sort is deterministic on (timestamp ?? 0, requestId, original index), so
+ * the same input always yields the same window membership and window numbering.
+ */
+export function assignWindows(envelopes, { idleMs = DEFAULT_IDLE_MS } = {}) {
+  const gap = Number.isFinite(idleMs) && idleMs >= 0 ? idleMs : DEFAULT_IDLE_MS;
+  const indexed = envelopes.map((envelope, index) => ({ envelope, index }));
+  indexed.sort((a, b) => {
+    const ta = requestTimeOf(a.envelope);
+    const tb = requestTimeOf(b.envelope);
+    if (ta !== tb) return (ta ?? 0) - (tb ?? 0);
+    return requestIdOf(a.envelope, a.index).localeCompare(requestIdOf(b.envelope, b.index));
+  });
+
+  // Counts are per strategy so session-backed and synthetic ids never collide.
+  const sessionCounts = new Map();
+  let legacyWindowCount = 0;
+  let currentWindowId = null;
+  let lastLegacyEnd = null; // last event time of the current synthetic window
+  let lastStrategy = 'first-request';
+
+  const out = indexed.map(({ envelope, index }) => {
+    const sessionId = sessionIdOf(envelope);
+    const method = mcpMethodOf(envelope);
+    const ts = requestTimeOf(envelope);
+    let windowId;
+    let strategy;
+
+    if (sessionId) {
+      const next = (sessionCounts.get(sessionId) ?? 0) + 1;
+      sessionCounts.set(sessionId, next);
+      windowId = `session:${sessionId}`;
+      strategy = 'sessionId';
+      // An initialize inside a session does not split it — the session key
+      // already provides the boundary.
+    } else {
+      const newWindow = method === 'initialize'
+        || lastLegacyEnd === null
+        || ts === null
+        || ts - lastLegacyEnd > gap;
+      if (newWindow) {
+        legacyWindowCount += 1;
+        currentWindowId = `window:${String(legacyWindowCount).padStart(3, '0')}`;
+        lastStrategy = initializeStrategy(method, ts, lastLegacyEnd, gap, newWindow);
+      } else {
+        // Continue current window; tools/list and client changes are auxiliary
+        // signals only and never open a window by themselves.
+        lastStrategy = 'continued';
+      }
+      windowId = currentWindowId;
+      strategy = lastStrategy;
+      lastLegacyEnd = ts;
+    }
+
+    return {
+      ...envelope,
+      windowId,
+      windowStrategy: strategy,
+      windowMeta: {
+        mcpMethod: method,
+        clientInfo: clientInfoOf(envelope),
+        // tools/list / client changes are recorded for review, never split on.
+        auxiliarySignals: [
+          method === 'tools/list' ? 'tools-list-refresh' : null,
+        ].filter(Boolean),
+      },
+      // Kept for tests/debugging; original identity fields are untouched.
+      _windowSortIndex: index,
+    };
+  });
+
+  return out;
+}
+
+/** Human-readable reason a synthetic window was opened/extended. */
+function initializeStrategy(method, ts, lastEnd, gap, isNew) {
+  if (!isNew) return 'continued';
+  if (method === 'initialize') return 'initialize';
+  if (lastEnd === null) return 'first-request';
+  if (ts === null) return 'unknown-ts-new-window';
+  return ts - lastEnd > gap ? 'idle-gap' : 'continued';
+}
+
+/**
+ * Aggregate envelopes by session/window. Returns a stable, sorted array of
+ * digest rows. Every row keeps requestId samples so a reviewer can replay the
+ * exact envelopes from R2 (see batch-11 ledger doc).
+ */
+export function digestSessions(envelopes, { idleMs = DEFAULT_IDLE_MS, maxRequestIdSamples = 5 } = {}) {
+  const windows = assignWindows(envelopes, { idleMs });
+  const groups = new Map();
+  for (const envelope of windows) {
+    const key = envelope.windowId;
+    const row = groups.get(key) ?? {
+      windowId: key,
+      strategy: envelope.windowStrategy,
+      sessionId: sessionIdOf(envelope),
+      // Explicit upstream anchor only; never synthesized by clustering.
+      taskId: envelope?.taskId ?? envelope?.meta?.taskId ?? envelope?.request?.taskId ?? null,
+      requests: 0,
+      mcpRequests: 0,
+      mcpErrors: 0,
+      toolCalls: 0,
+      truncationSuspects: 0,
+      firstTs: null,
+      lastTs: null,
+      firstTsRaw: null,
+      lastTsRaw: null,
+      clientInfo: null,
+      requestIdSamples: [],
+      methods: {},
+    };
+    row.requests += 1;
+    const rowTaskId = envelope?.taskId ?? envelope?.meta?.taskId ?? envelope?.request?.taskId ?? null;
+    if (rowTaskId) {
+      if (row.taskId && row.taskId !== String(rowTaskId)) row.taskIdConflicts = true;
+      else row.taskId = String(rowTaskId);
+    }
+    const ts = requestTimeOf(envelope);
+    const rawTs = envelope?.ts ?? envelope?.timestamp ?? envelope?.request?.ts ?? null;
+    if (ts !== null) {
+      if (row.firstTs === null || ts < row.firstTs) { row.firstTs = ts; row.firstTsRaw = rawTs; }
+      if (row.lastTs === null || ts > row.lastTs) { row.lastTs = ts; row.lastTsRaw = rawTs; }
+    }
+    if (row.clientInfo === null) row.clientInfo = clientInfoOf(envelope);
+
+    const method = mcpMethodOf(envelope);
+    if (method) {
+      row.methods[method] = (row.methods[method] ?? 0) + 1;
+      row.mcpRequests += 1;
+      if (method === 'tools/call') row.toolCalls += 1;
+    }
+    const status = Number(envelope?.response?.status ?? 0);
+    const raw = String(envelope?.response?.raw ?? '');
+    if (status >= 400 || /isError":true|execute error/i.test(raw)) row.mcpErrors += 1;
+    if (isTruncated(envelope) || isModelTruncationSuspect(envelope)) row.truncationSuspects += 1;
+
+    const id = requestIdOf(envelope, envelope._windowSortIndex);
+    if (row.requestIdSamples.length < maxRequestIdSamples) row.requestIdSamples.push(id);
+    groups.set(key, row);
+  }
+  const rows = [...groups.values()].sort((a, b) => {
+    const ka = a.firstTs ?? 0;
+    const kb = b.firstTs ?? 0;
+    if (ka !== kb) return ka - kb;
+    return a.windowId.localeCompare(b.windowId);
+  });
+  for (const row of rows) {
+    row.firstTs = row.firstTs === null ? null : new Date(row.firstTs).toISOString();
+    row.lastTs = row.lastTs === null ? null : new Date(row.lastTs).toISOString();
+    row.methods = Object.fromEntries(Object.entries(row.methods).sort(([a], [b]) => a.localeCompare(b)));
+    delete row._windowSortIndex;
+  }
+  return rows;
+}
+
+/** Render a human-readable session digest section for the scorecard. */
+export function renderSessionDigest(rows) {
+  const tableRows = rows.map((row) => {
+    const client = row.clientInfo ? JSON.stringify(row.clientInfo) : '—';
+    const ids = row.requestIdSamples.map((id) => `\`${id}\``).join(', ') || '—';
+    return `| ${row.windowId} | ${row.strategy} | ${row.sessionId ?? '—'} | ${row.requests} | ${row.mcpErrors} | ${row.toolCalls} | ${row.truncationSuspects} | ${row.firstTs ?? '—'} | ${row.lastTs ?? '—'} | ${client} | ${ids} |`;
+  }).join('\n') || '| — | — | — | 0 | 0 | 0 | 0 | — | — | — | — |';
+  return `## Sessions / windows (batch 11)
+
+> Analysis-only grouping of online capture envelopes. \`windowId\` is synthetic
+> when no \`sessionId\` exists; original \`requestId\`/\`sessionId\` are untouched.
+> Truncation suspects include gateway wire truncation and advisory model-side
+> silent truncation; neither is a verdict.
+
+| Window | Strategy | SessionId | Requests | MCP errors | Tool calls | Trunc suspects | First ts | Last ts | Client info | RequestId samples |
+|---|---|---|---:|---:|---:|---:|---|---|---|---|
+${tableRows}
+`;
+}
+
 /** Aggregate a range of R2 day prefixes into one metrics object. */
 export async function aggregateR2Range({ since, days = 7 }) {
   const start = new Date(`${since}T00:00:00.000Z`);
@@ -445,10 +693,33 @@ async function main() {
     payload = { metrics: aggregateEnvelopes(resolved, { date }) };
   }
   const metrics = payload.metrics;
+  // Resolve the envelopes once more for session/window aggregation. R2 mode
+  // already fetched them; keep a local cache by reusing range payload keys when
+  // present to avoid a second network round-trip where possible.
+  let digestRows = [];
+  try {
+    let allEnvelopes = [];
+    if (dir) {
+      allEnvelopes = await readDirEnvelopes(dir);
+    } else if (since) {
+      const start = new Date(`${since}T00:00:00.000Z`);
+      const keys = [];
+      for (let offset = 0; offset < days; offset += 1) {
+        const day = new Date(start.getTime() + offset * 86400000).toISOString().slice(0, 10);
+        keys.push(...await listR2Keys(`capture/${day}/`));
+      }
+      allEnvelopes = await Promise.all(keys.map(readR2Envelope));
+    } else {
+      allEnvelopes = await Promise.all((await listR2Keys(`capture/${date}/`)).map(readR2Envelope));
+    }
+    digestRows = digestSessions(allEnvelopes);
+  } catch (error) {
+    console.error(`[digest] session aggregation skipped: ${error?.message ?? String(error)}`);
+  }
   await mkdir(out, { recursive: true });
-  await writeFile(join(out, `scorecard-${label}.md`), renderScorecard(label, metrics), 'utf8');
-  await writeFile(join(out, `scorecard-${label}.json`), JSON.stringify({ date: label, ...payload }, null, 2), 'utf8');
-  console.log(`[digest] ${label}: ${metrics.requests} requests, ${metrics.errors} errors -> ${out}`);
+  await writeFile(join(out, `scorecard-${label}.md`), renderScorecard(label, metrics) + '\n' + renderSessionDigest(digestRows), 'utf8');
+  await writeFile(join(out, `scorecard-${label}.json`), JSON.stringify({ date: label, ...payload, sessions: digestRows }, null, 2), 'utf8');
+  console.log(`[digest] ${label}: ${metrics.requests} requests, ${metrics.errors} errors, ${digestRows.length} sessions/windows -> ${out}`);
 }
 
 if (process.argv[1] && process.argv[1].endsWith('capture-digest.mjs')) {

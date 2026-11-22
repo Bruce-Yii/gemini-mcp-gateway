@@ -29,7 +29,7 @@
 | B8 | Gemini 大文件/多文件工作流反馈：canonical 结果、行区间、patch、行号映射 | ✅ 通过（B8-1/2/3/4，线上行号已复验） | batch-8-gemini-file-workflow.md |
 | B9 | 透明观测与评测体系：Gemini 无感采集 + 原始日志 + 迭代闭环 | ✅ capture + sync sink + analyzer + L1；post-fix 真实验证通过（见 B11.1） | ../OBSERVABILITY-AND-EVAL.md |
 | B10 | Gemini PR #14–#41 工程总控反馈映射 | ✅ canonical/write semantics + 真实 GitHub 回放通过；多文件原子性未做 | batch-10-write-semantics.md |
-| B11 | 全局审视与执行计划（capture 完整性、写路径、Gemini 自适应、MCP 2026） | 🔨 执行中（无排期，按依赖并行） | ../PLAN-2026-11-23.md |\n| B11.1 | 2026-11-23 近期修复：capture 可信性、真实写回放、session 标记、MCP 2026 审计、静默截断 P0 | ✅ capture/写回放/session/截断原语已完成；多文件事务与离线聚类待补 | batch-11-recent.md |\n| B11.2 | 静默截断仓库级审计 + CI 守门 | ✅ P0=0，P1=2 警告；CI 已接 | batch-11-truncation-scan.md |\n| B11.3 | 模型可见输出静默截断审计：capture 标记 + digest/analyzer 聚类 | ✅ 14/14；三信号分账；CI 绿 | batch-11-truncation-audit.md |\n| B11.4 | 截断原语：readFileRange、默认不字符截断、patch 截断读硬停、长行 golden | ✅ 22/22；全量 607/607 | batch-11-truncation.md |
+| B11 | 全局审视与执行计划（capture 完整性、写路径、Gemini 自适应、MCP 2026） | 🔨 执行中（无排期，按依赖并行） | ../PLAN-2026-11-23.md |\n| B11.1 | 2026-11-23 近期修复：capture 可信性、真实写回放、session 标记、MCP 2026 审计、静默截断 P0 | ✅ capture/写回放/session/截断原语已完成；多文件事务与离线聚类待补 | batch-11-recent.md |\n| B11.2 | 静默截断仓库级审计 + CI 守门 | ✅ P0=0，P1=2 警告；CI 已接 | batch-11-truncation-scan.md |\n| B11.3 | 模型可见输出静默截断审计：capture 标记 + digest/analyzer 聚类 | ✅ 14/14；三信号分账；CI 绿 | batch-11-truncation-audit.md |\n| B11.4 | 截断原语：readFileRange、默认不字符截断、patch 截断读硬停、长行 golden | ✅ 22/22；全量 607/607 | batch-11-truncation.md |\n| B11.5 | 会话聚类 + 按 session join：windowId、digest session 表、显式 taskId 匹配 | ✅ 16/16；全量 623/623 | batch-11-session-clustering.md |
 
 ## 门控规则
 

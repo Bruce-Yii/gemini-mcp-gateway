@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
   listR2Keys, readR2Envelope, readDirEnvelopes, aggregateEnvelopes, classifyError,
-  isTruncated, isModelTruncationSuspect, upstreamOf,
+  isTruncated, isModelTruncationSuspect, upstreamOf, digestSessions,
 } from './capture-digest.mjs';
 
 const MAX_CODE = 2000;
@@ -185,9 +185,17 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
       }]
     : [];
 
+  // Additive (batch 11): per-session/window digest of ALL envelopes (not just
+  // mcpOnly). Deterministic, advisory-only: windowId is a clustering artifact,
+  // never a client/SDK-provided fact. Each row keeps requestId samples so the
+  // free model can cite raw envelopes for human replay.
+  const sessionWindows = digestSessions(envelopes);
+
   return {
     schema: 'analyzer-input.v1',
     date,
+    sessionWindows,
+    sessionWindowsNote: 'Advisory clustering: sessionId when present, otherwise initialize / 15-min idle windows. windowId is analysis-only; cite requestId samples for replay. Do not treat cluster boundaries as verified client sessions.',
     metrics: {
       requests: metrics.requests,
       errors: metrics.errors,
@@ -308,6 +316,9 @@ function analyzerPrompt(input) {
   const truncationHint = Array.isArray(input.truncationSuspects) && input.truncationSuspects.length
     ? 'truncationSuspects / the model_truncation_suspect cluster are advisory, byte-based hints that the model saw a shorter, unmarked projection while the gateway wire was complete. Do NOT classify them as gateway errors or overflow; cite their requestId only if you want to raise a candidate for human replay.'
     : '';
+  const sessionHint = Array.isArray(input.sessionWindows) && input.sessionWindows.length
+    ? 'sessionWindows are deterministic clustering of online captures for offline join only. windowId is synthetic when sessionId is absent; do not claim two windows are the same client session, and do not use cluster boundaries as evidence of a bug.'
+    : '';
   return [
     {
       role: 'system',
@@ -317,6 +328,7 @@ function analyzerPrompt(input) {
         'Your output is advisory only: it must be verified against raw captures and a local replay before any code change.',
         trendHint,
         truncationHint,
+        sessionHint,
         'Return ONLY strict JSON matching analyzer-output.v1:',
         '{"schema":"analyzer-output.v1","summary":"...","issues":[{"id":"issue-1","severity":"P0|P1|P2|P3","category":"gateway|upstream|model|data|unknown","title":"...","evidenceEventIds":["..."],"likelyCause":"...","suggestedFix":"...","confidence":0.0,"regressionTask":{"prompt":"...","expectedTool":"...","assertions":["..."]}}],"ignored":[{"clusterId":"c1","reason":"..."}]}',
         'Each issue MUST cite at least one evidenceEventIds from the input. If unsure, use ignored.',
