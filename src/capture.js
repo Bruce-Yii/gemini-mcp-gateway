@@ -1,32 +1,23 @@
 /**
  * Full-fidelity gateway capture (P1).
  *
- * The capture path is deliberately boring: copy request/response bytes, redact
- * credentials, and hand the envelope to an async sink. It never awaits the sink
- * and never throws into the MCP handler.
+ * The capture path is deliberately boring: copy request/response bytes and
+ * headers verbatim, and hand the envelope to an async sink. It never awaits the
+ * sink and never throws into the MCP handler.
  *
- * Storage is intentionally pluggable. P1 ships file/HTTP/console sinks; object
- * storage adapters (R2/S3/Blob) can be added without touching the gateway.
+ * Storage is intentionally pluggable. P1 ships file/HTTP/console/R2 sinks.
  */
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { waitUntil } from '@vercel/functions';
 
-const SECRET_HEADER_RE = /^(authorization|cookie|set-cookie|proxy-authorization|x-api-key|api-key)$/i;
 const MAX_BODY_BYTES = 32 * 1024 * 1024;
 
-export function redactHeaders(headers = {}) {
+export function captureHeaders(headers = {}) {
   const out = {};
-  for (const [name, value] of Object.entries(headers)) {
-    if (SECRET_HEADER_RE.test(name)) {
-      const text = Array.isArray(value) ? value.join(',') : String(value ?? '');
-      out[name] = `[redacted:${createHash('sha256').update(text).digest('hex').slice(0, 12)}]`;
-    } else {
-      out[name] = value;
-    }
-  }
+  for (const [name, value] of Object.entries(headers)) out[name] = value;
   return out;
 }
 
@@ -165,12 +156,12 @@ export function startCapture(req, res, options = {}) {
         request: {
           method: req.method,
           url: req.url,
-          headers: redactHeaders(req.headers),
+          headers: captureHeaders(req.headers),
           raw: req.__gatewayRawBody ?? null,
         },
         response: {
           status: res.statusCode,
-          headers: redactHeaders(res.getHeaders?.() ?? {}),
+          headers: captureHeaders(res.getHeaders?.() ?? {}),
           raw: overflow ? null : Buffer.concat(chunks).toString('utf8'),
           bytes,
           overflow,

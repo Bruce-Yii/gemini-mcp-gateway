@@ -4,7 +4,7 @@ import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { gunzipSync } from 'node:zlib';
-import { startCapture, redactHeaders } from '../src/capture.js';
+import { startCapture, captureHeaders } from '../src/capture.js';
 
 function fakeRes() {
   const body = [];
@@ -20,7 +20,7 @@ function fakeRes() {
   };
 }
 
-test('capture redacts credential headers and preserves response bytes', async () => {
+test('capture preserves credential headers verbatim and preserves response bytes', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'gmg-capture-'));
   try {
     const req = {
@@ -41,7 +41,7 @@ test('capture redacts credential headers and preserves response bytes', async ()
     assert.equal(envelope.schema, 'gmg.capture.v1');
     assert.equal(envelope.request.raw, req.__gatewayRawBody);
     assert.equal(envelope.response.raw, '{"jsonrpc":"2.0","result":{}}');
-    assert.match(envelope.request.headers.authorization, /^\[redacted:/);
+    assert.equal(envelope.request.headers.authorization, 'Bearer secret-token');
     assert.equal(envelope.request.headers['x-trace'], 't1');
     assert.equal(envelope.response.status, 200);
     assert.ok(envelope.response.durationMs >= 0);
@@ -60,10 +60,10 @@ test('capture can be disabled without touching the response', () => {
   assert.equal(Buffer.concat(res.body).toString(), 'ok');
 });
 
-test('redactHeaders handles arrays and non-secret headers', () => {
-  const out = redactHeaders({ cookie: ['a=1', 'b=2'], 'x-api-key': 'k', accept: 'application/json' });
-  assert.match(out.cookie, /^\[redacted:/);
-  assert.match(out['x-api-key'], /^\[redacted:/);
+test('captureHeaders copies all header values (no redaction)', () => {
+  const out = captureHeaders({ cookie: ['a=1', 'b=2'], 'x-api-key': 'k', accept: 'application/json' });
+  assert.deepEqual(out.cookie, ['a=1', 'b=2']);
+  assert.equal(out['x-api-key'], 'k');
   assert.equal(out.accept, 'application/json');
 });
 
@@ -75,7 +75,6 @@ test('capture sink failure never throws into the response path', async () => {
   assert.equal(Buffer.concat(res.body).toString(), 'ok');
   await new Promise((resolve) => setTimeout(resolve, 20));
 });
-
 
 test('R2 sink uploads gzipped raw envelope to the private capture bucket', async () => {
   const req = { method: 'POST', url: '/mcp', headers: { authorization: 'Bearer x' }, __gatewayRawBody: '{"a":1}' };
@@ -101,5 +100,3 @@ test('R2 sink uploads gzipped raw envelope to the private capture bucket', async
   assert.equal(envelope.request.raw, '{"a":1}');
   assert.equal(envelope.response.raw, '{"ok":true}');
 });
-
-

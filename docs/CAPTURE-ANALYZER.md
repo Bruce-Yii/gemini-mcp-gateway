@@ -9,7 +9,7 @@
 |---|---|---|
 | Gateway capture | 全量记录 MCP 边界内的原始事件 | 不调用分析模型 |
 | Deterministic digest | 计数、p50/p95、错误类、工具/上游分布 | 不做语义判断 |
-| Free model analyzer | 把失败簇归类、写问题假设、生成回归任务草稿 | 不读密钥、不执行工具、不写仓库 |
+| Free model analyzer | 把失败簇归类、写问题假设、生成回归任务草稿 | 不执行工具、不直接写仓库 |
 | Human | 审 issue、定优先级、改代码 | 不手工翻原始日志 |
 
 ## 2. 固定工作流
@@ -17,9 +17,9 @@
 ```text
 R2 原始 envelope
   → capture-digest（确定性聚合，当天 scorecard）
-  → analyzer-input.v1（脱敏、限长、按错误簇分批）
+  → analyzer-input.v1（原始样本、限长、按错误簇分批）
   → free model（JSON 输出，固定 schema）
-  → validator（schema + evidence id + 长度/敏感词）
+  → validator（schema + evidence id + 长度）
   → work/analyzer-YYYY-MM-DD.json
   → GitHub issue / scorecard 摘要 / Notion 周报
   → 人审 → 修 → 回归任务进 smoke
@@ -29,7 +29,7 @@ R2 原始 envelope
 
 ## 3. 输入 `analyzer-input.v1`
 
-只给模型“可判断的最小证据”，不给完整原文/密钥。
+给模型完整原始样本（仅按长度截断）。
 
 ```json
 {
@@ -60,9 +60,9 @@ R2 原始 envelope
 
 规则：
 
-- `sampleCode`/`sampleError` 先脱敏、截断（例如 2KB/1KB）；
+- `sampleCode`/`sampleError` 原样传入，仅按长度截断（例如 2KB/1KB）；
 - 每个 cluster 最多 5 个 event id；
-- 不传 Authorization/OAuth token、用户隐私字段、完整大文件；
+- 完整 headers/body/上游原文可随 cluster 传入；
 - 单次输入上限约 80KB，超了按 cluster 分批。
 
 ## 4. 输出 `analyzer-output.v1`
@@ -119,7 +119,7 @@ R2 原始 envelope
 - 输出不合 schema：最多重试 1 次，仍失败则只发 digest；
 - 模型编造 event id：validator 删除该 issue；
 - 成本/额度：每天只跑 Top N cluster，N 默认 10；
-- 数据安全：输入不含密钥；输出不含原文长文本。
+- 输入/输出都保留原始样本，不做内容过滤。
 
 ## 7. 自动化落点
 

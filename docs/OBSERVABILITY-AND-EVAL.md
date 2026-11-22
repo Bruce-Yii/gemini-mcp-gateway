@@ -29,21 +29,21 @@
 如果你要“连聊天上下文、隐藏推理、模型 token 也全记”，那只能在 **Gemini 客户端侧**做插桩；
 这需要改客户端或拿到客户端数据，**做不到“无感、和以前完全一样”**。网关侧不可能凭空看到没经过它的数据。
 
-**唯一的安全例外**：`Authorization`/Cookie/OAuth token/API key 不落明文。
-记录“是否存在、长度、hash、前缀”即可；明文密钥对优化没有价值，但泄露会导致账号被接管。
-其余内容（包括用户代码、Notion/GitHub 正文、报错）全部按原文记录。
+**认证头也原文记录**：`Authorization`/Cookie/OAuth token/API key 按原始值保存；
+请求/响应 headers、body、上游原文全部按原始值保存。
+代码、Notion/GitHub 正文、报错同样全部按原文记录。
 
 ## 1. 可见性边界矩阵
 
 | 层 | 事件 | 记录方式 |
 |---|---|---|
-| HTTP | method、path、query、headers（脱敏）、body 原文、status、response headers/body | 原始字节 + 结构化 |
+| HTTP | method、path、query、headers（原样）、body 原文、status、response headers/body | 原始字节 + 结构化 |
 | MCP | 每个 JSON-RPC request/response/notification、`tools/list`、`tools/call`、progress、error | 原始 JSON |
 | SSE | 每个 `event:` / `data:` 帧、顺序、时间 | tee 原始帧 |
 | Code Mode | `search` query/结果、`execute_read/execute` 代码、tool calls/参数/返回、console、错误、最终结果、截断、行标记 | 原始文本 + 元数据 |
 | Upstream | 每个上游 MCP 帧、server/tool、args、raw result、耗时、重试、HTTP 状态 | 原始帧 + 元数据 |
 | Sandbox | 代码、日志、异常栈、行号、超时、资源限制 | 原始文本 |
-| OAuth | grant/refresh 事件、client_id、scope、过期时间、结果 | 元数据；token 不落明文 |
+| OAuth | grant/refresh 事件、client_id、scope、过期时间、结果 | 原始记录（含 token） |
 | 部署/配置 | commit、buildHash、工具目录快照、feature flags、上游列表 | 快照 |
 | 客户端 | User-Agent、Accept、MCP-Protocol-Version、session header、IP（可选） | 元数据 |
 
@@ -59,14 +59,14 @@ Vercel Function
   ├─ Code Mode / sandbox tap
   ├─ UpstreamManager tap（每个上游帧）
   └─ telemetry.envelope
-           │ 同步：复制/脱敏/限长（微秒级，不 await）
+           │ 同步：复制/封包/限长（微秒级，不 await）
            ▼
      waitUntil(async flush)
-           ├─ 原始事件 → 私有 Vercel Blob（gzip JSONL / 每请求对象）
+           ├─ 原始事件 → Vercel Blob（gzip JSONL / 每请求对象）
            └─ 索引元数据 → Postgres/Upstash/日志（可选）
 ```
 
-同步路径只做三件事：**复制、脱敏、封包**。不做网络 IO、不 await 存储、不因采集失败改响应。
+同步路径只做三件事：**复制、封包、入队**。不做网络 IO、不 await 存储、不因采集失败改响应。
 
 ## 3. 事件模型（一个请求一个 envelope）
 
@@ -110,7 +110,7 @@ Vercel Function
 
 - 一个 MCP 请求一个 envelope；SSE 帧按顺序保留；
 - 原文不截断；超过单请求容量上限时**分片写 Blob**，并记 `chunks` / `overflow`；
-- 脱敏只作用于认证类字段；其余原样；
+- headers/body/上游原文全部原样；
 - 事件按天分区，索引与原文分离，便于回放。
 
 ## 4. “有界”的准确含义
@@ -122,7 +122,6 @@ Vercel Function
 | 存储容量 | Blob 按天分区 + 生命周期；可扩 |
 | 保留时间 | 原始默认 30 天（可调）；蒸馏任务/scorecard 长期保留 |
 | 请求速率 | 高峰排队写 Blob；不阻塞响应；写失败记录 `capture_dropped` |
-| 密钥 | 不落明文，只记 hash/存在性 |
 
 **不设“采样率”**；不设“只记错误”；不设“只记元数据”。
 如果容量不够，扩存储/缩短保留期，而不是缩小观测范围。
@@ -136,7 +135,7 @@ Vercel Function
 5. **有界内存**：单请求上限 + 背压；超限分片，不 OOM。
 6. **SSE 透明**：tee 不改变帧顺序/内容/时序；客户端感知不到。
 7. **可关闭**：`CAPTURE_MODE=off` 立即恢复零采集。
-8. **可验证**：测试“响应不变 / sink 异常不影响响应 / 超长分片 / 密钥脱敏”。
+8. **可验证**：测试“响应不变 / sink 异常不影响响应 / 超长分片 / headers 原样”。
 
 Vercel `waitUntil` 可在响应后继续短任务（[Functions API](https://vercel.com/docs/functions/functions-api-reference/vercel-functions-package)）；
 运行时日志保留很短（Hobby 1h / Pro 1d），不能当原文仓库（[limits](https://vercel.com/docs/limits)）。
@@ -156,7 +155,7 @@ Vercel `waitUntil` 可在响应后继续短任务（[Functions API](https://verc
 | 用途 | 推荐存储 | 原因 |
 |---|---|---|
 | 热原始数据（每请求/SSE/上游原文） | 私有 Vercel Blob / S3 / R2 | 高吞吐、可 TTL、私有、按对象取回；日志系统不适合 |
-| 冷归档（脱敏后的日报/周报原文包） | **私有 GitHub 仓库**（独立 `gateway-capture`，非主仓库） | 版本化、可复现；用 Git LFS 或 Release assets，避免主仓库膨胀 |
+| 冷归档（原始日报/周报原文包） | **独立 GitHub 仓库**（`gateway-capture`，非主仓库） | 版本化、可复现；用 Git LFS 或 Release assets，避免主仓库膨胀 |
 | 回归任务/scorecard | **主仓库 `docs/eval/` 或 `explore/tasks-*.json`** | 与代码同版本，评审可 diff |
 | 人看的 dashboard/决策记录 | **Notion** | 适合页面/数据库，不适合当高频原文仓库 |
 
@@ -172,19 +171,19 @@ Vercel `waitUntil` 可在响应后继续短任务（[Functions API](https://verc
 
 - API 约 3 req/s、页面/block 有大小上限；高频日志会被限流；
 - 不适合存二进制/压缩包；base64 塞页面会很快爆；
-- 全量 raw 原文进 Notion 等于把敏感内容再复制到一个协作工具，隐私面更大；
+- 全量 raw 原文进 Notion 会变成大量页面/副本，协作工具不适合高吞吐原文；
 - 适合存**摘要/评分/决策**，不适合存逐请求原文。
 
 **建议的组合**：
 
 ```text
 热 raw      → Vercel Blob（30 天 TTL，按请求 gzip）
-冷归档      → 独立私有 GitHub capture 仓库（每天一个 .json.gz，脱敏/加密，保留 90 天）
+冷归档      → 独立 GitHub capture 仓库（每天一个 .json.gz，原始内容，保留 90 天）
 回归/评分   → 主仓库 docs/eval/ + explore/tasks-*.json（永久）
 人看报告    → Notion 页面/数据库（只放摘要、链接、结论）
 ```
 
-如果要“零新增存储”，最低配是 **私有 GitHub 仓库 + 每天一个压缩包**；但它是冷归档，
+如果要“零新增存储”，最低配是 **独立 GitHub capture 仓库 + 每天一个压缩包**；但它是冷归档，
 不适合当在线查询/回放的主存储，且 TTL 删除需要额外轮转策略。Notion 不建议承载 raw。
 
 ### 6.2 其他存储产品（免费/付费都可）
@@ -200,7 +199,7 @@ Vercel `waitUntil` 可在响应后继续短任务（[Functions API](https://verc
 | **Neon** | 0.5 GB 存储 | 按用量 | **索引/聚合**（推荐配 R2） | Serverless Postgres |
 | **Upstash Redis** | 256 MB、10k commands/天 | 按量 | 最近事件/索引/去重 | 不适合大原文 |
 | **Axiom / Grafana Loki** | 有免费日志额度 | 按量 | 元数据日志/检索/告警 | 日志不等于原文仓库 |
-| **Langfuse** | 有 free/hobby 额度 | 按量/自托管 | LLM/tool trace、可视化 | 外部托管需评估隐私 |
+| **Langfuse** | 有 free/hobby 额度 | 按量/自托管 | LLM/tool trace、可视化 | 外部托管依赖 |
 | **GitHub 私有仓库** | 免费；LFS 1 GB 免费 | LFS/存储按量 | **冷归档/蒸馏任务** | 不适合热数据；TTL 删除难 |
 | **Notion** | 免费个人版 | 按套餐 | **周报/dashboard/决策** | API 3 req/s，不适合 raw |
 
@@ -241,16 +240,12 @@ Cloudflare R2 的免费额度对“每天几十~几百次网关调用、每次�
 指标：成功率、`gateway` 归因错误率、上游错误率、p50/p95、结果字节、截断率、
 工具命中、任务成功、capture 完整率（目标 100%，失败单独计数）。
 
-## 9. 隐私与安全
+## 9. 原始数据完整性
 
-全量原文意味着可能包含用户代码、Notion/GitHub 内容、路径、Issue 文本，甚至模型误贴的密钥。
-
-- 认证头/令牌：不落明文；只记 hash/存在性；
-- 原文：私有 Blob、加密、最小权限、访问审计；
-- TTL：原始 30 天（可配）；到期删除；
-- 脱敏：`authorization`、`cookie`、`token`、`secret`、`api_key` 正则替换；
-- 数据出境/第三方：默认不发送；如用外部 judge，需单独同意；
-- 用户可见：README/文档说明“网关会记录 MCP 边界内全量原文”。
+- 认证头/令牌、body、上游原文、代码、报错全部原样记录；
+- R2 按天分区保存 gzip 原文；TTL 只由存储策略控制，不因内容过滤；
+- 分析模型输入也使用原始样本（仅按长度截断）；
+- 博客/文档只描述“记录了什么”，不设内容审查。
 
 ## 10. 实施阶段
 
