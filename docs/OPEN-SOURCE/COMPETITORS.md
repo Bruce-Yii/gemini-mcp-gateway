@@ -9,7 +9,7 @@
 
 ---
 
-## 0. 结论先行（给 lead 的 TL;DR）
+## 0. 读前修正：竞品要看“优化轴”，不是“功能清单”\n\n> 本项目不是“又一个 MCP 聚合网关”。聚合是副产物；核心是**持续优化上下文与工具调用**。\n> 因此主竞品只有四类：Cloudflare Code Mode/Portals、Limen、corrreia/dev-mcp、gemini-bastion-mcp。\n> MCPHub/MetaMCP/Unla/agentgateway 是相邻基础设施，不是同一优化轴上的竞品。详见 [DIFFERENTIATION.md](DIFFERENTIATION.md)。\n\n## 0. 结论先行（给 lead 的 TL;DR）
 
 1. **「MCP 聚合网关」已是红海**：MetaMCP（2,762★，但已 archived）、MCPHub（2,748★）、Unla（2,262★）、Docker MCP Gateway（1,643★）、agentgateway（6,358★）都在做「多上游 → 单端点」。单纯聚合、OpenAPI 转换、多租户已不是差异化。
 2. **「网关 + Code Mode」也不再独有**：Cloudflare MCP Portals 自 2026-03-26 起**默认开启 Code Mode**（`?codemode=search_and_execute` 暴露单个 `code` 工具）；Limen、corrreia/dev-mcp、Forgemax 都是 2 工具 Code Mode 网关。我们与它们的关键差别在**3 工具的读写分层（execute_read / execute）**、**QuickJS 真隔离**、**全量 capture + L1/G6 eval**、**真实写路径验证**与**Gemini 网页版实测**。

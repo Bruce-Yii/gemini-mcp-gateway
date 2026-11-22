@@ -26,7 +26,7 @@ gateway, connector marketplace, or a guarantee that every web client works.
 `SECURITY.md` already says “one deployment = one owner”; make that explicit in
 README and release notes.
 
-## 2. Competitive conclusion
+## 2. Competitive conclusion\n\n> Correction: aggregation gateways are adjacent infrastructure, not the main\n> comparison. The real comparison axis is **continuous context/tool-call\n> optimization**. See [DIFFERENTIATION.md](DIFFERENTIATION.md).
 
 - Pure MCP aggregation is red ocean (MetaMCP archived, MCPHub/Unla/agentgateway/
   Docker active). We should not compete on “more servers”.
