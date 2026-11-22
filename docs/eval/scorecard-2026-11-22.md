@@ -53,8 +53,8 @@
 ## Requests by hour (UTC)
 | Hour | Requests |
 |---|---:|
-| 20:00 | 10 |
-| 21:00 | 10 |
+| 20:00 | 9 |
+| 21:00 | 11 |
 
 ## Non-MCP routes (kept separate)
 | Upstream | Calls | Errors | Error rate | p50 ms | p95 ms | Avg ms | Truncated | Overflow | Error classes |
