@@ -41,3 +41,20 @@ test('tokenEnv: explicit headers still carried alongside token', async () => {
   assert.equal(headers.Authorization, 'Bearer test-token-xyz');
   delete process.env[ENV_KEY];
 });
+
+test('authScheme: basic sends an Authorization: Basic header', async () => {
+  process.env[ENV_KEY] = 'dXNlcjpwYXNz';
+  const mgr = new UpstreamManager([
+    {
+      name: 'atlassian',
+      transport: 'http',
+      url: 'https://example.invalid/mcp',
+      tokenEnv: ENV_KEY,
+      authScheme: 'basic',
+    },
+  ]);
+  const transport = await mgr._createTransport(mgr.configs[0]);
+  const headers = transport._requestInit?.headers ?? transport.requestInit?.headers;
+  assert.equal(headers.Authorization, 'Basic dXNlcjpwYXNz');
+  delete process.env[ENV_KEY];
+});

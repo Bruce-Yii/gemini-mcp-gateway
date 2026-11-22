@@ -125,7 +125,10 @@ export class UpstreamManager {
         if (!token) {
           throw new Error(`http 上游环境变量 ${config.tokenEnv} 未设置`);
         }
-        headers.Authorization = `Bearer ${token}`;
+        // Most upstreams use Bearer; a few (Atlassian personal API tokens)
+        // expect Basic with a pre-encoded base64 credential in the env var.
+        const scheme = config.authScheme === 'basic' ? 'Basic' : 'Bearer';
+        headers.Authorization = `${scheme} ${token}`;
       }
       const options = {};
       if (Object.keys(headers).length > 0) {

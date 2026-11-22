@@ -17,7 +17,7 @@ const ENV_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const TOP_LEVEL_KEYS = new Set(['servers', 'mode', 'maxWhitelistTools', 'maxCalls', 'maxResultChars']);
 const SERVER_KEYS = new Set([
   'name', 'transport', 'url', 'command', 'args', 'env', 'headers',
-  'tokenEnv', 'refreshEnv', 'clientIdEnv', 'clientSecretEnv', 'expiresInEnv', 'obtainedAtEnv',
+  'tokenEnv', 'authScheme', 'refreshEnv', 'clientIdEnv', 'clientSecretEnv', 'expiresInEnv', 'obtainedAtEnv',
   'refreshUrl', 'allowTools', 'denyTools',
 ]);
 
@@ -113,7 +113,14 @@ export function validateConfig(value, { env = process.env } = {}) {
         if (server.url !== undefined) warnings.push(`${at}: "url" is ignored for stdio transport`);
       }
 
-      for (const key of ['tokenEnv', 'refreshEnv', 'clientIdEnv', 'expiresInEnv', 'obtainedAtEnv']) {
+      if (server.authScheme !== undefined && !['bearer', 'basic'].includes(server.authScheme)) {
+        issues.push(`${at}.authScheme must be "bearer" or "basic"`);
+      }
+      if (server.authScheme && !server.tokenEnv) {
+        warnings.push(`${at}: authScheme is ignored without tokenEnv`);
+      }
+
+      for (const key of ['tokenEnv', 'refreshEnv', 'clientIdEnv', 'clientSecretEnv', 'expiresInEnv', 'obtainedAtEnv']) {
         const item = server[key];
         if (item !== undefined && (typeof item !== 'string' || !ENV_RE.test(item))) {
           issues.push(`${at}.${key} must be an environment variable name`);
