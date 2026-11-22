@@ -3,7 +3,10 @@
 | Metric | Value |
 |---|---|
 | Requests | 20 |
+| MCP POST requests | 10 |
+| Non-MCP routes | 10 |
 | Errors (HTTP >= 400) | 9 |
+| MCP errors | 0 |
 | p50 latency | 7 ms |
 | p95 latency | 845 ms |
 | Avg latency | 379 ms |
@@ -23,7 +26,12 @@
 | execute_read | 3 |
 | search | 1 |
 
-## Error classes
+## Error classes (MCP only)
+| Class | Count |
+|---|---|
+| — | 0 |
+
+## Route errors (non-MCP)
 | Class | Count |
 |---|---|
 | upstream_4xx | 9 |
