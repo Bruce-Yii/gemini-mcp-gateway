@@ -93,7 +93,7 @@ jobs:
           const since = process.env.SINCE;
           const label = `${since}+7d`;
           const digest = JSON.parse(await readFile(`work/weekly/scorecard-${label}.json`, 'utf8'));
-          const analysis = JSON.parse(await readFile(`work/weekly/analyzer-input-${label}.json`, 'utf8'));
+          const analysis = JSON.parse(await readFile(`work/weekly/analyzer-input-${since}.json`, 'utf8'));
           const candidates = (analysis.clusters ?? []).slice(0, 10).map((cluster) => ({
             severity: 'P3',
             category: 'unknown',
