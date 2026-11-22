@@ -20,15 +20,15 @@
 
 ### P0
 
-1. **强制 canonical 结果**：现在只是 `fileResult/prResult` 可选 helper，上游原始返回仍可能漂移；需要网关层对高频 GitHub 文件/PR/Issue 结果做 canonical 视图（保留 raw 回退）。
+1. **强制 canonical 结果**：`normalizeFileResult/prResult/issueResult` 已实现（B10-canonical），但**未接调用路径**；下一步是接入 Code Mode/网关。
 2. **行区间读取/站内搜索参数化**：GitHub MCP 工具本身没有 `start_line/end_line/search_pattern`；helper 仍需先拉全文。若要“永不截断 + 不拉全文”，需要网关 side adapter 或专用上游 API。
-3. **补丁级写入端到端**：`applyPatch` 只在沙箱里改字符串；还没有“读取文件 → 校验 patch → 写回 GitHub → 返回 diff”的封装。
-4. **dry-run 写前预览**：`diffSummary` 只是 helper，未接入写工具/推送前自动返回 +N/-M 和 hunk 摘要。
+3. **补丁级写入端到端**：`applyTextPatch/applyFilePatch` host 模块已实现（B10-patch-write），**未接上游/codemode**；下一步接入写入路径。
+4. **dry-run 写前预览**：`applyFilePatch` 已支持 dryRun（host 模块），未接写工具/codemode。
 
 ### P1
 
 5. 原生 `update_branch/rebase`、单文件三方合并：未做。
-6. `ensure_branch` / `upsert_pr` 幂等原语：未做。
+6. `ensure_branch` / `upsert_pr` / `fetchAllPages` / `repoGrep`：host helper 已实现（B10-idempotent），未接 codemode。
 7. 跨文件 Repo Grep / AST 符号查找：只有 `grepSnippet`（对已有文本），没有仓库级搜索封装。
 8. 分页自动迭代 `fetchAllPages`：未做。
 
