@@ -1,0 +1,15 @@
+{
+  "mode": "codemode",
+  "servers": [
+    {
+      "name": "notion",
+      "transport": "http",
+      "url": "https://mcp.notion.com/mcp",
+      "tokenEnv": "NOTION_TOKEN",
+      "refreshEnv": "NOTION_REFRESH_TOKEN",
+      "clientIdEnv": "NOTION_CLIENT_ID",
+      "expiresInEnv": "NOTION_EXPIRES_IN",
+      "obtainedAtEnv": "NOTION_OBTAINED_AT"
+    }
+  ]
+}

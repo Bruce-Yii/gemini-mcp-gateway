@@ -15,6 +15,7 @@ import { createOAuthHandlers, resolveBaseUrl } from './oauth.js';
 import { UpstreamManager } from './upstreams.js';
 import { createMcpRequestHandler } from './server.js';
 import { BUILD } from './build-info.js';
+import { validateConfig } from './config.js';
 
 const DEFAULT_CONFIG_PATH = fileURLToPath(new URL('../config.example.json', import.meta.url));
 
@@ -68,10 +69,20 @@ function parseUpstreamsJson(raw) {
 async function loadConfig(options) {
   if (options.config !== undefined) return normalizeConfig(options.config);
   const inline = options.upstreamsJson ?? process.env.UPSTREAMS_JSON;
-  if (inline) return parseUpstreamsJson(inline);
+  if (inline) {
+    const { config } = validateConfig(parseUpstreamsJson(inline));
+    return config;
+  }
   const configPath = options.configPath ?? process.env.GATEWAY_CONFIG ?? DEFAULT_CONFIG_PATH;
   const raw = await readFile(resolve(configPath), 'utf8');
-  return normalizeConfig(JSON.parse(raw));
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`gateway config ${configPath} is not valid JSON: ${error.message}`);
+  }
+  const { config } = validateConfig(parsed);
+  return normalizeConfig(config);
 }
 
 /** Skip upstreams whose tokenEnv variable is unset so the app can boot. */

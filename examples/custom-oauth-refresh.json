@@ -1,0 +1,16 @@
+{
+  "mode": "codemode",
+  "servers": [
+    {
+      "name": "my-oauth-upstream",
+      "transport": "http",
+      "url": "https://mcp.example.com/mcp",
+      "tokenEnv": "MY_UPSTREAM_TOKEN",
+      "refreshEnv": "MY_UPSTREAM_REFRESH_TOKEN",
+      "clientIdEnv": "MY_UPSTREAM_CLIENT_ID",
+      "expiresInEnv": "MY_UPSTREAM_EXPIRES_IN",
+      "obtainedAtEnv": "MY_UPSTREAM_OBTAINED_AT",
+      "refreshUrl": "https://auth.example.com/token"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "mode": "codemode",
+  "servers": [
+    {
+      "name": "github",
+      "transport": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "tokenEnv": "GITHUB_TOKEN"
+    }
+  ]
+}

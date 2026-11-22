@@ -1,0 +1,11 @@
+{
+  "mode": "codemode",
+  "servers": [
+    {
+      "name": "fake",
+      "transport": "stdio",
+      "command": "node",
+      "args": ["harness/fake-upstream.mjs"]
+    }
+  ]
+}

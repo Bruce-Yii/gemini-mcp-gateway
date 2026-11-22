@@ -28,6 +28,7 @@ import { sanitizeTool } from './sanitize.js';
 import { searchEntries } from './catalog.js';
 import { UpstreamManager } from './upstreams.js';
 import { createCodeModeTools } from './codemode.js';
+import { validateConfig } from './config.js';
 
 const SERVER_INFO = { name: 'gemini-mcp-gateway', version: '0.1.0' };
 
@@ -445,7 +446,9 @@ async function runCli() {
   const args = parseCliArgs(process.argv.slice(2));
   if (!args.config) throw new Error('--config <path> is required');
 
-  const config = JSON.parse(await readFile(args.config, 'utf8'));
+  const parsed = JSON.parse(await readFile(args.config, 'utf8'));
+  const { config, warnings } = validateConfig(parsed);
+  for (const warning of warnings) console.error(`[config] ${warning}`);
   const upstreamManager = new UpstreamManager(config.servers ?? []);
   await upstreamManager.connect();
   const gatewayOptions = {

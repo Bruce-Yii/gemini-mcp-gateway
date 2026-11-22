@@ -25,6 +25,10 @@ jobs:
       - run: npm ci
       - name: Unit + integration tests
         run: npm test
+      - name: Validate example configs
+        run: |
+          node scripts/check-config.mjs config.example.json
+          for f in examples/*.json; do node scripts/check-config.mjs "$f"; done
       - name: Offline search evaluation
         run: node scripts/eval-search.mjs
       - name: Tool-face context measurement
