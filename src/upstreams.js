@@ -16,6 +16,7 @@ import { isAllowed } from './catalog.js';
 import { UpstreamAuth, defaultProvider } from './upstream-auth.js';
 import { normalizeToolArguments } from './sanitize.js';
 import { captureEvent } from './capture.js';
+import { createFigmaGuard, isFigmaQuotaError } from './figma-guard.js';
 
 export function tapTransport(transport, server) {
   if (!transport) return transport;
@@ -122,6 +123,8 @@ export class UpstreamManager {
     this._clients = new Map();
     this._closed = new Set();
     this._auth = options.auth ?? new UpstreamAuth();
+    // Figma-only quota breaker + read cache. In-memory and per-instance.
+    this.figmaGuard = options.figmaGuard ?? createFigmaGuard(options.figmaGuardOptions);
     // Test seam: inject a fake MCP client without touching the real SDK.
     this._clientFactory = options.clientFactory ?? (() => new Client(CLIENT_INFO));
   }
@@ -309,15 +312,36 @@ export class UpstreamManager {
     // gateway_call handlers (server.js) both call UpstreamManager.callTool.
     const entry = this.entries.find((e) => e.server === server && e.tool === tool);
     const finalArgs = normalizeToolArguments(args, entry?.inputSchema) ?? {};
+    const guard = server === 'figma' ? this.figmaGuard : null;
+    // Cooldown takes precedence over the cache: once quota is exhausted we do
+    // not serve even a cached read, so the agent sees one consistent state.
+    if (guard) guard.assertCool();
+    if (guard) {
+      const hit = guard.get(tool, finalArgs);
+      if (hit !== undefined) {
+        captureEvent('upstream', {
+          server, tool, args: finalArgs, result: hit, cacheHit: true,
+          durationMs: 0,
+        });
+        return hit;
+      }
+    }
     const started = Date.now();
     try {
       const result = await record.client.callTool({ name: tool, arguments: finalArgs });
+      // MCP tool errors arrive as a successful callTool() with `isError: true`;
+      // Figma surfaces plan/rate-limit wording there, not as a rejected promise.
+      if (guard && result?.isError === true && isFigmaQuotaError(result)) guard.trip();
       captureEvent('upstream', {
         server, tool, args: finalArgs, result,
         durationMs: Date.now() - started,
       });
+      if (guard && !result?.isError && guard.isCacheable(tool)) {
+        guard.set(tool, finalArgs, result);
+      }
       return result;
     } catch (err) {
+      if (guard && isFigmaQuotaError(err)) guard.trip();
       captureEvent('upstream', {
         server, tool, args: finalArgs,
         error: { name: err?.name, message: err?.message, stack: err?.stack },

@@ -157,6 +157,33 @@ different body, the generic path does not fit yet — open an issue.
   changes what the sandbox can call, not the client's tool list — no reconnect
   required.
 
+## Figma quota breaker & read cache
+
+The `figma` upstream gets two extra guardrails in `src/figma-guard.js` (wired
+into `UpstreamManager.callTool`). No other server is affected.
+
+- **Quota cooldown.** If a Figma `callTool` fails with plan-limit / rate-limit
+  wording (`Figma MCP tool call limit`, `Starter plan`, `upgrade your plan`,
+  `429`, `rate limit` — case-insensitive, also detected inside MCP
+  `isError: true` results), the manager opens a cooldown. Until it expires,
+  every subsequent Figma call throws
+  `FigmaQuotaCooldownError` (`Figma 配额冷却中（剩余 N 秒）`,
+  `code: "FIGMA_QUOTA_COOLDOWN"`) without touching the upstream.
+  Tripping the breaker also clears the Figma read cache.
+- **Read cache.** Successful results of the two read-only tools `whoami` and
+  `get_metadata` are cached by tool name + canonical JSON args. Writes and
+  error results are never cached; the cooldown takes priority over a cache hit.
+- **Environment variables:** `FIGMA_COOLDOWN_MS` (default `86400000` = 24h),
+  `FIGMA_CACHE_TTL_MS` (default `3600000` = 1h),
+  `FIGMA_CACHE_MAX` (default `200` entries, LRU eviction).
+- **Limitations:** state is in-memory per `UpstreamManager` instance. On
+  serverless (Vercel) every warm instance keeps its own cooldown and cache, and
+  a cold start begins with a clean slate — there is no cross-instance
+  coordination, so a freshly warmed instance may still spend quota once after
+  another instance has tripped. No persistent storage is used.
+
+Tests: `tests/figma-guard.test.js` (fake client, no network, no credentials).
+
 ## Verification checklist
 
 1. `npm run check:config -- my.json` — no errors, expected warnings only.

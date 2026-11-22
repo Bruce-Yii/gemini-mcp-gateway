@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Figma G3 coverage: `explore/figma-tasks.json` (46 tasks for 46 retained tools; 18 official/28 schema; 9 Weave skips), `scripts/gen-figma-tasks.mjs` + `check-task-coverage.mjs` (CI); schema-reverse 28/28 top-5.
 - Binary/image resources: mimeType-gated resource blob → native image block, 1 MiB cap with metadata fallback; text/resource metadata unchanged (`src/tool-format.js`, `tests/resource-blob-image.test.js`).
 - Gemini feedback (B5): deduplicated GitHub text/resource/`content` results (`src/tool-format.js`), made the `boundResult` truncation suffix state the exact `limit/original` with a true cap (`src/server.js`), and added the `codemode.unwrap(value)` sandbox helper (`src/codemode.js`); new tests for all three. Binary/image resource handling analyzed but not yet implemented.
+- Figma quota breaker + read-only cache (`src/figma-guard.js`, wired into `UpstreamManager.callTool`): plan/rate-limit errors open a 24h cooldown (`FIGMA_COOLDOWN_MS`) that short-circuits further Figma calls with `FigmaQuotaCooldownError`; `whoami`/`get_metadata` successes cached with 1h TTL (`FIGMA_CACHE_TTL_MS`) and 200-entry LRU (`FIGMA_CACHE_MAX`). Other upstreams unaffected; state is per-instance in memory. Added `tests/figma-guard.test.js` and `docs/UPSTREAMS.md` notes.
 
 ## [0.1.0] - 2026-11-22
 
