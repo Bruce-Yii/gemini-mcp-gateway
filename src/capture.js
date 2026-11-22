@@ -308,6 +308,8 @@ export function startCapture(req, res, options = {}) {
       schema: 'gmg.capture.v1',
       ts: new Date(started).toISOString(),
       requestId,
+      sessionId: req.__gatewaySessionId ?? req.headers?.['mcp-session-id'] ?? null,
+      clientInfo: req.__gatewayClientInfo ?? null,
       mode: cfg.mode,
       deployment: BUILD,
       request: {

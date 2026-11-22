@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - Local credential vault schema + `scripts/figma-token.mjs` (one-time Figma authorization, non-interactive refresh) and `vercel-auth.json` backup; Vercel refreshed tokens synced back via CLI.
 - `data/tool-snapshots/figma.json` captured (50 tools) and `data/tool-dataset.json` synced to 506; `check-config` now prints `total/exposed/denied`; `scripts/audit-tools.mjs` added to CI.
 - G6 full exploration (228 tasks, five upstreams) found a real sandbox gap: QuickJS has no `Intl`; most other gateway-attributed anomalies were model/upstream account/detector artifacts. Recorded in `docs/ledger/batch-7-g6-findings.md`; G6 remains ❌ until fixed and retested.
+- Session marker: Mcp-Session-Id on initialize + clientInfo in capture (stateless, correlation only).
 - Real GitHub write replay: branch → create file → dryRun → patch → verify → cleanup; fixed notice/sha/write-result nesting bugs.
 - Write semantics: create_branch_if_missing, unified sha/top-level number/url/sha, multi-file precheck/dry-run.
 - Online/offline join: PR #41–#48 timeline vs capture gap report.

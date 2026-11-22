@@ -433,3 +433,24 @@ test('server handler starts its own capture when used standalone (no prior conte
   );
   void capture;
 });
+test('capture envelope records sessionId and clientInfo', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'gmg-session-'));
+  const res = fakeRes();
+  const req = fakeReq({ raw: '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"Gemini","version":"1.0.0"}}}' });
+  req.__gatewaySessionId = 'sid-test-1';
+  req.__gatewayClientInfo = { name: 'Gemini', version: '1.0.0' };
+  try {
+    startCapture(req, res, { mode: 'full', sink: 'file', fileDir: dir });
+    res.end('ok');
+    let files = [];
+    for (let i = 0; i < 20; i += 1) {
+      files = await readdir(dir);
+      if (files.length) break;
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    assert.equal(files.length, 1);
+    const envelope = JSON.parse(await readFile(join(dir, files[0]), 'utf8'));
+    assert.equal(envelope.sessionId, 'sid-test-1');
+    assert.deepEqual(envelope.clientInfo, { name: 'Gemini', version: '1.0.0' });
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});

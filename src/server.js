@@ -435,6 +435,19 @@ export function createMcpRequestHandler(upstreamManager, options = {}) {
           throw error;
         }
         let gatewayServer;
+        const incomingSession = String(req.headers?.['mcp-session-id'] ?? '');
+        if (incomingSession) req.__gatewaySessionId = incomingSession;
+        if (body?.method === 'initialize') {
+          req.__gatewayClientInfo = body?.params?.clientInfo ?? null;
+          if (!incomingSession) {
+            // Legacy MCP session marker: the client may echo this header on
+            // subsequent requests. The transport stays stateless; this is only
+            // a correlation key for capture/eval, not server-side state.
+            const sessionId = randomUUID();
+            req.__gatewaySessionId = sessionId;
+            res.setHeader('Mcp-Session-Id', sessionId);
+          }
+        }
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: undefined, // stateless: no sticky session required
         });
