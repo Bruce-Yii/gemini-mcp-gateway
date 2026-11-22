@@ -1,0 +1,26 @@
+{
+  "mode": "codemode",
+  "maxCalls": 50,
+  "maxResultChars": 20000,
+  "servers": [
+    {
+      "name": "example-http",
+      "transport": "http",
+      "url": "https://mcp.example.invalid/mcp",
+      "tokenEnv": "EXAMPLE_HTTP_TOKEN",
+      "allowTools": [],
+      "denyTools": []
+    },
+    {
+      "name": "example-stdio",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "some-mcp-server@1.0.0"],
+      "env": {
+        "EXAMPLE_STDIO_OPTION": "placeholder"
+      },
+      "allowTools": [],
+      "denyTools": []
+    }
+  ]
+}

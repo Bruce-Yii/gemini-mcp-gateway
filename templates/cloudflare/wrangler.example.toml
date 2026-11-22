@@ -1,0 +1,23 @@
+# TARGET DESIGN ONLY — no worker entrypoint or adapters exist yet (需开发).
+# Copy to your own wrangler.toml and replace all placeholders before use.
+# Do not commit real account_id / database_id / secrets.
+
+name = "gemini-mcp-gateway-example"
+main = "worker.example.js"          # sketch in this folder; returns 501 today
+compatibility_date = "2026-11-23"
+
+# [vars]
+# PUBLIC_BASE_URL = "https://<your-worker>.example.invalid"
+
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "gateway-tokens"
+# database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# [[r2_buckets]]
+# binding = "CAPTURE_BUCKET"
+# bucket_name = "gateway-capture"
+
+# Secrets: set with `wrangler secret put NAME`, never in this file:
+# ALLOWED_CLIENT_ID, ALLOWED_CLIENT_SECRET, EXAMPLE_TOKEN,
+# UPSTREAM_OAUTH_ADMIN_KEY (optional)

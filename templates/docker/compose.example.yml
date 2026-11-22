@@ -1,0 +1,35 @@
+# Example only. Fill templates/docker/.env (never commit it) before use.
+services:
+  gateway:
+    build:
+      context: ../..            # repository root when this file is used in place
+      dockerfile: templates/docker/Dockerfile.example
+    image: my-gateway:local
+    ports:
+      # NOTE: CLI binds 127.0.0.1 inside the container today, so this mapping
+      # is not reachable until a --host flag is added (需开发) or host networking
+      # is used. See templates/docker/README.md.
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - .env
+    volumes:
+      # Bind-mount an untracked config with no secrets inside it.
+      - ../../my-gateway.local.json:/app/gateway-config.json:ro
+      - gateway-capture:/app/work/capture
+    restart: unless-stopped
+
+  # Optional TLS reverse proxy profile. Enable with:
+  #   docker compose -f compose.example.yml --profile proxy up
+  # Auth at the proxy is 需开发; the CLI does not validate bearer tokens.
+  proxy:
+    image: nginx:1.27-alpine
+    profiles: ["proxy"]
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.example.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - gateway
+
+volumes:
+  gateway-capture:

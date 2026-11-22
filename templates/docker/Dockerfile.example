@@ -1,0 +1,22 @@
+# Copy to repo root as Dockerfile before building. No secrets in the image.
+FROM node:20-bookworm-slim
+
+ENV NODE_ENV=production
+WORKDIR /app
+
+# Install dependencies from lockfile when present; otherwise from package.json.
+COPY package.json package-lock.json* ./
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi
+
+COPY --chown=node:node . .
+
+# Config is supplied at runtime as a read-only mount:
+#   -v "$PWD/my-gateway.local.json:/app/gateway-config.json:ro"
+RUN mkdir -p /app/work/capture && chown -R node:node /app/work
+USER node
+
+EXPOSE 3000
+
+# --config is mandatory for the CLI; --port is the loopback bind port.
+# NOTE: src/server.js binds 127.0.0.1; a --host flag for 0.0.0.0 is 需开发.
+CMD ["node", "src/server.js", "--config", "/app/gateway-config.json", "--port", "3000"]
