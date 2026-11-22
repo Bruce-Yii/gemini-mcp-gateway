@@ -31,7 +31,9 @@
     "smoke": "node scripts/smoke.mjs",
     "verify:github": "node scripts/verify-real-github.mjs",
     "check": "node --check src/server.js",
-    "check:config": "node scripts/check-config.mjs"
+    "check:config": "node scripts/check-config.mjs",
+    "bench": "node bench/run.mjs",
+    "bench:dry": "node bench/run.mjs --dry-run"
   },
   "engines": {
     "node": ">=20.19.0"

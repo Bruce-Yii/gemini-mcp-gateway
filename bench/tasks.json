@@ -1,0 +1,31 @@
+{
+  "name": "fake-upstream smoke",
+  "description": "Deterministic harness check: a model drives the gateway against the bundled fake upstream. Not a quality benchmark of real upstreams.",
+  "tasks": [
+    {
+      "id": "read-file",
+      "prompt": "Read the file README.md from owner acme and repo demo using the gateway. Reply with only the path you passed.",
+      "checks": [{ "contains": "README.md" }]
+    },
+    {
+      "id": "count-tools",
+      "prompt": "How many upstream tools does this gateway expose? Use the sandbox to inspect the tool list, then reply with only the number.",
+      "checks": [{ "regex": "^\\s*6\\s*$" }]
+    },
+    {
+      "id": "code-search-query",
+      "prompt": "Search code with the query retryPolicy. Reply with only the query string that reached the upstream.",
+      "checks": [{ "contains": "retryPolicy" }]
+    },
+    {
+      "id": "select-schema",
+      "prompt": "Use search with select: to fetch the full schema of the notion__notion-search tool. Is its query parameter required or optional? Reply with one word.",
+      "checks": [{ "regex": "optional|not required" }]
+    },
+    {
+      "id": "missing-tool",
+      "prompt": "Call a tool named github__does_not_exist through the gateway and report the exact error message you get. Keep the report short.",
+      "checks": [{ "regex": "not a function|unknown tool|does not exist" }]
+    }
+  ]
+}
