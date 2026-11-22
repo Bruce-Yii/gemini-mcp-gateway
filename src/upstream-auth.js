@@ -15,6 +15,7 @@
  * If KV is unavailable, we fall back to the env token (which works until it
  * expires) — so local dev / first deploy still functions without KV.
  */
+import { captureEvent } from './capture.js';
 import { TokenStore } from './store.js';
 
 const KEY_PREFIX = 'gmcgw:v1:upstream';
@@ -79,6 +80,12 @@ export class UpstreamAuth {
     const url = mcpUrl ?? DEFAULT_PROVIDERS[server]?.mcpUrl;
     if (!url || !this._fetch) return false;
     try {
+      const requestBody = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} });
+      captureEvent('upstream_http', {
+        phase: 'request', server, url, method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', authorization: `Bearer ${accessToken}` },
+        body: requestBody,
+      });
       const r = await this._fetch(url, {
         method: 'POST',
         headers: {
@@ -86,8 +93,9 @@ export class UpstreamAuth {
           accept: 'application/json, text/event-stream',
           authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }),
+        body: requestBody,
       });
+      captureEvent('upstream_http', { phase: 'response', server, url, status: r.status, headers: Object.fromEntries(r.headers) });
       return r.ok;
     } catch { return false; }
   }
@@ -110,10 +118,21 @@ export class UpstreamAuth {
     // Confidential OAuth clients (Google Workspace, Slack, Atlassian, ...) require
     // the client secret at the token endpoint. Public PKCE clients do not set it.
     if (rec.client_secret) body.set('client_secret', rec.client_secret);
+    const requestBody = body.toString();
+    captureEvent('upstream_http', {
+      phase: 'request', server, url, method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: requestBody,
+    });
     const r = await this._fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: body.toString(),
+      body: requestBody,
+    });
+    const responseText = typeof r.clone === 'function' ? await r.clone().text() : null;
+    captureEvent('upstream_http', {
+      phase: 'response', server, url, status: r.status,
+      headers: Object.fromEntries(r.headers ?? []), body: responseText,
     });
     const j = await r.json();
     if (!r.ok || !j.access_token) throw new Error(j.error ?? `HTTP ${r.status}`);

@@ -152,3 +152,23 @@ test('tapTransport records both upstream directions as raw frames', async () => 
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('capture sink failure emits a structured capture_dropped event', async () => {
+  const { captureFailureStats } = await import('../src/capture.js');
+  const before = captureFailureStats().dropped;
+  const errors = [];
+  const original = console.error;
+  console.error = (...args) => errors.push(args.join(' '));
+  try {
+    const req = { method: 'POST', url: '/mcp', headers: {}, __gatewayRawBody: '{}' };
+    const res = fakeRes();
+    startCapture(req, res, { mode: 'full', sink: 'http', httpUrl: 'http://127.0.0.1:1/capture' });
+    res.end('ok');
+    await new Promise((resolve) => setTimeout(resolve, 80));
+  } finally {
+    console.error = original;
+  }
+  assert.equal(captureFailureStats().dropped, before + 1);
+  assert.ok(errors.some((line) => line.includes('[capture_dropped]')));
+  assert.ok(errors.some((line) => line.includes('gmg.capture_dropped.v1')));
+});

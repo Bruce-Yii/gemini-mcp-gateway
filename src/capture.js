@@ -17,6 +17,11 @@ import { BUILD } from './build-info.js';
 
 const MAX_BODY_BYTES = 32 * 1024 * 1024;
 export const captureStore = new AsyncLocalStorage();
+let droppedCount = 0;
+
+export function captureFailureStats() {
+  return { dropped: droppedCount };
+}
 
 export function captureEvent(type, payload) {
   const store = captureStore.getStore();
@@ -183,7 +188,17 @@ export function startCapture(req, res, options = {}) {
       };
       const task = Promise.resolve()
         .then(() => writeSink(cfg, envelope))
-        .catch((error) => console.warn('[capture] sink failed:', error?.message ?? String(error)));
+        .catch((error) => {
+          droppedCount += 1;
+          console.error('[capture_dropped]', JSON.stringify({
+            schema: 'gmg.capture_dropped.v1',
+            ts: new Date().toISOString(),
+            requestId,
+            sink: cfg.sink,
+            dropped: droppedCount,
+            error: error?.message ?? String(error),
+          }));
+        });
       // Keep the function alive after the response where the platform allows
       // it; locally waitUntil may throw, in which case the task still runs.
       try { waitUntil(task); } catch { /* best-effort local runtime */ }

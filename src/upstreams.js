@@ -34,6 +34,29 @@ export function tapTransport(transport, server) {
   return transport;
 }
 
+function makeCaptureFetch(server) {
+  return async (input, init = {}) => {
+    const request = input instanceof Request ? input : null;
+    const url = typeof input === 'string' ? input : (input?.url ?? String(input));
+    const headers = new Headers(init.headers ?? request?.headers ?? undefined);
+    let body = init.body ?? request?.body ?? null;
+    if (body && typeof body !== 'string' && !(body instanceof Uint8Array)) body = null;
+    captureEvent('upstream_http', {
+      phase: 'request', server, url,
+      method: init.method ?? request?.method ?? 'GET',
+      headers: Object.fromEntries(headers),
+      body: typeof body === 'string' ? body : (body ? Buffer.from(body).toString('utf8') : null),
+    });
+    const response = await fetch(input, init);
+    captureEvent('upstream_http', {
+      phase: 'response', server, url,
+      status: response.status,
+      headers: Object.fromEntries(response.headers),
+    });
+    return response;
+  };
+}
+
 const CLIENT_INFO = { name: 'gemini-mcp-gateway', version: '0.1.0' };
 
 /** Resolve the OAuth-refresh provider for a server config.
@@ -157,6 +180,7 @@ export class UpstreamManager {
         }
       }
       const options = {};
+      options.fetch = makeCaptureFetch(config.name ?? '<unnamed>');
       if (Object.keys(headers).length > 0) {
         options.requestInit = { headers };
       }
