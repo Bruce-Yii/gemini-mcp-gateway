@@ -1,0 +1,254 @@
+{
+  "generatedBy": "manual:online-gap-tasks",
+  "source": "docs/eval/SEMI-ONLINE-GAPS.md §4 (N1–N9)",
+  "seed": "deterministic:online-gap:n1-n9:v1",
+  "description": "L1/G6 task set for the SEMI-ONLINE-GAPS N1–N9 items. New file only; it does not modify tasks-smoke.json, tasks-g6.json, src/, scripts/, README, or workflows. Every task is schema-compatible with the existing G6/smoke schema (id/server/tool/prompt/source/category/expectedTools/authority) plus the required name/expectedOps fields. NO network calls, NO real writes: write-capable tasks are dryRun-by-default with explicit for-real-write=false and preconditions that forbid real side effects. No commit/push/deploy.",
+  "count": 9,
+  "realWritesAllowed": false,
+  "defaults": {
+    "dryRun": true,
+    "forRealWrite": false,
+    "network": "fake/replay only",
+    "authorities": "official-verbatim | benchmark | schema-reverse"
+  },
+  "tasks": [
+    {
+      "id": "N1",
+      "name": "byte-exact read-patch-write-readback",
+      "server": "github",
+      "tool": "get_file_contents",
+      "category": "derived",
+      "prompt": "Using only the fake/replay upstream, read docs/eval/sample.ts in repo Bruce-Yii/gemini-mcp-gateway on branch main using github__get_file_contents, apply a patch that changes one line, then perform a byte-exact readback. The read tool returns the canonical shape {text: 'successfully downloaded text file (SHA: ...)\\n' + body, resources: [{text: body}]}; the normalized content MUST equal the body with the download notice stripped. Assert: (a) readback === intendedBody byte-for-byte including CJK and trailing newline; (b) content does not start with 'successfully downloaded'; (c) sha matches the notice. Do NOT write to a real repository: keep dryRun=true and forRealWrite=false; the write step is simulated with a fake writer. Closes F1/T1.",
+      "source": "docs/eval/SEMI-ONLINE-GAPS.md §4 N1; docs/eval/write-replay-2026-11-23.md",
+      "authority": "schema-reverse",
+      "expectedTools": [
+        "github__get_file_contents",
+        "github__create_or_update_file"
+      ],
+      "expectedOps": [
+        "normalizeFileResult",
+        "applyTextPatch",
+        "applyFilePatch",
+        "readbackByteEq"
+      ],
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": [
+        "fake upstream fixture RAW={text:notice+body, resources:[{text:body}]}",
+        "body includes CJK + trailing newline + 20+ lines",
+        "no real token, no network"
+      ]
+    },
+    {
+      "id": "N2",
+      "name": "branch-ref-control-real-change",
+      "server": "github",
+      "tool": "get_file_contents",
+      "category": "boundary",
+      "prompt": "Control experiment with a REAL change in the fake fixture: seed branch eval/gap-f2 with body 'body@branch' and branch main with 'body@main' (different bytes). Call github__get_file_contents with branch='eval/gap-f2' and assert the returned body is exactly 'body@branch', NOT the main body. Also exercise the alias: a companion CallTool with {branch:'eval/gap-f2'} must produce upstream ref='eval/gap-f2' with zero 'name is required' errors; an explicit {ref:'eval/gap-f2'} must be preserved. Assert branchFallbackCount === 0 (no call uses ref=main when branch != main). Read-only; no writes, no network. Closes F2/F4/T2.",
+      "source": "docs/eval/SEMI-ONLINE-GAPS.md §4 N1/N2; tests/gh-file-p0.test.js P0-3",
+      "authority": "schema-reverse",
+      "expectedTools": [
+        "github__get_file_contents",
+        "github__list_branches"
+      ],
+      "expectedOps": [
+        "aliasGetFileContentsArgs",
+        "validateToolArgs",
+        "assertNoBranchFallback"
+      ],
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": [
+        "fake branch bodies differ: body@branch vs body@main",
+        "branch args map to ref without silent fallback",
+        "no real token, no network"
+      ]
+    },
+    {
+      "id": "N3",
+      "name": "pr-number-vs-id-real-shape",
+      "server": "github",
+      "tool": "pull_request_read",
+      "category": "derived",
+      "prompt": "Using the canonical real-shape PR fixture {id:5444514334, html_url:'https://api.github.com/repos/o/r/pulls/53', number:999 (deliberately disagreeing)}, call github__pull_request_read and assert the normalized result has number === 53 taken from the URL, id kept as string '5444514334', and number !== Number(id). Then assert github__merge_pull_request uses the URL-derived number (53) and would not 404 on the fake upstream. This task is fake/replay only; do not call a real merge. Closes F3/T3.",
+      "source": "docs/eval/SEMI-ONLINE-GAPS.md §4 N3; tests/online-gap-regression.test.js T3",
+      "authority": "schema-reverse",
+      "expectedTools": [
+        "github__pull_request_read",
+        "github__merge_pull_request"
+      ],
+      "expectedOps": [
+        "normalizePrResult",
+        "assertNumberFromUrl"
+      ],
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": [
+        "fixture PR_REAL with id=5444514334 and url .../pull/53",
+        "no real token, no network, no real merge"
+      ]
+    },
+    {
+      "id": "N4",
+      "name": "discovery-effort-search-probes",
+      "server": "github",
+      "tool": "pull_request_read",
+      "category": "derived",
+      "prompt": "Discovery-effort task: with prompt 'read the files of PR #53', call gateway search once with 'select:github__pull_request_read' and assert the returned detail contains the method enum get | get_files | get_check_runs in one shot. Metric: searchProbes <= 1 and enumVisible === true. Record enumProbesPerTask === 0 when the enum is visible on the first probe. Keep this task todo/skip while the P0-4 description-enum fix is not present in the checkout (see tests/gh-file-p0.test.js P0-4); do not weaken it into a vacuous pass. Read-only, no network. Closes F5/T4.",
+      "source": "docs/eval/SEMI-ONLINE-GAPS.md §4 N5; SEMI-ONLINE-GAPS.md §2 T4",
+      "authority": "benchmark",
+      "expectedTools": [
+        "search",
+        "github__pull_request_read"
+      ],
+      "expectedOps": [
+        "searchWithFallback",
+        "assertEnumVisibleOneShot",
+        "countSearchProbes"
+      ],
+      "dryRun": true,
+      "forRealWrite": false,
+      "skipReason": "P0-4 description-enum fix not present in checkout; task is a measured todo until it lands",
+      "preconditions": [
+        "fake tool catalog with pull_request_read method enum",
+        "no real token, no network"
+      ]
+    },
+    {
+      "id": "N5",
+      "name": "actions-failure-logs-fake-real-gated",
+      "server": "github",
+      "tool": "list_commits",
+      "category": "read",
+      "prompt": "Fake lane: with a fake upstream, retrieve GitHub Actions job logs for a failing run; assert the failure diagnostic text reaches the result verbatim, a 302 redirect URL does NOT forward the token, and an oversized log body is flagged as truncated. The 'real CI run' replay is a separate gated manual activity with a vault token (docs/eval/SEMI-ONLINE-GAPS.md §4 N6) and is NOT part of this automated L1 task: no network here. Closes F6a/T3/T6.",
+      "source": "docs/eval/SEMI-ONLINE-GAPS.md §4 N6; SEMI-ONLINE-GAPS.md §2 T3/T6",
+      "authority": "schema-reverse",
+      "expectedTools": [
+        "github__list_commits",
+        "github__get_commit"
+      ],
+      "expectedOps": [
+        "fetchJobLogsFake",
+        "assertNoTokenForwardedOn302",
+        "assertTruncationFlag"
+      ],
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": [
+        "fake upstream job-log fixture with failure text + 302 URL + oversized body",
+        "real CI replay is gated/manual with vault token, not in automated L1",
+        "no real token, no network"
+      ]
+    },
+    {
+      "id": "N6",
+      "name": "large-file-truncation-pagination",
+      "server": "github",
+      "tool": "get_file_contents",
+      "category": "boundary",
+      "prompt": "With a fake upstream, read a large file that exceeds the tool's response cap. Assert the gateway surfaces a truncation flag (no-silent-truncation) rather than silently returning a prefix, and that a paginated/range read returns all slices with identical joined bytes. A truncated read is a hard stop: no patch/write is attempted on truncated content. Closes the big-file slice of F1/T5.",
+      "source": "docs/eval/SEMI-ONLINE-GAPS.md §2 T5; tests/no-silent-truncation.test.js",
+      "authority": "schema-reverse",
+      "expectedTools": [
+        "github__get_file_contents"
+      ],
+      "expectedOps": [
+        "assertTruncationFlag",
+        "assertPaginatedJoinByteEq",
+        "hardStopBeforeWrite"
+      ],
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": [
+        "fake large-file fixture above response cap",
+        "no patch/write attempted on truncated content",
+        "no real token, no network"
+      ]
+    },
+    {
+      "id": "N7",
+      "name": "long-session-reconnect-server-observable",
+      "server": "github",
+      "tool": "get_me",
+      "category": "boundary",
+      "prompt": "Two-phase long-session lane, gateway-observable part only. Phase A: call github__get_me and record the three Code Mode tools (search/execute_read/execute) in order with their annotations. Phase B: after a simulated schema-free reload, call github__get_me again and assert the tool list is identical (same names, same order, same readOnlyHint/destructiveHint) and no duplicate writes occurred. Record the client-side post-deploy 'unknown_tool' and manual @ recovery as 'unknown' (Gemini-side, not gateway-observable): never count it as a gateway failure and never as a pass. Closes F6b/T6.",
+      "source": "docs/eval/SEMI-ONLINE-GAPS.md §4 N7; SEMI-ONLINE-GAPS.md §2 T6",
+      "authority": "benchmark",
+      "expectedTools": [
+        "github__get_me",
+        "search",
+        "execute_read"
+      ],
+      "expectedOps": [
+        "createCodeModeTools.getEntries",
+        "assertStableToolList",
+        "recordClientUnknown"
+      ],
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": [
+        "two sequential phases in one fake session",
+        "client unknown_tool recorded as unknown, not pass/fail",
+        "no real token, no network"
+      ]
+    },
+    {
+      "id": "N8",
+      "name": "platform-conformance-three-profiles",
+      "server": "github",
+      "tool": "get_file_contents",
+      "category": "cross",
+      "prompt": "For a read result whose body contains a download-notice line, run encodeToolResult through the three client profiles (Gemini/ChatGPT/Claude). Assert Gemini and Claude have no structuredContent and their text JSON never contains 'successfully downloaded'; ChatGPT keeps identical text JSON and derives structuredContent. Assert applyProfileToTools preserves the three tool names, their order, and readOnlyHint/destructiveHint across all three profiles, including a simulated reconnect. Closes the platform slice of F1/F6b/T7.",
+      "source": "docs/eval/SEMI-ONLINE-GAPS.md §4 N8; SEMI-ONLINE-GAPS.md §2 T7",
+      "authority": "benchmark",
+      "expectedTools": [
+        "github__get_file_contents",
+        "search",
+        "execute_read",
+        "execute"
+      ],
+      "expectedOps": [
+        "encodeToolResult",
+        "encodeModelOutput",
+        "applyProfileToTools",
+        "assertNoNoticeLeakAcrossProfiles"
+      ],
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": [
+        "CLIENT_PROFILES Gemini/ChatGPT/Claude",
+        "download-notice body fixture",
+        "no real token, no network"
+      ]
+    },
+    {
+      "id": "N9",
+      "name": "write-safety-dryrun-atomic-postcondition",
+      "server": "github",
+      "tool": "create_or_update_file",
+      "category": "write",
+      "prompt": "Write-safety invariant guard, fake/replay only. Assert applyFilePatch with dryRun=true writes zero bytes and returns a diff only; assert writeFiles/applyFilePatches with atomic=true commits all files in one call and a failed push writes nothing; after a real (fake) patch, perform a second read and compare the readback byte-for-byte with the intended body (writePostConditionOk=true). A completionRate pass with writePostConditionOk:false is a regression. This task MUST run with dryRun=true and forRealWrite=false here: no real repository writes. Closes F7/T1/T5.",
+      "source": "docs/eval/SEMI-ONLINE-GAPS.md §4 N2/N9; SEMI-ONLINE-GAPS.md §2 T5",
+      "authority": "schema-reverse",
+      "expectedTools": [
+        "github__get_file_contents",
+        "github__create_or_update_file",
+        "github__push_files"
+      ],
+      "expectedOps": [
+        "applyFilePatch",
+        "applyFilePatches",
+        "writeFiles",
+        "assertPostConditionByteEq"
+      ],
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": [
+        "fake upstream write functions only; zero bytes written on dryRun",
+        "atomic multi-file commit in a single push_files call",
+        "no real token, no network, no real write"
+      ]
+    }
+  ]
+}
