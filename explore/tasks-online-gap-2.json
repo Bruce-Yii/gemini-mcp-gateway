@@ -1,0 +1,226 @@
+{
+  "generatedBy": "manual:online-semionline-join",
+  "source": "docs/eval/ONLINE-SEMIONLINE-JOIN-2026-11-23.md §3/§4 (J1–J6)",
+  "seed": "deterministic:online-semionline-join:j1-j6:v1",
+  "description": "Second, additive L1/G6 task set for the 2026-11-23 Gemini online feedback join. It does NOT modify explore/tasks-online-gap.json (N1–N9), tasks-smoke.json, tasks-g6.json, src/, scripts/, README, or workflows. Every task is schema-compatible with the existing G6/smoke shape (id/server/tool/prompt/source/category/expectedTools/authority) plus name/expectedOps, and carries a buildAxis field for same-prompt/same-build pairing (prod-old-2026-11-23 vs checkout-current). NO network, NO real credentials, NO real writes: every task is dryRun-by-default with forRealWrite=false and fake/replay preconditions. requestIds stay unknown: this batch never fabricates a UUID. No commit/push/deploy.",
+  "count": 6,
+  "realWritesAllowed": false,
+  "defaults": {
+    "dryRun": true,
+    "forRealWrite": false,
+    "network": "fake/replay only",
+    "authorities": "official-verbatim | benchmark | schema-reverse",
+    "requestIds": "unknown",
+    "comparison": "same-prompt-same-build-paired; cross-build-hard-compare=forbidden"
+  },
+  "join": {
+    "joinDate": "2026-11-23",
+    "onlineRecord": "docs/eval/online-feedback-2026-11-23-gemini.md",
+    "semiOnlineSource": "docs/eval/SEMI-ONLINE-GAPS.md",
+    "existingTaskSet": "explore/tasks-online-gap.json",
+    "onlineOnlyGapCodes": ["G3"],
+    "coveredFeedback": ["F1", "F2", "F3", "F4", "F5", "F6"],
+    "deployBlockedFeedback": ["F1", "F2"],
+    "needsReproFeedback": ["F3", "F4", "F5"],
+    "unknownFeedback": ["F6"]
+  },
+  "buildAxes": {
+    "baseline": "prod-old-2026-11-23",
+    "candidate": "checkout-current",
+    "postDeploy": "prod-new-<deploy-window>",
+    "rule": "Run the same prompt/fixture once per build, each with a fresh sessionId; never subtract a baseline-build observation from a candidate-build result."
+  },
+  "tasks": [
+    {
+      "id": "J1",
+      "name": "same-build-byte-exact-postcondition-f1",
+      "server": "github",
+      "tool": "get_file_contents",
+      "category": "derived",
+      "prompt": "Same-build paired byte-exact postcondition for F1. Use the canonical fake fixture RAW={text:'successfully downloaded text file (SHA: <hex>)\\n'+body, resources:[{text:body}]} with CJK + trailing newline. For each build axis separately (prod-old-2026-11-23 observation first, then checkout-current), call github__get_file_contents, normalize, apply a one-line patch, perform readback, and record: readbackByteEq, noticeLeakCount, shaFromNotice. Assert on the candidate build that normalizeFileResult(RAW).content === body byte-for-byte, content does not start with 'successfully downloaded', sha equals the notice SHA, and readback === intendedBody. The baseline-build observation is a labeled reference ONLY: never compute a cross-build delta or claim the live site is fixed. dryRun=true and forRealWrite=false: the write step is a fake writer. Closes F1/G1+G2; complements N1/N9 without editing them.",
+      "source": "docs/eval/ONLINE-SEMIONLINE-JOIN-2026-11-23.md §3/§4; SEMI-ONLINE-GAPS.md T1/T3; tasks-online-gap.json N1/N9",
+      "authority": "schema-reverse",
+      "expectedTools": [
+        "github__get_file_contents",
+        "github__create_or_update_file"
+      ],
+      "expectedOps": [
+        "normalizeFileResult",
+        "applyTextPatch",
+        "applyFilePatch",
+        "readbackByteEq",
+        "assertNoticeStripped",
+        "assertShaFromNotice"
+      ],
+      "coverageAxis": "byte-exact-postcondition",
+      "buildAxis": ["prod-old-2026-11-23", "checkout-current"],
+      "closesFeedback": ["F1"],
+      "gapCodes": ["G1", "G2", "G6"],
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": [
+        "fake upstream fixture RAW={text:notice+body, resources:[{text:body}]}; body has CJK + trailing newline",
+        "one fresh sessionId per build axis; no cross-build hard comparison",
+        "no real token, no network, no real write; requestIds unknown"
+      ]
+    },
+    {
+      "id": "J2",
+      "name": "same-build-canonical-pr-number-f2",
+      "server": "github",
+      "tool": "pull_request_read",
+      "category": "derived",
+      "prompt": "Same-build paired canonical PR number check for F2. Use PR_REAL={id:5444514334, html_url:'https://api.github.com/repos/o/r/pulls/53', number:999 (deliberately disagreeing)}. For each build axis separately, call github__pull_request_read and record number, id, idAsPrNumberCount, numberSource. Assert on the candidate build that number === 53 taken from the URL, id is preserved as string '5444514334', and number !== Number(id); then assert a fake subsequent merge would target 53 and not 999. PR #53 is an external fact, not a gateway capture proof; the baseline-build observation is labeled reference only, no cross-build delta. dryRun=true and forRealWrite=false: no real merge. Closes F2/G1+G2; complements N3 without editing it.",
+      "source": "docs/eval/ONLINE-SEMIONLINE-JOIN-2026-11-23.md §3/§4; SEMI-ONLINE-GAPS.md T3; tasks-online-gap.json N3",
+      "authority": "schema-reverse",
+      "expectedTools": [
+        "github__pull_request_read",
+        "github__merge_pull_request"
+      ],
+      "expectedOps": [
+        "normalizePrResult",
+        "assertNumberFromUrl",
+        "assertIdNotAdoptedAsNumber",
+        "recordIdAsPrNumberCount"
+      ],
+      "coverageAxis": "canonical-pr-number",
+      "buildAxis": ["prod-old-2026-11-23", "checkout-current"],
+      "closesFeedback": ["F2"],
+      "gapCodes": ["G1", "G2", "G6"],
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": [
+        "PR_REAL fixture with id=5444514334 and url .../pull/53; number field deliberately disagrees",
+        "one fresh sessionId per build axis; no cross-build hard comparison",
+        "no real token, no network, no real merge; requestIds unknown"
+      ]
+    },
+    {
+      "id": "J3",
+      "name": "batch-wrapper-contract-f3",
+      "server": "github",
+      "tool": "get_file_contents",
+      "category": "boundary",
+      "prompt": "Online-only axis: batch wrapper contract for F3. With a fake upstream, issue one concurrent batch of calls that returns three shapes in the same batch: a bare value, {ok:true,value}, and a gateway envelope. Assert after the unified helper (unwrap/safeAll) that (a) every successful slot resolves at the SAME unwrap depth to the same final value shape, (b) a failing slot is consistently {ok:false,value} (or the documented failure slot) at the same depth, and (c) the caller never has to branch on the upstream wrapper kind. Record wrapperUnwrapDepthConsistent=true and failureSlotShapeOk=true. This axis did not exist in N1–N9 (N9 only tests atomic writes). Status is needs-repro: if the checkout contract disagrees, record the exact fake fixture and stop; do not claim fixed. dryRun=true, forRealWrite=false, no network, no real credentials.",
+      "source": "docs/eval/ONLINE-SEMIONLINE-JOIN-2026-11-23.md §2/§3; online-feedback-2026-11-23-gemini.md F3; SEMI-ONLINE-GAPS.md T5",
+      "authority": "schema-reverse",
+      "expectedTools": [
+        "github__get_file_contents",
+        "search",
+        "execute_read"
+      ],
+      "expectedOps": [
+        "safeAll",
+        "unwrap",
+        "assertUniformUnwrapDepth",
+        "assertFailureSlotShape"
+      ],
+      "coverageAxis": "batch-wrapper-contract",
+      "buildAxis": ["checkout-current"],
+      "closesFeedback": ["F3"],
+      "gapCodes": ["G3", "G6"],
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": [
+        "fake upstream returns mixed bare/{ok,value}/envelope shapes in one concurrent batch",
+        "needs-repro: record exact fixture if contract is inconsistent; no assumption of 'already fixed'",
+        "no real token, no network, no real write; requestIds unknown"
+      ]
+    },
+    {
+      "id": "J4",
+      "name": "truncation-tail-metadata-f4",
+      "server": "github",
+      "tool": "get_file_contents",
+      "category": "boundary",
+      "prompt": "Online-only axis: truncation TAIL metadata for F4. With a fake upstream, read a body larger than the response cap whose LAST lines contain a key field (e.g. 'summary: OK'). Assert that truncation, when it happens, carries explicit metadata: truncated=true plus limit/original counts, and that the trailing key field is either present in the retained window or explicitly surfaced as omitted — never silently hard-cut away. Record truncationTailMetadataOk=true and tailKeyFieldAccountedFor=true. A truncated read is a hard stop: no patch/write is attempted. This is stricter than N5/N6 (which only assert a flag/hard-stop/paginated byte equality). Status is needs-repro: if the checkout drops tail metadata, record the fixture and stop. dryRun=true, forRealWrite=false, no network.",
+      "source": "docs/eval/ONLINE-SEMIONLINE-JOIN-2026-11-23.md §2/§3; online-feedback-2026-11-23-gemini.md F4; docs/ledger/batch-11-truncation.md",
+      "authority": "schema-reverse",
+      "expectedTools": [
+        "github__get_file_contents"
+      ],
+      "expectedOps": [
+        "assertTruncationFlag",
+        "assertLimitOriginalCounts",
+        "assertTailKeyFieldAccountedFor",
+        "hardStopBeforeWrite"
+      ],
+      "coverageAxis": "truncation-tail-metadata",
+      "buildAxis": ["checkout-current"],
+      "closesFeedback": ["F4"],
+      "gapCodes": ["G3", "G6"],
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": [
+        "fake oversized body with trailing 'summary: OK' key field above response cap",
+        "needs-repro: record exact fixture if tail metadata is dropped; no assumption of 'already fixed'",
+        "no real token, no network, no real write; requestIds unknown"
+      ]
+    },
+    {
+      "id": "J5",
+      "name": "atomic-by-default-multi-file-write-f5",
+      "server": "github",
+      "tool": "push_files",
+      "category": "write",
+      "prompt": "Online-only axis: atomic-by-default multi-file write for F5. With N fake files and the k-th write failing, assert that a multi-file edit is atomic WITHOUT the caller declaring atomicity: either all N files commit in one push_files call, or none do (zero bytes landed) on failure. Record atomicByDefault=true and partialWriteBytes=0. Also assert dryRun=true writes zero bytes. N9 only proves the explicit atomic path; this task models the default semantics the old-build symptom suspects. Status is needs-repro: if the checkout writes per-file by default, record the fixture and stop; do not assume fixed. This task MUST run with dryRun=true and forRealWrite=false — no real repository writes, no network, no real credentials.",
+      "source": "docs/eval/ONLINE-SEMIONLINE-JOIN-2026-11-23.md §2/§3; online-feedback-2026-11-23-gemini.md F5; tests/b11-write-transaction.test.js",
+      "authority": "schema-reverse",
+      "expectedTools": [
+        "github__push_files",
+        "github__create_or_update_file"
+      ],
+      "expectedOps": [
+        "applyFilePatches",
+        "writeFiles",
+        "assertAtomicByDefault",
+        "assertPartialWriteBytesZero",
+        "assertDryRunZeroBytes"
+      ],
+      "coverageAxis": "atomic-by-default",
+      "buildAxis": ["checkout-current"],
+      "closesFeedback": ["F5"],
+      "gapCodes": ["G3", "G6"],
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": [
+        "N fake files + k-th write fails; zero bytes must land on failure",
+        "needs-repro: record exact fixture if default is per-file; no assumption of 'already fixed'",
+        "no real token, no network, no real write; requestIds unknown"
+      ]
+    },
+    {
+      "id": "J6",
+      "name": "ci-wait-helper-sequence-f6",
+      "server": "github",
+      "tool": "pull_request_read",
+      "category": "boundary",
+      "prompt": "Online-only axis: CI wait helper for F6. With a fake CI status sequence (pending → ... → completed), assert that ONE wait call returns the terminal result instead of 3–4 manual poll rounds; record ciWaitRounds===1 and terminalStatus. If no wait helper exists in the checkout (current state: github_actions_list_workflow_runs / list_workflow_jobs / get_job_logs exist as gateway-side REST helpers, but no waitForPrChecks or equivalent), mark this task missing-capability/unknown with the exact searched names — do NOT turn it into a vacuous pass or a gateway failure. Also assert that a fake 302 log URL does not forward the token and an oversized log body is flagged truncated (aligned with N5). dryRun=true, forRealWrite=false, no network, no real CI run, no vault token; a real CI replay is gated manual work outside this task set.",
+      "source": "docs/eval/ONLINE-SEMIONLINE-JOIN-2026-11-23.md §1/§2/§3; online-feedback-2026-11-23-gemini.md F6; tasks-online-gap.json N5; src/codemode.js ACTIONS_GUIDANCE",
+      "authority": "schema-reverse",
+      "expectedTools": [
+        "github__pull_request_read",
+        "github__get_commit"
+      ],
+      "expectedOps": [
+        "waitForPrChecksOrEquivalent",
+        "assertSingleWaitToTerminal",
+        "assertNoTokenForwardedOn302",
+        "assertTruncationFlag",
+        "recordMissingCapabilityAsUnknown"
+      ],
+      "coverageAxis": "ci-wait-helper",
+      "buildAxis": ["checkout-current"],
+      "closesFeedback": ["F6"],
+      "gapCodes": ["G3", "G6"],
+      "dryRun": true,
+      "forRealWrite": false,
+      "skipReason": "No waitForPrChecks / equivalent helper exists in the checkout (verified by repo-wide search); task stays missing-capability/unknown until the helper lands. Not a deploy-blocked item.",
+      "preconditions": [
+        "fake CI status sequence pending→...→completed; single-wait assertion",
+        "no wait helper in checkout: record as unknown/missing-capability, never as pass or gateway failure",
+        "no real token, no network, no real CI run; requestIds unknown"
+      ]
+    }
+  ]
+}
