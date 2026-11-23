@@ -428,3 +428,72 @@ MCP 网关评的是**工具调用**，不是模型思考。
 - 暂不引入 canary/shadow/复杂发布工程：先把真实客户端/写回环/授权做通；
 - 暂不做通用“客户端能力检测框架”：逐个平台实测优先；
 - 暂不把安全/成本/真值做成独立模块，先作为实现约束。
+
+---
+
+## 14. 审批 / 权限（2026-11-24 深挖）
+
+### 用户反馈
+
+- 调研 MCP 的人普遍讨厌审批；
+- 客户端 MCP 管理界面本来有“每次询问 / 允许”的权限选择；
+- Gemini 已设成允许，仍经常弹窗；
+- 需要判断：是网关问题，还是 Gemini 设计问题。
+
+### 代码事实
+
+当前 3 工具 annotations：
+
+| 工具 | readOnlyHint | destructiveHint | openWorldHint |
+|---|---|---|---|
+| search | true | false | false |
+| execute_read | true | false | **true** |
+| execute | false | **true** | **true** |
+
+Google/Gemini 的规则（公开资料 + 社区实测）：
+
+- `destructiveHint` 和 `openWorldHint` 会触发确认；
+- 没有 `readOnlyHint` 的工具被视为可能 destructive；
+- 因此即使“允许”，destructive/openWorld 仍可能强制确认，属于客户端策略。
+
+### 初步判断
+
+1. **不是纯 Gemini 设计问题**：我们的 annotations 主动声明了 destructive/openWorld；
+2. **也不是纯网关 bug**：声明本身语义上没错，`execute` 确实可写、可访问外部；
+3. **双重触发**：
+   - `execute_read` 的 `openWorldHint:true` 也可能触发确认；
+   - `execute` 的 `destructiveHint:true` 更会触发；
+4. **网关内部 approve 不是客户端弹窗的直接原因**，但如果模型因 gateway 拒绝写而重试，可能触发更多次客户端确认。
+
+### 设计原则
+
+- 客户端权限设置是**用户意图的第一权威**；
+- 网关不应再叠加“用户审批”，最多做代码级 dryRun/approve 安全闸；
+- 不要用 annotations 伪装安全；
+- 但可以通过 profile 精准降低无意义弹窗。
+
+### 可选方案
+
+A. 保持诚实 annotations，接受写操作确认；只读也可能因 openWorld 弹窗。
+B. 对 Gemini profile 调整 annotations：
+   - `execute_read`: openWorldHint=false；
+   - `execute`: destructiveHint=false, openWorldHint=false；
+   - 风险：under-declare，客户端不再警告写/外部访问。
+C. 拆分 write 工具：破坏 3 工具不变量，暂不考虑。
+D. 网关内部把客户端已发起的 execute 视为 host approval，减少模型重试；客户端弹窗仍由 annotations 决定。
+
+**建议**：先做 B 的**实验 profile**（不改默认、不改 ChatGPT/Claude），在真实 Gemini 窗口验证弹窗变化；同时做 D，避免网关重试叠加确认。不要在未验证前全局改 annotations。
+
+### 待验证
+
+- Gemini web 自定义 MCP 是否真的忽略“允许”对 destructive/openWorld 工具？
+- `execute_read` 单独改 openWorldHint=false 是否减少只读弹窗？
+- `execute` 改 destructive/openWorld 后，客户端是否仍弹？
+- 真实任务中一次写操作平均触发几次确认？
+
+### 原则
+
+- 审批是客户端 UX，不是网关功能；
+- 网关只保留代码级安全闸；
+- 不让用户为“读”审批；
+- 写操作可以少弹，但不能靠撒谎 annotations 实现；先实验 profile，再决定全局策略。
