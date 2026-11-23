@@ -9,7 +9,116 @@
 
 ---
 
-## 0. 状态图例
+## 0. 这不是书籍目录，是图谱
+
+本文件不是“章节一、章节二”的线性目录，而是**节点 + 边**的图谱入口。
+
+机器可读图谱：
+
+**[architecture-graph.json](architecture-graph.json)**
+
+### 0.0.1 节点类型
+
+| 类型 | 例子 | 用途 |
+|---|---|---|
+| `module` | `M4` Evidence & Eval | 六大模块 |
+| `submodule` | `M4.3` PassiveOnline | 能力边界 |
+| `component` | `M4.3.1` Capture | 可独立设计/测试 |
+| `crosscut` | `X2` StateIsolation | 横切平面 |
+| `workpackage` | `WP-E3` active-passive link | 可分配工作包 |
+| `gap` | `GAP-E` | 缺口/阻塞 |
+
+### 0.0.2 边类型
+
+| 边 | 含义 |
+|---|---|
+| `feeds_tools` | 客户端把 3 工具喂给执行层 |
+| `calls` | 执行层调用上游 |
+| `emits_events` | 上游/执行产生 capture 事件 |
+| `feedback_improves` | 评测反哺执行 |
+| `wraps` | 运行时包裹所有模块 |
+| `depends_on` | 开源依赖前五层 |
+| `selects` | 路由器选择执行器 |
+| `constrains` | 上下文预算约束执行 |
+| `labels` | 主动评测标注被动数据 |
+| `calibrates` | 主动标签校准被动规则 |
+| `blocks` | 缺口阻塞节点 |
+| `implements` | 工作包实现节点 |
+| `crosses` | 横切平面横跨模块 |
+
+### 0.0.3 主图谱
+
+```mermaid
+graph LR
+  M1[M1 Client] -->|feeds_tools| M2[M2 Execution]
+  M2 -->|calls| M3[M3 Upstream]
+  M3 -->|emits_events| M4[M4 Evidence/Eval]
+  M4 -->|feedback_improves| M2
+  M5[M5 Runtime] -.->|wraps| M1
+  M5 -.->|wraps| M2
+  M5 -.->|wraps| M3
+  M5 -.->|wraps| M4
+  M6[M6 Release] -.->|depends_on| M1
+  M6 -.->|depends_on| M2
+  M6 -.->|depends_on| M3
+  M6 -.->|depends_on| M4
+  M6 -.->|depends_on| M5
+  X1[X1 Mode/Capability] -.-> M1
+  X2[X2 State/Isolation] -.-> M1
+  X2 -.-> M3
+  X3[X3 Evidence/Truth] -.-> M4
+  X4[X4 Trust/Cost] -.-> M3
+  X4 -.-> M5
+  X5[X5 Approval/UX] -.-> M1
+```
+
+### 0.0.4 评测子图（示例）
+
+```mermaid
+graph LR
+  A[M4.2 ActiveOnline] -->|labels| L[M4.3.5 Link]
+  C1[M4.3.1 Capture] --> C2[M4.3.2 SinkQueue]
+  C2 --> C3[M4.3.3 Join]
+  C3 --> C4[M4.3.4 Analysis]
+  C4 --> R[M4.3.6 RuleFeedback]
+  L --> CAL[M4.4 Calibration]
+  R --> C4
+  CAL --> OPT[优化/减少主动频率]
+```
+
+这条子图说明：
+
+- 主动不是孤立，它给被动提供标签；
+- 被动不是孤立，它通过采集→归一→分析→规则反哺；
+- 校准是连接点，不是报告终点；
+- 优化才是终点。
+
+### 0.0.5 查询方式
+
+| 想找 | 从哪个节点进 |
+|---|---|
+| 客户端模式/profile | `M1.2` / `M1.4` |
+| 执行器选择 | `M2.1` |
+| Code Mode | `M2.2` |
+| 写路径 | `M2.8` / `M3.5` |
+| 上游授权 | `M3.3` |
+| 被动采集 | `M4.3.1` → `M4.3.2` |
+| 主动↔被动 | `M4.2` → `M4.3.5` → `M4.4` |
+| 运行时/部署 | `M5.1` / `M5.6` |
+| 开源门槛 | `M6` |
+| 缺口 | `GAP-*` |
+| 工作包 | `WP-E*` |
+
+### 0.0.6 下面表格怎么读
+
+- §1–§7 是**节点清单/成熟度**，不是章节顺序；
+- 先按图谱定位节点，再查表格；
+- 代码、测试、文档、缺口、工作包都挂在节点上；
+- 新增设计先加节点/边，再写代码。
+
+---
+
+## 0.1 状态图例
 
 | 状态 | 含义 |
 |---|---|
