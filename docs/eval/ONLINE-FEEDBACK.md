@@ -196,3 +196,25 @@
 
 > 本流程不替代 L1/G6；它让「用户主动反馈」这条线上证据第一次拥有和半在线
 > 评测同样的结构、锚点与状态机，从而能在同一任务/时间线上并排看。
+
+---
+
+## 6. 索引补记：2026-11-23 Gemini 在线反馈（`online-feedback.v1`）
+
+> 仅追加索引说明；上文 schema / 流程 / 状态机不变。
+
+- **新记录**：[`online-feedback-2026-11-23-gemini.md`](./online-feedback-2026-11-23-gemini.md)
+  —— Gemini 客户端真实任务的在线反馈（正面 3 项 + 问题 F1–F6），按本文件 schema 记录，
+  并与 [`SEMI-ONLINE-GAPS.md`](./SEMI-ONLINE-GAPS.md) 做缺口映射。
+- **来源边界**：该批反馈全部来自**生产旧构建**；P0 修复（F1/F2）代码层已落地但**未部署**，
+  因此**不能断言现网仍存在 F1–F6**。代码层已修项状态标 `待部署验证` / `fixed 代码层`，
+  须等部署窗口在线复验后才可升级。
+- **状态词补充**：本记录在本 schema 的 `unverified|confirmed|fixed|wontfix` 之外，另用
+  人可读的四态 `unknown` / `fixed 代码层` / `待部署验证` / `needs-repro` 表达部署未落地与
+  复现需求；二者不混用——脚本输出的 `status` 仍按 §3.1 枚举，不编造 requestId。
+- **不变量保护**：用户正面反馈（批处理省上下文、读写隔离、高频动作封装）作为设计不变量
+  纳入回归保护，不需要修复或部署动作。
+- **批次归属**：任务声明 F1/F2 由 `codemode-ergonomics` 批次修复；本仓库 checkout 暂无同名
+  批次文档，归属仅按任务声明登记，待 lead 核实，不虚构 PR/提交/文件内容。
+- **本批只写文档**：不改 `src/`、`scripts/`、`tests/`、README、其它 docs、workflows；
+  不 commit / push / deploy。

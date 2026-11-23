@@ -216,3 +216,47 @@ reason; `completionRate` alone is not accepted as closing any gap.
   `docs/eval/PLATFORM-CONFORMANCE-MATRIX.md` for the existing matrix.
 - Per `AGENTS.md`, no code, issue, PR, or deploy decision is driven by this
   document or by the online feedback alone.
+
+---
+
+## 6. Addendum: 2026-11-23 Gemini online-feedback → semi-online gap mapping
+
+> Append-only mapping registration for the new record
+> [`online-feedback-2026-11-23-gemini.md`](./online-feedback-2026-11-23-gemini.md).
+> This addendum does **not** implement any test or change `src/`, `scripts/`,
+> `tests/`, README, other docs, or workflows. No commit / push / deploy.
+>
+> **Provenance boundary**: these F1–F6 items come from a **production old build**.
+> The P0 fixes (F1, F2) are code-layer only and **not deployed**. Do not claim the
+> symptoms still exist on the live site; code-layer-fixed items are marked
+> **待部署验证** (pending post-deploy online re-verification).
+
+### 6.1 Required feedback → semi-online check mapping
+
+| Feedback (online, old build) | Semi-online check (contract / property) | Existing test class / gap owner | Mapping status |
+|---|---|---|---|
+| **F1** (P0) `content` mixes in `successfully downloaded text file (SHA: …)`, dirtying writeback | **byte-exact roundtrip**: `read → patch → write → readback` byte-equal; `content` has no download notice; SHA extracted from notice | §1.1 F1 row, **T1** byte-exact round-trip + **T3** canonical real-shape fixture; `tests/online-gap-regression.test.js` | code-layer fixed (`src/result-normalize.js` notice strip / SHA), **待部署验证** |
+| **F2** (P0) PR `number` occasionally an internal object id | **canonical PR number**: `number` from URL, `id` kept as string only, never adopted as number | §1.1 F3 row, **T3** canonical real-shape PR fixture; `normalizePrResult` tests | code-layer fixed (`numberFromUrl(url) ?? …`), **待部署验证** |
+| **F3** (P1) concurrent batch wrapper shapes inconsistent, easy to unwrap the wrong layer | **batch wrapper contract**: uniform unwrap level; failure slot shape consistent (`{ok:false,value}`); caller never unwraps the wrong layer | §1.1 F7 / **T5** invariants (`safeAll` / `unwrap`); `docs/HANDOFF.md` safeAll slot spec | `needs-repro` — reproduce with same code/args/fixture first |
+| **F4** (P1) large response truncated as one block, dropping trailing key fields | **truncation metadata**: explicit `truncated` flag with limit/original counts; never silently drop trailing key fields or hard-cut without structure | §1.1 F6a / **T3** real-shape + **T5** hard-stop; `docs/ledger/batch-11-truncation.md` | `needs-repro` |
+| **F5** (P1) multi-file edits still committed per file, leaving partial state on failure | **atomic multi-file write**: N files in one commit / `push_files`; on failure zero bytes written; dryRun writes zero | §1.1 F7 / **T5** write safety; `tests/b11-write-transaction.test.js` | `needs-repro` |
+| **F6** (P2) CI polling fragmented, needs 3–4 rounds to get a result | **waitForPrChecks / CI helper**: one wait returns the result, avoiding 3–4 manual poll rounds | §4 **N6** Actions-log/CI lane (needs a real CI run; no network in this batch) | `unknown` — helper existence/behavior unknown on target build |
+
+Positive signals (batch scripting + in-script trimming, read/write split, high-frequency
+action helpers) map to **T5 / invariant protection** (§1.1 F7 row); no fix or deploy
+action, only guard against regression.
+
+### 6.2 Next-step split (as declared by the task)
+
+- **Declared fixed by `codemode-ergonomics` (code layer) — re-verify after deploy**:
+  F1 and F2. Code-layer evidence lives in `src/result-normalize.js`; both stay
+  **待部署验证** until a post-deploy online replay with evidence is attached.
+  No `codemode-ergonomics` batch document exists in this checkout yet — the
+  attribution is recorded from the task statement only; do not fabricate PR/commit.
+- **Still needs reproduction / post-deploy re-verification**: F3, F4, F5
+  (`needs-repro`) and F6 (`unknown`, needs real CI run). Write deterministic
+  regression tests after reproducing with the same code/args/fixture; do not
+  assume already fixed.
+- **Evidence chain**: all items have `requestIds:["unknown"]`, `captureVerified:false`;
+  no requestId is invented. The L1/G6 join point stays §4 **N9**; this addendum
+  registers mappings only and never treats an online observation as an L1 task.
