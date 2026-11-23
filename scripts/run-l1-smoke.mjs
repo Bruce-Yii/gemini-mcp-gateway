@@ -42,6 +42,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(HERE, '..');
@@ -52,6 +53,37 @@ const REPORT_MD = path.join(ROOT, 'docs/eval/l1-smoke-report.md');
 const REPORT_JSON = path.join(ROOT, 'docs/eval/l1-smoke.json');
 const REAL_STATE = path.join(ROOT, 'docs/eval/l1-real-state.json');
 const VALID_MODES = new Set(['fake', 'real', 'replay']);
+
+/* ------------------------------------------------------------------ *
+ * Optional `online-gap` profile (additive; default behaviour unchanged).
+ *
+ * The profile wires the N1–N9 + J1–J6 task sets into the L1 runner without
+ * touching tasks-smoke.json, the G6 baseline, src/, or any workflow. It is
+ * enabled ONLY by `--profile online-gap`; no flag => byte-for-byte the legacy
+ * L1 path. See docs/eval/L1-ONLINE-GAP-WIRE.md.
+ * ------------------------------------------------------------------ */
+export const ONLINE_GAP_PROFILE = 'online-gap';
+export const ONLINE_GAP_TASK_FILES = [
+  'explore/tasks-online-gap.json',    // N1–N9
+  'explore/tasks-online-gap-2.json',  // J1–J6
+];
+export const ONLINE_GAP_EXPECTED_IDS = [
+  'N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7', 'N8', 'N9',
+  'J1', 'J2', 'J3', 'J4', 'J5', 'J6',
+];
+/** Extended boolean/count metrics carried by the online-gap profile. */
+export const ONLINE_GAP_METRIC_KEYS = [
+  'writePostConditionOk',
+  'idAsPrNumberCount',
+  'wrapperUnwrapDepthConsistent',
+  'truncationTailMetadataOk',
+  'atomicByDefault',
+  'ciWaitRounds',
+];
+/** Frozen baseline (READ-ONLY) and current-result paths for this profile. */
+export const ONLINE_GAP_BASELINE_FILE = path.join(ROOT, 'explore/baselines/l1-online-gap.json');
+export const ONLINE_GAP_RESULT_MD = path.join(ROOT, 'docs/eval/l1-online-gap-report.md');
+export const ONLINE_GAP_RESULT_JSON = path.join(ROOT, 'docs/eval/l1-online-gap.json');
 
 /* ------------------------------------------------------------------ *
  * Pure helpers (unit-tested in tests/l1-smoke.test.js)
@@ -291,6 +323,8 @@ export function parseArgs(argv = []) {
   const failedServers = arg('failed-servers');
   return {
     mode: arg('mode') ?? 'fake',
+    // Optional additive profile. DEFAULT: null => legacy L1 path unchanged.
+    profile: arg('profile') ?? null,
     input: arg('input'),
     baseline: arg('baseline') ?? 'explore/baselines/l1-smoke.json',
     date: arg('date') ?? new Date().toISOString().slice(0, 10),
@@ -396,6 +430,292 @@ export function evaluateConsecutiveAlerts(state, { ok, date, runId }) {
       ? `${streak} consecutive real-mode failures (free model may be volatile; check upstream/model signals before filing a gateway defect)`
       : null,
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * Online-gap profile: pure helpers (unit-tested in
+ * tests/l1-online-gap-wire.test.js). No network, no writes to src/.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Load the N1–N9 + J1–J6 task sets. Unknown task ids and tasks whose required
+ * fixture (a `preconditions` marker) is missing are reported as explicit SKIP
+ * entries — never silently folded into a pass. Missing/unparseable files yield
+ * an empty task list plus a SKIP for that whole file.
+ *
+ * A "fixture" is considered present when it resolves to a real path under ROOT
+ * or is an inline description that does not name a missing file. Tasks carry
+ * `dryRun:true`/`forRealWrite:false`; any task that does not is SKIPped rather
+ * than executed (no real writes in this profile).
+ */
+export function loadOnlineGapTasks({
+  files = ONLINE_GAP_TASK_FILES,
+  expectedIds = ONLINE_GAP_EXPECTED_IDS,
+  root = ROOT,
+  exists = (p) => fs.existsSync(p),
+  read = (p) => JSON.parse(fs.readFileSync(p, 'utf8')),
+} = {}) {
+  const tasks = [];
+  const skips = [];
+  const seen = new Set();
+  const expectedSet = new Set(expectedIds);
+
+  for (const rel of files) {
+    const abs = path.isAbsolute(rel) ? rel : path.join(root, rel);
+    if (!exists(abs)) {
+      skips.push({ id: null, file: rel, reason: 'SKIP: task file absent', kind: 'missing-file' });
+      continue;
+    }
+    let doc;
+    try { doc = read(abs); } catch (err) {
+      skips.push({ id: null, file: rel, reason: `SKIP: unparseable task file (${err.message})`, kind: 'bad-file' });
+      continue;
+    }
+    for (const t of (doc?.tasks ?? [])) {
+      const id = t?.id;
+      if (!expectedSet.has(id)) {
+        skips.push({ id, file: rel, reason: 'SKIP: unknown task id (not in N1–N9/J1–J6)', kind: 'unknown-task' });
+        continue;
+      }
+      if (seen.has(id)) {
+        skips.push({ id, file: rel, reason: 'SKIP: duplicate task id', kind: 'duplicate-task' });
+        continue;
+      }
+      if (t.dryRun !== true || t.forRealWrite !== false) {
+        skips.push({ id, file: rel, reason: 'SKIP: task is not dryRun/forRealWrite=false (no real writes allowed)', kind: 'unsafe-write' });
+        continue;
+      }
+      const fixtureMissing = checkFixtures(id, t, { root, exists });
+      if (fixtureMissing) {
+        skips.push({ id, file: rel, reason: `SKIP: missing fixture (${fixtureMissing})`, kind: 'missing-fixture' });
+        continue;
+      }
+      seen.add(id);
+      tasks.push(t);
+    }
+  }
+
+  for (const id of expectedIds) {
+    if (!seen.has(id) && !skips.some((s) => s.id === id)) {
+      skips.push({ id, reason: 'SKIP: declared task not present in any task file', kind: 'missing-task' });
+    }
+  }
+  // Deterministic ordering regardless of file/i/o order.
+  skips.sort((a, b) => String(a.id ?? a.file ?? '').localeCompare(String(b.id ?? b.file ?? '')) || a.kind.localeCompare(b.kind));
+  return { tasks, skips };
+}
+
+/**
+ * Inspect a task's `preconditions` for references to fixture files. Inline
+ * descriptions (no path-like token) are treated as satisfied because the
+ * fixture is synthesized by the fake upstream at run time. Return the first
+ * missing token, or null when all referenced fixtures exist.
+ */
+export function checkFixtures(id, task, { root = ROOT, exists = (p) => fs.existsSync(p) } = {}) {
+  const preconditions = Array.isArray(task?.preconditions) ? task.preconditions : [];
+  const pathLike = /\b[\w./\\-]+\.(?:json|md|ts|js|txt|log|yaml|yml)\b/g;
+  for (const line of preconditions) {
+    for (const match of String(line).matchAll(pathLike)) {
+      const token = match[0];
+      // Skip doc/powerpoint references that describe evidence, not fixtures,
+      // and external module names. Only repo-relative paths are checked.
+      if (!token.includes('/') && !token.includes('\\')) continue;
+      if (token.startsWith('docs/') || token.startsWith('tests/')) continue;
+      const abs = path.isAbsolute(token) ? token : path.join(root, token);
+      if (!exists(abs)) return token;
+    }
+  }
+  return null;
+}
+
+/**
+ * Stable fixture hash: sha256 of the canonical task id + its fixture-bearing
+ * fields. Only fields that affect measurement are hashed; volatile metadata
+ * (generatedAt, notes) is excluded. Deterministic across runs and machines.
+ */
+export function fixtureHashForTask(task) {
+  const canonical = JSON.stringify({
+    id: task.id,
+    server: task.server,
+    tool: task.tool,
+    prompt: task.prompt,
+    expectedTools: task.expectedTools ?? [],
+    expectedOps: task.expectedOps ?? [],
+    buildAxis: task.buildAxis ?? [],
+    preconditions: task.preconditions ?? [],
+  });
+  return createHash('sha256').update(canonical).digest('hex').slice(0, 16);
+}
+
+/**
+ * Build the frozen-baseline identity map: { [taskId]: fixtureHash }. This is
+ * the ONLY key used for online-gap baseline comparison; an id whose hash moved
+ * is a different fixture and must not reuse the old baseline number.
+ */
+export function baselineIdentity(tasks) {
+  const map = {};
+  for (const t of tasks) map[t.id] = fixtureHashForTask(t);
+  return map;
+}
+
+/**
+ * Freeze a baseline document from current measurements. Pure: returns a new
+ * object; never writes to disk. `readOnly` is a marker that downstream code
+ * checks before any comparison — a frozen baseline is NEVER recomputed from a
+ * current run (same rule as explore/baselines/l1-smoke.json).
+ */
+export function freezeOnlineGapBaseline({ tasks, metrics, capturedAt = null, runId = null }) {
+  const doc = {
+    description: 'Frozen online-gap baseline (N1–N9 + J1–J6). READ-ONLY. Keyed by task id + fixture hash.',
+    capturedAt,
+    runId,
+    readOnly: true,
+    profile: ONLINE_GAP_PROFILE,
+    identity: baselineIdentity(tasks),
+    metrics: { ...metrics },
+  };
+  // Deep-freeze so a frozen baseline can never be mutated in place by a
+  // current run (same invariant as explore/baselines/l1-smoke.json on disk).
+  const deepFreeze = (o) => {
+    if (o && typeof o === 'object' && !Object.isFrozen(o)) {
+      for (const v of Object.values(o)) deepFreeze(v);
+      Object.freeze(o);
+    }
+    return o;
+  };
+  return deepFreeze(doc);
+}
+
+/**
+ * Read a frozen baseline file if present. Never falls back to current-run
+ * artifacts (explore/results/*) — that would make baseline === current.
+ */
+export function loadOnlineGapBaseline(file = ONLINE_GAP_BASELINE_FILE, exists = (p) => fs.existsSync(p), read = (p) => JSON.parse(fs.readFileSync(p, 'utf8'))) {
+  if (!exists(file)) return null;
+  const doc = read(file);
+  if (!doc || doc.readOnly !== true) return null;
+  // Keep the in-memory copy immutable: a current run must never be able to
+  // "update" the frozen baseline (no baseline === current, ever).
+  const deepFreeze = (o) => {
+    if (o && typeof o === 'object' && !Object.isFrozen(o)) {
+      for (const v of Object.values(o)) deepFreeze(v);
+      Object.freeze(o);
+    }
+    return o;
+  };
+  return deepFreeze(doc);
+}
+
+/**
+ * Compare a current online-gap result against the frozen baseline by
+ * (task id, fixture hash). A missing baseline, a changed hash, or a null
+ * current metric is reported as `unknown` (never a pass). A boolean metric
+ * regression (true -> false) is a `fail`. Count metrics are reported with
+ * their delta and never treated as a hard threshold.
+ */
+export function compareOnlineGapCurrent(current, baseline, tasks = []) {
+  const identity = baseline?.identity ?? {};
+  const checks = [];
+  const currentById = new Map((current?.perTask ?? []).map((r) => [r.task ?? r.id, r]));
+  for (const t of tasks) {
+    const hash = fixtureHashForTask(t);
+    const frozenHash = identity[t.id];
+    if (!frozenHash) {
+      checks.push({ id: t.id, metric: 'baseline', status: 'unknown', reason: 'no frozen baseline entry' });
+      continue;
+    }
+    if (frozenHash !== hash) {
+      checks.push({ id: t.id, metric: 'baseline', status: 'unknown', reason: 'fixture hash changed vs frozen baseline' });
+      continue;
+    }
+    const row = currentById.get(t.id);
+    if (!row) {
+      checks.push({ id: t.id, metric: 'baseline', status: 'unknown', reason: 'no current result row' });
+      continue;
+    }
+    for (const key of ONLINE_GAP_METRIC_KEYS) {
+      const cur = row[key];
+      const base = baseline?.metrics?.perTask?.[t.id]?.[key];
+      if (cur === null || cur === undefined) {
+        checks.push({ id: t.id, metric: key, status: 'unknown', reason: 'metric not computed' });
+      } else if (base === null || base === undefined) {
+        checks.push({ id: t.id, metric: key, status: 'unknown', current: cur, reason: 'no frozen metric' });
+      } else if (typeof cur === 'boolean' && typeof base === 'boolean') {
+        checks.push({ id: t.id, metric: key, status: (cur === base || cur === true) ? 'pass' : 'fail', current: cur, baseline: base });
+      } else {
+        checks.push({ id: t.id, metric: key, status: 'pass', current: cur, baseline: base, delta: Number(cur) - Number(base) });
+      }
+    }
+  }
+  const ok = checks.every((c) => c.status !== 'fail');
+  const allUnknown = checks.length > 0 && checks.every((c) => c.status === 'unknown');
+  return { ok, checks, allUnknown };
+}
+
+/**
+ * Compute the six extended metrics from perTask rows. A metric that cannot be
+ * derived from the supplied evidence is `unknown` (string), never a fabricated
+ * boolean/pass. `perTask` rows may carry the metric directly; otherwise it is
+ * derived from task metadata where unambiguous (e.g. J6 missing capability).
+ */
+export function computeOnlineGapMetrics(tasks, perTask = []) {
+  const rowsByTask = new Map(perTask.map((r) => [r.task ?? r.id, r]));
+  const perTaskMetrics = {};
+  for (const t of tasks) {
+    const row = rowsByTask.get(t.id) ?? {};
+    perTaskMetrics[t.id] = {
+      writePostConditionOk: pickMetric(row, t, 'writePostConditionOk', ['N1', 'N9', 'J1']),
+      idAsPrNumberCount: pickMetric(row, t, 'idAsPrNumberCount', ['N3', 'J2']),
+      wrapperUnwrapDepthConsistent: pickMetric(row, t, 'wrapperUnwrapDepthConsistent', ['J3']),
+      truncationTailMetadataOk: pickMetric(row, t, 'truncationTailMetadataOk', ['J4']),
+      atomicByDefault: pickMetric(row, t, 'atomicByDefault', ['J5']),
+      // J6 helper is absent in this checkout (verified: no waitForPrChecks);
+      // record explicitly unknown/missing-capability, not a pass or a failure.
+      ciWaitRounds: t.skipReason && /wait/i.test(t.skipReason)
+        ? 'unknown'
+        : pickMetric(row, t, 'ciWaitRounds', ['J6']),
+    };
+  }
+  return {
+    tasks: tasks.length,
+    measuredTasks: perTask.length,
+    perTask: perTaskMetrics,
+    source: 'online-gap profile (fake/replay only; not a gateway quality measurement)',
+  };
+}
+
+function pickMetric(row, task, key, relevantIds) {
+  if (row[key] !== undefined && row[key] !== null) return row[key];
+  if (relevantIds.includes(task.id)) return 'unknown';
+  return null; // not applicable to this task
+}
+
+/** Deterministic report body for a profile run (no timestamp included). */
+export function renderOnlineGapReport(result) {
+  const lines = [
+    '# L1 Online-Gap Wire Report',
+    '',
+    `- Profile: \`${result.profile ?? ONLINE_GAP_PROFILE}\``,
+    `- Tasks: ${result.tasks ?? 0} loaded, ${result.skipped?.length ?? 0} SKIP`,
+    `- Result: **${result.ok ? 'PASS' : 'FAIL'}**${result.allUnknown ? ' (no baseline: all metrics unknown)' : ''}`,
+    `- Baseline: ${result.baselineSource ?? 'none (frozen file absent)'}`,
+    '',
+    '## Loaded tasks',
+    '',
+    '| Task | Fixture hash |',
+    '|---|---|',
+  ];
+  for (const t of (result.loaded ?? [])) lines.push(`| ${t.id} | ${t.fixtureHash ?? '—'} |`);
+  if (result.skipped?.length) {
+    lines.push('', '## SKIP (explicit, not a pass)', '', '| Task | Reason |', '|---|---|');
+    for (const s of result.skipped) lines.push(`| ${s.id ?? '(file)'} | ${s.reason} |`);
+  }
+  lines.push('', '## Extended metrics', '', '| Task | Metric | Current | Baseline | Status |', '|---|---|---|---|---|');
+  for (const c of (result.comparison?.checks ?? [])) {
+    lines.push(`| ${c.id} | ${c.metric} | ${c.current ?? '—'} | ${c.baseline ?? '—'} | ${c.status} |`);
+  }
+  lines.push('', '> Fake/replay wiring check only. Never read as gateway quality. No commit / push / deploy.', '');
+  return lines.join('\n');
 }
 
 /* ------------------------------------------------------------------ *
@@ -602,9 +922,81 @@ export function evaluateL1Scope({
   return { effectiveBaseline, comparison, measuredTasks, noMeasurement, countOk, ok };
 }
 
+/**
+ * Execute the optional online-gap profile. Pure/offline in fake mode: loads
+ * N1–N9 + J1–J6, records explicit SKIPs, computes the extended metrics, and
+ * compares against a READ-ONLY frozen baseline keyed by (task id, fixture
+ * hash). Current results are written to a SEPARATE file; the baseline file is
+ * never written by this function. Only enabled by --profile online-gap.
+ */
+export function runOnlineGapProfile({
+  mode = 'fake',
+  tasks,
+  skips = [],
+  baseline = null,
+  perTask = [],
+  root = ROOT,
+  write = (p, c) => fs.writeFileSync(p, c),
+  mkdir = (p) => fs.mkdirSync(p, { recursive: true }),
+  now = () => new Date().toISOString(),
+} = {}) {
+  const loaded = tasks.map((t) => ({ id: t.id, fixtureHash: fixtureHashForTask(t) }));
+  const metrics = computeOnlineGapMetrics(tasks, perTask);
+  const comparison = baseline
+    ? compareOnlineGapCurrent({ perTask }, baseline, tasks)
+    : { ok: false, checks: [], allUnknown: true };
+  // With no frozen baseline we do NOT fail: the run is `ok` for wiring but
+  // every metric is reported unknown, never a silent pass on quality.
+  const ok = comparison.allUnknown ? true : comparison.ok;
+  const result = {
+    generatedAt: now(),
+    profile: ONLINE_GAP_PROFILE,
+    mode: mode === 'fake' ? 'fake-dry-run' : mode,
+    ok,
+    allUnknown: comparison.allUnknown,
+    loaded,
+    skipped: skips,
+    baselineSource: baseline ? (baseline.source ?? ONLINE_GAP_BASELINE_FILE) : null,
+    metrics,
+    comparison,
+    notes: [
+      'Fake/replay wiring check only; not a gateway quality measurement.',
+      'Baseline is read-only and keyed by task id + fixture hash; current results are stored separately.',
+    ],
+  };
+  const md = renderOnlineGapReport(result);
+  mkdir(path.dirname(ONLINE_GAP_RESULT_JSON));
+  write(ONLINE_GAP_RESULT_JSON, JSON.stringify(result, null, 2) + '\n');
+  write(ONLINE_GAP_RESULT_MD, md);
+  return { result, paths: { md: ONLINE_GAP_RESULT_MD, json: ONLINE_GAP_RESULT_JSON } };
+}
+
 function main() {
   const opts = parseArgs(process.argv.slice(2));
   const { mode, input, date } = opts;
+
+  // --- Optional additive profile: --profile online-gap ---
+  // Everything below this branch (down to the legacy code) is UNCHANGED when
+  // no --profile is supplied. The profile never mutates tasks-smoke.json, the
+  // G6 baseline, src/, or any workflow, and never writes the frozen baseline.
+  if (opts.profile === ONLINE_GAP_PROFILE) {
+    const { tasks, skips } = loadOnlineGapTasks();
+    const baseline = loadOnlineGapBaseline();
+    const { result } = runOnlineGapProfile({
+      mode, tasks, skips, baseline,
+      perTask: [], // fake/replay wiring only; real rows are supplied by a future runner
+    });
+    console.log(`[l1-smoke] profile=${ONLINE_GAP_PROFILE}: ${result.ok ? 'PASS' : 'FAIL'}${result.allUnknown ? ' (no frozen baseline: all metrics unknown)' : ''} | loaded=${result.loaded.length} skipped=${result.skipped.length} baseline=${result.baselineSource ?? 'none'}`);
+    console.log(`[l1-smoke] report: ${path.relative(ROOT, ONLINE_GAP_RESULT_MD)}`);
+    for (const s of result.skipped) console.log(`[l1-smoke] ${s.reason} (${s.id ?? s.file})`);
+    // Wiring check exit: 0 when nothing regressed. Unknown metrics are not a pass
+    // on quality and are reported loudly; a regression (fail) exits 1.
+    process.exit(result.ok ? 0 : 1);
+  }
+  if (opts.profile && opts.profile !== ONLINE_GAP_PROFILE) {
+    console.error(`[l1-smoke] unknown profile: ${opts.profile} (only '${ONLINE_GAP_PROFILE}' is supported)`);
+    process.exit(2);
+  }
   if (!VALID_MODES.has(mode)) {
     console.error(`[l1-smoke] unknown mode: ${mode}`);
     process.exit(2);
