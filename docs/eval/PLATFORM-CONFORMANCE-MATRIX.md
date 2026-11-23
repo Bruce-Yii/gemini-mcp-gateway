@@ -1,8 +1,11 @@
 # Platform conformance matrix — Gemini / ChatGPT / Claude (typed-plan + Code Mode)
 
-> Status: **documentation only**. This file records a test matrix and an executable
-> conformance checklist. It changes **no code, config, tests, README, other docs,
-> workflows, or deployment state**. Nothing was committed, pushed, or deployed.
+> Status: **test matrix + offline test suite landed** (see §9 测试落地状态).
+> This file records the matrix and an executable conformance checklist; the
+> deterministic offline checks now live in
+> `tests/platform-conformance-suite.test.js`. This document changes **no code,
+> config, README, workflows, or deployment state**. The row statuses below are
+> unchanged. Nothing was committed, pushed, or deployed.
 >
 > Scope: B14 typed-plan / adaptive execution. The candidate shape is
 > **typed plan primary, Code Mode fallback**; the three-tool surface
@@ -325,6 +328,29 @@ requirements here.
 
 ## 8. Change control
 
-This file is the only artifact produced by this task. No `src/`, `scripts/`,
-`tests/`, `README`, other `docs/`, or workflow file was modified. No commit,
-push, or deploy was performed.
+This file's matrix rows were not re-scored by the test-landing task; only the
+artifact status and §9 测试落地状态 were updated. The test-landing task produced
+`tests/platform-conformance-suite.test.js`, this §9 status section, and
+`docs/ledger/batch-15-platform-suite.md`; it changed no `src/`, `scripts/`,
+`README`, workflows, or deployment state. No commit, push, or deploy was performed.
+
+---
+
+## 9. 测试落地状态 (test-implementation status)
+
+> Only this section's status lines were updated by the test-landing task; the
+> pass/fail/unknown matrix rows in §1–§8 are unchanged.
+
+| Item | Matrix ref | 测试落地 status | Evidence |
+|---|---|---|---|
+| Gemini: no `structuredContent`, text JSON, sanitized schema/annotations, stable tool list | §2.1, B1/B3/B5, C3, G6 | `pass` (offline) | `tests/platform-conformance-suite.test.js` A1/A2/A2b/B1/B4/D1 |
+| ChatGPT: `structuredContent` + text dual encoding; `_meta.securitySchemes` additive, not leaked to Gemini | §2.2, B5, C3, C8 | `pass` (offline server-side encoding); client consumption still `unknown` | same suite A3/A3b/A4/D4 |
+| Claude: text JSON + annotations; callback allowlist implemented (strict host/path) | §2.3, B2, L3/L4 | `pass` (offline server-side); real client still `unknown` | same suite A5/A6 |
+| Tool-face hard invariants: exactly `search` / `execute_read` / `execute`, stable names, annotations present but not a security boundary | §1.3, B1/B2/B3, C2/C5 | `pass` (offline) | same suite B1/B2/B3 |
+| typed-plan compatibility (`plan` field) | §3.1 C1, §4.3 T1 | `未支持` (unsupported by current schema; **not** a pass) — wait for v2 | same suite C1/C2/C3; asserts `{plan:[...]}` is rejected for missing `code` |
+| Profile isolation / unknown fallback / no cross-platform leakage | §3.2, §6 exit criteria | `pass` (offline) | same suite D1–D6 |
+| Real-client end-to-end runs (ChatGPT Business, Claude connector) | §6.3/§6.4 | `unknown` (unchanged — no real account used) | no evidence attached |
+
+Run: `node --test tests/platform-conformance-suite.test.js` (21/21 pass, offline,
+read-only; builds fixtures from `src/` exports only). Full `npm test` must stay
+green. This landing adds no production code, no network calls, and no credentials.
