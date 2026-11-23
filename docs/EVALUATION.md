@@ -71,8 +71,8 @@ L4 人工在线反馈           用户真实窗口，发现新维度
 | 任务集 | `explore/tasks-online-gap.json` N1–N9 | ✅ |
 | join | `ONLINE-SEMIONLINE-JOIN-2026-11-23.md`、`tasks-online-gap-2.json` J1–J6 | ✅ |
 | join 测试 | `tests/online-semionline-join.test.js` | ✅ 14/14 |
-| L1 接线 | `l1-task-wire` agent | 🔨 |
-| 在线 replay | `online-replay-harness` agent | 🔨 |
+| L1 接线 | `scripts/run-l1-smoke.mjs --profile online-gap` | ✅ 21/21；commit acba249 |
+| 在线 replay | `scripts/replay-online-session.mjs` | ✅ 22/22；commit 1bb8f8a |
 | 真实客户端 lane | platform conformance suite / matrix | ✅ 离线；真实连接未做 |
 | canary/shadow | 未实现（需部署/流量） | ❌ |
 | 自动 intake | 未实现（当前人工记录） | ❌ |
@@ -85,10 +85,10 @@ L4 人工在线反馈           用户真实窗口，发现新维度
 |---|---|---|---|---|---|
 | F1 | content 混入 notice | weak | fixed/pending-deploy | G1+G2 | J1 + 部署后回放 |
 | F2 | PR number 失真 | weak | fixed/pending-deploy | G1+G2 | J2 + 部署后回放 |
-| F3 | batch wrapper 不一致 | missing | unknown | G3 | J3 + 复现 |
-| F4 | 截断切末尾 | weak | unknown | G3 | J4 + 复现 |
-| F5 | 逐文件提交 | weak | unknown | G3 | J5 + 复现 |
-| F6 | CI 轮询碎 | missing | unknown | G3 | J6 + wait helper |
+| F3 | batch wrapper 不一致 | missing | fixed code-level（`unwrapBatch`） | G3 | J3 + 部署后复验 |
+| F4 | 截断切末尾 | weak | fixed code-level（`withTruncationMetadata`） | G3 | J4 + 部署后复验 |
+| F5 | 逐文件提交 | weak | fixed code-level（atomic guidance/partial） | G3 | J5 + 部署后复验 |
+| F6 | CI 轮询碎 | missing | fixed code-level（`waitForPrChecks`） | G3 | J6 + 部署后复验 |
 
 ### ChatGPT 在线反馈
 

@@ -1,125 +1,94 @@
 # Master execution plan (2026-11-23)
 
-> 这是一个多板块并行项目。本页只做**任务路由**：谁在跑、什么没派、什么被阻塞。
-> 没有日历排期；完成即集成。详细台账：
-> [B11](ledger/batch-11-recent.md)、[B12](ledger/batch-12-active.md)、
-> [B13](ledger/batch-13-active.md)、[B14](ledger/batch-14-typed-plan.md)、
-> [B15](ledger/batch-15-auth.md)、[OSS](OPEN-SOURCE/PLAN.md)。
+> 任务路由页。没有日历排期；完成即集成。
+> 总评测架构见 [EVALUATION.md](EVALUATION.md)；当前基线与恢复点见
+> [HANDOFF-2026-11-23.md](HANDOFF-2026-11-23.md)。
 
-## 0. 当前运行中
+## 0. 当前快照
+
+- 全量：`1329 tests / 1323 pass / 0 fail / 6 todo`（提交 `01d58f0` 后；lead 实跑）
+- worktree：干净
+- 生产 Vercel：**旧构建**；`100 deployments/day` 用尽，最新代码未部署
+- Auth：`docs/AUTH-READY.md` = **NOT READY**，不发起授权
+- OSS：**未公开**；只有本地产物 `work/oss-release-staging` / `work/oss-release-repo`
+
+## 1. 正在跑
 
 | Agent | 板块 | 目标 |
 |---|---|---|
-| `auth-arch-fix` | Auth | 修 R1–R6：空 owner=shared、本地默认 local、OAuth callback 带 env/owner、legacy key、state 隔离、同实例 refreshPromise |
-| `claude-connector` | Platform | Claude callback allowlist + docs/tests |
-| `online-gap-tasks` | Eval | N1–N9 在线缺口任务集 |
-| `oss-release-dryrun` | OSS | 实际导出 staging + 发布门禁 |
+| `oss-reverify` | OSS | 最新代码重导出 staging/release repo，过发布门禁 |
+| `security-fix-2` | Security | F-01/F-03/F-04/F-06/F-07：错误脱敏、截断审计、预算、原型污染、truncated 语义 |
+| `local-latest-verify` | Infra | 本地真实路由 loopback E2E（healthz/OAuth/CIMD/三工具/content/PR/wait） |
 
-## 1. 六个大板块状态
+## 2. 板块状态
 
 | 板块 | 状态 | 文档 |
 |---|---|---|
-| **Auth / 上游授权** | 🔨 架构修复中；provider 事实已明 | `docs/eval/AUTH-PROVIDERS.md`、`docs/ledger/batch-15-auth*.md` |
-| **Platform 隔离** | ✅ capture/eval/registry/ChatGPT OAuth 已入；Claude 未 | `batch-13-active.md`、`CLIENT-PROFILES.md` |
-| **Typed plan** | ✅ 方案/spike/conformance/复用调研；未接生产 | `TYPED-PLAN-TEST-PLAN.md`、`batch-14-typed-plan.md` |
-| **Online / semi-online eval** | 🔨 反馈已建档；半在线补测部分完成 | `ONLINE-FEEDBACK.md`、`SEMI-ONLINE-GAPS.md` |
-| **OSS 发布** | ✅ 研究/导出/模板/README/Docker；未真正开新仓库 | `OPEN-SOURCE/PLAN.md`、`EXPORT-MANIFEST.md` |
-| **Infra / 部署** | ⚠️ 最新代码未部署（Vercel 100/day 限额） | `HANDOFF-2026-11-23.md` |
+| **Auth / 上游授权** | 🔨 gateway-owned grant / owner 隔离 / DCR / CIMD 已实现；真实授权未做；Vercel CIMD BLOCKED | `AUTH-READY.md`、`eval/AUTH-PROVIDERS.md`、`ledger/batch-15-auth*.md` |
+| **Platform 隔离** | ✅ Gemini/ChatGPT/Claude profile、ChatGPT OAuth、Claude callback；真实客户端未验 | `CLIENT-PROFILES.md`、`eval/PLATFORM-CONFORMANCE-MATRIX.md` |
+| **Typed plan** | ✅ `/mcp/v2` flag、执行器、A/B runner、security 修复；未默认启用 | `TYPED-PLAN-TEST-PLAN.md`、`ledger/batch-14-typed-plan*.md` |
+| **Online / semi-online eval** | ✅ F1–F6 join、N1–N9、J1–J6、L1 online-gap profile、replay harness；部署后复验未做 | `EVALUATION.md`、`eval/ONLINE-*`、`eval/SEMI-ONLINE-GAPS.md` |
+| **OSS 发布** | 🔨 staging/local repo 已重建；公开前审计/身份/CI 门禁收口中 | `OPEN-SOURCE/RELEASE-LOCAL.md`、`PUBLIC-SAFETY-AUDIT.md` |
+| **Infra / 部署** | ⚠️ 最新代码未部署（Vercel 100/day） | `HANDOFF-2026-11-23.md` |
 
-## 2. 还没派出去的任务（按板块）
+## 3. 未派 / 待决策
 
-### Auth（最高优先，授权零容忍）
+### Auth
 
 | 任务 | 状态 | 依赖 |
 |---|---|---|
-| gateway-owned OAuth provisioning（Notion DCR / Linear OAuth / Vercel CIMD+offline_access） | ❌ 未派 | `auth-arch-fix` 完成 |
-| static bearer 迁移：Linear PAT、Notion static MCP token | ❌ 未派 | `auth-arch-fix` 支持 `authMode=static_bearer` |
-| 真实 provider 一次性授权 + 72h 观察 | ❌ 未派 | 用户/令牌 + 代码完成后 |
-| Vercel `offline_access` + CIMD 生产配置 | ❌ 未派 | gateway-owned OAuth |
-| 旧 DSH grant 清理/只读化 | ❌ 未派 | 迁移文档 |
+| Linear PAT 创建 + `static_bearer` 配到网关 | ❌ 等用户一次性授权 | `AUTH-READY` 全绿 |
+| Notion static MCP token 或网关 DCR 真实授权 | ❌ 等用户一次性授权 | 同上 |
+| Vercel 稳定域名 CIMD 验证 | ❌ 等部署 | Vercel 额度 |
+| Vercel 预注册 client 路线 | ❌ 待决策 | CIMD 稳定域名复验失败后 |
+| 真实 provider 72h 观察 | ❌ 等授权 | 以上 |
 
 ### Platform / 客户端
 
 | 任务 | 状态 |
 |---|---|
-| Claude.ai callback allowlist + 真实 connector 验收 | ❌ 未派 |
-| ChatGPT CIMD（当前只有 DCR/自定义 client） | ❌ 未派（P1） |
-| ChatGPT 真实 connector 回归（GitHub 只读 + 写） | ⚠️ 已手工连上；正式测试未派 |
-| 多平台 eval lane 接入 `run-l1-smoke` | ❌ 未派（文档已给接入点） |
+| ChatGPT 正式 connector 回归（GitHub 只读 + 写） | ⚠️ 手工连上；正式测试未派 |
+| Claude 真实 connector 验收 | ❌ 未派 |
+| 多平台 eval lane 接入 `run-l1-smoke` | ❌ 未派 |
+| ChatGPT CIMD（入站） | ❌ P1 未派 |
 
 ### Typed plan
 
 | 任务 | 状态 |
 |---|---|
-| `/v2` 或版本化 schema 承载 `plan` 字段 | ❌ 未派（必须先于生产接入） |
-| `codemode.runTypedPlan` 接入生产 execute | ❌ 未派 |
-| L1 A/B runner（Profile F vs S） | ❌ 未派（测试计划已完成） |
-| 生产 fallback/异常测试 | ❌ 未派 |
+| `/mcp/v2` 默认启用 | ❌ 需 A/B 数据，不切 |
+| 真实模型 A/B（F vs S） | ❌ 等部署/真实 lane |
+| N1–N9/J1–J6 接 baseline freeze | 🔨 部分（profile 已接，基线未冻结） |
 
-### Eval / 在线反馈
-
-| 任务 | 状态 |
-|---|---|
-| 把 N1–N9 补进 L1/G6 任务集 | ❌ 未派（SEMI-ONLINE-GAPS §4） |
-| F1–F6 在线反馈逐条 capture 复现 | 🔨 部分（gh-file-p0 已修 F1/F2；F3/F4/F5 待部署/重放） |
-| 真实 PR #53 的 number/merge 回放 | ❌ 未派 |
-| 真实 GitHub Actions 失败日志验证 | ❌ 未派 |
-| L1 real 用冻结基线 + 干净 token 重跑 | ❌ 未派 |
-
-### OSS / 发布
+### Infra / 后续
 
 | 任务 | 状态 |
 |---|---|
-| `scripts/export-oss.mjs` 真正导出新仓库 + `git init` | ❌ 未派（脚本已就绪） |
-| 新仓库名/owner 决定 | ❌ 待决策 |
-| 公开 README 最终脱内部链接 | ✅ 已做；待导出验证 |
-| Free platform 矩阵 / runtime adapter | ❌ 未派（文档建议先 Vercel/Docker/Tunnel） |
-| Cloudflare Containers 模板 | ❌ 未派（需 Workers Paid $5） |
+| 部署最新代码 | ❌ Vercel 额度 |
+| canary/shadow | ❌ 等部署 |
+| 持久状态/checkpoint | ❌ 未派 |
+| Figma 跨实例缓存 | ❌ 未派 |
+| capture collector 生产接线 | 🔨 队列/flag 已有；默认关 |
+| MCP 2026 | ❌ 故意暂缓 |
 
-### Infra / 执行
+## 4. 下一步顺序
 
-| 任务 | 状态 |
-|---|---|
-| 部署最新代码（P0 + auth） | ❌ 被 Vercel 100/day 阻塞 |
-| capture 同步延迟优化（collector/queue） | ❌ 未派 |
-| 持久状态/checkpoint 实现 | ❌ 未派（设计已写） |
-| Figma 跨实例缓存实现 | ❌ 未派（设计已写） |
-| MCP 2026 实现 | ❌ 故意暂缓 |
+1. `oss-reverify` / `security-fix-2` / `local-latest-verify` 收口；
+2. 全量 0 fail + CI 绿；
+3. OSS staging/release repo 门禁；不 push；
+4. Vercel 部署窗口恢复 → 部署最新代码；
+5. 生产域名 CIMD 复验；
+6. 跑 `AUTH-READY` real 检查；
+7. 全绿后发起**一次** Linear/Notion/Vercel 授权；
+8. 部署后同任务在线复验 F1–F6 / J1–J6；
+9. 真实客户端 lane / canary。
 
-## 3. 阻塞 / 决策
+## 5. 硬规则
 
-| 项 | 原因 |
-|---|---|
-| 部署最新代码 | Vercel free 100 deployments/day 用尽；等额度或换 Cloudflare Containers |
-| 真实 Notion/Linear/Vercel 授权 | 需要 gateway-owned grant；不能再用 DSH token |
-| ChatGPT 完整 MCP | 计划限制；Free/Plus 不承诺；Business/Enterprise 才完整 |
-| Cloudflare Workers | 免费 CPU/Containers 限制；Containers 需 $5/月 |
-| typed plan 生产 | 必须版本化 schema；先 A/B |
-
-## 4. 建议的下一批并行（按依赖）
-
-1. `auth-arch-fix` + `auth-sim-harness` 收口；
-2. `auth-provisioning`：gateway-owned OAuth + static bearer 支持；
-3. `deploy-and-verify`：Vercel 额度恢复后部署，跑 P0/auth 验证；
-4. `eval-replay`：真实 PR #53 + Actions 日志 + 在线反馈 F1–F6 回放；
-5. `typed-plan-v2`：schema 版本 + A/B runner（不默认切）；
-6. `oss-export-repo`：新仓库导出 + 发布门禁；
-7. `infra-followups`：持久状态、Figma 跨实例、capture 延迟。
-
-## 5. 不要再忘的硬规则
-
-- 授权：**DSH 与网关不能共享 rotating refresh token**；网关只刷新 gateway-owned grant。
-- 在线反馈：每条都要落 `online-feedback.v1`，并回灌半在线测试。
-- typed plan：没 A/B 数据不切默认；先 `/v2`。
-- OSS：**新仓库**，私有仓库不公开；发布前过 `EXPORT-MANIFEST`。
-- 部署：最新 commit 未部署前，不宣称线上生效。
-
-## 6. Eval workstream（新增）
-
-- 总览：docs/EVALUATION.md
-- schema/流程：docs/eval/ONLINE-FEEDBACK.md
-- 缺口：docs/eval/SEMI-ONLINE-GAPS.md
-- join：docs/eval/ONLINE-SEMIONLINE-JOIN-2026-11-23.md
-- N1–N9 + J1–J6：explore/tasks-online-gap.json / tasks-online-gap-2.json
-- 未完成：L1 online-gap profile（l1-task-wire）、在线 replay（online-replay-harness）、部署后同任务复验、真实客户端 lane、canary/shadow、自动 intake
-
+- 不把“代码已修”当“线上已生效”；
+- 不跨构建硬比；
+- 不编造 requestId；
+- 不为过测试保留无标记截断；
+- DSH 与网关不共享 rotating refresh token；
+- OSS 不 push/不建远端，直到用户明确；
+- 授权只在 `AUTH-READY.md` 全绿后发起。
