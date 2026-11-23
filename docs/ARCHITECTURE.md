@@ -1,3 +1,5 @@
+- 渐进式披露版本：[ARCHITECTURE-PROGRESSIVE.md](ARCHITECTURE-PROGRESSIVE.md)
+
 # Architecture breakdown — gemini-mcp-gateway
 
 > 按产品目标拆框架、架构、模块。
