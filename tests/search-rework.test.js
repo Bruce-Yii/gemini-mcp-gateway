@@ -10,10 +10,18 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { searchEntries } from '../src/catalog.js';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const root = path.resolve(here, '..');
+const hasRecallFixtures = existsSync(path.join(root, 'explore', 'tasks-v2.json'))
+  && existsSync(path.join(root, 'data', 'tool-dataset.json'));
+const recallSkip = hasRecallFixtures
+  ? false
+  : 'private eval fixtures explore/tasks-v2.json + data/tool-dataset.json are excluded from the OSS export (see docs/OPEN-SOURCE/EXPORT-TEST-CURATION.md)';
 
 /** A long, keyword-stuffed description that used to win by raw word count. */
 const STUFFED_DESCRIPTION = Array.from({ length: 120 }, () => 'page page page').join(' ');
@@ -128,9 +136,7 @@ test('search-rework⑤: select: 精确名仍排第一且保持 1000 分与接口
 
 // ---------- offline recall guard (real dataset, production catalog) ----------
 
-test('search-rework: 离线工具召回率不低于基线（只测线上实际暴露的工具）', () => {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  const root = path.resolve(here, '..');
+test('search-rework: 离线工具召回率不低于基线（只测线上实际暴露的工具）', { skip: recallSkip }, () => {
   const tasks = JSON.parse(readFileSync(path.join(root, 'explore', 'tasks-v2.json'), 'utf8')).tasks;
   const allTools = JSON.parse(readFileSync(path.join(root, 'data', 'tool-dataset.json'), 'utf8'));
   const config = JSON.parse(readFileSync(path.join(root, 'config.example.json'), 'utf8'));

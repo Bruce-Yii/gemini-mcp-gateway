@@ -108,6 +108,22 @@ function isDownloadNotice(text) {
   return /^(successfully\s+)?(downloaded|fetched|retrieved)\b/i.test(t) || /\bSHA:\s*[0-9a-f]{7,}/i.test(t);
 }
 
+/**
+ * Batch 15 P0 · the exact GitHub get_file_contents download notice line.
+ * Narrow on purpose: a real file body that merely mentions "downloaded"
+ * must never be treated as a notice. Returns {text, sha} where `text` is the
+ * pure body (notice prefix removed) and `sha` is extracted from the notice.
+ */
+const FILE_DOWNLOAD_NOTICE = /^successfully downloaded text file \(SHA: ([0-9a-f]+)\)\r?\n/i;
+
+function stripDownloadNotice(text) {
+  if (typeof text !== 'string') return { text, sha: null };
+  const match = FILE_DOWNLOAD_NOTICE.exec(text);
+  return match
+    ? { text: text.slice(match[0].length), sha: match[1] }
+    : { text, sha: null };
+}
+
 /** 从一个 content/resource 项里取出可能的正文字符串（含嵌套 resource.text）。 */
 function extractBodyText(item) {
   if (typeof item === 'string') return item;
@@ -248,38 +264,48 @@ export function normalizeFileResult(value) {
   try {
     const { value: v } = unwrap(value);
     if (typeof v === 'string') {
+      const stripped = stripDownloadNotice(v);
       return {
-        content: v,
-        sha: null,
-        size: v.length,
+        content: stripped.text,
+        sha: stripped.sha,
+        size: stripped.text.length,
         encoding: null,
         path: null,
-        truncated: isTruncated(null, v),
+        truncated: isTruncated(null, stripped.text),
         raw: value,
       };
     }
     const root = isObj(v) ? v : {};
     // content 优先取顶层；再尝试 resources[].text；最后尝试 result 里的同名键。
-    let content = contentToString(pick(root, ['content', 'text', 'data']));
+    const topText = pick(root, ['text', 'content', 'data']);
+    const topStripped = stripDownloadNotice(topText);
+    let content = contentToString(topStripped.text);
     const rootResources = resourcesToText(get(root, 'resources'));
     // GitHub sometimes returns {text: "successfully downloaded ...\n<body>",
     // resources:[{text: body}]}; prefer the resource body so the notice never
-    // becomes the file content.
-    if (rootResources && (isDownloadNotice(String(pick(root, ['text', 'content', 'data']) ?? '')) || /successfully downloaded/i.test(String(pick(root, ['text', 'content', 'data']) ?? '')))) {
+    // becomes the file content. When there is no resource, the stripped text
+    // above still yields pure body.
+    if (rootResources && (isDownloadNotice(String(topText ?? '')) || /successfully downloaded/i.test(String(topText ?? '')))) {
       content = rootResources;
     }
     if (content === null) content = rootResources;
+    let nestedShaFromNotice = null;
     if (content === null) {
       const nested = get(root, 'result');
       if (isObj(nested)) {
-        content = contentToString(pick(nested, ['content', 'text', 'data']));
+        const nestedText = pick(nested, ['text', 'content', 'data']);
+        const nestedStripped = stripDownloadNotice(nestedText);
+        nestedShaFromNotice = nestedStripped.sha;
+        content = contentToString(nestedStripped.text);
         const nestedResources = resourcesToText(get(nested, 'resources'));
-        if (nestedResources && /successfully downloaded/i.test(String(pick(nested, ['text', 'content', 'data']) ?? ''))) content = nestedResources;
+        if (nestedResources && /successfully downloaded/i.test(String(nestedText ?? ''))) content = nestedResources;
         if (content === null) content = nestedResources;
       }
     }
 
-    const shaFromNotice = /SHA:\s*([0-9a-f]{7,})/i.exec(String(pick(root, ['text', 'content', 'data']) ?? ''))?.[1];
+    const shaFromNotice = topStripped.sha
+      ?? nestedShaFromNotice
+      ?? (/SHA:\s*([0-9a-f]{7,})/i.exec(String(topText ?? ''))?.[1] ?? null);
     const sha = pick(root, ['sha', 'sha256', 'content_sha', 'commit_sha']) ?? shaFromNotice;
     const path = pick(root, ['path', 'name', 'uri', 'file_path']);
     const encoding = pick(root, ['encoding']);

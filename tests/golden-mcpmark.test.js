@@ -1,8 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import {
+// explore/golden-mcpmark.mjs and its MCPMark/task fixtures are private eval
+// assets excluded from the OSS export. Skip explicitly when absent; the
+// private repo imports the real module and runs all assertions unchanged.
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const hasPrivateGolden = existsSync(path.join(ROOT, 'explore', 'golden-mcpmark.mjs'));
+const privateSkip = hasPrivateGolden
+  ? false
+  : 'private eval fixture explore/golden-mcpmark.mjs is excluded from the OSS export (see docs/OPEN-SOURCE/EXPORT-TEST-CURATION.md)';
+const {
   DEFAULT_MCPMARK_ROOT,
   DEFAULT_TASKS_FILE,
   SUPPORTED_SERVICES,
@@ -11,19 +21,21 @@ import {
   loadDerivedTasks,
   mapDerivedToAuthoritative,
   buildGoldenReport,
-} from '../explore/golden-mcpmark.mjs';
+} = hasPrivateGolden ? await import('../explore/golden-mcpmark.mjs') : {};
 
-const discovered = discoverAuthoritativeTasks();
-const authoritative = discovered.tasks;
-const derived = loadDerivedTasks();
-const mapping = mapDerivedToAuthoritative(derived, authoritative);
+// Wrap every test with the private-fixture gate. `t` is for tests that only
+// need the module; `cloneTest` also keeps the pre-existing MCPMark-clone gate.
+const t = (name, fn) => test(name, { skip: privateSkip }, fn);
+const discovered = hasPrivateGolden ? discoverAuthoritativeTasks() : null;
+const authoritative = hasPrivateGolden ? discovered.tasks : [];
+const derived = hasPrivateGolden ? loadDerivedTasks() : [];
+const mapping = hasPrivateGolden ? mapDerivedToAuthoritative(derived, authoritative) : [];
 
-const cloneAvailable = discovered.sourcePresent;
-const cloneTest = (name, fn) => test(
-  name,
-  { skip: cloneAvailable ? false : 'MCPMark local clone not present (optional dev fixture; see explore/README.md)' },
-  fn,
-);
+const cloneAvailable = hasPrivateGolden && discovered.sourcePresent;
+const cloneSkip = privateSkip || (cloneAvailable
+  ? false
+  : 'MCPMark local clone not present (optional dev fixture; see explore/README.md)');
+const cloneTest = (name, fn) => test(name, { skip: cloneSkip }, fn);
 cloneTest('本地 MCPMark 克隆存在，权威任务清单数量与结构正确', () => {
   assert.equal(discovered.sourcePresent, true);
   assert.equal(DEFAULT_MCPMARK_ROOT.endsWith(path.join('work', 'mcpmark')), true);
@@ -77,7 +89,7 @@ cloneTest('Notion verify.py 判定不可运行：读固定评测页面的 block 
   assert.ok(verdict.evidence.some((e) => e.includes('notion.site')));
 });
 
-test('classifyVerifier 接受原始源码字符串，也处理缺 verify.py 的情况', () => {
+t('classifyVerifier 接受原始源码字符串，也处理缺 verify.py 的情况', () => {
   const raw = classifyVerifier('from notion_client import Client\nverify against fixed page');
   assert.equal(raw.runnableAgainstOurAccount, false);
   assert.ok(raw.evidence.some((e) => e.includes('notion_client')));
@@ -87,7 +99,7 @@ test('classifyVerifier 接受原始源码字符串，也处理缺 verify.py 的�
   assert.match(missing.evidence[0], /缺少 verify.py/);
 });
 
-test('derived 任务集读出 86 条 official:false，按服务分布 19/5/16/46', () => {
+t('derived 任务集读出 86 条 official:false，按服务分布 19/5/16/46', () => {
   assert.equal(derived.length, 86);
   const byService = {};
   for (const task of derived) byService[task.server] = (byService[task.server] || 0) + 1;
@@ -95,7 +107,7 @@ test('derived 任务集读出 86 条 official:false，按服务分布 19/5/16/46
   assert.ok(derived.every((t) => t.id && t.tool && t.prompt));
 });
 
-test('Linear / Vercel derived 任务权威源 0 覆盖，不编造映射', () => {
+t('Linear / Vercel derived 任务权威源 0 覆盖，不编造映射', () => {
   const uncovered = mapping.filter((r) => r.server === 'linear' || r.server === 'vercel');
   assert.equal(uncovered.length, 62);
   for (const record of uncovered) {
@@ -129,7 +141,7 @@ cloneTest('特有工具的等价性警告被如实标注，不冒充逐工具 go
   assert.ok(sidebar.note.includes('新版 Notion MCP 工具'));
 });
 
-test('映射结果确定可复现（无时间戳、无随机性）', () => {
+t('映射结果确定可复现（无时间戳、无随机性）', () => {
   const again = mapDerivedToAuthoritative(loadDerivedTasks(), discoverAuthoritativeTasks().tasks);
   assert.deepEqual(again, mapping);
 });
@@ -154,7 +166,7 @@ cloneTest('总报告：prompt 权威性可用，gold 打分不可用，计数自
   assert.deepEqual(buildGoldenReport(), report);
 });
 
-test('本地克隆缺失时不假装成功：如实标记 sourcePresent:false 且仍拒绝 gold 打分', () => {
+t('本地克隆缺失时不假装成功：如实标记 sourcePresent:false 且仍拒绝 gold 打分', () => {
   const missing = discoverAuthoritativeTasks({ root: path.join('Z:', '__definitely_missing_mcpmark__') });
   assert.equal(missing.sourcePresent, false);
   assert.deepEqual(missing.tasks, []);

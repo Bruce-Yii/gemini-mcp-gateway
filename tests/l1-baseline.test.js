@@ -11,9 +11,25 @@ import {
 } from '../scripts/run-l1-smoke.mjs';
 
 const readJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
-const BASELINE_DOC = readJson(path.join(ROOT, 'explore/baselines/l1-smoke.json'));
-const SMOKE = readJson(path.join(ROOT, 'explore/tasks-smoke.json'));
-const FOUR_SERVER_TASKS = SMOKE.tasks.filter((t) => DEFAULT_REAL_SERVERS.includes(t.server));
+
+// The L1 pure helpers (metrics/compare/report/threshold logic) are public and
+// stay tested in the clean export. Tests that pin the frozen G6 baseline or
+// the 50-task smoke snapshot need private eval fixtures and skip explicitly.
+const hasBaselineFixtures = fs.existsSync(path.join(ROOT, 'explore', 'baselines', 'l1-smoke.json'))
+  && fs.existsSync(path.join(ROOT, 'explore', 'tasks-smoke.json'));
+const baselineSkip = hasBaselineFixtures
+  ? false
+  : 'private eval fixtures explore/baselines/l1-smoke.json + explore/tasks-smoke.json are excluded from the OSS export (see docs/OPEN-SOURCE/EXPORT-TEST-CURATION.md)';
+const fixtureTest = (name, fn) => test(name, { skip: baselineSkip }, fn);
+const BASELINE_DOC = hasBaselineFixtures
+  ? readJson(path.join(ROOT, 'explore/baselines/l1-smoke.json'))
+  : null;
+const SMOKE = hasBaselineFixtures
+  ? readJson(path.join(ROOT, 'explore/tasks-smoke.json'))
+  : null;
+const FOUR_SERVER_TASKS = hasBaselineFixtures
+  ? SMOKE.tasks.filter((t) => DEFAULT_REAL_SERVERS.includes(t.server))
+  : [];
 
 function tmpDir() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'l1-baseline-'));
@@ -94,7 +110,7 @@ test('L1 baseline regression: self-comparison (baseline === current) would pass 
  * 2. byServer selection (independent snapshot, not current run)
  * ------------------------------------------------------------------ */
 
-test('L1 baseline byServer: default 4-server real set selects exact 40-task snapshot', () => {
+fixtureTest('L1 baseline byServer: default 4-server real set selects exact 40-task snapshot', () => {
   assert.deepEqual(SKIPPED_SERVERS, ['figma']);
   assert.equal(FOUR_SERVER_TASKS.length, 40);
   const baseline = deriveBaselineForServers(FOUR_SERVER_TASKS, BASELINE_DOC);
@@ -112,7 +128,7 @@ test('L1 baseline byServer: default 4-server real set selects exact 40-task snap
   assert.notEqual(baseline.metrics.completionRate, BASELINE_DOC.metrics.completionRate);
 });
 
-test('L1 baseline byServer: subset without prepared snapshot aggregates from byServer', () => {
+fixtureTest('L1 baseline byServer: subset without prepared snapshot aggregates from byServer', () => {
   const tasks = SMOKE.tasks.filter((t) => ['github', 'notion'].includes(t.server));
   const baseline = deriveBaselineForServers(tasks, BASELINE_DOC);
   assert.equal(baseline.fallback, false);
@@ -127,7 +143,7 @@ test('L1 baseline byServer: subset without prepared snapshot aggregates from byS
  * 3. Missing byServer -> explicit overall fallback, never silent
  * ------------------------------------------------------------------ */
 
-test('L1 baseline fallback: missing byServer falls back to overall 50 with explicit label', () => {
+fixtureTest('L1 baseline fallback: missing byServer falls back to overall 50 with explicit label', () => {
   const overallOnly = {
     source: 'overall baseline from G6',
     capturedAt: '2026-11-22T17:50:59.641Z',
@@ -151,7 +167,7 @@ test('L1 baseline fallback: missing byServer falls back to overall 50 with expli
   assert.match(md, /Baseline scope: baseline-source: overall 50; not per-server/);
 });
 
-test('L1 baseline fallback: incomplete byServer does NOT pretend to be per-server', () => {
+fixtureTest('L1 baseline fallback: incomplete byServer does NOT pretend to be per-server', () => {
   const partial = {
     ...BASELINE_DOC,
     byServer: { github: BASELINE_DOC.byServer.github }, // only 1 of 4 servers
@@ -186,7 +202,7 @@ test('L1 baseline isolation: deriveBaselineForServers reads no current-run files
   assert.doesNotMatch(script, /deriveBaselineForServers\([^)]*G6_/);
 });
 
-test('L1 baseline isolation: poison current-run metrics cannot influence the baseline', () => {
+fixtureTest('L1 baseline isolation: poison current-run metrics cannot influence the baseline', () => {
   const t = tmpDir();
   try {
     // Even if a file named like the current run exists with absurd numbers,
@@ -215,7 +231,7 @@ test('L1 baseline isolation: poison current-run metrics cannot influence the bas
   }
 });
 
-test('L1 baseline file: byServer / serverSets sections are frozen and readable', () => {
+fixtureTest('L1 baseline file: byServer / serverSets sections are frozen and readable', () => {
   assert.equal(BASELINE_DOC.metrics.tasks, 50, 'original overall baseline preserved');
   for (const server of [...DEFAULT_REAL_SERVERS, ...SKIPPED_SERVERS]) {
     const row = BASELINE_DOC.byServer[server];

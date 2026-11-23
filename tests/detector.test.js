@@ -7,11 +7,25 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// explore/trace.mjs is a private eval fixture and is excluded from the OSS
+// export. Skip explicitly (with a reason) when it is absent; the private repo
+// still loads the real module and runs every assertion unchanged.
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const hasPrivateTrace = existsSync(path.join(ROOT, 'explore', 'trace.mjs'));
+const skipReason = hasPrivateTrace
+  ? false
+  : 'private eval fixture explore/trace.mjs is excluded from the OSS export (see docs/OPEN-SOURCE/EXPORT-TEST-CURATION.md)';
+const {
   DETECTOR_VERSION, AnomalyCollector, classifyRootCause,
   pickExecuteResult, classifyExecuteResult, isExecuteTool,
   countToolsByServer, applyServerCoverage,
-} from '../explore/trace.mjs';
+} = hasPrivateTrace ? await import('../explore/trace.mjs') : {};
+
+const t = (name, fn) => test(name, { skip: skipReason }, fn);
 
 /* ------------------------------------------------------------------ *
  * Fixtures — shapes copied from the v2 anomalies data, with placeholder
@@ -49,21 +63,21 @@ const realExecuteError = clean404('Record rec_123');
 /* ------------------------------------------------------------------ *
  * #21 — clean 404/403 must not be labelled schema mismatch
  * ------------------------------------------------------------------ */
-test('#21: bare "schema" substring in a clean 404 blob is not a schema mismatch', () => {
+t('#21: bare "schema" substring in a clean 404 blob is not a schema mismatch', () => {
   const detail = clean404('Record rec_123');
   assert.match(detail, /schema/i, 'fixture really contains a schema substring (old false-positive trigger)');
   assert.equal(classifyRootCause(detail), 'upstream_not_found');
   assert.notEqual(classifyRootCause(detail), 'schema/arg-name mismatch');
 });
 
-test('#21: clean 403 maps to upstream_forbidden, not schema mismatch', () => {
+t('#21: clean 403 maps to upstream_forbidden, not schema mismatch', () => {
   const detail = clean403('team_abc');
   assert.match(detail, /schema/i);
   assert.equal(classifyRootCause(detail), 'upstream_forbidden');
   assert.notEqual(classifyRootCause(detail), 'schema/arg-name mismatch');
 });
 
-test('#21: the 20 placeholder 404/403 anomalies are all classified as upstream_*', () => {
+t('#21: the 20 placeholder 404/403 anomalies are all classified as upstream_*', () => {
   const ids = ['my-app', 'rec_123', 'cert_123', 'store_123', 'dpl_123', 'env_123',
     'file_123', 'example.com', 'octocat/Hello-World'];
   const anomalies = Array.from({ length: 20 }, (_, i) => ({
@@ -78,7 +92,7 @@ test('#21: the 20 placeholder 404/403 anomalies are all classified as upstream_*
   assert.equal(rootCauses.filter((c) => c === 'schema/arg-name mismatch').length, 0);
 });
 
-test('#21: an explicit upstream 404 wins over validation-like text embedded in the blob', () => {
+t('#21: an explicit upstream 404 wins over validation-like text embedded in the blob', () => {
   // The old failure mode: a 5k-char Vercel error blob also embedded tool
   // descriptions / schema text, so any broad "schema"/"validating" match won.
   const blob = '{"result":"execute error: Vercel API request failed (404: not_found). Project my-app not found. '
@@ -89,7 +103,7 @@ test('#21: an explicit upstream 404 wins over validation-like text embedded in t
   assert.equal(classifyRootCause(forbidden), 'upstream_forbidden');
 });
 
-test('#21: explicit validation signatures still classify as validation classes', () => {
+t('#21: explicit validation signatures still classify as validation classes', () => {
   assert.equal(classifyRootCause(enumValidation), 'enum/valid-option mismatch');
   assert.equal(classifyRootCause('Invalid option: foo for parameter state'), 'enum/valid-option mismatch');
   assert.equal(classifyRootCause('expected one of: open, closed, merged'), 'enum/valid-option mismatch');
@@ -101,7 +115,7 @@ test('#21: explicit validation signatures still classify as validation classes',
 /* ------------------------------------------------------------------ *
  * #22 — execute_error detail comes from the execute tool result by name
  * ------------------------------------------------------------------ */
-test('#22: pickExecuteResult selects execute/execute_read by name, not by turn order', () => {
+t('#22: pickExecuteResult selects execute/execute_read by name, not by turn order', () => {
   const turnResults = [
     { name: 'search', text: searchPayload },
     { name: 'execute', text: realExecuteError },
@@ -117,7 +131,7 @@ test('#22: pickExecuteResult selects execute/execute_read by name, not by turn o
     'search-only turns must not produce execute_error');
 });
 
-test('#22: a search payload is never an execute_error even if it mentions "not found"', () => {
+t('#22: a search payload is never an execute_error even if it mentions "not found"', () => {
   assert.match(searchPayload, /not found/, 'fixture really contains a "not found" phrase');
   assert.equal(classifyExecuteResult({ name: 'search', text: searchPayload }), null);
   const finding = classifyExecuteResult({ name: 'execute', text: realExecuteError });
@@ -126,7 +140,7 @@ test('#22: a search payload is never an execute_error even if it mentions "not f
   assert.ok(!finding.detail.includes('"matches":'), 'detail must not be a search result');
 });
 
-test('#22: the 6 poisoned execute_error details resolve to the execute result', () => {
+t('#22: the 6 poisoned execute_error details resolve to the execute result', () => {
   // F138/F141/F142/F143/F149/F188 — each turn had a search result first.
   const poisoned = ['F138', 'F141', 'F142', 'F143', 'F149', 'F188'];
   const fixed = poisoned.map((task) => {
@@ -149,7 +163,7 @@ test('#22: the 6 poisoned execute_error details resolve to the execute result', 
 /* ------------------------------------------------------------------ *
  * #23 — a server with 0 exposed tools is infra, not a gateway defect
  * ------------------------------------------------------------------ */
-test('#23: countToolsByServer aggregates mgr.getEntries() by server', () => {
+t('#23: countToolsByServer aggregates mgr.getEntries() by server', () => {
   const entries = [
     { server: 'github', name: 'github__list_issues' },
     { server: 'github', name: 'github__get_file_contents' },
@@ -160,7 +174,7 @@ test('#23: countToolsByServer aggregates mgr.getEntries() by server', () => {
   assert.equal(countToolsByServer(entries).linear, undefined);
 });
 
-test('#23: a missing server downgrades a gateway anomaly to infra', () => {
+t('#23: a missing server downgrades a gateway anomaly to infra', () => {
   const meta = applyServerCoverage({ traceId: 'run:F100', turnIndex: 0 }, 'linear', 0, 'search_empty');
   assert.equal(meta.attribution, 'infra');
   assert.equal(meta.isGatewayDefect, false);
@@ -168,7 +182,7 @@ test('#23: a missing server downgrades a gateway anomaly to infra', () => {
   assert.equal(meta.traceId, 'run:F100', 'original meta is preserved');
 });
 
-test('#23: servers with tools and non-gateway attributions are untouched', () => {
+t('#23: servers with tools and non-gateway attributions are untouched', () => {
   const original = { attribution: 'gateway', traceId: 'run:X' };
   assert.deepEqual(applyServerCoverage(original, 'github', 3, 'search_empty'), original);
   for (const attribution of ['model', 'synthetic_data', 'expected_behavior', 'infra', 'harness']) {
@@ -176,7 +190,7 @@ test('#23: servers with tools and non-gateway attributions are untouched', () =>
   }
 });
 
-test('#23: collected anomalies for a zero-tool server count as infra, not gateway', () => {
+t('#23: collected anomalies for a zero-tool server count as infra, not gateway', () => {
   // Mirrors the 10 Linear search_empty anomalies (F100/F101/F102/F111/...).
   const tasks = ['F100', 'F101', 'F102', 'F111', 'F115', 'F117', 'F119', 'F122', 'F123', 'F126']
     .map((id) => ({ id, server: 'linear', category: 'derived', prompt: `linear task ${id}` }));
@@ -201,11 +215,11 @@ test('#23: collected anomalies for a zero-tool server count as infra, not gatewa
 /* ------------------------------------------------------------------ *
  * End-to-end sanity on constructed anomalies (still no model / no I/O)
  * ------------------------------------------------------------------ */
-test('detector version bumped so old mislabeled data can be told apart', () => {
+t('detector version bumped so old mislabeled data can be told apart', () => {
   assert.equal(DETECTOR_VERSION, '2.1');
 });
 
-test('combined: the three mislabels no longer surface as gateway/schema defects', () => {
+t('combined: the three mislabels no longer surface as gateway/schema defects', () => {
   const anomalies = [
     { task: 'F147', server: 'vercel', type: 'execute_error', detail: clean404('Record rec_123') },
     { task: 'F188', server: 'vercel', type: 'execute_error', detail: searchPayload },
@@ -244,7 +258,7 @@ test('combined: the three mislabels no longer surface as gateway/schema defects'
  * #24 — G6 detector misattribution: successful services payloads and
  * model call-name mistakes must not be gateway defects.
  * ------------------------------------------------------------------ */
-test('#24: successful services() payload is not an execute_error', () => {
+t('#24: successful services() payload is not an execute_error', () => {
   const servicesPayload = JSON.stringify({
     result: {
       services: [{ name: 'figma', toolCount: 46, status: 'observed', note: 'if a tool call returns an error, report it' }],
@@ -254,14 +268,14 @@ test('#24: successful services() payload is not an execute_error', () => {
   assert.equal(classifyExecuteResult({ name: 'execute_read', text: servicesPayload }), null);
 });
 
-test('#24: successful payload containing "not found" data is not an execute_error', () => {
+t('#24: successful payload containing "not found" data is not an execute_error', () => {
   const success = JSON.stringify({
     result: { items: [{ title: 'Handle not found', status: 'open' }], total: 1 },
   });
   assert.equal(classifyExecuteResult({ name: 'execute_read', text: success }), null);
 });
 
-test('#24: missing callName "not a function" is attributed to the model', () => {
+t('#24: missing callName "not a function" is attributed to the model', () => {
   const err = JSON.stringify({
     result: 'execute error: not a function (script line 294:26)',
     isError: true,
@@ -274,7 +288,7 @@ test('#24: missing callName "not a function" is attributed to the model', () => 
   assert.equal(finding.meta.isGatewayDefect, false);
 });
 
-test('#24: explicit execute error still defaults to gateway classification', () => {
+t('#24: explicit execute error still defaults to gateway classification', () => {
   const err = JSON.stringify({
     result: 'execute error: upstream 500',
     isError: true,

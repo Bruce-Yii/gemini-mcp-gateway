@@ -12,6 +12,17 @@
  *
  * Compatibility: every field previously emitted in the scorecard / metrics
  * object is preserved. New fields are additive only.
+ *
+ * Batch 13 (platform eval): capture stamps three additive top-level scalar
+ * fields on each envelope (see src/capture.js):
+ *   - clientPlatform: 'gemini' | 'chatgpt' | 'claude' | 'unknown'
+ *   - clientProfile:  'gemini-text-json' | 'chatgpt-structured' | 'claude-text' | 'unknown'
+ *   - oauthClientId:  opaque OAuth client id, or null when none was used.
+ * Only an explicit, recognized value is trusted; anything missing, null,
+ * non-string or unrecognized is `unknown` (we NEVER guess a platform from a
+ * User-Agent, client name or tool name here). This keeps per-platform metrics
+ * from being cross-contaminated while old envelopes (no fields) stay in the
+ * single `unknown` bucket instead of being silently attributed to Gemini.
  */
 import { readdir, readFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -160,6 +171,53 @@ export function projectKeysOf(envelope) {
 /** Primary project key of one envelope, or null. */
 export function primaryProjectKeyOf(envelope) {
   return projectTagsOf(envelope).primaryProject?.key ?? null;
+}
+
+/* ------------------------------------------------------------------ *
+ * Client platform attribution (batch 13, platform eval)
+ *
+ * Capture stamps three additive top-level scalars on every new envelope:
+ *   clientPlatform / clientProfile / oauthClientId.
+ * This module ONLY reads them. It never infers a platform from a UA string,
+ * a tool name, an OAuth client id, or a clientInfo.name — doing so would let
+ * one platform's metrics leak into another's bucket. The canonical values are
+ * explicit and closed; anything else maps to the single `unknown` bucket.
+ * ------------------------------------------------------------------ */
+
+/** Recognized clientPlatform values. Closed set — no fuzzy matching. */
+export const CLIENT_PLATFORMS = Object.freeze(['gemini', 'chatgpt', 'claude']);
+/** Canonical unknown bucket (老的 envelope 没有字段 → unknown，不猜测). */
+export const UNKNOWN_PLATFORM = 'unknown';
+
+/**
+ * Read the explicit clientPlatform from an envelope.
+ * Returns one of CLIENT_PLATFORMS, or 'unknown' when absent / null /
+ * non-string / unrecognized. Old envelopes without the field are 'unknown'.
+ */
+export function clientPlatformOf(envelope) {
+  const value = envelope?.clientPlatform;
+  if (typeof value !== 'string') return UNKNOWN_PLATFORM;
+  const normalized = value.trim().toLowerCase();
+  return CLIENT_PLATFORMS.includes(normalized) ? normalized : UNKNOWN_PLATFORM;
+}
+
+/**
+ * Read the explicit clientProfile label from an envelope. Returns one of the
+ * three canonical profile labels or 'unknown'. We do NOT translate a profile
+ * back into a platform: that would re-introduce cross-platform inference.
+ */
+export function clientProfileOf(envelope) {
+  const value = envelope?.clientProfile;
+  if (typeof value !== 'string') return UNKNOWN_PLATFORM;
+  const normalized = value.trim().toLowerCase();
+  const known = ['gemini-text-json', 'chatgpt-structured', 'claude-text'];
+  return known.includes(normalized) ? normalized : UNKNOWN_PLATFORM;
+}
+
+/** OAuth client id attached to the envelope, or null. Never used for inference. */
+export function oauthClientIdOf(envelope) {
+  const value = envelope?.oauthClientId;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
 function env(name) {
@@ -314,6 +372,26 @@ function bumpHistogram(hist, key) {
  * per-session ordering so the handoff is visible instead of flattened.
  * ------------------------------------------------------------------ */
 
+/** A per-platform row. Every platform starts from an identical zero shape. */
+function blankPlatformRow(platform) {
+  return {
+    platform,
+    requests: 0,
+    mcpRequests: 0,
+    errors: 0,
+    toolCalls: 0,
+    truncationSuspects: 0,
+    sessions: 0,
+    projects: 0,
+    sessionIds: [],
+    projectKeys: [],
+  };
+}
+
+function addPlatformSample(row, key, id) {
+  if (!row[key].includes(id)) row[key].push(id);
+}
+
 function blankProjectRow(key) {
   return {
     key,
@@ -327,6 +405,9 @@ function blankProjectRow(key) {
     firstTsRaw: null,
     lastTsRaw: null,
     sessionIds: [],
+    // Batch 13: which client platforms touched this project. Orthogonal to the
+    // project label — a project may span several platforms (and vice versa).
+    clientPlatforms: [],
     requestIdSamples: [],
   };
 }
@@ -368,9 +449,11 @@ export function digestProjects(envelopes, { maxRequestIdSamples = 5 } = {}) {
     const raw = String(envelope?.response?.raw ?? '');
     const isError = status >= 400 || /isError":true|execute error/i.test(raw);
     const suspect = isTruncated(envelope) || isModelTruncationSuspect(envelope);
+    const platform = clientPlatformOf(envelope);
 
     for (const key of keys) {
       const row = byProject.get(key) ?? blankProjectRow(key);
+      if (!row.clientPlatforms.includes(platform)) row.clientPlatforms.push(platform);
       row.requests += 1;
       if (method) row.mcpRequests += 1;
       if (method === 'tools/call') row.toolCalls += 1;
@@ -399,7 +482,10 @@ export function digestProjects(envelopes, { maxRequestIdSamples = 5 } = {}) {
         lastTsRaw: null,
         requestIdSamples: [],
         primaryProjectRequests: 0,
+        // Batch 13: platforms seen on this (project, session) pair.
+        clientPlatforms: [],
       };
+      if (!timeline.clientPlatforms.includes(platform)) timeline.clientPlatforms.push(platform);
       timeline.requests += 1;
       if (method) timeline.mcpRequests += 1;
       if (method === 'tools/call') timeline.toolCalls += 1;
@@ -474,19 +560,42 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     // Additive fields (batch 11, project rollup) — filled below.
     byProject: {},
     projectTimelines: [],
+    // Additive fields (batch 13, platform eval) — filled below. Strictly
+    // additive: the legacy aggregate shape above is preserved byte-for-byte.
+    byClientPlatform: {},
+    platformSummary: [],
   };
   const upstreamGroups = new Map();
   const toolGroups = new Map();
   const routeGroups = new Map();
+  // Per-platform accumulator. Every platform gets its own row so one client's
+  // errors / tool calls / truncations can never inflate another's.
+  const platformGroups = new Map();
 
   for (const envelope of envelopes) {
+    const platform = clientPlatformOf(envelope);
+    const platformRow = platformGroups.get(platform) ?? blankPlatformRow(platform);
+    platformRow.requests += 1;
+    // Count a requestId sample for evidence (bounded, stable insertion order).
+    const requestId = String(envelope?.requestId ?? envelope?.request?.id ?? envelope?.id ?? 'unknown');
+    const platformSession = sessionIdOf(envelope);
+    if (platformSession) addPlatformSample(platformRow, 'sessionIds', platformSession);
+    for (const key of projectKeysOf(envelope)) addPlatformSample(platformRow, 'projectKeys', key);
+    if (!platformRow.requestIdSamples) platformRow.requestIdSamples = [];
+    if (platformRow.requestIdSamples.length < 5 && !platformRow.requestIdSamples.includes(requestId)) {
+      platformRow.requestIdSamples.push(requestId);
+    }
+    platformGroups.set(platform, platformRow);
+
     const status = Number(envelope?.response?.status ?? 0);
     let path = '/';
     try { path = new URL(String(envelope?.request?.url ?? '/'), 'http://localhost').pathname; } catch { /* keep default */ }
     const method = String(envelope?.request?.method ?? 'POST').toUpperCase();
     const isMcp = path === '/mcp' && method === 'POST';
-    if (isMcp) result.mcpRequests += 1;
-    else result.nonMcpRequests += 1;
+    if (isMcp) {
+      result.mcpRequests += 1;
+      platformRow.mcpRequests += 1;
+    } else result.nonMcpRequests += 1;
     result.statuses[status] = (result.statuses[status] ?? 0) + 1;
     result.durations.push(Number(envelope?.response?.durationMs ?? 0));
     result.bytes += Number(envelope?.response?.bytes ?? 0);
@@ -494,6 +603,7 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     const truncated = isTruncated(envelope);
     const overflow = envelope?.response?.overflow === true;
     const modelSuspect = isModelTruncationSuspect(envelope);
+    if (truncated || modelSuspect) platformRow.truncationSuspects += 1;
     if (truncated) result.truncated += 1;
     if (overflow) result.overflow += 1;
     if (modelSuspect) result.model_truncation_suspects += 1;
@@ -518,6 +628,7 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     let errorClass = null;
     if (status >= 400 || /isError":true|execute error/i.test(String(envelope?.response?.raw ?? ''))) {
       result.errors += 1;
+      platformRow.errors += 1;
       errorClass = classifyError(envelope);
       if (isMcp) {
         result.mcpErrors += 1;
@@ -534,6 +645,7 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
       const json = JSON.parse(String(envelope?.request?.raw ?? ''));
       const mcpMethod = json?.method;
       if (mcpMethod) result.tools[mcpMethod] = (result.tools[mcpMethod] ?? 0) + 1;
+      if (mcpMethod === 'tools/call') platformRow.toolCalls += 1;
       const name = json?.params?.name;
       if (name) result.upstreams[name] = (result.upstreams[name] ?? 0) + 1;
 
@@ -579,8 +691,36 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
   result.byProject = projectRowsToObject(projectRollup.byProject);
   result.projectTimelines = projectRollup.projectTimelines;
 
+  // --- Batch 13: per-platform ledger -------------------------------------
+  // Stable column order: known platforms first, unknown last. Only platforms
+  // that actually appear are emitted (no fabricated zero rows for platforms
+  // that never sent a request). Each row is self-contained and carries its
+  // session/project ids as evidence for cross-checking against the rollups.
+  const platformOrder = [...CLIENT_PLATFORMS, UNKNOWN_PLATFORM];
+  const platformRows = [...platformGroups.values()]
+    .map((row) => {
+      row.sessions = row.sessionIds.length;
+      row.projects = row.projectKeys.length;
+      row.clientPlatforms = [row.platform]; // convenience for consumers
+      return row;
+    })
+    .sort((a, b) => platformOrder.indexOf(a.platform) - platformOrder.indexOf(b.platform));
+  for (const row of platformRows) result.byClientPlatform[row.platform] = row;
+  // Compact summary used by the MD table and by downstream eval lanes.
+  result.platformSummary = platformRows.map((row) => ({
+    platform: row.platform,
+    requests: row.requests,
+    mcpRequests: row.mcpRequests,
+    errors: row.errors,
+    toolCalls: row.toolCalls,
+    truncationSuspects: row.truncationSuspects,
+    sessions: row.sessions,
+    projects: row.projects,
+    requestIdSamples: row.requestIdSamples,
+  }));
+
   // Keep a stable, human-friendly order in JSON output.
-  for (const key of ['byDay', 'byDayHour', 'byHour', 'statuses', 'errorClasses', 'routeErrors', 'upstreamStats', 'toolStats', 'byRoute', 'modelTruncationByServer', 'modelTruncationByTool', 'modelTruncationBySession']) {
+  for (const key of ['byDay', 'byDayHour', 'byHour', 'statuses', 'errorClasses', 'routeErrors', 'upstreamStats', 'toolStats', 'byRoute', 'modelTruncationByServer', 'modelTruncationByTool', 'modelTruncationBySession', 'byClientPlatform']) {
     result[key] = Object.fromEntries(Object.entries(result[key]).sort(([a], [b]) => a.localeCompare(b)));
   }
   result.date = date || Object.keys(result.byDay).filter((d) => d !== 'unknown').sort().at(-1) || 'unknown';
@@ -614,8 +754,14 @@ export function renderScorecard(date, metrics) {
     .map(([key, p]) => {
       const sessions = (p.sessionIds ?? []).map((id) => `\`${id}\``).join(', ') || '—';
       const ids = (p.requestIdSamples ?? []).map((id) => `\`${id}\``).join(', ') || '—';
-      return `| ${key} | ${p.requests} | ${p.mcpRequests} | ${p.errors} | ${p.toolCalls} | ${p.truncationSuspects} | ${p.firstTs ?? '—'} | ${p.lastTs ?? '—'} | ${sessions} | ${ids} |`;
-    }).join('\n') || '| — | 0 | 0 | 0 | 0 | 0 | — | — | — | — |';
+      const platforms = (p.clientPlatforms ?? []).join(', ') || '—';
+      return `| ${key} | ${platforms} | ${p.requests} | ${p.mcpRequests} | ${p.errors} | ${p.toolCalls} | ${p.truncationSuspects} | ${p.firstTs ?? '—'} | ${p.lastTs ?? '—'} | ${sessions} | ${ids} |`;
+    }).join('\n') || '| — | — | 0 | 0 | 0 | 0 | 0 | — | — | — | — |';
+  const platformRows = (metrics.platformSummary ?? [])
+    .map((p) => {
+      const ids = (p.requestIdSamples ?? []).map((id) => `\`${id}\``).join(', ') || '—';
+      return `| ${p.platform} | ${p.requests} | ${p.mcpRequests} | ${p.errors} | ${p.toolCalls} | ${p.truncationSuspects} | ${p.sessions} | ${p.projects} | ${ids} |`;
+    }).join('\n') || '| — | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |';
   return `# Capture Scorecard — ${date}
 
 | Metric | Value |
@@ -636,6 +782,16 @@ export function renderScorecard(date, metrics) {
 | Model truncation suspects (silent) | ${metrics.model_truncation_suspects ?? 0} |
 | Model truncation rate | ${metrics.modelTruncationRate ?? 0} |
 | Overall error rate | ${metrics.errorRate ?? 0} |
+
+## By client platform (batch 13)
+> 每个平台的指标单独成行，绝不互相污染。\`clientPlatform\` 只接受显式且可识别的值；
+> 缺失 / null / 非字符串 / 未知值一律进 \`unknown\`，不根据 UA / 工具名猜测。
+> 旧 envelope（无字段）全部落在 \`unknown\`，不会被算进 Gemini。
+> 平台之间**不做硬比**：baseline 与任务分母按平台独立（见 batch-13-platform-eval.md）。
+
+| Platform | Requests | MCP requests | Errors | Tool calls | Trunc suspects | Sessions | Projects | RequestId samples |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+${platformRows}
 
 ## Tool calls (MCP method)
 ${Object.entries(metrics.tools).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, count]) => `- ${name}: ${count}`).join('\n') || '- none'}
@@ -684,8 +840,8 @@ ${Object.entries(metrics.modelTruncationBySession ?? {}).sort((a, b) => b[1] - a
 > ORTHOGONAL to sessions — see \`projectTimelines\` in the JSON scorecard for
 > the same project spanning multiple sessions (handoff).
 
-| Project | Requests | MCP requests | Errors | Tool calls | Trunc suspects | First ts | Last ts | SessionIds | RequestId samples |
-|---|---:|---:|---:|---:|---:|---|---|---|---|
+| Project | Platforms | Requests | MCP requests | Errors | Tool calls | Trunc suspects | First ts | Last ts | SessionIds | RequestId samples |
+|---|---|---:|---:|---:|---:|---:|---|---|---|---|
 ${projectRows}
 
 ## Requests by day
@@ -901,8 +1057,15 @@ export function digestSessions(envelopes, { idleMs = DEFAULT_IDLE_MS, maxRequest
       // Additive: project tags seen in this window (orthogonal to sessions).
       projects: [],
       primaryProjects: [],
+      // Batch 13: platforms seen in this window. A window is usually one
+      // platform; if several appear, all are listed (never guessed).
+      clientPlatforms: [],
+      requestsByClientPlatform: {},
     };
     row.requests += 1;
+    const rowPlatform = clientPlatformOf(envelope);
+    if (!row.clientPlatforms.includes(rowPlatform)) row.clientPlatforms.push(rowPlatform);
+    row.requestsByClientPlatform[rowPlatform] = (row.requestsByClientPlatform[rowPlatform] ?? 0) + 1;
     const rowTaskId = envelope?.taskId ?? envelope?.meta?.taskId ?? envelope?.request?.taskId ?? null;
     if (rowTaskId) {
       if (row.taskId && row.taskId !== String(rowTaskId)) row.taskIdConflicts = true;
@@ -965,8 +1128,9 @@ export function renderSessionDigest(rows) {
     const client = row.clientInfo ? JSON.stringify(row.clientInfo) : '—';
     const ids = row.requestIdSamples.map((id) => `\`${id}\``).join(', ') || '—';
     const projects = (row.projects ?? []).map((p) => `\`${p.key}\``).join(', ') || '—';
-    return `| ${row.windowId} | ${row.strategy} | ${row.sessionId ?? '—'} | ${row.requests} | ${row.mcpErrors} | ${row.toolCalls} | ${row.truncationSuspects} | ${row.firstTs ?? '—'} | ${row.lastTs ?? '—'} | ${projects} | ${client} | ${ids} |`;
-  }).join('\n') || '| — | — | — | 0 | 0 | 0 | 0 | — | — | — | — | — |';
+    const platforms = (row.clientPlatforms ?? []).join(', ') || '—';
+    return `| ${row.windowId} | ${row.strategy} | ${row.sessionId ?? '—'} | ${platforms} | ${row.requests} | ${row.mcpErrors} | ${row.toolCalls} | ${row.truncationSuspects} | ${row.firstTs ?? '—'} | ${row.lastTs ?? '—'} | ${projects} | ${client} | ${ids} |`;
+  }).join('\n') || '| — | — | — | — | 0 | 0 | 0 | 0 | — | — | — | — | — |';
   return `## Sessions / windows (batch 11)
 
 > Analysis-only grouping of online capture envelopes. \`windowId\` is synthetic
@@ -976,8 +1140,8 @@ export function renderSessionDigest(rows) {
 > are ORTHOGONAL to these windows: one window may touch several projects, and
 > one project may span several windows.
 
-| Window | Strategy | SessionId | Requests | MCP errors | Tool calls | Trunc suspects | First ts | Last ts | Projects | Client info | RequestId samples |
-|---|---|---|---:|---:|---:|---:|---|---|---|---|---|
+| Window | Strategy | SessionId | Platforms | Requests | MCP errors | Tool calls | Trunc suspects | First ts | Last ts | Projects | Client info | RequestId samples |
+|---|---|---|---|---:|---:|---:|---:|---|---|---|---|---|
 ${tableRows}
 `;
 }

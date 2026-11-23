@@ -6,10 +6,6 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import {
-  SMOKE_SERVERS, DEFAULT_SMOKE_SIZE, evenPick, allocatePerServer,
-  selectSmokeTasks, buildSmokeDocument,
-} from '../explore/select-smoke.mjs';
-import {
   ROOT, percentile, metricsFromExplore, fakeMetrics,
   compareWithBaseline, DEFAULT_THRESHOLDS, renderReport,
   parseArgs, resolveMode, selectTasksByServers, realReportPaths,
@@ -17,14 +13,36 @@ import {
   DEFAULT_REAL_SERVERS, SKIPPED_SERVERS,
 } from '../scripts/run-l1-smoke.mjs';
 
+// Pure L1 helpers stay testable in the clean export. Tests that pin the
+// private 50-task smoke snapshot / frozen baseline / owner-only workflow are
+// skipped with an explicit reason. See docs/OPEN-SOURCE/EXPORT-TEST-CURATION.md.
+const hasSmokeFixtures = fs.existsSync(path.resolve(ROOT, 'explore/select-smoke.mjs'))
+  && fs.existsSync(path.resolve(ROOT, 'explore/tasks-g6.json'))
+  && fs.existsSync(path.resolve(ROOT, 'explore/tasks-smoke.json'))
+  && fs.existsSync(path.resolve(ROOT, 'explore/baselines/l1-smoke.json'));
+const fixtureSkip = hasSmokeFixtures
+  ? false
+  : 'private eval fixtures (explore/select-smoke.mjs, tasks-g6.json, tasks-smoke.json, baselines/l1-smoke.json) are excluded from the OSS export (see docs/OPEN-SOURCE/EXPORT-TEST-CURATION.md)';
+const hasWorkflow = fs.existsSync(path.resolve(ROOT, '.github/workflows/l1-smoke.yml'));
+const workflowSkip = hasWorkflow
+  ? false
+  : 'owner-only workflow .github/workflows/l1-smoke.yml is excluded from the OSS export (see docs/OPEN-SOURCE/EXPORT-TEST-CURATION.md)';
+const fixtureTest = (name, fn) => test(name, { skip: fixtureSkip }, fn);
+const workflowTest = (name, fn) => test(name, { skip: workflowSkip }, fn);
+
+const {
+  SMOKE_SERVERS, DEFAULT_SMOKE_SIZE, evenPick, allocatePerServer,
+  selectSmokeTasks, buildSmokeDocument,
+} = hasSmokeFixtures ? await import('../explore/select-smoke.mjs') : {};
+
 const readJson = (p) => JSON.parse(fs.readFileSync(path.resolve(ROOT, p), 'utf8'));
-const G6 = readJson('explore/tasks-g6.json');
-const SMOKE = readJson('explore/tasks-smoke.json');
-const BASELINE = readJson('explore/baselines/l1-smoke.json');
+const G6 = hasSmokeFixtures ? readJson('explore/tasks-g6.json') : null;
+const SMOKE = hasSmokeFixtures ? readJson('explore/tasks-smoke.json') : null;
+const BASELINE = hasSmokeFixtures ? readJson('explore/baselines/l1-smoke.json') : null;
 
 /* ------------------- selection ------------------- */
 
-test('L1 selection: 50 tasks, 10 per server, all 5 servers covered', () => {
+fixtureTest('L1 selection: 50 tasks, 10 per server, all 5 servers covered', () => {
   assert.equal(SMOKE.count, DEFAULT_SMOKE_SIZE);
   assert.equal(SMOKE.tasks.length, DEFAULT_SMOKE_SIZE);
   for (const server of SMOKE_SERVERS) {
@@ -33,7 +51,7 @@ test('L1 selection: 50 tasks, 10 per server, all 5 servers covered', () => {
   }
 });
 
-test('L1 selection: read / write / boundary all present with meaningful counts', () => {
+fixtureTest('L1 selection: read / write / boundary all present with meaningful counts', () => {
   assert.ok(SMOKE.stats.byGroup.read >= 30, 'read stratum too small');
   assert.ok(SMOKE.stats.byGroup.write >= 5, 'write stratum too small');
   assert.ok(SMOKE.stats.byGroup.boundary >= 3, 'boundary stratum too small');
@@ -42,7 +60,7 @@ test('L1 selection: read / write / boundary all present with meaningful counts',
   assert.ok((cat.boundary ?? 0) >= 3, 'explicit boundary tasks missing');
 });
 
-test('L1 selection: tasks are verbatim G6 objects, no hand-edited prompts', () => {
+fixtureTest('L1 selection: tasks are verbatim G6 objects, no hand-edited prompts', () => {
   const byId = new Map(G6.tasks.map((t) => [t.id, t]));
   assert.equal(SMOKE.tasks.length, new Set(SMOKE.tasks.map((t) => t.id)).size, 'duplicate ids');
   for (const t of SMOKE.tasks) {
@@ -50,14 +68,14 @@ test('L1 selection: tasks are verbatim G6 objects, no hand-edited prompts', () =
   }
 });
 
-test('L1 selection: deterministic and reproducible via --check semantics', () => {
+fixtureTest('L1 selection: deterministic and reproducible via --check semantics', () => {
   const doc = buildSmokeDocument(G6);
   assert.equal(JSON.stringify(doc), JSON.stringify(SMOKE), 'committed file differs from deterministic selection');
   const again = selectSmokeTasks(G6.tasks);
   assert.deepEqual(again.tasks.map((t) => t.id), doc.tasks.map((t) => t.id));
 });
 
-test('L1 selection: evenPick and allocatePerServer edge cases', () => {
+fixtureTest('L1 selection: evenPick and allocatePerServer edge cases', () => {
   assert.deepEqual(evenPick([1, 2, 3], 0), []);
   assert.deepEqual(evenPick([1, 2, 3], 10), [1, 2, 3]);
   assert.deepEqual(evenPick([0, 1, 2, 3, 4], 2), [0, 2]);
@@ -137,7 +155,7 @@ test('L1 compare: missing baseline is skipped; missing current value fails', () 
   assert.equal(by.get('searchHitRate'), 'skip');
 });
 
-test('L1 baseline file: real + fake sections and thresholds are well formed', () => {
+fixtureTest('L1 baseline file: real + fake sections and thresholds are well formed', () => {
   assert.equal(BASELINE.metrics.tasks, 50);
   assert.equal(BASELINE.fake.metrics.tasks, 50);
   assert.match(BASELINE.source, /G6/);
@@ -166,7 +184,7 @@ test('L1 report renderer: includes all required metrics and pass/fail status', (
 
 /* ------------------- workflow static validation ------------------- */
 
-test('L1 workflow: daily fake + weekly Monday real schedules and dispatch choices', () => {
+workflowTest('L1 workflow: daily fake + weekly Monday real schedules and dispatch choices', () => {
   const wf = fs.readFileSync(path.resolve(ROOT, '.github/workflows/l1-smoke.yml'), 'utf8');
   const crons = [...wf.matchAll(/cron:\s*'([^']+)'/g)].map((m) => m[1]);
   assert.equal(crons.length, 2, `expected two schedules, got ${JSON.stringify(crons)}`);
@@ -180,7 +198,7 @@ test('L1 workflow: daily fake + weekly Monday real schedules and dispatch choice
   assert.match(wf, /\$CRON"\s*=\s*"0 18 \* \* 1"/);
 });
 
-test('L1 workflow: real injects free model key + 4 upstreams, never Figma', () => {
+workflowTest('L1 workflow: real injects free model key + 4 upstreams, never Figma', () => {
   const wf = fs.readFileSync(path.resolve(ROOT, '.github/workflows/l1-smoke.yml'), 'utf8');
   assert.match(wf, /EXPLORE_MODEL_KEY:\s*\$\{\{ secrets\.(?:OPENCODE_GO_API_KEY|ANALYZER_API_KEY) \}\}/);
   assert.ok(/secrets\.(?:GITHUB_TOKEN|GH_PAT)/.test(wf), 'missing upstream GitHub token secret');
@@ -192,7 +210,7 @@ test('L1 workflow: real injects free model key + 4 upstreams, never Figma', () =
   assert.match(wf, /EXPLORE_SERVERS/);
 });
 
-test('L1 workflow: artifacts retained on failure with 30-day retention', () => {
+workflowTest('L1 workflow: artifacts retained on failure with 30-day retention', () => {
   const wf = fs.readFileSync(path.resolve(ROOT, '.github/workflows/l1-smoke.yml'), 'utf8');
   assert.match(wf, /if:\s*\$\{\{ always\(\) \}\}/);
   assert.match(wf, /retention-days:\s*30/);
@@ -228,7 +246,7 @@ test('L1 mode resolution: daily schedule fake, Monday schedule real, dispatch ex
   assert.equal(resolveMode({}), 'fake');
 });
 
-test('L1 real servers: Figma excluded by default, skips reported not failed', () => {
+fixtureTest('L1 real servers: Figma excluded by default, skips reported not failed', () => {
   assert.deepEqual(DEFAULT_REAL_SERVERS, ['github', 'notion', 'linear', 'vercel']);
   assert.deepEqual(SKIPPED_SERVERS, ['figma']);
   const { tasks, skippedServers } = selectTasksByServers(SMOKE.tasks, DEFAULT_REAL_SERVERS);
@@ -249,7 +267,10 @@ test('L1 real report paths: dated, distinct per day, under docs/eval', () => {
 });
 
 const hasG6Results = fs.existsSync(path.resolve(ROOT, 'explore/results/metrics.json')) && fs.existsSync(path.resolve(ROOT, 'explore/results/anomalies.json'));
-test('L1 real baseline: derived 40-task subset matches G6 filtered metrics', { skip: !hasG6Results }, () => {
+const derivedSkip = fixtureSkip || (hasG6Results
+  ? false
+  : 'private eval artifacts explore/results/metrics.json + anomalies.json are excluded from the OSS export (see docs/OPEN-SOURCE/EXPORT-TEST-CURATION.md)');
+test('L1 real baseline: derived 40-task subset matches G6 filtered metrics', { skip: derivedSkip }, () => {
   const { tasks } = selectTasksByServers(SMOKE.tasks, DEFAULT_REAL_SERVERS);
   const baseline = deriveBaselineForServers(tasks);
   assert.equal(baseline.metrics.tasks, 40);
@@ -293,7 +314,7 @@ test('L1 report renderer: real report surfaces skipped servers and ALERT', () =>
 
 /* ------------------- fake stays runnable end-to-end ------------------- */
 
-test('L1 fake mode still runs offline and exits 0 with PASS report', () => {
+fixtureTest('L1 fake mode still runs offline and exits 0 with PASS report', () => {
   const mdPath = path.resolve(ROOT, 'docs/eval/l1-smoke-report.md');
   const jsonPath = path.resolve(ROOT, 'docs/eval/l1-smoke.json');
   // Preserve the committed artifacts: the runner regenerates them by design.

@@ -74,6 +74,24 @@ const ASYNC_GUIDANCE = ' Tool calls return Promises (await / .then / .catch work
 // tool set stays at three. Available in both execute_read and execute.
 const ACTIONS_GUIDANCE = ' GitHub Actions read-only helpers (gateway-side REST, not upstream tools): codemode.github_actions_list_workflow_runs({owner,repo,workflow_id?,status?,branch?,per_page?}), codemode.github_actions_list_workflow_jobs({owner,repo,run_id}), codemode.github_actions_get_job_logs({owner,repo,job_id}). Each returns {ok,status,data|text,truncated} or {ok:false,status,error}; log text may be truncated — check the flag. Requires GITHUB_TOKEN.';
 
+// Batch 15 P0 guidance. The model used to waste a round probing
+// pull_request_read's aggregated `method`, and passed `branch` to
+// get_file_contents (silently ignored -> main). State both up front; `usage`
+// on search results carries the same note so select:<name> is self-documenting.
+const GH_HIGHFREQ_GUIDANCE = ' GitHub high-frequency args: github__pull_request_read is an aggregated tool — pass method:"get" | "get_files" | "get_check_runs" (pick directly, no probing round). github__get_file_contents selects a commit/ref with `ref`; `branch` is accepted as a compatibility alias (mapped to ref when ref is absent).';
+const GH_TOOL_USAGE = {
+  pull_request_read: 'method: "get" | "get_files" | "get_check_runs" (aggregated pull_request_read — pick one directly; no probe round).',
+  get_file_contents: 'Use `ref` (commit/branch/tag SHA or name) to select a revision; `branch` is accepted as a compatibility alias and mapped to ref when ref is absent.',
+};
+
+/** Extra per-tool usage note for search list + select detail (no schema change). */
+function githubUsageNote(entry) {
+  const full = String(entry?.tool ?? entry?.name ?? '');
+  const parts = full.split(/__/);
+  const tool = parts.length > 1 ? parts[parts.length - 1] : full;
+  return GH_TOOL_USAGE[tool] ?? null;
+}
+
 // Gemini new feedback #3: a read-only, in-sandbox service status helper. Kept
 // out of the MCP tool schemas on purpose — changing those requires the client
 // to reconnect, whereas a sandbox helper is available immediately.
@@ -230,7 +248,15 @@ const GUEST_PRELUDE = [
   // Common capability shapes: upstreams disagree on file/PR field names. These
   // helpers are best-effort flat views; they never throw and return `null` for
   // fields they cannot find (callers can still inspect the original value).
-  'const __dshFileResult = (value) => { const pick = (o, keys) => { if (!o || typeof o !== "object") return undefined; for (const k of keys) if (o[k] !== undefined && o[k] !== null) return o[k]; return undefined; }; let v; try { v = __dshUnwrap(value); } catch (_) { v = value; } if (typeof v === "string") return { content: v, size: v.length, sha: null, path: null, encoding: null, truncated: /--- TRUNCATED ---/.test(v) }; const root = v && typeof v === "object" ? v : {}; const nested = root.result && typeof root.result === "object" ? root.result : root; let content = pick(nested, ["content", "text", "data"]); if (typeof content !== "string") { const resources = Array.isArray(nested.resources) ? nested.resources : []; const fromResources = resources.map((r) => r && typeof r.text === "string" ? r.text : "").filter(Boolean).join("\\n"); if (fromResources) content = fromResources; } const sha = pick(nested, ["sha", "sha256", "content_sha", "commit_sha"]); const path = pick(nested, ["path", "name", "uri"]); const encoding = pick(nested, ["encoding"]); const rawSize = pick(nested, ["size", "bytes"]); return { content: typeof content === "string" ? content : null, sha: sha ?? null, size: Number(rawSize ?? (typeof content === "string" ? content.length : 0)) || 0, path: path ?? null, encoding: encoding ?? null, truncated: Boolean(nested.truncated) || /--- TRUNCATED ---/.test(String(content ?? "")) }; };',
+  // Batch 15 P0 · the guest helper used to prefer `text`; GitHub's
+  // "{text:download notice + body, resources:[{text:body}]}" shape therefore
+  // put the notice on line 1 of written files. Narrow notice regex only;
+  // resources[].text wins whenever it is present alongside text. Keep the
+  // exact six-field return set (callers rely on it).
+  'const __dshFileNotice = /^successfully downloaded text file \\(SHA: ([0-9a-f]+)\\)\\r?\\n/i;',
+  'const __dshStripFileNotice = (s) => { if (typeof s !== "string") return { text: s, sha: null }; const m = __dshFileNotice.exec(s); return m ? { text: s.slice(m[0].length), sha: m[1] } : { text: s, sha: null }; };',
+  'const __dshResourceText = (o) => { if (!o || typeof o !== "object") return null; const nested = o.result && typeof o.result === "object" ? o.result : o; const list = Array.isArray(nested.resources) ? nested.resources : (Array.isArray(o.resources) ? o.resources : []); const seen = []; const parts = []; for (const r of list) { let t = null; if (typeof r === "string") t = r; else if (r && typeof r === "object") { t = typeof r.text === "string" ? r.text : (r.resource && typeof r.resource.text === "string" ? r.resource.text : null); } if (t !== null && seen.indexOf(t) < 0) { seen.push(t); parts.push(t); } } return parts.length ? parts.join("\\n") : null; };',
+  'const __dshFileResult = (value) => { const pick = (o, keys) => { if (!o || typeof o !== "object") return undefined; for (const k of keys) if (o[k] !== undefined && o[k] !== null) return o[k]; return undefined; }; let v; try { v = __dshUnwrap(value); } catch (_) { v = value; } const fromResources = __dshResourceText(value) || __dshResourceText(v); let noticeSha = null; let v2 = v; if (typeof v2 === "string") { const s = __dshStripFileNotice(v2); noticeSha = s.sha; v2 = s.text; } if (typeof v2 === "object" && v2 !== null) { const nested = v2.result && typeof v2.result === "object" ? v2.result : v2; const c = pick(nested, ["content", "text", "data"]); if (typeof c === "string") { const s = __dshStripFileNotice(c); noticeSha = noticeSha || s.sha; const copy = {}; for (const k of Object.keys(nested)) copy[k] = nested[k]; copy.content = fromResources || s.text; copy.__dshShaFromNotice = noticeSha; v2 = copy; } } if (typeof v2 === "string") { const body = fromResources || v2; return { content: body, size: body.length, sha: noticeSha, path: null, encoding: null, truncated: /--- TRUNCATED ---/.test(body) }; } const root = v2 && typeof v2 === "object" ? v2 : {}; const nested = root.result && typeof root.result === "object" ? root.result : root; let content = fromResources || pick(nested, ["content", "text", "data"]); if (typeof content !== "string") { const resources = Array.isArray(nested.resources) ? nested.resources : []; const joined = resources.map((r) => r && typeof r.text === "string" ? r.text : "").filter(Boolean).join("\\n"); if (joined) content = joined; } noticeSha = noticeSha || __dshStripFileNotice(String(pick(nested, ["text", "content", "data"]) ?? "")).sha || root.__dshShaFromNotice; const sha = pick(nested, ["sha", "sha256", "content_sha", "commit_sha"]) ?? noticeSha ?? null; const path = pick(nested, ["path", "name", "uri"]); const encoding = pick(nested, ["encoding"]); const rawSize = pick(nested, ["size", "bytes"]); return { content: typeof content === "string" ? content : null, sha: sha, size: Number(rawSize ?? (typeof content === "string" ? content.length : 0)) || 0, path: path ?? null, encoding: encoding ?? null, truncated: Boolean(nested.truncated) || /--- TRUNCATED ---/.test(String(content ?? "")) }; };',
   'const fileResult = __dshHide((v) => { try { return __dshFileResult(v); } catch (_) { return { content: null, sha: null, size: 0, path: null, encoding: null, truncated: false }; } }); codemode.fileResult = fileResult;',
   'const __dshPrResult = (value) => { const pick = (o, keys) => { if (!o || typeof o !== "object") return undefined; for (const k of keys) if (o[k] !== undefined && o[k] !== null) return o[k]; return undefined; }; let v; try { v = __dshUnwrap(value); } catch (_) { v = value; } const root = v && typeof v === "object" ? v : {}; const nested = root.result && typeof root.result === "object" ? root.result : root; const url = pick(nested, ["html_url", "url", "web_url"]); const fromUrl = (() => { const m = /\\/pulls?\\/(\\d+)(?:\\/|$|\\?)/.exec(String(url ?? "")); return m ? Number(m[1]) : null; })(); const numberRaw = pick(nested, ["number", "prNumber", "pr_number"]); const numFromField = numberRaw !== undefined && Number.isFinite(Number(numberRaw)) ? Number(numberRaw) : null; const number = fromUrl !== null ? fromUrl : numFromField; const sha = pick(nested, ["sha", "head_sha", "headSha"]); return { number: number, url: url ?? null, sha: sha ?? null, id: pick(nested, ["id", "node_id"]) ?? null }; };',
   'const prResult = __dshHide((v) => { try { return __dshPrResult(v); } catch (_) { return { number: null, url: null, sha: null, id: null }; } }); codemode.prResult = prResult;',
@@ -596,6 +622,31 @@ function expectedArgType(def) {
 }
 
 /**
+ * Batch 15 P0 · GitHub get_file_contents' real parameter is `ref`, not `branch`.
+ * A `branch` used to be silently ignored by upstream, which then read `main`.
+ * Apply ONE narrow alias, only for that tool, only when no explicit `ref` is
+ * present. Unknown parameters are left untouched (no dangerous pass-through
+ * rewrites); the original `branch` key is preserved for compatibility/audit.
+ * Pure, never throws, never mutates its input.
+ *
+ * @returns {{args:*, aliased:boolean}}
+ */
+export function aliasGetFileContentsArgs(toolName, args) {
+  const name = String(toolName ?? '');
+  const isRead = name === 'github__get_file_contents' || name === 'get_file_contents'
+    || /^(?:github|gh)[._-]get_file_contents$/i.test(name)
+    || /__get_file_contents$/i.test(name);
+  if (!isRead || args === null || typeof args !== 'object' || Array.isArray(args)) {
+    return { args, aliased: false };
+  }
+  const ref = args.ref;
+  if (ref !== undefined && ref !== null && ref !== '') return { args, aliased: false };
+  const branch = args.branch;
+  if (typeof branch !== 'string' || branch.length === 0) return { args, aliased: false };
+  return { args: Object.assign({}, args, { ref: branch }), aliased: true };
+}
+
+/**
  * Validate `codemode.<tool>(args)` against the tool's inputSchema.
  * Throws an actionable Error; the sandbox catch turns it into an execute error
  * the model can fix in a single round.
@@ -940,15 +991,25 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
       // Pre-flight before any budget/audit/dedup bookkeeping or upstream call:
       // cheap, actionable errors beat an upstream 400 + another model round.
       validateToolArgs(tool, args);
+      // Batch 15 P0: branch -> ref for github__get_file_contents only. Applied
+      // before dedup/audit so the cache key and the recorded args match what is
+      // actually sent upstream. The alias is recorded but the result is NOT
+      // altered in any way (pure pass-through of the upstream response).
+      const alias = aliasGetFileContentsArgs(tool.name ?? tool.tool, args);
+      const finalArgs = alias.args;
       const dedupeKey = isReadOnlyTool(tool)
-        ? `${tool.server ?? ''}::${tool.tool ?? ''}::${stableKey(args ?? {})}`
+        ? `${tool.server ?? ''}::${tool.tool ?? ''}::${stableKey(finalArgs ?? {})}`
         : null;
       if (dedupeKey !== null && cache.has(dedupeKey)) return cache.get(dedupeKey);
 
       calls += 1;
       if (calls > maxCalls) throw new Error(`tool call limit (${maxCalls}) exceeded`);
-      toolCalls.push({ name: tool.name, args: summarizeArgs(args) });
-      const raw = await callTool(tool.server, tool.tool, args ?? {});
+      toolCalls.push({
+        name: tool.name,
+        args: summarizeArgs(finalArgs),
+        ...(alias.aliased ? { argAlias: { ref: 'branch' } } : {}),
+      });
+      const raw = await callTool(tool.server, tool.tool, finalArgs ?? {});
       // Throw on upstream errors and auto-parse JSON results so model scripts
       // can use the return value directly without JSON.parse(content[0].text).
       const value = unwrapResult(raw);
@@ -1143,11 +1204,18 @@ function compactDescription(description) {
  */
 function withCallName(entry, formatter, { compact = false } = {}) {
   const hit = formatter(entry);
+  const usage = githubUsageNote(entry);
   const out = {
     ...hit,
     callName: sanitizeToolName(entry.name),
     access: isReadOnlyTool(entry) ? 'read' : 'write',
+    ...(usage ? { usage } : {}),
   };
+  if (usage) {
+    // Search detail (`select:<name>`) must be self-documenting; the compact
+    // list keeps its 160-char cap and exposes the same note via `usage`.
+    out.description = `${String(out.description ?? '').trimEnd()}\nUsage: ${usage}`.trim();
+  }
   if (compact && typeof out.description === 'string') {
     out.description = compactDescription(out.description);
   }
@@ -1332,7 +1400,7 @@ export function createCodeModeTools(upstreamManager, options = {}) {
     name,
     description: (readOnly
       ? 'Write JavaScript to call READ-ONLY upstream tools (get/list/search/query) via codemode.<tool>(args). This tool is annotated read-only so the client may prompt less; it runs the same sandbox as execute(). Only your return value enters the conversation. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'
-      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + ASYNC_GUIDANCE + ACTIONS_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
+      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + ASYNC_GUIDANCE + ACTIONS_GUIDANCE + GH_HIGHFREQ_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
     inputSchema: {
       type: 'object',
       properties: { code: { type: 'string', description: 'An async arrow function that calls codemode tools and returns a result.' } },
