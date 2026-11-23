@@ -371,11 +371,14 @@ export function explainTruncation(root, content) {
     if (typeof candidate === 'string') content = candidate;
   }
   const flagFrom = (obj) => {
+    // F-08: unify with tool-format's truth table. Only a TRUE-LIKE boolean /
+    // number / string or an explicit `truncation` object is a truncation flag.
+    // An arbitrary non-empty string such as `truncated:"benign"` is a REASON,
+    // not a flag on its own: reporting truncated:true for it was a conservative
+    // false positive that could not be reconciled with tool-format's boolean
+    // passthrough. Keep boolean (`truncated`) and reason (`truncation`) separate.
     const raw = pick(obj, ['truncated', 'isTruncated', 'truncation']);
-    if (raw === true) return 'upstream:truncated';
-    if (raw === 1 || raw === '1') return 'upstream:truncated';
-    if (raw === 'true') return 'upstream:truncated';
-    if (typeof raw === 'string' && raw.trim() !== '') return `upstream:${raw.trim().slice(0, 160)}`;
+    if (raw === true || raw === 1 || raw === '1' || raw === 'true') return 'upstream:truncated';
     if (isObj(raw)) {
       const reason = pick(raw, ['reason', 'detail', 'message']);
       if (typeof reason === 'string' && reason.trim() !== '') return reason.trim().slice(0, 160);

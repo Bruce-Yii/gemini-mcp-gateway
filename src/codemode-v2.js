@@ -142,6 +142,52 @@ export const V2_EXECUTE_INPUT_SCHEMA = sanitizeTool({
 
 const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
 
+/** Default per-execute I/O budget, kept in sync with v1 `DEFAULT_MAX_CALLS`. */
+const DEFAULT_V2_MAX_CALLS = 50;
+
+/* -------------------------------------------------------------------------- *
+ * R-02 · v2 plan I/O budget (F-04 residual)
+ *
+ * v1 charges every upstream I/O (tool calls, runTypedPlan IO, github_actions_*)
+ * against a single per-execute `chargeBudget` counter that throws a stable
+ * TOOL_CALL_LIMIT_EXCEEDED error. The v2 `makePlanHandler` used to call
+ * `executeTypedPlan` directly, bypassing that counter: a 64-step plan whose IO
+ * adapter performs multiple upstream calls (or a custom IO adapter) could do
+ * unbounded I/O. We now wrap every IO adapter method (except the local
+ * `runChecks` stub, matching v1) with an equivalent charge so the same
+ * `maxCalls` budget applies and the over-budget error code is stable.
+ * -------------------------------------------------------------------------- */
+function makeChargeBudget(maxCalls) {
+  let calls = 0;
+  const limit = Number.isFinite(maxCalls) && maxCalls >= 0 ? maxCalls : DEFAULT_V2_MAX_CALLS;
+  return {
+    charge(kind = 'typedPlanV2') {
+      calls += 1;
+      if (calls > limit) {
+        const err = new Error(`tool call limit (${limit}) exceeded`);
+        err.code = 'TOOL_CALL_LIMIT_EXCEEDED';
+        err.kind = kind;
+        throw err;
+      }
+    },
+    remaining() { return Math.max(0, limit - calls); },
+  };
+}
+
+/** Wrap each IO method so each invocation consumes the shared plan budget. */
+function budgetIO(io, budget) {
+  if (!io || typeof io !== 'object') return io;
+  const wrapped = {};
+  for (const [name, fn] of Object.entries(io)) {
+    // `runChecks` is a local stub in v1 and does not consume the budget;
+    // do the same here for parity with the v1 typed-plan IO semantics.
+    wrapped[name] = (typeof fn === 'function' && name !== 'runChecks')
+      ? (...args) => { budget.charge('typedPlanV2'); return fn(...args); }
+      : fn;
+  }
+  return wrapped;
+}
+
 /** Descriptive, model-correctable validation error (E-VAL-*). */
 function validationFailure(code, message) {
   return {
@@ -193,10 +239,16 @@ function makePlanHandler({ readOnly, options }) {
 
     const dryRun = readOnly ? false : a.dryRun === true;
     const approve = readOnly ? [] : a.approve;
+    // R-02: each plan execution gets a fresh I/O budget of `maxCalls`, matching
+    // v1's per-execute chargeBudget semantics. Every adapter method invocation
+    // (except runChecks) is charged before the underlying I/O runs, so an
+    // over-budget plan stops with a stable TOOL_CALL_LIMIT_EXCEEDED error.
+    const budget = makeChargeBudget(options.maxCalls);
     try {
+      const rawIO = options.typedPlanIO && typeof options.typedPlanIO === 'object'
+        ? options.typedPlanIO : null;
       const result = await executeTypedPlan(a.plan, {
-        ...(options.typedPlanIO && typeof options.typedPlanIO === 'object'
-          ? { io: options.typedPlanIO } : {}),
+        ...(rawIO ? { io: budgetIO(rawIO, budget) } : {}),
         ...(options.typedPlanOps && typeof options.typedPlanOps === 'object'
           ? { ops: options.typedPlanOps } : {}),
         dryRun,

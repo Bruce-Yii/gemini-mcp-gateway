@@ -37,6 +37,7 @@ import {
 import { PLAN_VERSION } from './typed-plan.js';
 import { validateConfig } from './config.js';
 import { captureEvent, startCapture, captureSkip } from './capture.js';
+import { modelErrorMessage } from './tool-format.js';
 
 const SERVER_INFO = { name: 'gemini-mcp-gateway', version: '0.1.0' };
 export const MCP_V1_PATH = '/mcp';
@@ -65,7 +66,13 @@ const MAX_BODY_BYTES = 1024 * 1024;
 const DEFAULT_MAX_RESULT_CHARS = Number(process.env.GATEWAY_MAX_RESULT_CHARS ?? 8000);
 
 function errorMessage(error) {
-  return error instanceof Error ? error.message : String(error);
+  // R-01 (P0): every caller of this helper produces MODEL-VISIBLE text —
+  // `errorResult()` (tool-call error responses) and JSON-RPC 500 responses.
+  // Use the shared model projection so credential shapes are redacted. This
+  // prefers a precomputed non-enumerable `modelMessage` projection (attached by
+  // upstreamError) and otherwise redacts the message, never mutating the raw
+  // `Error.message` that capture keeps full-fidelity (AGENTS.md §6).
+  return modelErrorMessage(error);
 }
 
 /**
@@ -111,7 +118,11 @@ export function boundResult(result, maxChars = DEFAULT_MAX_RESULT_CHARS) {
     const marker = '…[truncated]';
     return { ...item, text: item.text.slice(0, Math.max(0, maxChars - marker.length)) + marker.slice(0, Math.max(0, maxChars)) };
   });
-  return truncated ? { ...result, content } : result;
+  // F-09: carry an explicit result-level flag so downstream consumers that
+  // key off `result.truncated === true` can detect gateway-level bounding. The
+  // in-band `… [truncated N chars by gateway...]` marker is preserved unchanged
+  // for backwards compatibility (capture's truncation audit already reads it).
+  return truncated ? { ...result, content, truncated: true } : result;
 }
 
 /**

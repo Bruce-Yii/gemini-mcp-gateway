@@ -126,6 +126,41 @@ export function formatToolDetail(entry) {
 const TRUNC_MARKER = '--- TRUNCATED ---';
 const MIN_SLOT = 128;
 
+/* ------------------------------------------------------------------ *
+ * F-08 · unified truncation truthiness
+ *
+ * A value counts as an explicit truncation flag ONLY when it is a true-like
+ * boolean/number/string or a `truncation` reason object. Arbitrary non-empty
+ * strings (e.g. an upstream `truncated:"benign"`) are NOT a flag on their own —
+ * they are a REASON and must be paired with a boolean `truncated:true` before
+ * they can influence canonical/model-visible state. This mirrors the capture
+ * audit's `hasExplicitTruncationMark` truth table and keeps result-normalize
+ * and tool-format on one semantics (boolean flag + separate reason).
+ * ------------------------------------------------------------------ */
+export function isExplicitTruncationFlag(value) {
+  if (value === true) return true;
+  if (value === 1 || value === '1' || value === 'true') return true;
+  if (isObjTruncation(value)) return true;
+  return false;
+}
+
+function isObjTruncation(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Reason text carried by an upstream `truncation` field, or null. */
+function truncationReason(value) {
+  if (typeof value === 'string') return value.trim() !== '' ? value.trim().slice(0, 160) : null;
+  if (isObjTruncation(value)) {
+    for (const key of ['reason', 'detail', 'message']) {
+      const v = value[key];
+      if (typeof v === 'string' && v.trim() !== '') return v.trim().slice(0, 160);
+    }
+    return 'upstream:truncation-object';
+  }
+  return null;
+}
+
 function jsonSize(value) {
   try { return JSON.stringify(value)?.length ?? 0; } catch { return 0; }
 }
@@ -246,12 +281,20 @@ function shrinkObject(value, maxChars) {
   const noteLength = () =>
     `${dropped.size.toLocaleString()} keys omitted: `.length + namesLength +
     2 * Math.max(0, dropped.size - 1) + summaryCost;
+  // F-08: a genuinely truncated object always emits a normalized boolean
+  // `truncated:true` (plus a separate `truncation` reason) alongside the marker.
+  // Reserve their keys in the budget so the output never overflows maxChars.
+  const hasTruncKey = Object.prototype.hasOwnProperty.call(value, 'truncated')
+    || Object.prototype.hasOwnProperty.call(value, 'isTruncated')
+    || Object.prototype.hasOwnProperty.call(value, 'truncation');
+  const extraKeyCost = keyCost('truncated') + jsonSize(true) + 1
+    + (hasTruncKey ? keyCost('truncation') + floorOf(40) + 1 : 0);
   const cost = () => {
     // The marker key is always emitted on a truncated object, so always
     // reserve its cost (previously it was only reserved when keys were dropped).
     const marker = keyCost(markerKey) + floorOf(noteLength() + 2);
     const count = present + 1;
-    return 2 + Math.max(0, count - 1) + floorsSum + marker;
+    return 2 + Math.max(0, count - 1) + floorsSum + marker + extraKeyCost;
   };
   for (const i of byValueSize) {
     if (cost() <= maxChars) break;
@@ -265,11 +308,27 @@ function shrinkObject(value, maxChars) {
   const note = omitted.length > 0
     ? `${omitted.length.toLocaleString()} keys omitted: ${omitted.join(', ')}. ${summary}`
     : summary;
+  const reason = truncationReason(value.truncated) ?? truncationReason(value.truncation)
+    ?? truncationReason(value.isTruncated) ?? 'tool-format:object-shrunk';
   if (cost() > maxChars) {
-    const room = maxChars - 2 - keyCost(markerKey);
-    return room >= 2 ? { [markerKey]: shrink(note, room) } : {};
+    // F-08: even in the minimal-marker fallback, never emit a contradictory
+    // `truncated:false` alongside the marker. The boolean flag is authoritative.
+    const room = maxChars - 2 - keyCost(markerKey) - keyCost('truncated') - jsonSize(true)
+      - (hasTruncKey ? keyCost('truncation') + jsonSize(reason) + 1 : 0);
+    const minimal = { truncated: true, ...(hasTruncKey ? { truncation: reason } : {}) };
+    return room >= 2 ? { ...minimal, [markerKey]: shrink(note, room) } : minimal;
   }
-  const all = [...kept, [markerKey, note]];
+  // F-08: the marker is emitted ONLY on genuine structural truncation. Any
+  // upstream `truncated` field in `kept` is replaced by a normalized boolean
+  // `truncated:true` plus a separate `truncation` reason, so a model can never
+  // observe `truncated:false` coexisting with `--- TRUNCATED ---`.
+  const normalized = kept.filter(([k]) => k !== 'truncated' && k !== 'truncation' && k !== 'isTruncated');
+  const all = [
+    ...normalized,
+    ['truncated', true],
+    ...(hasTruncKey ? [['truncation', reason]] : []),
+    [markerKey, note],
+  ];
   const fixed = 2 + Math.max(0, all.length - 1) + all.reduce((n, [k]) => n + keyCost(k), 0);
   const allocation = allocate(all.map(([, v]) => v), maxChars - fixed);
   const out = {};
