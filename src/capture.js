@@ -322,12 +322,27 @@ async function writeFileSink(cfg, envelope) {
   await writeFile(join(cfg.fileDir, name), JSON.stringify(envelope), 'utf8');
 }
 
+/**
+ * A response counts as success only for a 2xx status. `response.ok` is the
+ * Fetch-spec signal; status is checked as well so lightweight fetch doubles
+ * that omit `ok` cannot turn a 500/429 into a false success. We deliberately
+ * do NOT read (let alone log) the response body: collector/fallback bodies may
+ * echo tokens, and no body text is needed to decide success.
+ */
+function isOkSinkResponse(response) {
+  if (!response) return false;
+  const status = Number(response.status);
+  const statusOk = Number.isFinite(status) && status >= 200 && status < 300;
+  return response.ok !== false && statusOk;
+}
+
 async function writeHttpSink(cfg, envelope) {
   if (!cfg.httpUrl) return;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 5000);
+  let response;
   try {
-    await fetch(cfg.httpUrl, {
+    response = await cfg.fetchImpl(cfg.httpUrl, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -338,6 +353,11 @@ async function writeHttpSink(cfg, envelope) {
     });
   } finally {
     clearTimeout(timer);
+  }
+  if (!isOkSinkResponse(response)) {
+    // Status only — never include response body text (it may contain tokens).
+    const status = response?.status ?? 'unknown';
+    throw new Error(`HTTP capture sink failed: status ${status}`);
   }
 }
 
@@ -501,8 +521,11 @@ export function startCapture(req, res, options = {}) {
   };
 
   res.end = function captureEnd(chunk, encoding, callback) {
+    // Re-entrant/late end after an abort is passed straight through. It never
+    // queues a second sink task, so a retry cannot duplicate the envelope.
     if (finished) return originalEnd(chunk, encoding, callback);
     finished = true;
+    const endEnteredAt = Date.now();
     if (chunk && !overflow) {
       const buf = chunkToBuffer(chunk, encoding);
       bytes += buf.length;
@@ -583,18 +606,46 @@ export function startCapture(req, res, options = {}) {
       .then(() => log('capture_sink_ok', { requestId, sink: cfg.sink }))
       .catch(onSinkError);
 
-    const finish = () => originalEnd(chunk, encoding, callback);
+    // `mcp_latency_ms` is measured at the REAL response-end point: `finish()`
+    // is where `originalEnd` actually runs. In sync mode that is after the sink
+    // promise settles, so the number includes the sink wait; the legacy
+    // `capture_done.duration` above is intentionally left unchanged (it is
+    // recorded before the sink completes) for backwards compatibility.
+    const finish = () => {
+      const endAt = Date.now();
+      const mcpLatencyMs = endAt - started;
+      try {
+        return originalEnd(chunk, encoding, callback);
+      } finally {
+        log('capture_flush_end', {
+          requestId,
+          path,
+          method,
+          status: res.statusCode,
+          mode: cfg.mode,
+          sink: cfg.sink,
+          sync: Boolean(cfg.sync),
+          duration,
+          waitedMs: endAt - endEnteredAt,
+          mcp_latency_ms: mcpLatencyMs,
+          endAt: new Date(endAt).toISOString(),
+        });
+      }
+    };
 
     // Optional synchronous mode: hold the response until the sink completes.
     // Vercel's waitUntil is not reliable on every runtime; CAPTURE_SYNC=1 makes
     // capture correctness win over a small response latency increase.
+    // Default behaviour (CAPTURE_SYNC unset / != '1') is unchanged.
     if (cfg.sync) {
       sinkQueued = true;
       log('capture_done', {
         requestId, path, method, status: res.statusCode, duration,
         sink: cfg.sink, sinkQueued, sync: true,
       });
-      task.finally(finish);
+      // `.catch` keeps a throwing `originalEnd` from becoming an unhandled
+      // rejection on the sink promise; the error still surfaces to the caller.
+      task.finally(finish).catch(() => {});
       return undefined;
     }
 
