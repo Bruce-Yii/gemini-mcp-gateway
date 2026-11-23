@@ -12,11 +12,15 @@
  *     unless the caller injects an `io` adapter. The same (plan, options) pair
  *     always produces the same result shape.
  *   - Injectable op registry: `executeTypedPlan(plan, { ops, io, dryRun, approve,
- *     readOnly })`. The six built-in ops mirror the spike exactly; callers can
- *     replace or extend the registry without editing this file.
+ *     readOnly, allowTruncatedRead })`. The six built-in ops mirror the spike
+ *     exactly; callers can replace or extend the registry without editing this file.
  *   - Strict whole-plan validation BEFORE any handler runs: unknown op, missing
  *     / wrong-type / unknown fields, and write-effect authorization are all
  *     rejected with zero side effects. A bad step cannot leave a partial write.
+ *   - Host-only safety gates: write approval comes ONLY from the host-supplied
+ *     top-level `approve` option (never from a plan step), and `applyPatch`
+ *     refuses truncated reads unless the host opts in with
+ *     `allowTruncatedRead:true`. Guest plans cannot forge either gate.
  *   - Stable result on every path: `{ok, dryRun, steps, stoppedAt, error, meta}`.
  *     Steps contain only ops that actually ran — skipped steps are NOT emitted.
  *   - Immutability: the input plan (including frozen plans) is never mutated.
@@ -75,6 +79,21 @@ export function createDefaultOps() {
         // Reuse the host's pure strict-context patcher (no duplicated parser).
         const current = await ctx.io.readFileRange({ path: args.path });
         const text = typeof current === 'string' ? current : current && current.text;
+        // HIGH (typed-plan audit): a patch built on a truncated read would be
+        // applied to a partial file and then written back — silently destroying
+        // the tail. Fail closed on the explicit flag OR an in-band marker,
+        // before the patcher/dryRun/writeFile runs. Only a host-supplied
+        // allowTruncatedRead:true may opt out (default false).
+        const truncated = !!current && typeof current === 'object' && current.truncated === true;
+        const marker = typeof text === 'string' && text.includes(TRUNCATED_MARKER);
+        if ((truncated || marker) && ctx.allowTruncatedRead !== true) {
+          const err = new Error(
+            'refusing to applyPatch on a truncated read for ' + args.path
+            + ': re-read the full file before writing (set allowTruncatedRead:true to override)',
+          );
+          err.code = 'PATCH_READ_TRUNCATED';
+          throw err;
+        }
         const applied = applyTextPatch(text == null ? '' : text, args.patch);
         if (!applied.ok) {
           const err = new Error(applied.error);
@@ -123,6 +142,9 @@ export const OP_EFFECTS = Object.freeze(
 
 const CONTROL_FIELDS = new Set(['op', 'approve']);
 
+/** In-band truncation marker used by gateway read/normalization layers. */
+const TRUNCATED_MARKER = '--- TRUNCATED ---';
+
 function isPlainStep(step) {
   return !!step && typeof step === 'object' && !Array.isArray(step);
 }
@@ -147,9 +169,11 @@ function approvalSet(approve) {
  *   - plan not a non-empty array of plain objects;
  *   - unknown op (not present in the injected registry);
  *   - missing required args / wrong primitive type (NaN rejected for numbers);
- *   - unknown fields (anything not `op`, a declared field, an optional field,
- *     or the control field `approve`);
- *   - write-effect ops without dryRun / step approve / global approve list;
+ *   - unknown fields (anything not `op`, a declared field or an optional field);
+ *   - per-step `approve` / `allowTruncatedRead` control fields — approval and
+ *     truncated-read overrides are HOST-issued options, never plan data, so a
+ *     guest plan cannot self-authorize a real write (APPROVAL_REQUIRES_HOST);
+ *   - write-effect ops without dryRun / host-level approve list;
  *   - readOnly mode with any write-effect op (server-side safety boundary).
  */
 export function validateTypedPlan(plan, {
@@ -157,10 +181,14 @@ export function validateTypedPlan(plan, {
   dryRun = false,
   approve = [],
   readOnly = false,
+  allowTruncatedRead = false,
 } = {}) {
   const errors = [];
   if (!Array.isArray(plan) || plan.length === 0) {
     return ['plan must be a non-empty array of steps'];
+  }
+  if (typeof allowTruncatedRead !== 'boolean') {
+    errors.push('allowTruncatedRead must be boolean');
   }
   const registry = ops && typeof ops === 'object' && !Array.isArray(ops) ? ops : {};
   const approved = approvalSet(approve);
@@ -196,15 +224,20 @@ export function validateTypedPlan(plan, {
       }
     }
 
-    // Unknown fields: strict allowlist = op + declared/optional fields + approve.
+    // Unknown fields: strict allowlist = op + declared/optional fields.
     for (const key of Object.keys(step)) {
-      if (CONTROL_FIELDS.has(key) || Object.prototype.hasOwnProperty.call(fields, key)
+      if (key === 'op' || Object.prototype.hasOwnProperty.call(fields, key)
         || Object.prototype.hasOwnProperty.call(optional, key)) continue;
       errors.push(`${at}: unknown field "${key}" for op ${name}`);
     }
-    // `approve` is a control field and must be boolean when present.
-    if ('approve' in step && typeof step.approve !== 'boolean') {
-      errors.push(`${at}: approve must be boolean, got ${typeof step.approve}`);
+    // MEDIUM (typed-plan audit): per-step `approve` is a guest-side forgery of
+    // host consent. Reject it explicitly — never treat it as authorization.
+    // Same for `allowTruncatedRead`: both are HOST options, not plan data.
+    if ('approve' in step) {
+      errors.push(`${at}: APPROVAL_REQUIRES_HOST: per-step approve is not allowed; host must pass top-level approve`);
+    }
+    if ('allowTruncatedRead' in step) {
+      errors.push(`${at}: allowTruncatedRead is host-only; per-step override is not allowed`);
     }
 
     const effect = def && def.effect;
@@ -212,8 +245,11 @@ export function validateTypedPlan(plan, {
       if (readOnly) {
         errors.push(`${at}: write op "${name}" is not allowed in read-only mode`);
       }
-      if (!dryRun && step.approve !== true && !approved.has(name)) {
-        errors.push(`${at}: write op "${name}" requires dryRun or explicit approve`);
+      // Only host-issued authorization counts: dryRun preview, or the global
+      // approve whitelist passed in options by the host. Plan steps cannot
+      // grant themselves write permission.
+      if (!dryRun && !approved.has(name)) {
+        errors.push(`${at}: APPROVAL_REQUIRES_HOST: write op "${name}" requires dryRun or explicit approve (host top-level approve only)`);
       }
     }
   }
@@ -229,8 +265,11 @@ export function validateTypedPlan(plan, {
  * @param {object} [options.io] injected adapter; must provide the methods used
  *        by the selected ops. No real adapter is bundled on purpose.
  * @param {boolean} [options.dryRun=false] write ops produce previews only
- * @param {string[]|string} [options.approve=[]] globally authorized write op names
+ * @param {string[]|string} [options.approve=[]] host-issued globally authorized
+ *        write op names (or a whitelist token); never read from plan steps
  * @param {boolean} [options.readOnly=false] reject all write-effect ops
+ * @param {boolean} [options.allowTruncatedRead=false] host-only opt-out for the
+ *        applyPatch truncated-read guard (default false = fail closed)
  * @returns {Promise<{ok:boolean,dryRun:boolean,steps:Array,stoppedAt:number|null,
  *          error:string|null,meta:object,validationErrors?:string[]}>}
  *
@@ -246,6 +285,7 @@ export async function executeTypedPlan(plan, options = {}) {
     dryRun = false,
     approve = [],
     readOnly = false,
+    allowTruncatedRead = false,
   } = options || {};
   const registry = ops && typeof ops === 'object' && !Array.isArray(ops) ? ops : {};
   const approved = approvalSet(approve);
@@ -256,7 +296,9 @@ export async function executeTypedPlan(plan, options = {}) {
     approvedOps: [...approved],
     executedCount: 0,
   };
-  const validationErrors = validateTypedPlan(plan, { ops: registry, dryRun, approve, readOnly });
+  const validationErrors = validateTypedPlan(plan, {
+    ops: registry, dryRun, approve, readOnly, allowTruncatedRead,
+  });
   if (validationErrors.length > 0) {
     return {
       ok: false,
@@ -283,7 +325,12 @@ export async function executeTypedPlan(plan, options = {}) {
     };
   }
 
-  const ctx = { dryRun: dryRun === true, readOnly: readOnly === true, io };
+  const ctx = {
+    dryRun: dryRun === true,
+    readOnly: readOnly === true,
+    allowTruncatedRead: allowTruncatedRead === true,
+    io,
+  };
   const steps = [];
   for (let i = 0; i < plan.length; i += 1) {
     const step = plan[i];

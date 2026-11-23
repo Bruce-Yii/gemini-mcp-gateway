@@ -127,12 +127,13 @@ test('unknown fields: rejected strictly, no handler runs', async () => {
   assert.deepEqual(out.steps, []);
   assert.equal(io.calls.length, 0);
 
-  // `approve` is the only non-arg control field and must be boolean.
-  const badApprove = await executeTypedPlan([
+  // `approve` is a HOST-only control field: any per-step approve (boolean or
+  // otherwise) is rejected, never treated as authorization.
+  const stepApprove = await executeTypedPlan([
     { op: 'readFileRange', path: 'a.txt', startLine: 1, endLine: 2, approve: 'yes' },
   ], { io, dryRun: true });
-  assert.equal(badApprove.ok, false);
-  assert.match(badApprove.error, /approve must be boolean/);
+  assert.equal(stepApprove.ok, false);
+  assert.match(stepApprove.error, /APPROVAL_REQUIRES_HOST/);
 });
 
 // 5. write 未批准 -----------------------------------------------------------
@@ -148,10 +149,13 @@ test('write without dryRun or approve is rejected with zero execution', async ()
 
   const global = await executeTypedPlan(plan, { io, approve: ['ensureBranch'] });
   assert.equal(global.ok, true);
+  // A guest plan cannot self-authorize: per-step approve is explicitly rejected.
   const perStep = await executeTypedPlan([{ ...plan[0], approve: true }], { io: fakeIO() });
-  assert.equal(perStep.ok, true);
+  assert.equal(perStep.ok, false);
+  assert.match(perStep.error, /APPROVAL_REQUIRES_HOST/);
+  assert.deepEqual(perStep.steps, []);
   const controlIo = fakeIO();
-  await executeTypedPlan([{ ...plan[0], approve: true }], { io: controlIo });
+  await executeTypedPlan(plan, { io: controlIo, approve: ['ensureBranch'] });
   assert.equal('approve' in controlIo.calls[0].args, false, 'control field must not leak to handlers');
 });
 
@@ -183,12 +187,12 @@ test('readOnly mode rejects every write-effect op even when approved', async () 
 test('partial failure: stop at first failing step; later steps never run', async () => {
   const io = fakeIO({ openPr: async () => { throw new Error('PR rejected'); } });
   const plan = [
-    { op: 'ensureBranch', owner: 'o', repo: 'r', branch: 'b', approve: true },
+    { op: 'ensureBranch', owner: 'o', repo: 'r', branch: 'b' },
     { op: 'readFileRange', path: 'a.txt', startLine: 1, endLine: 2 },
-    { op: 'openPr', owner: 'o', repo: 'r', head: 'b', base: 'main', title: 't', approve: true },
+    { op: 'openPr', owner: 'o', repo: 'r', head: 'b', base: 'main', title: 't' },
     { op: 'runChecks', command: 'npm test' },
   ];
-  const out = await executeTypedPlan(plan, { io });
+  const out = await executeTypedPlan(plan, { io, approve: ['ensureBranch', 'openPr'] });
   assertStable(out);
   assert.equal(out.ok, false);
   assert.deepEqual(out.steps.map((s) => s.op), ['ensureBranch', 'readFileRange', 'openPr']);
