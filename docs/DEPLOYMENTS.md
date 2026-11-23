@@ -23,6 +23,18 @@
 - docs/tests-only 不部署；
 - 自动部署关闭后，push 到 main 不再改变生产；若发现 healthz commit 变化而本表无记录，按事故处理。
 
+## Preview（非生产）部署 — 2026-11-24 02:26 / 02:32
+
+`main` 关闭自动部署后，**branch push 仍会生成 preview 部署**（保留 preview 是有意选择）：
+
+| 时间 | 分支 / commit | 类型 | 说明 |
+|---|---|---|---|
+| 02:26 | `fix/auth-owner-marking` / `2f79eaf` | preview | PR #6；target 非 production，生产仍 `9ab0e57` |
+| 02:32 | `fix/oauth-origin-consistency` / `6c5d910` | preview | PR #7；同上 |
+
+另：`1cd94ab`、`cad0dd2` 两个 main docs 提交均**无** deployment（已复核）。
+若要连 preview 也不生成，需要把 `git.deploymentEnabled` 扩成 `{"*": false}` 并手动部署一次。
+
 ## 未登记的部署历史（2026-11-24 01:12 复核）
 
 2026-11-23 07:31 — 2026-11-24 01:12 期间共 **40 次**自动 production 部署（Vercel API 实查），
