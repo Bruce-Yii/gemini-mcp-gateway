@@ -123,3 +123,6 @@ L4 人工在线反馈           用户真实窗口，发现新维度
 
 - 主动↔被动时间戳/任务关联设计：[eval/ACTIVE-PASSIVE-CORRELATION.md](eval/ACTIVE-PASSIVE-CORRELATION.md)
 
+
+- 2026-11-24 PR #80–#101 真实反馈与被动 scorecard 对照：[eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md](eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md)
+
