@@ -11,13 +11,23 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
+import fs, { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TASKS_FILE = path.join(ROOT, 'explore', 'tasks-online-gap.json');
 const SNAPSHOT_DIR = path.join(ROOT, 'data', 'tool-snapshots');
+
+// Both the task set and the tool snapshots are private eval fixtures excluded
+// from the OSS export. Guard them with existsSync before any top-level read so
+// the clean export loads the file and reports explicit, reason-bearing SKIPs
+// instead of crashing with ENOENT (see EXPORT-TEST-CURATION.md).
+const hasFixtures = existsSync(TASKS_FILE) && existsSync(SNAPSHOT_DIR);
+const fixtureSkip = hasFixtures
+  ? false
+  : 'private eval fixtures explore/tasks-online-gap.json + data/tool-snapshots are excluded from the OSS export (see docs/OPEN-SOURCE/EXPORT-TEST-CURATION.md)';
+const fixtureTest = (name, fn) => test(name, { skip: fixtureSkip }, fn);
 
 const REQUIRED_FIELDS = [
   'id', 'name', 'server', 'category', 'prompt', 'expectedTools', 'authority',
@@ -28,10 +38,12 @@ const EXPECTED_IDS = ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7', 'N8', 'N9'];
 
 let parsed;
 let parseError;
-try {
-  parsed = JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8'));
-} catch (err) {
-  parseError = err;
+if (hasFixtures) {
+  try {
+    parsed = JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8'));
+  } catch (err) {
+    parseError = err;
+  }
 }
 
 /** Set of every known tool name across all snapshots (bare and server__tool). */
@@ -54,16 +66,16 @@ function knownToolNames() {
   return names;
 }
 
-const KNOWN = knownToolNames();
+const KNOWN = hasFixtures ? knownToolNames() : new Set();
 
-test('online-gap tasks: JSON is parseable and has the expected top-level shape', () => {
+fixtureTest('online-gap tasks: JSON is parseable and has the expected top-level shape', () => {
   assert.equal(parseError, undefined, `tasks-online-gap.json must parse: ${parseError?.message}`);
   assert.ok(parsed && typeof parsed === 'object', 'top level must be an object');
   assert.ok(Array.isArray(parsed.tasks), 'tasks must be an array');
   assert.equal(parsed.realWritesAllowed, false, 'task set must forbid real writes');
 });
 
-test('online-gap tasks: exactly 9 tasks N1–N9 with unique IDs', () => {
+fixtureTest('online-gap tasks: exactly 9 tasks N1–N9 with unique IDs', () => {
   assert.equal(parsed.count, 9, 'declared count must be 9');
   assert.equal(parsed.tasks.length, 9, 'must contain exactly 9 tasks');
   const ids = parsed.tasks.map((t) => t.id);
@@ -71,7 +83,7 @@ test('online-gap tasks: exactly 9 tasks N1–N9 with unique IDs', () => {
   assert.equal(new Set(ids).size, ids.length, 'task IDs must be unique');
 });
 
-test('online-gap tasks: every task has all required fields with valid values', () => {
+fixtureTest('online-gap tasks: every task has all required fields with valid values', () => {
   for (const task of parsed.tasks) {
     for (const field of REQUIRED_FIELDS) {
       assert.ok(Object.hasOwn(task, field), `${task.id}: missing required field ${field}`);
@@ -101,7 +113,7 @@ test('online-gap tasks: every task has all required fields with valid values', (
   }
 });
 
-test('online-gap tasks: no expectedTools name references a nonexistent tool', () => {
+fixtureTest('online-gap tasks: no expectedTools name references a nonexistent tool', () => {
   for (const task of parsed.tasks) {
     for (const name of task.expectedTools) {
       assert.ok(
@@ -112,7 +124,7 @@ test('online-gap tasks: no expectedTools name references a nonexistent tool', ()
   }
 });
 
-test('online-gap tasks: write-capable and all tasks default to dryRun with no real write', () => {
+fixtureTest('online-gap tasks: write-capable and all tasks default to dryRun with no real write', () => {
   for (const task of parsed.tasks) {
     assert.equal(task.dryRun, true, `${task.id}: dryRun must be true by default`);
     assert.equal(task.forRealWrite, false, `${task.id}: forRealWrite must be false (no real writes)`);
@@ -131,7 +143,7 @@ test('online-gap tasks: write-capable and all tasks default to dryRun with no re
   }
 });
 
-test('online-gap tasks: N1–N9 cover all required SEMI-ONLINE-GAPS axes', () => {
+fixtureTest('online-gap tasks: N1–N9 cover all required SEMI-ONLINE-GAPS axes', () => {
   const byId = Object.fromEntries(parsed.tasks.map((t) => [t.id, t]));
   const asserts = [
     ['N1', /byte|readback/i],

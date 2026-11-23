@@ -10,10 +10,23 @@ import {
   DEFAULT_REAL_SERVERS, DENOMINATOR_FORMULA,
 } from '../scripts/run-l1-smoke.mjs';
 
+// The L1 helper logic (metric denominators, scope classification, comparison,
+// report rendering, CLI parsing) is public and stays tested in the clean OSS
+// export. Tests that pin the private 50-task smoke snapshot / frozen baseline
+// need eval fixtures excluded from the export; they skip explicitly with a
+// reason instead of crashing at module load time (see EXPORT-TEST-CURATION.md).
 const readJson = (p) => JSON.parse(fs.readFileSync(path.resolve(ROOT, p), 'utf8'));
-const SMOKE = readJson('explore/tasks-smoke.json');
-const BASELINE = readJson('explore/baselines/l1-smoke.json');
-const REAL_TASKS = SMOKE.tasks.filter((t) => DEFAULT_REAL_SERVERS.includes(t.server));
+const hasFixtures = fs.existsSync(path.join(ROOT, 'explore', 'tasks-smoke.json'))
+  && fs.existsSync(path.join(ROOT, 'explore', 'baselines', 'l1-smoke.json'));
+const fixtureSkip = hasFixtures
+  ? false
+  : 'private eval fixtures explore/tasks-smoke.json + explore/baselines/l1-smoke.json are excluded from the OSS export (see docs/OPEN-SOURCE/EXPORT-TEST-CURATION.md)';
+const fixtureTest = (name, fn) => test(name, { skip: fixtureSkip }, fn);
+const SMOKE = hasFixtures ? readJson('explore/tasks-smoke.json') : null;
+const BASELINE = hasFixtures ? readJson('explore/baselines/l1-smoke.json') : null;
+const REAL_TASKS = hasFixtures
+  ? SMOKE.tasks.filter((t) => DEFAULT_REAL_SERVERS.includes(t.server))
+  : [];
 
 /* ------------------------------------------------------------------ *
  * Fixtures: deterministic per-task rows + anomalies for a 40-task run
@@ -75,7 +88,7 @@ test('failed servers: explicit CLI + manifest are merged, deduped and sorted', (
     'tool counts are NOT an upstream-failure signal; only explicit failedServers is');
 });
 
-test('failed servers: 4/4 connected -> full scope, no failed servers', () => {
+fixtureTest('failed servers: 4/4 connected -> full scope, no failed servers', () => {
   const scope = baselineScopeFor({ requestedServers: DEFAULT_REAL_SERVERS, failedServers: [] });
   assert.equal(scope, 'full');
   const r = evaluateScopeFor({ failedServers: [] });
@@ -87,7 +100,7 @@ test('failed servers: 4/4 connected -> full scope, no failed servers', () => {
   assert.equal(r.noMeasurement, false);
 });
 
-test('failed servers: 2/4 connected -> degraded-subset baseline (github+linear only)', () => {
+fixtureTest('failed servers: 2/4 connected -> degraded-subset baseline (github+linear only)', () => {
   const failedServers = ['notion', 'vercel'];
   const scope = baselineScopeFor({ requestedServers: DEFAULT_REAL_SERVERS, failedServers });
   assert.equal(scope, 'degraded-subset');
@@ -108,7 +121,7 @@ test('failed servers: 2/4 connected -> degraded-subset baseline (github+linear o
   assert.notEqual(r.effectiveBaseline.metrics.toolHitRate, 53.3);
 });
 
-test('failed servers: 0/4 connected -> no-measurement infra result, no baseline comparison', () => {
+fixtureTest('failed servers: 0/4 connected -> no-measurement infra result, no baseline comparison', () => {
   const failedServers = [...DEFAULT_REAL_SERVERS];
   const scope = baselineScopeFor({ requestedServers: DEFAULT_REAL_SERVERS, failedServers });
   assert.equal(scope, 'no-measured-tasks');
@@ -122,7 +135,7 @@ test('failed servers: 0/4 connected -> no-measurement infra result, no baseline 
   assert.match(r.metrics.source, /explore|run-explore/);
 });
 
-test('failed servers: 1/4 connected -> degraded baseline of that single server', () => {
+fixtureTest('failed servers: 1/4 connected -> degraded baseline of that single server', () => {
   const failedServers = ['notion', 'linear', 'vercel'];
   const r = evaluateScopeFor({ failedServers });
   assert.equal(r.scope, 'degraded-subset');
@@ -137,7 +150,7 @@ test('failed servers: 1/4 connected -> degraded baseline of that single server',
  * 2. Denominator semantics
  * ------------------------------------------------------------------ */
 
-test('denominator: failed-server tasks are excluded from BOTH numerator and denominator', () => {
+fixtureTest('denominator: failed-server tasks are excluded from BOTH numerator and denominator', () => {
   const failedServers = ['notion', 'vercel'];
   const run = makeRun({
     failedServers,
@@ -155,7 +168,7 @@ test('denominator: failed-server tasks are excluded from BOTH numerator and deno
   assert.equal(m.adjustedDenominator, 20);
 });
 
-test('denominator: null (never called) is a MISS in the adjusted rate, excluded in the primary rate', () => {
+fixtureTest('denominator: null (never called) is a MISS in the adjusted rate, excluded in the primary rate', () => {
   const run = makeRun({
     hitByServer: { github: true, linear: false, notion: true, vercel: true },
     callByServer: { github: 'called', linear: 'silent', notion: 'called', vercel: 'called' },
@@ -171,7 +184,7 @@ test('denominator: null (never called) is a MISS in the adjusted rate, excluded 
   assert.equal(DENOMINATOR_FORMULA, m.denominatorFormula);
 });
 
-test('denominator: a failed server called by the model is never a gateway miss', () => {
+fixtureTest('denominator: a failed server called by the model is never a gateway miss', () => {
   // 2/4 connected; the failed servers are the ONLY ones with hits in this
   // synthetic run — if they leaked into the denominator they would inflate it.
   const failedServers = ['notion', 'vercel'];
@@ -221,7 +234,7 @@ test('denominator: report renders scope, failed servers, measured count and form
  * 3. CI still fails on a real regression (degraded subset included)
  * ------------------------------------------------------------------ */
 
-test('CI: real regression within the measured subset still fails the degraded comparison', () => {
+fixtureTest('CI: real regression within the measured subset still fails the degraded comparison', () => {
   const failedServers = ['notion', 'vercel'];
   const scopeR = evaluateScopeFor({ failedServers });
   const baseline = scopeR.effectiveBaseline;
@@ -246,7 +259,7 @@ test('CI: real regression within the measured subset still fails the degraded co
   assert.equal(r.effectiveBaseline.metrics.tasks, 20);
 });
 
-test('CI: missing byServer snapshot for degraded subset -> explicit skip, never overall hard-compare', () => {
+fixtureTest('CI: missing byServer snapshot for degraded subset -> explicit skip, never overall hard-compare', () => {
   const baselineWithoutServers = { ...BASELINE, byServer: {}, serverSets: {} };
   const r = evaluateL1Scope({
     isReal: true, mode: 'real', tasks: REAL_TASKS,
@@ -282,7 +295,7 @@ test('legacy: metricsFromExplore without failedServers preserves the old null-ex
   assert.equal(m.searchHitRateAdjusted, 50);
 });
 
-test('legacy: fake/replay paths and CLI parsing remain unchanged', () => {
+fixtureTest('legacy: fake/replay paths and CLI parsing remain unchanged', () => {
   const f = fakeMetrics([{ id: 'a' }]);
   assert.equal(f.searchHitRate, 100);
   assert.equal(f.measuredTasks, 1);
@@ -299,7 +312,7 @@ test('legacy: fake/replay paths and CLI parsing remain unchanged', () => {
   assert.equal(r.effectiveBaseline.metrics.tasks, 50, 'legacy replay uses the top-level 50-task baseline');
 });
 
-test('legacy: full-scope real run with Figma skipped still picks the exact 40-task snapshot', () => {
+fixtureTest('legacy: full-scope real run with Figma skipped still picks the exact 40-task snapshot', () => {
   const r = evaluateL1Scope({
     isReal: true, mode: 'real', tasks: REAL_TASKS,
     metrics: { tasks: 40, completionRate: 77.5, gatewayAnomalyCount: 18, searchHitRate: 82.4, toolHitRate: 53.3, tokensPerTask: 16547, p95LatencyMs: 22709 },
@@ -312,7 +325,7 @@ test('legacy: full-scope real run with Figma skipped still picks the exact 40-ta
   assert.equal(r.effectiveBaseline.baselineScope, 'full');
 });
 
-test('explore runner records failedServers explicitly in manifest and per-task rows', () => {
+fixtureTest('explore runner records failedServers explicitly in manifest and per-task rows (private explore/run-explore.mjs)', () => {
   const src = fs.readFileSync(path.join(ROOT, 'explore/run-explore.mjs'), 'utf8');
   assert.match(src, /failedServers:\s*\[\], \/\/ filled from the first worker/);
   assert.match(src, /manifest\.failedServers = SHARED\.failedServers/);

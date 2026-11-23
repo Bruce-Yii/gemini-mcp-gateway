@@ -21,6 +21,16 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DATASET = path.join(root, 'data', 'tool-dataset.json');
 const CONFIG = path.join(root, 'config.example.json');
 
+// data/tool-dataset.json is a private eval fixture, excluded from the clean
+// OSS export. In that case emit an explicit SKIP and exit 0 so gate commands
+// (`npm run verify`) stay green; never silently fake a measurement. In the
+// private repo the dataset exists and the original measurement runs unchanged.
+if (!fs.existsSync(DATASET)) {
+  console.log('SKIP: data/tool-dataset.json is a private eval fixture excluded from the OSS export; '
+    + 'no context measurement performed (see docs/OPEN-SOURCE/EXPORT-TEST-CURATION.md).');
+  process.exit(0);
+}
+
 const allTools = JSON.parse(fs.readFileSync(DATASET, 'utf8'));
 const config = JSON.parse(fs.readFileSync(CONFIG, 'utf8'));
 const denyByServer = new Map((config.servers ?? []).map((s) => [s.name, new Set(s.denyTools ?? [])]));

@@ -3,6 +3,12 @@
 > Scope: **records an actual dry-run only**. No `git init`, `git add`, `git commit`,
 > `git push`, remote setup, npm publish, or deploy was performed. No source,
 > README, other docs, or workflow was changed by this task. No commit was made.
+>
+> Update 2026-11-23 (fixture curation): the three remaining staging failures
+> from §4 were curated (two `existsSync` gates, one script SKIP fallback) and a
+> new regression test was added. The staging export now runs `npm test` with
+> **0 fail**. See §7. The P0 truncation at `src/upstream-oauth.js` was fixed by
+> the auth owner (not by this task); `audit-truncation --ci` now passes.
 
 ## 1. Environment and inputs
 
@@ -88,12 +94,12 @@ exemption, Unicode-escaped detectors) are present and working.
 1. **Decide new repo name / owner** (`codemode-mcp-gateway` recommended by PLAN),
    neutralize `package.json` metadata (`name`, `repository`, `homepage`, `bugs`)
    and README clone URLs in the private source before the next export.
-2. **Curate the two fixture-dependent tests** (`l1-failed-server`,
-   `online-gap-tasks`) and `measure-context.mjs` for a fixture-free export,
-   or update `EXPORT-TEST-CURATION.md` to match reality. Then re-run `npm test`
-   until green from a clean staging tree.
-3. **Fix the P0 truncation in `src/upstream-oauth.js:124`** (auth owner) so the
-   truncation audit passes.
+2. ~~**Curate the two fixture-dependent tests** (`l1-failed-server`,
+   `online-gap-tasks`) and `measure-context.mjs` for a fixture-free export.~~
+   **DONE** — see §7. Re-ran `npm test` from a clean staging tree: 0 fail.
+3. ~~**Fix the P0 truncation in `src/upstream-oauth.js:124`** (auth owner).~~
+   **DONE by the auth owner** (not this task): `node scripts/audit-truncation.mjs
+   --ci` in staging now exits 0 with PASS (P1 warnings only).
 4. **Freeze the source**: wait for other agents' uncommitted work to land, then
    re-export once from a clean, neutralized source; confirm detectors have 0 hits.
 5. **Manually, by a human**: `git init` in staging, one initial/release commit
@@ -113,3 +119,55 @@ exemption, Unicode-escaped detectors) are present and working.
 - Logs: `work/oss-release-npm-test.txt`, `work/oss-release-npm-test-final.txt`,
   `work/oss-release-live-auth-tests.txt` (local untracked artifacts).
 - Nothing was committed, pushed, published, or deployed.
+
+## 7. Fixture curation follow-up (2026-11-23, later run)
+
+Write scope was limited to `tests/l1-failed-server.test.js`,
+`tests/online-gap-tasks.test.js`, `scripts/measure-context.mjs`, the new
+`tests/oss-staging-curation.test.js`, and this document. No `src/`, other
+tests/scripts, README, or workflow was edited. No commit/push/deploy.
+
+Changes:
+
+1. `tests/l1-failed-server.test.js` — both private reads
+   (`explore/tasks-smoke.json`, `explore/baselines/l1-smoke.json`) are behind
+   `existsSync`. 12 fixture-dependent tests use `test(name, { skip: reason },
+   fn)`; 3 pure helper tests (CLI parse, report render, legacy metrics) still
+   run in staging. In the private repo all 15 run unchanged.
+2. `tests/online-gap-tasks.test.js` — `explore/tasks-online-gap.json` and
+   `data/tool-snapshots/` are guarded before any top-level read; all 6 tests
+   skip with the explicit reason when absent.
+3. `scripts/measure-context.mjs` — when `data/tool-dataset.json` is absent it
+   prints `SKIP: ...` and exits 0, without writing `work/context-measure.json`.
+   Private-repo behaviour is unchanged.
+4. `tests/oss-staging-curation.test.js` (new, 8 tests) — asserts the guards in
+   source; runs each curated file in a temp tree without fixtures and checks
+   the reason-bearing `# SKIP` lines, `fail 0`, and that skipped tests are not
+   counted as passes (TAP `# pass` equals only executed `ok` lines); checks
+   fixture-present execution; checks `measure-context.mjs` skip/exit-0/no-file.
+   Nested `node --test` invocations strip `NODE_TEST_CONTEXT` so the child
+   emits a real TAP plan.
+
+Verification actually run:
+
+| Command | Result |
+| --- | --- |
+| `node work/prepare-neutral-source.mjs` | exit 0 — rebuilt neutral source copy |
+| `node scripts/export-oss.mjs --source <temp neutral source> --out work/oss-release-staging --write` | exit 0 — 261 files written, 260 text files checked, post-export check passed, no `.git` created |
+| `node --test tests/oss-staging-curation.test.js` (live repo) | **8 tests / 8 pass / 0 fail / 0 skipped** |
+| `npm test` (staging, curated 261-file snapshot) | **exit 0 — 1075 tests / 973 pass / 0 fail / 96 skipped / 6 todo** (up from 77 skips: +18 from the two newly gated files; curation tests included) |
+| `npm test` (staging, later 263-file re-export including other agents' concurrent `capture`/`typed-plan`/`reconnect` files) | **exit 1 — 1098 tests / 993 pass / 3 fail / 96 skipped / 6 todo**. All 3 failures are in `tests/capture-sink-fix.test.js` (`mcp_latency_ms` sync/async + response bytes), paired with an uncommitted `src/capture.js` change by another agent. Reproduced twice. **None of the 3 is in this task's write scope; all 8 curation tests pass (7 pass + 1 explicit fixture-present skip).** |
+| `node scripts/measure-context.mjs` (staging) | exit 0 — printed `SKIP: data/tool-dataset.json is a private eval fixture excluded from the OSS export ...`; no artifact written |
+| `node scripts/audit-truncation.mjs --ci` (staging) | exit 0 — `PASS (P1 is warning-only; P2 is informational)`; the former P0 `src/upstream-oauth.js` truncation is gone (auth owner's fix) |
+| `npm test` (live private repo, full suite) | **exit 0 — 1087 tests / 1081 pass / 0 fail / 0 skipped / 6 todo**; all curation and curated tests pass with fixtures present |
+
+One transient `tests/capture.test.js:144` failure (`path.join` with undefined)
+was observed in an intermediate staging run; a clean re-run was 0 fail and it
+is unrelated to the curated files. The later 3 stable failures in
+`tests/capture-sink-fix.test.js` came from other agents' concurrent
+`src/capture.js` work after the last re-export; they are outside this task's
+write scope and were reported, not fixed. **No failures in any file owned by
+this task.**
+
+Skips in staging are explicit and carry the fixture reason; nothing is
+reported as a fake pass. No commit was made.
