@@ -117,6 +117,12 @@ const OTHER_PATTERNS = Object.freeze([
     re: /(?:gemini-mcp-gateway|codemode-mcp-gateway)\.(?:vercel\.app|onrender\.com|railway\.app|netlify\.app)/gi,
     replacement: NEUTRAL.domain,
   },
+  // Keep the exported tree green against the exporter's own detectors: shorten
+  // long literal secret-shaped values without breaking JS/JSON syntax.
+  {
+    re: /(['"]?(?:API_KEY|ACCESS_TOKEN|CLIENT_SECRET|REFRESH_TOKEN|BEARER)['"]?\s*[:=]\s*['"])[A-Za-z0-9_\-]{20,}(['"])/gi,
+    replacement: '$1not-a-real-secret$2',
+  },
 ]);
 
 /**

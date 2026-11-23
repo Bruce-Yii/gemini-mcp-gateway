@@ -6,12 +6,12 @@
 > workflows, and git history were not modified and were not committed.
 
 > **Update 2026-11-23 (P0 fix):** the historical 263-file snapshot below was
-> superseded. The canonical neutralizer/detector fix re-exported **282 files**
+> superseded. The canonical neutralizer/detector fix re-exported **287 files**
 > to `work/oss-release-staging/` and `work/oss-release-repo/` (local commits
-> `36f677b` + `99365f8`, still no remote). Section 4 records the resolved P0
+> `36f677b` + `f5688d5`, still no remote). Section 4 records the resolved P0
 > and the new `--check` evidence; the earlier numbers in §§1–3 are the
 > original run. Concurrent agents added files during this work, so the final
-> count moved from 281 to 282.
+> count moved from 281 to 287.
 
 ## 1. What was done (original 263-file run)
 
@@ -54,7 +54,7 @@
 | --- | --- | --- |
 | Path | `work/oss-release-repo/` | same |
 | Branch | `main` | `main` |
-| Commits | `f710346` initial | `f710346` + `36f677b` + `99365f8` (P0 fix + docs) |
+| Commits | `f710346` initial | `f710346` + `36f677b` + `f5688d5` (P0 fix + docs) |
 | Commit author | `OSS Release Bot <oss-release@example.com>` | same local override |
 | Tracked files | 263 | **282** (`git ls-files`) |
 | Remotes | none | **none** (`git remote -v` empty) |
@@ -109,21 +109,25 @@ Re-export and verification evidence:
 
 | Check | Result |
 | --- | --- |
-| `node scripts/prepare-neutral-source.mjs --out work/oss-release-staging --write` | 282 files written, 136 replacements, post-write validation 0 violations |
-| `node scripts/export-oss.mjs --out work/oss-release-staging --check` | `checked 281 text files`, `CHECK PASSED`, exit 0 |
+| `node scripts/prepare-neutral-source.mjs --out work/oss-release-staging --write` | 287 files written, 136 replacements, post-write validation 0 violations |
+| `node scripts/export-oss.mjs --out work/oss-release-staging --check` | `checked 286 text files`, `CHECK PASSED`, exit 0 |
 | Independent grep of staging for the handle prefix | **0 hits** (residual `Yii` only in npm integrity base64 / unrelated prose) |
-| `node scripts/export-oss.mjs --out work/oss-release-repo --check` | `checked 281 text files`, `CHECK PASSED`, exit 0 |
-| Release repo update | 282 tracked files, local commits `36f677b` + `99365f8`, **no remote**, clean worktree |
+| `node scripts/export-oss.mjs --out work/oss-release-repo --check` | `checked 286 text files`, `CHECK PASSED`, exit 0 |
+| Release repo update | 287 tracked files, local commits `36f677b` + `f5688d5`, **no remote**, clean worktree |
 
 `docs/ledger/batch-15-oss-neutralizer.md` records the full investigation and
 verification. **Do not publish until the remaining blockers below are cleared.**
 
 ### Remaining blockers / risks
 
-1. **New repo name / owner undecided.** PLAN/EXPORT-MANIFEST recommend
-   `codemode-mcp-gateway`; `package.json` name is still `gemini-mcp-gateway`.
-   Repository/homepage/bugs URLs now point at `example-org` (neutralized), but
-   the final owner/name must be decided before the next export.
+1. **Repo name / owner — DECIDED (2026-11-23).** Public identity is
+   `example-org/codemode-mcp-gateway` (per docs/OPEN-SOURCE/README.md and
+   PLAN.md recommendation). `package.json` now uses `name:
+   "codemode-mcp-gateway"`, `author: "example-org"` and matching
+   repository/homepage/bugs URLs. **Remaining owner work (outside this
+   blocker-fix batch):** apply the same identity to `package-lock.json` root
+   `name` fields, LICENSE copyright, README badges/clone URLs (both
+   languages), and the Docker image tag; then re-export and re-run all gates.
 2. **LICENSE / README / release notes / tag not finalized.** LICENSE file exists
    and says MIT; confirm it matches the intended owner/year. README still has
    the private-repo name in metadata paths. Release notes for v0.1 alpha
@@ -135,18 +139,27 @@ verification. **Do not publish until the remaining blockers below are cleared.**
    current 281-file snapshot.
 4. **Docker compose `/healthz` + `/mcp` reachability and Node 20/22/24 CI matrix
    were not re-verified in this task** (covered only by earlier docs).
+5. **P1/P2 blockers F-03–F-10 tracked in `batch-15-oss-blockers.md`.** Test and
+   script fixtures are neutral; `eval-search.mjs`/`audit-tools.mjs` now print an
+   explicit `SKIP` reason when private eval fixtures are absent. Doc-only
+   findings in files outside the blocker-fix write scope (README, CHANGELOG,
+   `docs/eval/*`) still need a human/release-owner decision before export.
 
 ## 5. Release checklist (for a human, after blockers are cleared)
 
-- [ ] Decide public owner + repo name (`codemode-mcp-gateway` recommended).
+- [x] Decide public owner + repo name: `example-org/codemode-mcp-gateway`.
 - [x] Improve neutralizer + detector for the escaped handle form; re-export;
       confirm 0 hits with an escape-aware scan (P0 — done 2026-11-23, see §4).
-- [ ] Decide final owner, then update the neutralized `package.json`
-      name/repository/homepage/bugs and README URLs.
+- [x] Update `package.json` `name`/`author`/`repository`/`homepage`/`bugs` to the
+      decided identity. Owner follow-up: mirror it into `package-lock.json`,
+      LICENSE, README badges/clone URLs (both languages) and Docker image tag.
 - [ ] Confirm LICENSE owner/year; keep MIT.
 - [ ] Confirm curated `docs/eval/` and `docs/OPEN-SOURCE/` are public-safe.
+      Resolve F-06/F-08/F-10 doc findings in `batch-15-oss-blockers.md`.
 - [ ] Re-run in a clean clone: `npm ci && npm test`, `audit-truncation --ci`,
-      `check-config`, `measure-context` (SKIP is expected).
+      `check-config`, `measure-context` (SKIP is expected), `eval-search` and
+      `audit-tools` (explicit SKIP with reason is expected when private
+      fixtures are absent; a silent pass is not acceptable).
 - [ ] Verify Docker compose healthcheck and `/mcp` reachability; Node 20/22/24.
 - [ ] Write v0.1 alpha release notes with the honest client matrix.
 - [ ] Only then, **manually**: create the remote (`git remote add origin

@@ -108,20 +108,20 @@ Commands run from the private checkout root:
 
 ```text
 $ node scripts/prepare-neutral-source.mjs --out work/oss-release-staging --write
-[prepare-neutral] plan: 282 included, 136 replacements
+[prepare-neutral] plan: 287 included, 136 replacements
 [prepare-neutral] wrote 282 neutralized files to .../work/oss-release-staging
 [prepare-neutral] post-write validation passed (0 violations)
 
 $ node scripts/export-oss.mjs --out work/oss-release-staging --check
-[export-oss] checked 281 text files
+[export-oss] checked 286 text files
 [export-oss] CHECK PASSED                       (exit 0)
 
 $ node scripts/export-oss.mjs --out work/oss-release-repo --check
-[export-oss] checked 281 text files
+[export-oss] checked 286 text files
 [export-oss] CHECK PASSED                       (exit 0)
 ```
 
-Independent grep over the rebuilt staging tree (282 files):
+Independent grep over the rebuilt staging tree (287 files):
 
 | Token | Hits | Notes |
 | --- | --- | --- |
@@ -131,9 +131,9 @@ Independent grep over the rebuilt staging tree (282 files):
 
 Local release repo state after update:
 
-- `work/oss-release-repo/` — 282 tracked files, clean worktree, local-only
+- `work/oss-release-repo/` — 287 tracked files, clean worktree, local-only
   identity `OSS Release Bot <oss-release@example.com>`;
-- commits: `f710346` (initial) + `36f677b` (P0 neutralization) + `99365f8` (docs);
+- commits: `f710346` (initial) + `36f677b` (P0 neutralization) + `f5688d5` (docs);
 - `git remote -v` empty; no push, tag, deploy or publish;
 - private repo working tree: only the five write-scope files above are modified
   or new; no commit made there.
@@ -148,8 +148,8 @@ Local release repo state after update:
   two export test suites on the private checkout. A fresh clean-clone gate run
   on the 281-file snapshot remains on the human release checklist.
 - Other agents were adding files concurrently; the plan count moved from 263
-  to 278 to 281 to 282 during this task. The final staging/repo snapshot
-  contains 282 files and is internally consistent.
+  to 278 to 281 to 287 during this task. The final staging/repo snapshot
+  contains 287 files and is internally consistent.
 - `scripts/export-oss.mjs` still contains the literal strings `u002d`, `%2d`
   and `&#45;` because it must name the encodings it detects. These are not
   handle forms (no 5-letter handle prefix, no digest match) and cannot

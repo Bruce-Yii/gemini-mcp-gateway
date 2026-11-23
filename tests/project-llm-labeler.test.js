@@ -62,11 +62,11 @@ const MULTI_REPO_WINDOW = windowFixture({
   tools: ['github__list_issues', 'notion__search'],
   methods: { 'tools/call': 3 },
   projects: [
-    { key: 'github:Bruce-Yii/recruitment-agent' },
-    { key: 'github:Bruce-Yii/gemini-mcp-gateway' },
+    { key: 'github:test-org/test-repo' },
+    { key: 'github:test-org/test-gateway' },
   ],
-  primaryProjects: ['github:Bruce-Yii/recruitment-agent'],
-  repos: ['Bruce-Yii/recruitment-agent', 'Bruce-Yii/gemini-mcp-gateway'],
+  primaryProjects: ['github:test-org/test-repo'],
+  repos: ['test-org/test-repo', 'test-org/test-gateway'],
   paths: ['src/app/CandidatePage.tsx'],
   branches: ['main'],
   prOrIssueTitles: ['Fix pagination on candidate page (#12)'],
@@ -100,14 +100,14 @@ test('buildLabelerInput emits schema-bound window summaries with no full bodies'
   assert.deepEqual(window.requestIds, ['req-gh', 'req-gh2', 'req-nt']);
   assert.deepEqual(window.tools, ['github__list_issues', 'notion__search']);
   assert.deepEqual(window.mcpMethods, ['tools/call']);
-  assert.deepEqual(window.hints.repos, ['Bruce-Yii/recruitment-agent', 'Bruce-Yii/gemini-mcp-gateway']);
+  assert.deepEqual(window.hints.repos, ['test-org/test-repo', 'test-org/test-gateway']);
   assert.deepEqual(window.hints.paths, ['src/app/CandidatePage.tsx']);
   assert.deepEqual(window.hints.branches, ['main']);
   assert.deepEqual(window.hints.prOrIssueTitles, ['Fix pagination on candidate page (#12)']);
   assert.deepEqual(window.hints.resultSummaries, ['Listed 4 issues; read 1 file; searched Notion for design notes']);
   assert.deepEqual(window.hints.repoKeys, [
-    'github:Bruce-Yii/recruitment-agent',
-    'github:Bruce-Yii/gemini-mcp-gateway',
+    'github:test-org/test-repo',
+    'github:test-org/test-gateway',
   ]);
 
   const serialized = JSON.stringify(input);
@@ -210,14 +210,14 @@ test('multi-repo window: each candidate cites its own evidence and stays advisor
   const result = validateProjectLabels(modelOutput([
     {
       windowId: 'session:multi',
-      projectKey: 'github:Bruce-Yii/recruitment-agent',
+      projectKey: 'github:test-org/test-repo',
       confidence: 0.82,
       evidenceRequestIds: ['req-gh', 'req-gh2'],
-      reason: 'Two GitHub issue/file calls target recruitment-agent',
+      reason: 'Two GitHub issue/file calls target test-repo',
     },
     {
       windowId: 'session:multi',
-      projectKey: 'github:Bruce-Yii/gemini-mcp-gateway',
+      projectKey: 'github:test-org/test-gateway',
       confidence: 0.61,
       evidenceRequestIds: ['req-gh'],
       reason: 'Second repo appears in one code hint only',
@@ -225,8 +225,8 @@ test('multi-repo window: each candidate cites its own evidence and stays advisor
   ]), input);
   assert.equal(result.projectLabels.length, 1);
   assert.equal(result.lowConfidence.length, 1);
-  assert.equal(result.projectLabels[0].projectKey, 'github:Bruce-Yii/recruitment-agent');
-  assert.equal(result.lowConfidence[0].projectKey, 'github:Bruce-Yii/gemini-mcp-gateway');
+  assert.equal(result.projectLabels[0].projectKey, 'github:test-org/test-repo');
+  assert.equal(result.lowConfidence[0].projectKey, 'github:test-org/test-gateway');
   // No automatic merge: downstream field names carry no 'primaryProject' write.
   assert.ok(!('primaryProject' in result.projectLabels[0]));
 });
@@ -401,7 +401,7 @@ test('classifyProjects is deterministic across repeated calls', async () => {
   const opts = {
     raw: modelOutput([
       { windowId: 'window:001', projectKey: 'no-repo', confidence: 0.9, evidenceRequestIds: ['req-a'], reason: 'r' },
-      { windowId: 'session:multi', projectKey: 'github:Bruce-Yii/recruitment-agent', confidence: 0.4, evidenceRequestIds: ['req-gh'], reason: 'r' },
+      { windowId: 'session:multi', projectKey: 'github:test-org/test-repo', confidence: 0.4, evidenceRequestIds: ['req-gh'], reason: 'r' },
     ]),
     dryRun: true,
   };

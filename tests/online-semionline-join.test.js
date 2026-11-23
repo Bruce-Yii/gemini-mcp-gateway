@@ -57,7 +57,7 @@ const REQUIRED_AXES = [
 ];
 // Keys that would indicate a real credential/path leaked into the task set.
 const FORBIDDEN_CREDENTIAL_PATTERN =
-  /\b(GITHUB_TOKEN|GH_TOKEN|OPENAI_API_KEY|ANTHROPIC_API_KEY|client[_-]?secret|access[_-]?token|refresh[_-]?token|Bearer\s+\S+|D:\\12412\\dsh-home\\.secrets)\b/i;
+  /\b(GITHUB_TOKEN|GH_TOKEN|OPENAI_API_KEY|ANTHROPIC_API_KEY|client[_-]?secret|access[_-]?token|refresh[_-]?token|Bearer\s+\S+|\\[A-Za-z0-9_]+\\.secrets\\)\b/i;
 
 let tasks;
 let taskParseError;

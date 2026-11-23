@@ -4,19 +4,26 @@
  * fixes from batch 15 (gpt-online-fix). No commit / push / deploy.
  *
  * What it verifies against api.github.com, using a real token:
- *   1. GET /repos/Bruce-Yii/recruitment-agent/pulls?state=all&per_page=100
- *      - find PR #53, #56, #57, #59; assert `number` is the small PR number
- *        and `id` is a long database id; never use id as number.
- *   2. GET /repos/.../pulls/53 -> record number / id / node_id / html_url.
- *   3. GET /repos/.../actions/jobs/137420494321/logs:
+ *   1. GET /repos/<owner>/<repo>/pulls?state=all&per_page=100
+ *      - find the configured PR numbers; assert `number` is the small PR
+ *        number and `id` is a long database id; never use id as number.
+ *   2. GET /repos/.../pulls/<exact> -> record number / id / node_id / html_url.
+ *   3. GET /repos/.../actions/jobs/<job-id>/logs:
  *      - first hop Accept: application/vnd.github+json, check for 302;
  *      - follow the signed URL WITHOUT Authorization, check 200 + text;
  *      - never print the full log: only a length + redacted 200-char digest.
  *
+ * Configuration (all optional, neutral defaults):
+ *   REPLAY_OWNER / REPLAY_REPO        default test-org / test-repo
+ *   REPLAY_PR_NUMBERS                 comma-separated, default 1,2,3,4
+ *   REPLAY_EXACT_PR_NUMBER            default 1
+ *   REPLAY_JOB_ID                     default 999999999999
+ * No real owner/repo/PR/job id is embedded in this public script.
+ *
  * Token source (priority):
  *   1. GITHUB_TOKEN env var
- *   2. Local vault github-auth.json (GATEWAY_SECRET_DIR override, default
- *      D:\12412\dsh-home\.secrets\gemini-mcp-gateway), field `token`.
+ *   2. Local vault github-auth.json under GATEWAY_SECRET_DIR, or the portable
+ *      per-user default `~/.config/codemode-mcp-gateway/`, field `token`.
  * The token is only ever placed in request headers. It is NEVER printed,
  * logged, written to evidence, or included in any error message.
  *
@@ -28,11 +35,20 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const API_BASE = 'https://api.github.com';
-const OWNER = 'Bruce-Yii';
-const REPO = 'recruitment-agent';
-const WANTED_PR_NUMBERS = [53, 56, 57, 59];
-const EXACT_PR_NUMBER = 53;
-const JOB_ID = 137420494321;
+
+function envInt(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  const value = Number(raw);
+  return Number.isSafeInteger(value) && value > 0 ? value : fallback;
+}
+
+const OWNER = process.env.REPLAY_OWNER || 'test-org';
+const REPO = process.env.REPLAY_REPO || 'test-repo';
+const WANTED_PR_NUMBERS = (process.env.REPLAY_PR_NUMBERS || '1,2,3,4')
+  .split(',').map((s) => Number(s.trim())).filter((n) => Number.isSafeInteger(n) && n > 0);
+const EXACT_PR_NUMBER = envInt('REPLAY_EXACT_PR_NUMBER', WANTED_PR_NUMBERS[0] ?? 1);
+const JOB_ID = envInt('REPLAY_JOB_ID', 999999999999);
 const JSON_ACCEPT = 'application/vnd.github+json';
 
 // ---------------------------------------------------------------------------
@@ -41,7 +57,7 @@ const JSON_ACCEPT = 'application/vnd.github+json';
 
 function vaultTokenPath(env = process.env) {
   const dir = env.GATEWAY_SECRET_DIR
-    || path.join('D:\\12412\\dsh-home', '.secrets', 'gemini-mcp-gateway');
+    || path.join(env.HOME || env.USERPROFILE || '', '.config', 'codemode-mcp-gateway');
   return path.join(dir, 'github-auth.json');
 }
 
@@ -136,7 +152,7 @@ function locationOf(res) {
  * @param {object}  opts
  * @param {Function} opts.fetch  fetch(url, init) -> Response-like
  * @param {string}  opts.token   real GitHub token (never included in output)
- * @param {number}  [opts.jobId] job id override (default 137420494321)
+ * @param {number}  [opts.jobId] job id override (default REPLAY_JOB_ID or 999999999999)
  * @returns {Promise<object>} evidence object safe to JSON.stringify/print
  */
 export async function runReplay({ fetch: doFetch, token, jobId = JOB_ID } = {}) {
@@ -213,13 +229,13 @@ export async function runReplay({ fetch: doFetch, token, jobId = JOB_ID } = {}) 
     return evidence;
   }
 
-  // -- Step 2: exact PR #53 ------------------------------------------------
+  // -- Step 2: exact PR ----------------------------------------------------
   const prUrl = `${API_BASE}/repos/${OWNER}/${REPO}/pulls/${EXACT_PR_NUMBER}`;
   try {
     const res = await doFetch(prUrl, { method: 'GET', headers: authHeaders(token) });
     const status = statusOf(res);
     const body = status >= 200 && status < 300 ? await readJson(res) : null;
-    evidence.checks.pull53 = {
+    evidence.checks.pullExact = {
       ok: status >= 200 && status < 300 && !!body,
       status,
       url: prUrl,
@@ -230,11 +246,11 @@ export async function runReplay({ fetch: doFetch, token, jobId = JOB_ID } = {}) 
       numberNotId: !!body && String(body.id) !== String(body.number),
       error: status >= 300 ? `HTTP ${status}` : undefined,
     };
-    if (!evidence.checks.pull53.ok) evidence.errors.push(`pull53 failed: HTTP ${status}`);
+    if (!evidence.checks.pullExact.ok) evidence.errors.push(`pullExact failed: HTTP ${status}`);
   } catch (err) {
     const msg = err && err.message ? err.message : String(err);
-    evidence.checks.pull53 = { ok: false, url: prUrl, error: redact(msg) };
-    evidence.errors.push(`pull53 threw: ${redact(msg)}`);
+    evidence.checks.pullExact = { ok: false, url: prUrl, error: redact(msg) };
+    evidence.errors.push(`pullExact threw: ${redact(msg)}`);
   }
 
   // -- Step 3: Actions job logs (302 -> signed URL, no token on follow) -----

@@ -5,7 +5,7 @@
  *  1. createBranchIfMissing / ensureBranch only accepted `name`; real callers
  *     pass `branch` and got "ensureBranch: name is required".
  *  2. normalizePrResult treated the database `id` as the PR number; a real
- *     create_pull_request returned {id:5444514334, url:'.../pull/53'} and the
+ *     create_pull_request returned {id:1000000001, url:'.../pull/53'} and the
  *     follow-up merge call 404'd. The number must come from number/URL only.
  *  3. High-frequency read-only need: GitHub Actions failure logs. Added as
  *     gateway-side REST helpers in Code Mode (no new upstream MCP tool).
@@ -106,12 +106,12 @@ test('branch alias: Code Mode ensureBranch/createBranchIfMissing accept branch (
 // ---------------------------------------------------------------------------
 
 // Exact shape from the reported capture: database id plus html/API URL.
-const REAL_PR = { id: 5444514334, url: 'https://github.com/o/r/pull/53' };
+const REAL_PR = { id: 1000000001, url: 'https://github.com/o/r/pull/53' };
 
 test('PR number: real create_pull_request shape → number 53 from URL, not id', () => {
   const out = normalizePrResult(REAL_PR);
   assert.equal(out.number, 53);
-  assert.equal(out.id, '5444514334', 'id is preserved only as the id field');
+  assert.equal(out.id, '1000000001', 'id is preserved only as the id field');
 });
 
 test('PR number: explicit number wins over URL when both agree; URL wins when they disagree', () => {
@@ -121,9 +121,9 @@ test('PR number: explicit number wins over URL when both agree; URL wins when th
 });
 
 test('PR number: id alone never becomes number', () => {
-  const out = normalizePrResult({ id: 5444514334 });
+  const out = normalizePrResult({ id: 1000000001 });
   assert.equal(out.number, null);
-  assert.equal(out.id, '5444514334');
+  assert.equal(out.id, '1000000001');
 });
 
 test('PR number: prNumber/pr_number aliases still work without a URL', () => {
@@ -135,15 +135,15 @@ test('PR number: dispatch and canonicalResult / merge helper agree', () => {
   const dispatched = normalizeResult('github__create_pull_request', REAL_PR);
   assert.equal(dispatched.number, 53);
   assert.equal(canonicalResult(REAL_PR).number, 53);
-  const merge = canonicalResult({ id: 5444514334, url: 'https://github.com/o/r/pull/53', sha: 'abc' });
+  const merge = canonicalResult({ id: 1000000001, url: 'https://github.com/o/r/pull/53', sha: 'abc' });
   assert.equal(merge.number, 53);
   assert.equal(merge.sha, 'abc');
 });
 
 test('PR number: issue normalize also refuses id-as-number', () => {
-  const out = normalizeIssueResult({ id: 5444514334, url: 'https://github.com/o/r/issues/21' });
+  const out = normalizeIssueResult({ id: 1000000001, url: 'https://github.com/o/r/issues/21' });
   assert.equal(out.number, 21);
-  assert.equal(out.id, '5444514334');
+  assert.equal(out.id, '1000000001');
   assert.equal(normalizeIssueResult({ id: 9 }).number, null);
 });
 

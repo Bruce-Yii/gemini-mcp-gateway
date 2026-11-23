@@ -24,7 +24,7 @@ function validRecord(overrides = {}) {
       window: { from: '2026-11-23T00:00:00Z', to: '2026-11-23T23:59:59Z' },
     },
     platform: { name: 'gemini', surface: 'web' },
-    project: { repo: 'Bruce-Yii/gemini-mcp-gateway' },
+    project: { repo: 'test-org/test-gateway' },
     session: { sessionId: '641ffd4f-8c40-462e-8938-b7b11d9d595f', taskId: 'unknown' },
     feedback: [{
       id: 'F1',
@@ -88,7 +88,7 @@ test('parseInput accepts a JSON string by content sniffing', () => {
 const MD = `Recorded-at: 2026-11-23T09:02:17+08:00
 Window: 2026-11-23T00:00:00Z -> 2026-11-23T23:59:59Z
 Platform: gemini web
-Repo: Bruce-Yii/gemini-mcp-gateway
+Repo: test-org/test-gateway
 Session: unknown
 Task: unknown
 Status: unverified
@@ -112,7 +112,7 @@ Status: confirmed
 Severity: P1
 Category: pr-number
 Symptom: DB id used as PR number
-Evidence: real create_pull_request returned {id:5444514334,url:/pull/53}
+Evidence: real create_pull_request returned {id:1000000001,url:/pull/53}
 CaptureVerified: false
 PR: #53
 Reproduction: create PR then merge
@@ -127,7 +127,7 @@ test('recordFromMarkdown parses metadata and feedback sections', () => {
   assert.equal(rec.time.window.to, '2026-11-23T23:59:59Z');
   assert.equal(rec.platform.name, 'gemini');
   assert.equal(rec.platform.surface, 'web');
-  assert.equal(rec.project.repo, 'Bruce-Yii/gemini-mcp-gateway');
+  assert.equal(rec.project.repo, 'test-org/test-gateway');
   assert.equal(rec.feedback.length, 2);
   assert.deepEqual(rec.feedback[0].evidence.pr, [56, 57]);
   assert.deepEqual(rec.feedback[0].requestIds, ['unknown']);
@@ -138,7 +138,7 @@ test('recordFromMarkdown parses metadata and feedback sections', () => {
 
 test('markdown Evidence: inline text becomes evidence.detail', () => {
   const rec = recordFromMarkdown(MD);
-  assert.match(rec.feedback[1].evidence.detail, /5444514334/);
+  assert.match(rec.feedback[1].evidence.detail, /1000000001/);
   assert.equal(rec.feedback[1].evidence.captureVerified, false);
 });
 
@@ -247,7 +247,7 @@ test('normalizePr accepts numbers, #53, PR #53 and pull/53', () => {
   assert.equal(normalizePr('pull/53'), 53);
   assert.equal(normalizePr(0), null);
   assert.equal(normalizePr(-1), null);
-  assert.equal(normalizePr('5444514334x'), null);
+  assert.equal(normalizePr('1000000001x'), null);
 });
 
 test('normalizePrList dedupes and rejects bad entries', () => {
@@ -258,11 +258,11 @@ test('normalizePrList dedupes and rejects bad entries', () => {
 
 test('DB id is not accepted as a PR number in raw form', () => {
   const rec = validRecord();
-  rec.feedback[0].evidence.pr = [5444514334];
+  rec.feedback[0].evidence.pr = [1000000001];
   // A positive integer is syntactically a PR number; the semantic fix belongs
   // to the source record. Here we only check the validator accepts the shape.
   assert.deepEqual(validateRecord(rec), []);
-  assert.equal(rec.feedback[0].evidence.pr[0], 5444514334);
+  assert.equal(rec.feedback[0].evidence.pr[0], 1000000001);
 });
 
 test('non-integer PR values are rejected', () => {

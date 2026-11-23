@@ -14,8 +14,9 @@
  *   node scripts/figma-token.mjs refresh
  *   node scripts/figma-token.mjs run -- node src/server.js --config ... --port ...
  *
- * Vault location: GATEWAY_SECRET_DIR, else
- *   D:\12412\dsh-home\.secrets\gemini-mcp-gateway on this machine.
+ * Vault location: GATEWAY_SECRET_DIR (required in CI), else the per-user
+ * default at `~/.config/codemode-mcp-gateway/`. No machine-specific path is
+ * baked into this script.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -27,8 +28,10 @@ const REFRESH_SKEW_MS = 5 * 60 * 1000;
 
 export function vaultDir() {
   if (process.env.GATEWAY_SECRET_DIR) return resolve(process.env.GATEWAY_SECRET_DIR);
-  const home = process.env.DSH_HOME || process.env.USERPROFILE || '';
-  return resolve(home, '.secrets', 'gemini-mcp-gateway');
+  // Portable per-user default. Use GATEWAY_SECRET_DIR to point at a
+  // machine-specific private store; no absolute personal path is hard-coded.
+  const home = process.env.HOME || process.env.USERPROFILE || '';
+  return resolve(home, '.config', 'codemode-mcp-gateway');
 }
 
 export function vaultFile(name) {

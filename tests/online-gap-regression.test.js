@@ -46,10 +46,10 @@ const REPO = path.resolve(import.meta.dirname ?? path.dirname(new URL(import.met
  * ------------------------------------------------------------------ */
 const SHA = '4cb29ea38f70d7c61b2a3a25b02e3bdf44905402';
 const NOTICE = `successfully downloaded text file (SHA: ${SHA})\n`;
-const BODY = `# gemini-mcp-gateway\n\nexport const answer = 42;\n${'真实文件正文行。\n'.repeat(20)}`;
+const BODY = `# test-gateway\n\nexport const answer = 42;\n${'真实文件正文行。\n'.repeat(20)}`;
 const RAW = { text: NOTICE + BODY, resources: [{ text: BODY }] };
 const PR_REAL = {
-  id: 5444514334,
+  id: 1000000001,
   html_url: 'https://api.github.com/repos/o/r/pulls/53',
   number: 999, // deliberately disagreeing field: URL must win
   title: 'real PR 53',
@@ -104,7 +104,7 @@ test('T3: real {text:notice+body, resources} shape normalizes to pure body + sha
 test('T3: real create_pull_request shape yields number from URL, not DB id', () => {
   const out = normalizePrResult(PR_REAL);
   assert.equal(out.number, 53, 'URL must win over the disagreeing number field');
-  assert.equal(out.id, '5444514334', 'DB id is kept only as a string, never as number');
+  assert.equal(out.id, '1000000001', 'DB id is kept only as a string, never as number');
   assert.notEqual(out.number, Number(out.id));
 });
 

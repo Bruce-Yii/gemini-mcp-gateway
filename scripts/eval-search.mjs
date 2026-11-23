@@ -32,10 +32,22 @@ const valueArg = (name, fallback) => {
 };
 
 const tasksFile = path.resolve(root, valueArg('--tasks', 'explore/tasks-v2.json'));
+const datasetFile = path.join(root, 'data', 'tool-dataset.json');
 const authorityFilter = valueArg('--authority', null);
+
+/** Private eval fixtures are excluded from the OSS export. Skip explicitly. */
+function skipIfPrivateFixtureMissing(file, label) {
+  if (fs.existsSync(file)) return false;
+  console.log(`SKIP: ${label} not present (${path.relative(root, file)}) — private eval fixture excluded from OSS export`);
+  return true;
+}
+
+if (skipIfPrivateFixtureMissing(tasksFile, 'tasks fixture')) process.exit(0);
+if (skipIfPrivateFixtureMissing(datasetFile, 'tool dataset')) process.exit(0);
+
 let tasks = JSON.parse(fs.readFileSync(tasksFile, 'utf8')).tasks;
 if (authorityFilter) tasks = tasks.filter((task) => task.authority === authorityFilter);
-const allTools = JSON.parse(fs.readFileSync(path.join(root, 'data', 'tool-dataset.json'), 'utf8'));
+const allTools = JSON.parse(fs.readFileSync(datasetFile, 'utf8'));
 const config = JSON.parse(fs.readFileSync(path.join(root, 'config.example.json'), 'utf8'));
 
 const denyByServer = new Map((config.servers ?? []).map((s) => [s.name, new Set(s.denyTools ?? [])]));

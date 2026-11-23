@@ -4,9 +4,9 @@
  * The replay is the REAL-GitHub counterpart of tests/gpt-online-fix.test.js:
  * here we inject a fake fetch so no token, no network, no commit is involved.
  * Coverage:
- *   - PR list #53/#56/#57/#59: `number` is small, `id` is a long DB id,
+ *   - PR list #1/#2/#3/#4: `number` is small, `id` is a long DB id,
  *     id is never used as number (same bug class as gpt-online-fix F4).
- *   - PR #53 detail records number/id/node_id/html_url.
+ *   - PR #1 detail records number/id/node_id/html_url.
  *   - Actions logs: first hop Accept: application/vnd.github+json with token;
  *     302 -> signed URL followed WITHOUT Authorization and with Accept: * / *;
  *     200 returns text; HTTP 415 no longer appears (gpt-online-fix F1).
@@ -44,26 +44,26 @@ function makePr(number, id) {
   return {
     number,
     id,
-    node_id: `PR_kwNODE${number}`,
-    html_url: `https://github.com/Bruce-Yii/recruitment-agent/pull/${number}`,
+    node_id: `PR_kwDOEXAMPLE00${number}`,
+    html_url: `https://github.com/test-org/test-repo/pull/${number}`,
   };
 }
 
 // Fake api.github.com with long DB ids that deliberately differ from numbers.
 function prList() {
-  return [makePr(53, 5444514301), makePr(56, 5444514304), makePr(57, 5444514309), makePr(59, 5444514334)];
+  return [makePr(1, 1000000002), makePr(2, 1000000003), makePr(3, 1000000004), makePr(4, 1000000001)];
 }
 
 /**
  * Build a fake fetch. Logs: first hop 302 to signed URL, second hop 200 text.
  * Records every request so header assertions can be made.
  */
-function fakeFetch({ prs = prList(), pr53 = makePr(53, 5444514301), logStatus = 200, firstStatus = 302, listStatus = 200 } = {}) {
+function fakeFetch({ prs = prList(), pr1 = makePr(1, 1000000002), logStatus = 200, firstStatus = 302, listStatus = 200 } = {}) {
   const calls = [];
   const fn = async (url, init) => {
     calls.push({ url, headers: { ...(init?.headers || {}) }, redirect: init?.redirect });
     if (url.includes('/pulls?state=all')) return response(listStatus, JSON.stringify(prs));
-    if (/\/pulls\/53$/.test(url)) return response(200, JSON.stringify(pr53));
+    if (/\/pulls\/1$/.test(url)) return response(200, JSON.stringify(pr1));
     if (url.includes(`/actions/jobs/${JOB_ID}/logs`)) {
       if (firstStatus !== 200) {
         return response(firstStatus, '', { location: 'https://storage.example.com/signed-log?sig=abc123&token=secret' });
@@ -82,13 +82,13 @@ function fakeFetch({ prs = prList(), pr53 = makePr(53, 5444514301), logStatus = 
 // 1. PR list: number vs id
 // ---------------------------------------------------------------------------
 
-test('PR list: #53/#56/#57/#59 found; number is small, id is a long DB id, never conflated', async () => {
+test('PR list: #1/#2/#3/#4 found; number is small, id is a long DB id, never conflated', async () => {
   const { fn } = fakeFetch();
   const out = await runReplay({ fetch: fn, token: TOKEN });
   const list = out.checks.listPullRequests;
   assert.equal(list.ok, true);
   assert.equal(list.status, 200);
-  assert.deepEqual(list.wanted, [53, 56, 57, 59]);
+  assert.deepEqual(list.wanted, [1, 2, 3, 4]);
   assert.equal(list.found.length, 4);
   for (const f of list.found) {
     assert.equal(f.found, true);
@@ -97,7 +97,7 @@ test('PR list: #53/#56/#57/#59 found; number is small, id is a long DB id, never
     assert.notEqual(f.id, String(f.number));
   }
   assert.equal(list.numberNotId, true);
-  assert.deepEqual(WANTED_PR_NUMBERS, [53, 56, 57, 59]);
+  assert.deepEqual(WANTED_PR_NUMBERS, [1, 2, 3, 4]);
   assert.equal(out.overallOk, true);
 });
 
@@ -108,26 +108,26 @@ test('PR list: URL query is state=all&per_page=100', async () => {
 });
 
 test('PR list: missing PR is reported honestly (not fabricated)', async () => {
-  const { fn } = fakeFetch({ prs: [makePr(53, 5444514301), makePr(56, 5444514304)] });
+  const { fn } = fakeFetch({ prs: [makePr(1, 1000000002), makePr(2, 1000000003)] });
   const out = await runReplay({ fetch: fn, token: TOKEN });
   assert.equal(out.checks.listPullRequests.ok, false);
   assert.equal(out.overallOk, false);
-  assert.ok(out.errors.some((e) => e.includes('#57') && e.includes('#59')));
+  assert.ok(out.errors.some((e) => e.includes('#3') && e.includes('#4')));
 });
 
 // ---------------------------------------------------------------------------
-// 2. PR #53 detail
+// 2. PR #1 detail
 // ---------------------------------------------------------------------------
 
-test('PR #53 detail: records number/id/nodeId/htmlUrl and keeps id != number', async () => {
+test('PR #1 detail: records number/id/nodeId/htmlUrl and keeps id != number', async () => {
   const { fn } = fakeFetch();
   const out = await runReplay({ fetch: fn, token: TOKEN });
-  const pr = out.checks.pull53;
+  const pr = out.checks.pullExact;
   assert.equal(pr.ok, true);
-  assert.equal(pr.number, 53);
-  assert.equal(pr.id, '5444514301');
-  assert.equal(pr.nodeId, 'PR_kwNODE53');
-  assert.equal(pr.htmlUrl, 'https://github.com/Bruce-Yii/recruitment-agent/pull/53');
+  assert.equal(pr.number, 1);
+  assert.equal(pr.id, '1000000002');
+  assert.equal(pr.nodeId, 'PR_kwDOEXAMPLE001');
+  assert.equal(pr.htmlUrl, 'https://github.com/test-org/test-repo/pull/1');
   assert.equal(pr.numberNotId, true);
 });
 

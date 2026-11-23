@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-22T21:11:53.186Z",
+  "generatedAt": "2026-11-23T13:24:43.805Z",
   "title": "L1 Smoke Report",
   "mode": "fake-dry-run",
   "trigger": "schedule",
@@ -9,6 +9,10 @@
   "alert": false,
   "alertReason": null,
   "skippedServers": [],
+  "failedServers": [],
+  "baselineScope": "full",
+  "measuredTasks": 50,
+  "skippedByServer": {},
   "taskCount": 50,
   "fullSmokeTaskCount": 50,
   "datasetSha256": null,
@@ -39,7 +43,11 @@
       "toolHitRate": 100,
       "tokensPerTask": 0,
       "p95LatencyMs": 0
-    }
+    },
+    "baselineSource": "overall",
+    "perServer": false,
+    "fallback": false,
+    "baselineScope": "full"
   },
   "comparison": {
     "ok": true,

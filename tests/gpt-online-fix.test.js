@@ -154,7 +154,7 @@ test('file path: repo://.../contents/<path> URI yields the exact path', () => {
   const out = normalizeFileResult({
     text: NOTICE + BODY,
     resources: [{
-      uri: 'repo://Bruce-Yii/gemini-mcp-gateway/contents/docs/eval/note.md',
+      uri: 'repo://test-org/test-gateway/contents/docs/eval/note.md',
       mimeType: 'text/plain; charset=utf-8',
       text: BODY,
     }],
@@ -166,7 +166,7 @@ test('file path: repo://.../contents/<path> URI yields the exact path', () => {
 
 test('file path: root-level uri is parsed too; explicit path still wins', () => {
   const fromUri = normalizeFileResult({
-    uri: 'repo://Bruce-Yii/gemini-mcp-gateway/contents/src/codemode.js',
+    uri: 'repo://test-org/test-gateway/contents/src/codemode.js',
     content: 'x',
   });
   assert.equal(fromUri.path, 'src/codemode.js');
@@ -223,20 +223,20 @@ test('raw envelope keeps the upstream wrapper notice; canonical content is pure 
 // ---------------------------------------------------------------------------
 
 const PR59 = {
-  id: 5444514334,
-  node_id: 'PR_kwDOABC123',
+  id: 1000000001,
+  node_id: 'PR_kwDOEXAMPLE001',
   number: 999, // deliberately disagreeing field: URL must win
-  html_url: 'https://github.com/Bruce-Yii/gemini-mcp-gateway/pull/59',
+  html_url: 'https://github.com/test-org/test-gateway/pull/59',
   sha: 'head-sha-59',
 };
 
 test('normalizePrResult: id + nodeId are strings, number comes from URL, never from id', () => {
   const out = normalizePrResult(PR59);
   assert.equal(out.number, 59);
-  assert.equal(out.url, 'https://github.com/Bruce-Yii/gemini-mcp-gateway/pull/59');
+  assert.equal(out.url, 'https://github.com/test-org/test-gateway/pull/59');
   assert.equal(out.sha, 'head-sha-59');
-  assert.equal(out.id, '5444514334');
-  assert.equal(out.nodeId, 'PR_kwDOABC123');
+  assert.equal(out.id, '1000000001');
+  assert.equal(out.nodeId, 'PR_kwDOEXAMPLE001');
   assert.notEqual(out.number, Number(out.id));
   // Stable enumerable key set is unchanged (nodeId is additive non-enumerable).
   assert.equal(Object.keys(out).includes('nodeId'), false);
@@ -245,8 +245,8 @@ test('normalizePrResult: id + nodeId are strings, number comes from URL, never f
 test('canonicalResult: additive id/nodeId only appear when upstream provides them', () => {
   const withIds = canonicalResult(PR59);
   assert.equal(withIds.number, 59);
-  assert.equal(withIds.id, '5444514334');
-  assert.equal(withIds.nodeId, 'PR_kwDOABC123');
+  assert.equal(withIds.id, '1000000001');
+  assert.equal(withIds.nodeId, 'PR_kwDOEXAMPLE001');
   const withoutIds = canonicalResult({ number: 12, html_url: 'u12', head: { sha: 'h12' } });
   assert.deepEqual(Object.keys(withoutIds).sort(), ['number', 'raw', 'sha', 'url']);
   assert.equal(canonicalResult(null).number, null);
@@ -257,10 +257,10 @@ test('guest prResult: id/nodeId exposed separately, number URL-first', async () 
     return codemode.prResult(${JSON.stringify(PR59)});
   `);
   assert.equal(out.number, 59);
-  assert.equal(out.url, 'https://github.com/Bruce-Yii/gemini-mcp-gateway/pull/59');
+  assert.equal(out.url, 'https://github.com/test-org/test-gateway/pull/59');
   assert.equal(out.sha, 'head-sha-59');
-  assert.equal(out.id, '5444514334');
-  assert.equal(out.nodeId, 'PR_kwDOABC123');
+  assert.equal(out.id, '1000000001');
+  assert.equal(out.nodeId, 'PR_kwDOEXAMPLE001');
   assert.notEqual(out.number, Number(out.id));
 });
 

@@ -1,17 +1,18 @@
 {
-  "name": "gemini-mcp-gateway",
+  "name": "codemode-mcp-gateway",
   "version": "0.1.0",
   "description": "Code Mode MCP gateway for web-based MCP clients: three stable tools (search / execute_read / execute), sandboxed orchestration, and upstream tool payloads kept out of the model context.",
   "type": "module",
   "main": "src/server.js",
   "license": "MIT",
+  "author": "example-org",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Bruce-Yii/gemini-mcp-gateway.git"
+    "url": "git+https://github.com/example-org/codemode-mcp-gateway.git"
   },
-  "homepage": "https://github.com/Bruce-Yii/gemini-mcp-gateway#readme",
+  "homepage": "https://github.com/example-org/codemode-mcp-gateway#readme",
   "bugs": {
-    "url": "https://github.com/Bruce-Yii/gemini-mcp-gateway/issues"
+    "url": "https://github.com/example-org/codemode-mcp-gateway/issues"
   },
   "keywords": [
     "mcp",

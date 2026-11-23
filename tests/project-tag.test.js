@@ -6,8 +6,8 @@
  *   guest code that calls `github__get_file_contents(...)`. The two repo names
  *   below come from the real 2026-11-22 capture window documented in
  *   docs/eval/online-offline-join-2026-11-22.md (requestIds 05d1b10d / 0a099ec7
- *   on Bruce-Yii/recruitment-agent; this gateway itself is
- *   Bruce-Yii/gemini-mcp-gateway).
+ *   on test-org/test-repo; this gateway itself is
+ *   test-org/test-gateway).
  *
  * Rules pinned: explicit fields only, no prose guessing, no fabrication,
  * dedupe, primary selection, tool-args priority, and envelope additive fields.
@@ -22,7 +22,7 @@ import { extractProjects } from '../src/project-tag.js';
 import { startCapture } from '../src/capture.js';
 
 // ---------------------------------------------------------------------------
-// Fixtures modelled on the real recruitment-agent execute_read captures.
+// Fixtures modelled on the real test-repo execute_read captures.
 // ---------------------------------------------------------------------------
 
 function readFixture({ code, owner, repo }) {
@@ -43,8 +43,8 @@ function readFixture({ code, owner, repo }) {
 
 const RECRUITMENT_CODE = `
 const cpRes = await codemode.github__get_file_contents({
-  owner: "Bruce-Yii",
-  repo: "recruitment-agent",
+  owner: "test-org",
+  repo: "test-repo",
   path: "src/app/CandidatePage.tsx",
   ref: "main",
 });
@@ -54,8 +54,8 @@ return cp.slice(0, 70);
 
 const GATEWAY_CODE = `
 const res = await codemode.github__get_file_contents({
-  owner: "Bruce-Yii",
-  repo: "gemini-mcp-gateway",
+  owner: "test-org",
+  repo: "test-gateway",
   path: "src/capture.js",
   ref: "main",
 });
@@ -74,13 +74,13 @@ function reqOf(body) {
 // 1. Real-capture-shaped fixtures
 // ---------------------------------------------------------------------------
 
-test('real capture fixture: recruitment-agent code literal derives one project', () => {
+test('real capture fixture: test-repo code literal derives one project', () => {
   const result = extractProjects(reqOf(readFixture({ code: RECRUITMENT_CODE })));
   assert.deepEqual(result.projects, [{
     server: 'github',
-    owner: 'Bruce-Yii',
-    repo: 'recruitment-agent',
-    key: 'github:Bruce-Yii/recruitment-agent',
+    owner: 'test-org',
+    repo: 'test-repo',
+    key: 'github:test-org/test-repo',
     confidence: 'medium',
     source: 'code-literal',
   }]);
@@ -90,25 +90,25 @@ test('real capture fixture: recruitment-agent code literal derives one project',
 test('real capture fixture: explicit owner+repo tool args win with high confidence', () => {
   const body = readFixture({
     code: RECRUITMENT_CODE,
-    owner: 'Bruce-Yii',
-    repo: 'recruitment-agent',
+    owner: 'test-org',
+    repo: 'test-repo',
   });
   const result = extractProjects(reqOf(body));
   assert.equal(result.projects.length, 1);
   assert.equal(result.projects[0].source, 'tool-args');
   assert.equal(result.projects[0].confidence, 'high');
-  assert.equal(result.projects[0].key, 'github:Bruce-Yii/recruitment-agent');
+  assert.equal(result.projects[0].key, 'github:test-org/test-repo');
   assert.equal(result.primaryProject.key, result.projects[0].key);
 });
 
-test('real capture fixture: gemini-mcp-gateway PR URL and code literal both derive the same key', () => {
+test('real capture fixture: test-gateway PR URL and code literal both derive the same key', () => {
   const code = `
     ${GATEWAY_CODE}
-    // see https://github.com/Bruce-Yii/gemini-mcp-gateway/pull/41
+    // see https://github.com/test-org/test-gateway/pull/41
   `;
   const result = extractProjects(reqOf(readFixture({ code })));
   assert.equal(result.projects.length, 1, 'dedup by key');
-  assert.equal(result.projects[0].key, 'github:Bruce-Yii/gemini-mcp-gateway');
+  assert.equal(result.projects[0].key, 'github:test-org/test-gateway');
   const sources = new Set(result.projects.map((p) => p.source));
   assert.ok(sources.has('code-literal'), 'code-literal occurrence retained');
   assert.ok(!sources.has('pr-url'), 'PR URL deduped into the same key');
@@ -120,14 +120,14 @@ test('real capture fixture: gemini-mcp-gateway PR URL and code literal both deri
 
 test('multiple repos in one code string produce multiple tags', () => {
   const code = `
-    const a = { owner: "Bruce-Yii", repo: "recruitment-agent" };
-    const b = { owner: "Bruce-Yii", repo: "gemini-mcp-gateway" };
+    const a = { owner: "test-org", repo: "test-repo" };
+    const b = { owner: "test-org", repo: "test-gateway" };
     return [a, b];
   `;
   const result = extractProjects(reqOf(readFixture({ code })));
   assert.deepEqual(result.projects.map((p) => p.key), [
-    'github:Bruce-Yii/recruitment-agent',
-    'github:Bruce-Yii/gemini-mcp-gateway',
+    'github:test-org/test-repo',
+    'github:test-org/test-gateway',
   ]);
   // No explicit args: first keyed pair is primary.
   assert.equal(result.primaryProject.key, result.projects[0].key);
@@ -138,12 +138,12 @@ test('duplicate tags are removed and the most frequent explicit repo becomes pri
     jsonrpc: '2.0', id: 7, method: 'tools/call',
     params: {
       name: 'github__list_issues',
-      arguments: { owner: 'Bruce-Yii', repo: 'recruitment-agent' },
+      arguments: { owner: 'test-org', repo: 'test-repo' },
     },
   };
   const result = extractProjects(rawOf(body));
   assert.equal(result.projects.length, 1);
-  assert.equal(result.primaryProject.key, 'github:Bruce-Yii/recruitment-agent');
+  assert.equal(result.primaryProject.key, 'github:test-org/test-repo');
   assert.equal(result.primaryProject.server, 'github');
 });
 
@@ -155,12 +155,12 @@ test('with two explicit repos, primary is the one repeated in tool args', () => 
     params: {
       name: 'execute',
       arguments: {
-        owner: 'Bruce-Yii',
-        repo: 'gemini-mcp-gateway',
+        owner: 'test-org',
+        repo: 'test-gateway',
         code: `
-          { owner: "Bruce-Yii", repo: "recruitment-agent" }
-          { owner: "Bruce-Yii", repo: "gemini-mcp-gateway" }
-          { owner: "Bruce-Yii", repo: "gemini-mcp-gateway" }
+          { owner: "test-org", repo: "test-repo" }
+          { owner: "test-org", repo: "test-gateway" }
+          { owner: "test-org", repo: "test-gateway" }
         `,
       },
     },
@@ -168,18 +168,18 @@ test('with two explicit repos, primary is the one repeated in tool args', () => 
   const result = extractProjects(reqOf(body));
   // Explicit arg repo is the only tool-args tag, so it is primary even though
   // code mentions the other repo more often (tool params always win).
-  assert.equal(result.primaryProject.repo, 'gemini-mcp-gateway');
+  assert.equal(result.primaryProject.repo, 'test-gateway');
   assert.equal(result.primaryProject.source, 'tool-args');
   assert.deepEqual(result.projects.map((p) => p.repo).sort(), [
-    'gemini-mcp-gateway', 'recruitment-agent',
+    'test-gateway', 'test-repo',
   ]);
 });
 
 test('explicit fields override code when the same repo appears in both', () => {
   const body = readFixture({
-    code: `const x = { owner: "Bruce-Yii", repo: "recruitment-agent" };`,
-    owner: 'Bruce-Yii',
-    repo: 'recruitment-agent',
+    code: `const x = { owner: "test-org", repo: "test-repo" };`,
+    owner: 'test-org',
+    repo: 'test-repo',
   });
   const result = extractProjects(reqOf(body));
   assert.equal(result.projects.length, 1);
@@ -192,14 +192,14 @@ test('explicit fields override code when the same repo appears in both', () => {
 // ---------------------------------------------------------------------------
 
 test('PR URL alone derives owner/repo with medium confidence and pr-url source', () => {
-  const code = 'const url = "https://github.com/Bruce-Yii/gemini-mcp-gateway/pull/41";';
+  const code = 'const url = "https://github.com/test-org/test-gateway/pull/41";';
   const result = extractProjects(reqOf(readFixture({ code })));
   assert.equal(result.projects.length, 1);
   assert.deepEqual(result.projects[0], {
     server: 'github',
-    owner: 'Bruce-Yii',
-    repo: 'gemini-mcp-gateway',
-    key: 'github:Bruce-Yii/gemini-mcp-gateway',
+    owner: 'test-org',
+    repo: 'test-gateway',
+    key: 'github:test-org/test-gateway',
     confidence: 'medium',
     source: 'pr-url',
   });
@@ -207,20 +207,20 @@ test('PR URL alone derives owner/repo with medium confidence and pr-url source',
 });
 
 test('bare github.com PR URL without protocol is accepted', () => {
-  const code = 'github.com/Bruce-Yii/recruitment-agent/pull/12';
+  const code = 'github.com/test-org/test-repo/pull/12';
   const result = extractProjects(reqOf(readFixture({ code })));
-  assert.equal(result.primaryProject.key, 'github:Bruce-Yii/recruitment-agent');
+  assert.equal(result.primaryProject.key, 'github:test-org/test-repo');
 });
 
 test('keyed literals accept single quotes and assignment form', () => {
-  const code = `owner = 'Bruce-Yii'; repo = 'recruitment-agent';`;
+  const code = `owner = 'test-org'; repo = 'test-repo';`;
   const result = extractProjects(reqOf(readFixture({ code })));
   assert.equal(result.projects.length, 1);
   assert.equal(result.projects[0].source, 'code-literal');
 });
 
 test('a lone repo literal without an owner is ignored (no fabrication)', () => {
-  const code = `const repo: "recruitment-agent" = something;`;
+  const code = `const repo: "test-repo" = something;`;
   const result = extractProjects(reqOf(readFixture({ code })));
   assert.deepEqual(result, { projects: [], primaryProject: null });
 });
@@ -248,7 +248,7 @@ test('natural-language repo names are never guessed', () => {
     jsonrpc: '2.0', id: 9, method: 'tools/call',
     params: {
       name: 'execute',
-      arguments: { prompt: 'please fix the bug in recruitment-agent and gemini-mcp-gateway' },
+      arguments: { prompt: 'please fix the bug in test-repo and test-gateway' },
     },
   };
   const result = extractProjects(reqOf(body));
@@ -258,13 +258,13 @@ test('natural-language repo names are never guessed', () => {
 test('partial explicit args (only owner) do not produce a tag', () => {
   const body = {
     jsonrpc: '2.0', id: 10, method: 'tools/call',
-    params: { name: 'github__list_issues', arguments: { owner: 'Bruce-Yii' } },
+    params: { name: 'github__list_issues', arguments: { owner: 'test-org' } },
   };
   assert.deepEqual(extractProjects(rawOf(body)), { projects: [], primaryProject: null });
 });
 
 test('extractProjects is pure and deterministic across repeated calls', () => {
-  const req = reqOf(readFixture({ code: RECRUITMENT_CODE, owner: 'Bruce-Yii', repo: 'recruitment-agent' }));
+  const req = reqOf(readFixture({ code: RECRUITMENT_CODE, owner: 'test-org', repo: 'test-repo' }));
   const once = JSON.stringify(extractProjects(req));
   for (let i = 0; i < 4; i += 1) {
     assert.equal(JSON.stringify(extractProjects(req)), once);
@@ -312,17 +312,17 @@ async function envelopeOf(req) {
 test('capture envelope carries projects/primaryProject additively with real fixture', async () => {
   const req = reqOf(readFixture({
     code: RECRUITMENT_CODE,
-    owner: 'Bruce-Yii',
-    repo: 'recruitment-agent',
+    owner: 'test-org',
+    repo: 'test-repo',
   }));
   const env = await envelopeOf(req);
   assert.equal(env.schema, 'gmg.capture.v1');
   assert.equal(env.request.raw, req.__gatewayRawBody);
   assert.deepEqual(env.projects, [{
     server: 'github',
-    owner: 'Bruce-Yii',
-    repo: 'recruitment-agent',
-    key: 'github:Bruce-Yii/recruitment-agent',
+    owner: 'test-org',
+    repo: 'test-repo',
+    key: 'github:test-org/test-repo',
     confidence: 'high',
     source: 'tool-args',
   }]);

@@ -13,12 +13,12 @@ This document is the only file added.
 
 | # | Finding | Severity |
 |---|---|---|
-| F-01 | Personal GitHub handle survives in Unicode-escaped form `Bruce\u002dYii` in 63 locations in 11 files, including `package.json` metadata and test/script fixtures | **P0 — publication blocker** |
+| F-01 | Personal GitHub handle survives in Unicode-escaped form `<private-handle>` in 63 locations in 11 files, including `package.json` metadata and test/script fixtures | **P0 — publication blocker** |
 | F-02 | The export detector's own regex cannot match the escaped form present in the tree (verified: its pattern matches the hyphenated literal, not the escaped text) — `--check` passing is a false negative | **P0 — gate is broken** |
-| F-03 | String-concatenation evasions (`'Bruce' + '-Yii'`) in a shipped test survive any literal-handle detector | **P1** |
-| F-04 | Escaped + literal internal paths: `D:\u00312412\dsh工作区\...`, `D:\u00312412\dsh\u002dhome\.\u0073ecrets\...`, `C:\work\local-home/...` in scripts, bench artifact and docs | **P1** |
-| F-05 | Real PR data (DB ids, node_ids, job id) and the internal repo name `recruitment-agent` in shipped docs/fixtures; URL owner neutralized to `example-org` but values remain | **P1** |
-| F-06 | Shipped docs expose internal-asset names: `docs/ledger/`, `docs/HANDOFF*`, `docs/PLAN-2026-11-23.md`, `work/...`, R2 bucket `gemini-mcp-gateway-capture` | **P1** |
+| F-03 | String-concatenation evasions (`<concatenated-private-handle>`) in a shipped test survive any literal-handle detector | **P1** |
+| F-04 | Escaped + literal internal paths: `<private-workspace>\dsh工作区\...`, `<private-workspace>\<private-home>\<private-store>\...`, `C:\work\local-home/...` in scripts, bench artifact and docs | **P1** |
+| F-05 | Real PR data (DB ids, node_ids, job id) and the internal repo name `<private-project>` in shipped docs/fixtures; URL owner neutralized to `example-org` but values remain | **P1** |
+| F-06 | Shipped docs expose internal-asset names: `docs/ledger/`, `docs/HANDOFF*`, `docs/PLAN-2026-11-23.md`, `work/...`, R2 bucket `<private-r2-bucket>` | **P1** |
 | F-07 | `package.json` name/URLs still `gemini-mcp-gateway` while README/LICENSE/docs use `example-org` / recommend `codemode-mcp-gateway` — identity inconsistent, not finalized | **P1** |
 | F-08 | ~22 dangling documentation links, including 6 where the target is explicitly internal/private (`CREDENTIALS.md`, `AUTH-READY.md`, `HANDOFF.md`, `PLAN-2026-11-23.md`, `WORKFLOW.md`, `ONLINE-EVAL-GPT-CHARTER.md`); README references private "issue #3" | **P1** |
 | F-09 | `eval-search.mjs` (run unconditionally by CI) reads excluded private fixtures with no guard; dry-run already records it as ENOENT. Public CI will fail | **P1 — CI red on first push** |
@@ -38,7 +38,7 @@ release owner (this audit does not modify it).
   URL-encoded (`%2d`), concatenated and plain-text variants of the personal
   handle; credential token patterns (`sk-`, `ghp_`, `github_pat_`, `AIza`,
   `xox*`, 20+ char secret assignments); emails; `vercel.app`/`onrender.com`/
-  `railway.app`/`netlify.app` domains; `C:\`, `D:\`, `dsh-home`, `.secrets`,
+  `railway.app`/`netlify.app` domains; `C:\`, `D:\`, `<private-home>`, `<private-store>`,
   `local-home`; internal asset names; doc-link resolution.
 - Verified detector semantics by applying its regex to the shipped literal text.
 - No network calls, no git writes, no test execution that writes artifacts.
@@ -63,12 +63,12 @@ Exact counts by file (line numbers complete):
 | `tests/real-gh-replay.test.js` | 48, 130 | 2 |
 
 Evidence (literal file text):
-- `package.json:10` `"url": "git+https://github.com/Bruce\u002dYii/gemini-mcp-gateway.git"`
-- `package.json:12` `"homepage": "https://github.com/Bruce\u002dYii/gemini-mcp-gateway#readme"`
-- `package.json:14` `"url": "https://github.com/Bruce\u002dYii/gemini-mcp-gateway/issues"`
-- `scripts/real-gh-replay.mjs:31` `const OWNER = 'Bruce\u002dYii';`
-- `scripts/replay-write.mjs:24` `const owner = process.env.REPLAY_OWNER || 'Bruce\u002dYii';`
-- `src/result-normalize.js:179` comment: ``The online raw shape was `repo://Bruce\u002dYii/<repo>/contents/<path>`…``
+- `package.json:10` `"url": "git+https://github.com/<private-handle>/gemini-mcp-gateway.git"`
+- `package.json:12` `"homepage": "https://github.com/<private-handle>/gemini-mcp-gateway#readme"`
+- `package.json:14` `"url": "https://github.com/<private-handle>/gemini-mcp-gateway/issues"`
+- `scripts/real-gh-replay.mjs:31` `const OWNER = '<private-handle>';`
+- `scripts/replay-write.mjs:24` `const owner = process.env.REPLAY_OWNER || '<private-handle>';`
+- `src/result-normalize.js:179` comment: ``The online raw shape was `repo://<private-handle>/<repo>/contents/<path>`…``
 - `scripts/export-oss.mjs:132` detector source embeds the handle as its own pattern string.
 
 **Why it matters:** the escaped form renders as an ordinary personal handle when
@@ -84,7 +84,7 @@ neutral identity.
    the chosen public owner/repo (decide `codemode-mcp-gateway` vs current name —
    F-07).
 3. Replace fixtures in `tests/*` and `scripts/*` with `example-org/example-repo`
-   and `example-org/recruitment-agent`→`example-org/example-project`; keep the
+   and `example-org/<private-project>`→`example-org/example-project`; keep the
    *shape* of fixtures (owner/repo/key structure) so tests still exercise the
    parsing logic. Update `src/result-normalize.js:179` comment to `repo://example-org/<repo>/...`.
 4. Remove the handle from `scripts/export-oss.mjs` detector source entirely:
@@ -98,25 +98,25 @@ neutral identity.
 `scripts/export-oss.mjs:132`:
 
 ```js
-{ id: 'personal-handle', re: /Bruce\u002dYii/i, note: 'default personal GitHub handle / author name' },
+{ id: 'personal-handle', re: /<private-handle>/i, note: 'default personal GitHub handle / author name' },
 ```
 
 In a JavaScript regex literal `\u002d` is interpreted as the **hyphen character**,
 so the pattern matches the plain hyphenated handle but not the shipped escaped
-text `Bruce\u002dYii`. Verified against the actual file text:
+text `<private-handle>`. Verified against the actual file text:
 `contains(escaped literal) = true`, `regex.IsMatch(escaped literal) = false`,
 `regex.IsMatch(plain hyphenated handle) = true`. The same
-blindness affects the other detectors at lines 133–135 (`D:\\\u00312412`,
-`dsh\u002dhome`, `\.\u0073ecrets`) — they only match unescaped paths, while the
+blindness affects the other detectors at lines 133–135 (`<private-workspace>`,
+`<private-home>`, `\<private-store>`) — they only match unescaped paths, while the
 shipped scripts contain the escaped ones (F-04).
 
 **Executable fix:**
 1. Make `SENSITIVE_PATTERNS` escape-aware before matching: for each text line,
    generate a decoded candidate set (decode `\uXXXX` sequences and `%XX` with a
    bounded loop) and run both raw and decoded patterns against it. Add detector
-   cases for `Bruce` + any separator encoding (`[-_]` or `\\u002d|%2d` etc.).
+   cases for `<private-handle-prefix>` + any separator encoding (`[-_]` or `\\u002d|%2d` etc.).
 2. Add a unit test (in the private tooling) that feeds the exact string
-   `Bruce\u002dYii` and asserts a hard failure; add an integration assertion that
+   `<private-handle>` and asserts a hard failure; add an integration assertion that
    `--check` fails on a fixture containing the escaped form. RELEASE-LOCAL.md §5
    already lists this; treat it as a release gate, not a note.
 3. Re-run `node scripts/export-oss.mjs --out <staging> --check` after the fix and
@@ -126,7 +126,7 @@ shipped scripts contain the escaped ones (F-04).
 ### F-03 (P1) Concatenation evasions in test source
 
 `tests/export-oss.test.js:177,208,306` build the handle at runtime as
-`'Bruce' + '-Yii'` (including embedding it into generated fixture content
+`<concatenated-private-handle>` (including embedding it into generated fixture content
 `"const who = ..."` and `"maintained by ..."`). No literal-handle grep finds
 these; the detector cannot either because it scans file content, not computed
 values.
@@ -141,9 +141,9 @@ False Positives.)
 
 | File:line | Value | Risk |
 |---|---|---|
-| `bench/results.json:4` | `"tasksFile": "D:\\\u00312412\\dsh工作区\\projects\\gemini-mcp-gateway\\bench\\tasks.json"` | Real personal workspace path in a committed benchmark artifact |
-| `scripts/real-gh-replay.mjs:19,44` | `D:\u00312412\dsh\u002dhome\.\u0073ecrets\gemini-mcp-gateway`, `path.join('D:\\\u00312412\\dsh\u002dhome', '.\u0073ecrets', ...)` | Personal vault location (escaped, so detector misses it); script defaults to it at runtime |
-| `scripts/figma-token.mjs:18,31` | same vault path; `resolve(home, '.\u0073ecrets', 'gemini-mcp-gateway')` | Same |
+| `bench/results.json:4` | `"tasksFile": "<private-workspace>\\dsh工作区\\projects\\gemini-mcp-gateway\\bench\\tasks.json"` | Real personal workspace path in a committed benchmark artifact |
+| `scripts/real-gh-replay.mjs:19,44` | `<private-workspace>\<private-home>\<private-store>\gemini-mcp-gateway`, `path.join('<private-workspace>\\<private-home>', '<private-store>', ...)` | Personal vault location (escaped, so detector misses it); script defaults to it at runtime |
+| `scripts/figma-token.mjs:18,31` | same vault path; `resolve(home, '<private-store>', 'gemini-mcp-gateway')` | Same |
 | `docs/eval/AUTH-PROVIDERS.md:194` | `C:\work\local-home/.config/gemini-mcp-gateway` | Internal credential-store location described as fact |
 | `docs/eval/PLATFORM-CONFORMANCE-MATRIX.md:209` | same path plus `AGENTS.md` rule citation | Internal path + internal doc name |
 | `docs/eval/REAL-GH-REPLAY.md:5` | same path + `github-auth.json` | Internal path |
@@ -162,22 +162,22 @@ but verify no decoder-visible literal survives.
 ### F-05 (P1) Real PR/Actions data and internal project name
 
 - `docs/eval/REAL-GH-REPLAY.md:35-52`: PR numbers 53/56/57/59 with real numeric
-  DB ids `5444514334`, `5445190988`, `5445221033`, `5445326882`, real node_ids
-  `PR_kwDOVr6OCM8AAAABRISyHg` etc., and Actions job id `137420494321`. URL owner is
+  DB ids `<real-db-id>`, `<real-db-id>`, `<real-db-id>`, `<real-db-id>`, real node_ids
+  `<real-node-id>` etc., and Actions job id `<real-job-id>`. URL owner is
   neutralized to `example-org`, but the values themselves are real identifiers.
 - `scripts/real-gh-replay.mjs:33-35`: `WANTED_PR_NUMBERS = [53,56,57,59]`,
-  `EXACT_PR_NUMBER = 53`, `JOB_ID = 137420494321`.
+  `EXACT_PR_NUMBER = 53`, `JOB_ID = <real-job-id>`.
 - `docs/eval/online-offline-join-2026-11-22.md:4,34,65,80`: R2 bucket
-  `gemini-mcp-gateway-capture`, full capture prefixes, request id
-  `05d1b10d-9909-42fb-b28c-5a02959dffdb`, and the internal repo name
-  `recruitment-agent` in captured code.
-- `recruitment-agent` appears 47 times across docs/tests/scripts (e.g.
+  `<private-r2-bucket>`, full capture prefixes, request id
+  `<real-request-id>`, and the internal repo name
+  `<private-project>` in captured code.
+- `<private-project>` appears 47 times across docs/tests/scripts (e.g.
   `tests/project-tag.test.js:9,25,77`, `tests/project-llm-labeler.test.js:65-69`,
   `tests/real-gh-replay.test.js:48,130`).
 
 **Fix:** replace numeric ids/node_ids/job id with clearly synthetic values
 (e.g. `1000000001`, `PR_kwDOEXAMPLE000000000`, `999999999999`); replace the
-bucket name with `<your-r2-bucket>`; replace `recruitment-agent` with
+bucket name with `<your-r2-bucket>`; replace `<private-project>` with
 `example-project` everywhere; keep the PR-number/id *distinction* tests intact.
 If any real session evidence must be cited, describe it without copyable
 identifiers (e.g. "a private PR with a long DB id").
@@ -297,7 +297,7 @@ artifacts after review.
 - No Vercel project id, no Upstash REST URL (`KV_REST_API_URL` is only an env var
   name); `*.vercel.app` hits are placeholder text and a test fixture
   (`tests/export-oss.test.js:179`), not a live hostname.
-- `package-lock.json` "yii"/"Bruce" substring hits are npm integrity hashes
+- `package-lock.json` "yii"/"<private-handle-prefix>" substring hits are npm integrity hashes
   (`...Yyii07tpPsLw==`) and unrelated third-party metadata — not the handle.
 - `tests/real-gh-replay.test.js:130` uses a deliberately nonexistent vault path —
   negative-path test, not a leak.
@@ -336,7 +336,7 @@ artifacts after review.
       `--check` (F-02). Remove the handle from detector source itself.
 - [ ] Replace personal/absolute paths in `bench/results.json`, scripts, docs;
       make vault location env-driven with a generic default (F-04).
-- [ ] Neutralize real PR ids/node_ids/job id/bucket name and `recruitment-agent`
+- [ ] Neutralize real PR ids/node_ids/job id/bucket name and `<private-project>`
       in docs/tests/scripts (F-05).
 - [ ] Scrub internal asset names (`ledger`, `HANDOFF`, `PLAN-2026-11-23`,
       `work/...`) from public docs; update README layout table (F-06).
@@ -359,4 +359,32 @@ artifacts after review.
       Claude target; ChatGPT documented-not-promised). Keep the private repo private.
 
 **This audit added only this file. No commit, push, tag, deploy, or code change
-was performed.**
+was performed by the auditor.** The fix-status section below was added later by
+the OSS blocker-fix batch; it records remediation performed in the private
+source checkout (no commit/push/deploy).
+
+## 5. Fix status — P1/P2 blocker batch (2026-11-23)
+
+Scope of the remediation batch: `package.json`, `bench/results.json`,
+`scripts/figma-token.mjs`, `scripts/real-gh-replay.mjs`,
+`tests/*.test.js`, this report, `RELEASE-LOCAL.md`, and the new ledger
+`docs/ledger/batch-15-oss-blockers.md`. The release owner separately owns
+`scripts/export-oss.mjs` / `scripts/prepare-neutral-source.mjs` (P0 neutralizer),
+README, LICENSE, package-lock, workflows, and the rest of `docs/`.
+
+| Finding | Status | Evidence / remaining work |
+|---|---|---|
+| **F-03** concatenation evasions in tests | **FIXED (in-scope files)** | `tests/export-oss.test.js` no longer reconstructs the personal handle; its detector fixtures now use synthetic domain/secret values assembled at runtime. All other `tests/*.test.js` handle fixtures were replaced with `test-org` / `test-repo`. Literal handle and escaped/concatenated forms: 0 hits in `tests/`. Caveat: the digest-pinned `personal-handle` detector in `scripts/export-oss.mjs` can no longer be exercised from a neutral public fixture; that coverage now belongs to private release tooling. |
+| **F-04** absolute/internal paths | **FIXED (in-scope files)** | `bench/results.json:4` now `bench/tasks.json`. `scripts/figma-token.mjs` and `scripts/real-gh-replay.mjs` derive the vault location from `GATEWAY_SECRET_DIR` or a portable per-user default (`~/.config/codemode-mcp-gateway`); no `<private-workspace>\...` / `<private-home>` / `<private-store>` literal remains in either file. `GATEWAY_SECRET_DIR` in `tests/real-gh-replay.test.js` is a deliberately nonexistent negative-path fixture. Doc path literals in `docs/eval/*` are outside this batch's write scope — **owner follow-up**. |
+| **F-05** real PR/Actions data, internal repo name | **FIXED (in-scope files)** | `scripts/real-gh-replay.mjs` now uses env-driven neutral defaults (`test-org`, `test-repo`, PRs `1,2,3,4`, `JOB_ID=999999999999`, synthetic node id shape) and vault resolution from env. Tests use synthetic DB ids `1000000001`–`1000000004` and `PR_kwDOEXAMPLE001`; `<private-project>` is gone from `tests/`. Capture-id / R2 bucket / internal repo name in `docs/eval/online-offline-join-2026-11-22.md` are **out of scope** — owner follow-up. |
+| **F-06** internal asset names in shipped docs | **PARTIAL** | `RELEASE-LOCAL.md` no longer reproduces the escaped handle and now points to this ledger instead of embedding the full private path investigation; it still describes the local release repo path names as part of the release procedure (owner must scrub before export). `README.md`, `docs/eval/*`, `EXPORT-VERIFICATION.md` are outside this batch — **open**. |
+| **F-07** identity inconsistent | **FIXED in package.json; owner follow-up elsewhere** | `package.json` is now `name: codemode-mcp-gateway`, `author: example-org`, with repository/homepage/bugs at `example-org/codemode-mcp-gateway`. Decision recorded: adopt the `codemode-mcp-gateway` name recommended by the public plan docs. `package-lock.json` root `name`, LICENSE, README badges/clone URLs and Docker image tag are outside this batch — **open**. |
+| **F-08** dangling doc links / "issue #3" | **OPEN (out of scope)** | All 22 links, the private `docs/CREDENTIALS.md` / `HANDOFF` / `PLAN` references, "issue #3", and the literal `\n-` rendering bug live in README and docs outside this batch's write list. No silent pass: recorded here and in `batch-15-oss-blockers.md` as release-owner work. |
+| **F-09** CI red on missing private fixtures | **FIXED** | `scripts/eval-search.mjs` and `scripts/audit-tools.mjs` now `existsSync`-guard their private fixtures and print `SKIP: … private eval fixture excluded from OSS export` with a reason, exiting 0. `tests/oss-private-fixture-skip.test.js` asserts exit 0 plus an explicit SKIP reason and forbids measurement output under SKIP. `measure-context.mjs` and the two previously gated tests were already correct. `check-task-coverage.mjs` also reads `explore/figma-tasks.json`; lead authorization covered only the two scripts above, so that step remains an **owner follow-up** for public CI. |
+| **F-10** stale capability claims | **OPEN (out of scope)** | Findings are in CHANGELOG, `docs/OBSERVABILITY-AND-EVAL.md`, README (AGENTS.md link, `/healthz` wording, Gemini-test dating). Not changed by this batch; recorded as owner work. `RELEASE-LOCAL.md` now states the Docker/healthz and Node matrix were not re-verified. |
+
+No commit, push, tag, or deploy was performed by this batch. In-scope fixture
+tests are green (147 tests / 0 fail); the full `npm test` still has failures
+from concurrent, out-of-scope `src/result-normalize.js` / `src/codemode.js`
+normalize/unwrap regressions. Details and verification evidence are recorded in
+`docs/ledger/batch-15-oss-blockers.md`.
