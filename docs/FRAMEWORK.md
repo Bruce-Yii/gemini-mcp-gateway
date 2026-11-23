@@ -497,3 +497,14 @@ D. 网关内部把客户端已发起的 execute 视为 host approval，减少模
 - 网关只保留代码级安全闸；
 - 不让用户为“读”审批；
 - 写操作可以少弹，但不能靠撒谎 annotations 实现；先实验 profile，再决定全局策略。
+
+---
+
+## 15. 七模块架构审计（2026-11-24）
+
+七份只读深读报告索引：[docs/architecture-audit/README.md](architecture-audit/README.md)
+
+- 00 跨模块；01 客户端；02 核心底座；03 上游；04 评测；05 运行时；06 开源。
+- 共同结论：架构方向成立，但“架构承诺”与“生产默认”仍有距离；Native/Hybrid、按客户端选执行器、RuntimeAdapter、多客户端隔离、主动/被动字段隔离仍是 L0–L1。
+- 真实 tools/list 3/5；owner 迁移/KV 隔离/真实客户端/真实写/授权生命周期未验收。
+- 开源仍是 L0（公开 README 已有超出证据的宣称）。
