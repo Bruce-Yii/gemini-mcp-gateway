@@ -83,7 +83,7 @@
 8. 部署后同任务在线复验 F1–F6 / J1–J6；
 9. 真实客户端 lane / canary。
 
-## 5. 部署纪律\n\n- 见 `docs/DEPLOY-POLICY.md`：默认每天 ≤3 次，不为小改动部署；docs/tests-only 不部署。\n- 当前生产 `87d91af`（验收门 A PASS）；下一次等完整批次。\n\n## 6. 硬规则
+## 5. 部署纪律\n\n- 见 `docs/DEPLOY-POLICY.md`：不设固定次数；无进展不部署，有明确进展/必须实测就部署；docs/tests-only 不部署。\n- 当前生产 `87d91af`（验收门 A PASS）；下一次等完整批次。\n\n## 6. 硬规则
 
 - 不把“代码已修”当“线上已生效”；
 - 不跨构建硬比；
