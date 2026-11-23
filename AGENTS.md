@@ -178,12 +178,12 @@ online-feedback.v1 记录
 
 ## 10. 恢复时先读
 
-1. `docs/EVALUATION.md`
-2. `docs/EXECUTION-PLAN.md`
-3. `docs/ledger/README.md`
-4. `docs/AUTH-READY.md`
-5. `docs/OPEN-SOURCE/RELEASE-LOCAL.md`
-6. `docs/HANDOFF-2026-11-23.md`
-7. `docs/ACCEPTANCE.md`（V0 真实验收门；测试绿 ≠ 验收）
-8. `docs/DEPLOY-POLICY.md`（少部署/批量部署）
-9. `docs/DEPLOYMENTS.md`（部署日志）
+1. `docs/HANDOFF-NEXT-WINDOW.md`（新窗口接手必读）`n2. `docs/EVALUATION.md`
+3. `docs/EXECUTION-PLAN.md`
+4. `docs/ledger/README.md`
+5. `docs/AUTH-READY.md`
+6. `docs/OPEN-SOURCE/RELEASE-LOCAL.md`
+7. `docs/HANDOFF-2026-11-23.md`
+8. `docs/ACCEPTANCE.md`（V0 真实验收门；测试绿 ≠ 验收）
+9. `docs/DEPLOY-POLICY.md`（少部署/批量部署）
+10. `docs/DEPLOYMENTS.md`（部署日志）
