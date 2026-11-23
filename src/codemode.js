@@ -26,7 +26,7 @@ import { encodeModelOutput, resolveClientProfile } from './client-profile.js';
 // B10 integration: canonical adapters are exposed into the sandbox through the
 // existing host bridge (values serialize; guest functions cannot cross it).
 // The existing fileResult/prResult helpers stay byte-for-byte unchanged.
-import { normalizeResult as hostNormalizeResult } from './result-normalize.js';
+import { normalizeResult as hostNormalizeResult, UNTRUSTED_RAW_MARKER as RESULT_RAW_MARKER } from './result-normalize.js';
 // B10 follow-up (PR #41–#48): unified write semantics. These are pure host
 // modules; only data crosses the bridge, so the guest helpers below stay thin.
 import {
@@ -35,6 +35,8 @@ import {
   githubActionsListWorkflowRuns,
   githubActionsListWorkflowJobs,
   githubActionsGetJobLogs,
+  waitForPrChecks,
+  UNTRUSTED_RAW_MARKER,
 } from './github-helpers.js';
 import { applyFilePatches, precheckText, normalizeWriteResult } from './file-write.js';
 import {
@@ -106,6 +108,16 @@ function githubUsageNote(entry) {
 // expire at any moment, and what to do when the provider rejects a token.
 const SERVICES_GUIDANCE = ' Use codemode.services() for a cold-start snapshot of locally known services (name/toolCount/status/verifiedAt/note); it reads local state only and makes no network call. status is point-in-time evidence ("observed" = mounted with no recorded failure, "offline" = connection failed at cold start), NOT a live health check — credentials can expire at any moment and the legacy `online` flag only means "mounted at cold start". If a tool call returns invalid_token/unauthorized, the upstream needs re-auth; treat that service as stale until it is reconnected.';
 
+// Batch 15 codemode ergonomics (2026-11-23 online feedback, PR #77–#80).
+// One line each so the model can defend without trial-and-error rounds.
+const B15_ERGONOMICS_GUIDANCE = [
+  'File reads: fileResult(x).content / normalizeFile(x).content / readFileRange().lines are ALWAYS the pure file body — no "successfully downloaded ..." prefix; SHA and the notice live in sha/notice metadata fields. Never strip anything yourself.',
+  'Batch contract: codemode.safeAll(tasks) and codemode.unwrapBatch(x) both return a FLAT array of {ok,value} slots (success: ok:true,value; failure: ok:false,value=error text). unwrapBatch accepts a single result, an envelope, or an array and always returns the same flat shape; never hand-unwrap one more layer.',
+  'Truncation: if a result carries truncated:true or a truncation object, report it and re-read with readFileRange / grepSnippet; model-facing execute results may carry a `truncation` object naming the field, totalChars/totalLines, tailTruncated and continuation hints — the tail field names are preserved.',
+  'Multi-file writes: prefer codemode.writeFiles (github__push_files) for N files — it commits all files in ONE atomic push; do not loop create_or_update_file. If atomic is unavailable and you still write per-file, the result carries partial:true, written[], remaining[] and a compensation string: surface it to the user and restore the written files before retrying.',
+  'CI polling: codemode.waitForPrChecks({owner,repo,pullNumber,timeoutMs?,maxPolls?}) waits up to 30s in ONE call and returns the latest {status,conclusion,checkRuns[],polls,truncated} snapshot instead of 3–4 manual polls.',
+].join(' ');
+
 /**
  * Guest-side compatibility layer, injected as a single function body prefix.
  *
@@ -165,6 +177,13 @@ const GUEST_PRELUDE = [
   // or thunks (thunks also catch *synchronous* throws during construction).
   'const __dshSafeAll = (tasks) => Promise.all((Array.isArray(tasks) ? tasks : []).map((task) => Promise.resolve().then(() => (typeof task === "function" ? task() : task)).then((value) => ({ ok: true, value }), (err) => ({ ok: false, value: err && err.message !== undefined ? String(err.message) : String(err) }))));',
   'const safeAll = __dshHide(__dshSafeAll); codemode.safeAll = safeAll;',
+  // Batch 15 P1 · one flat batch contract. Every input shape (a bare value, a
+  // `{ok,value}` slot, an upstream envelope, or an array of any of those)
+  // produces the SAME array of {ok,value} slots. This is the ONE place that
+  // decides unwrapping depth so callers never guess how many layers to peel.
+  'const __dshFlattenSlot = (item) => { if (item && typeof item === "object" && !Array.isArray(item) && typeof item.ok === "boolean" && "value" in item) return { ok: item.ok, value: item.value }; let v = item; if (v && typeof v === "object" && !Array.isArray(v)) { if (Object.prototype.hasOwnProperty.call(v, "result") && !Object.prototype.hasOwnProperty.call(v, "content") && !Object.prototype.hasOwnProperty.call(v, "text")) v = v.result; else if (Object.prototype.hasOwnProperty.call(v, "value")) v = v.value; } return { ok: true, value: v }; };',
+  'const __dshUnwrapBatch = (input) => { const arr = Array.isArray(input) ? input : (input === null || input === undefined ? [] : [input]); const out = []; for (const item of arr) { if (Array.isArray(item)) { for (const sub of item) out.push(__dshFlattenSlot(sub)); } else out.push(__dshFlattenSlot(item)); } return out; };',
+  'const unwrapBatch = __dshHide(__dshUnwrapBatch); codemode.unwrapBatch = unwrapBatch;',
   // Gemini feedback #4: extract context windows around a keyword from a long
   // text — avoids hand-writing slice/indexOf loops after results get truncated.
   // Accepts string or any object (JSON-stringified). Returns an array of
@@ -264,8 +283,10 @@ const GUEST_PRELUDE = [
   // put the notice on line 1 of written files. Narrow notice regex only;
   // resources[].text wins whenever it is present alongside text. Keep the
   // exact six-field return set (callers rely on it).
-  'const __dshFileNotice = /^successfully downloaded text file \\(SHA: ([0-9a-f]+)\\)\\r?\\n/i;',
-  'const __dshStripFileNotice = (s) => { if (typeof s !== "string") return { text: s, sha: null }; const m = __dshFileNotice.exec(s); return m ? { text: s.slice(m[0].length), sha: m[1] } : { text: s, sha: null }; };',
+  'const __dshFileNotice = /^successfully downloaded text file \\(SHA: ([0-9a-f]+)(?:,[^)]*)?\\)[ \\t]*(?:\\r?\\n)?/i;',
+  'const __dshStripFileNotice = (s) => { if (typeof s !== "string") return { text: s, sha: null, notice: null }; const m = __dshFileNotice.exec(s); return m ? { text: s.slice(m[0].length), sha: m[1], notice: m[0].trim() } : { text: s, sha: null, notice: null }; };',
+  // A notice is metadata, never file text. Apply this at EVERY body source.
+  'const __dshPureFileText = (s) => { const r = __dshStripFileNotice(s); return { text: typeof r.text === "string" ? r.text : "", sha: r.sha, notice: r.notice }; };',
   // Batch 15 GPT online fix — parse a real file path out of a GitHub resource
   // URI (`repo://owner/repo/contents/<path>`). Never return the raw URI as a
   // path; never guess when there is no marker.
@@ -274,8 +295,14 @@ const GUEST_PRELUDE = [
   // Batch 15 GPT online fix — scan the ORIGINAL result envelope (not the
   // unwrapped v2, which may have collapsed to a string) for a resource URI.
   'const __dshResourcePath = (o) => { if (!o || typeof o !== "object") return null; const roots = [o]; if (o.result && typeof o.result === "object") roots.push(o.result); for (const root of roots) { const explicit = root.path || root.file_path || root.filePath; if (typeof explicit === "string" && explicit.length) return explicit; const lists = [root.resources, root.content]; for (const list of lists) { if (!Array.isArray(list)) continue; for (const r of list) { const inner = r && typeof r === "object" && r.resource && typeof r.resource === "object" ? r.resource : r; const p = __dshPathFromUri(inner && typeof inner === "object" ? inner.uri : null); if (p !== null) return p; } } const direct = __dshPathFromUri(root.uri); if (direct !== null) return direct; } return null; };',
-  'const __dshFileResult = (value) => { const pick = (o, keys) => { if (!o || typeof o !== "object") return undefined; for (const k of keys) if (o[k] !== undefined && o[k] !== null) return o[k]; return undefined; }; let v; try { v = __dshUnwrap(value); } catch (_) { v = value; } const fromResources = __dshResourceText(value) || __dshResourceText(v); let noticeSha = null; let v2 = v; if (typeof v2 === "string") { const s = __dshStripFileNotice(v2); noticeSha = s.sha; v2 = s.text; } if (typeof v2 === "object" && v2 !== null) { const nested = v2.result && typeof v2.result === "object" ? v2.result : v2; const c = pick(nested, ["content", "text", "data"]); if (typeof c === "string") { const s = __dshStripFileNotice(c); noticeSha = noticeSha || s.sha; const copy = {}; for (const k of Object.keys(nested)) copy[k] = nested[k]; copy.content = fromResources || s.text; copy.__dshShaFromNotice = noticeSha; v2 = copy; } } if (typeof v2 === "string") { const body = fromResources || v2; return { content: body, size: body.length, sha: noticeSha, path: __dshResourcePath(value), encoding: null, truncated: /--- TRUNCATED ---/.test(body) }; } const root = v2 && typeof v2 === "object" ? v2 : {}; const nested = root.result && typeof root.result === "object" ? root.result : root; let content = fromResources || pick(nested, ["content", "text", "data"]); if (typeof content !== "string") { const resources = Array.isArray(nested.resources) ? nested.resources : []; const joined = resources.map((r) => r && typeof r.text === "string" ? r.text : "").filter(Boolean).join("\\n"); if (joined) content = joined; } noticeSha = noticeSha || __dshStripFileNotice(String(pick(nested, ["text", "content", "data"]) ?? "")).sha || root.__dshShaFromNotice; const sha = pick(nested, ["sha", "sha256", "content_sha", "commit_sha"]) ?? noticeSha ?? null; const path = __dshResourcePath(value) ?? (() => { const explicit = pick(nested, ["path", "name", "file_path", "filePath"]); if (explicit !== undefined) return explicit; const list = (Array.isArray(nested.resources) ? nested.resources : []).concat(Array.isArray(nested.content) ? nested.content : []); for (const r of list) { const inner = r && typeof r === "object" && r.resource && typeof r.resource === "object" ? r.resource : r; const parsed = __dshPathFromUri(inner && typeof inner === "object" ? pick(inner, ["uri"]) : null); if (parsed !== null) return parsed; } const direct = __dshPathFromUri(pick(nested, ["uri"])); return direct === null ? null : direct; })(); const encoding = pick(nested, ["encoding"]); const rawSize = pick(nested, ["size", "bytes"]); return { content: typeof content === "string" ? content : null, sha: sha, size: Number(rawSize ?? (typeof content === "string" ? content.length : 0)) || 0, path: path ?? null, encoding: encoding ?? null, truncated: Boolean(nested.truncated) || /--- TRUNCATED ---/.test(String(content ?? "")) }; };',
+  // Batch 15 P0: `content` is ALWAYS pure body; notice/SHA are metadata only.
+  // Keeps the historical six enumerable fields; `notice` is non-enumerable so
+  // the stable field set asserted by older callers is unchanged.
+  'const __dshFileResult = (value) => { const pick = (o, keys) => { if (!o || typeof o !== "object") return undefined; for (const k of keys) if (o[k] !== undefined && o[k] !== null) return o[k]; return undefined; }; let v; try { v = __dshUnwrap(value); } catch (_) { v = value; } const fromResourcesRaw = __dshResourceText(value) || __dshResourceText(v); const fromResources = fromResourcesRaw === null ? null : __dshPureFileText(fromResourcesRaw); let noticeSha = fromResources ? fromResources.sha : null; let notice = fromResources ? fromResources.notice : null; let v2 = v; if (typeof v2 === "string") { const s = __dshPureFileText(v2); noticeSha = noticeSha || s.sha; notice = notice || s.notice; v2 = s.text; } if (typeof v2 === "object" && v2 !== null) { const nested = v2.result && typeof v2.result === "object" ? v2.result : v2; const c = pick(nested, ["content", "text", "data"]); if (typeof c === "string") { const s = __dshPureFileText(c); noticeSha = noticeSha || s.sha; notice = notice || s.notice; const copy = {}; for (const k of Object.keys(nested)) copy[k] = nested[k]; copy.content = fromResources ? fromResources.text : s.text; copy.__dshShaFromNotice = noticeSha; v2 = copy; } } if (typeof v2 === "string") { const body = fromResources ? fromResources.text : v2; const out = { content: body, size: body.length, sha: noticeSha, path: __dshResourcePath(value), encoding: null, truncated: /--- TRUNCATED ---/.test(body) }; Object.defineProperty(out, "notice", { value: notice, enumerable: false, configurable: true, writable: true }); return out; } const root = v2 && typeof v2 === "object" ? v2 : {}; const nested = root.result && typeof root.result === "object" ? root.result : root; let content = fromResources ? fromResources.text : pick(nested, ["content", "text", "data"]); if (typeof content !== "string") { const resources = Array.isArray(nested.resources) ? nested.resources : []; const joined = resources.map((r) => r && typeof r.text === "string" ? __dshPureFileText(r.text).text : "").filter(Boolean).join("\\n"); if (joined) content = joined; } const stripped = __dshPureFileText(typeof content === "string" ? content : ""); content = stripped.text; noticeSha = noticeSha || stripped.sha || __dshStripFileNotice(String(pick(nested, ["text", "content", "data"]) ?? "")).sha || root.__dshShaFromNotice; notice = notice || stripped.notice; const sha = pick(nested, ["sha", "sha256", "content_sha", "commit_sha"]) ?? noticeSha ?? null; const path = __dshResourcePath(value) ?? (() => { const explicit = pick(nested, ["path", "name", "file_path", "filePath"]); if (explicit !== undefined) return explicit; const list = (Array.isArray(nested.resources) ? nested.resources : []).concat(Array.isArray(nested.content) ? nested.content : []); for (const r of list) { const inner = r && typeof r === "object" && r.resource && typeof r.resource === "object" ? r.resource : r; const parsed = __dshPathFromUri(inner && typeof inner === "object" ? pick(inner, ["uri"]) : null); if (parsed !== null) return parsed; } const direct = __dshPathFromUri(pick(nested, ["uri"])); return direct === null ? null : direct; })(); const encoding = pick(nested, ["encoding"]); const rawSize = pick(nested, ["size", "bytes"]); const out = { content: typeof content === "string" ? content : null, sha: sha, size: Number(rawSize ?? (typeof content === "string" ? content.length : 0)) || 0, path: path ?? null, encoding: encoding ?? null, truncated: Boolean(nested.truncated) || Boolean(nested.isTruncated) || /--- TRUNCATED ---/.test(String(content ?? "")) }; Object.defineProperty(out, "notice", { value: notice, enumerable: false, configurable: true, writable: true }); return out; };',
   'const fileResult = __dshHide((v) => { try { return __dshFileResult(v); } catch (_) { return { content: null, sha: null, size: 0, path: null, encoding: null, truncated: false }; } }); codemode.fileResult = fileResult;',
+  // Batch 15 P0: notice is metadata, never content. `fileMeta` exposes it
+  // explicitly without changing fileResult's stable six-field shape.
+  'codemode.fileMeta = __dshHide((v, toolName) => { try { const nf = codemode.normalizeFile(v, toolName); return { notice: nf.notice ?? null, noticeSha: nf.noticeSha ?? nf.sha ?? null, truncated: Boolean(nf.truncated), truncation: nf.truncation ?? null }; } catch (_) { return { notice: null, noticeSha: null, truncated: false, truncation: null }; } });',
   // Batch 15 GPT online fix — additive PR identifiers. `id` (DB id) and
   // `nodeId` (GraphQL node_id) are exposed as separate strings, and NEVER
   // used as the PR number: `number` stays URL-first.
@@ -426,10 +453,15 @@ const GUEST_PRELUDE = [
   'const __dshB10UpsertPr = async (opts) => { const o = opts && typeof opts === "object" ? opts : {}; const names = __dshB10Cfg(o.tools, { listTool: "github__list_pull_requests", createTool: "github__create_pull_request", updateTool: "github__update_pull_request" }); if (!o.head || !o.base) throw new Error("upsertPr: head and base are required"); const state = o.state || "open"; const listArgs = Object.assign({}, o.listArgs || {}, { owner: o.owner, repo: o.repo, head: typeof o.head === "object" ? (o.head.ref || o.head.sha) : o.head, base: typeof o.base === "object" ? (o.base.ref || o.base.sha) : o.base, state: state }); const prs = __dshB10ToArray(await __dshCallTool(names.listTool, listArgs)); const headRef = typeof o.head === "object" ? (o.head.ref || o.head.sha) : o.head; const baseRef = typeof o.base === "object" ? (o.base.ref || o.base.sha) : o.base; const existing = prs.find((pr) => { if (!pr || typeof pr !== "object") return false; const st = __dshB10Str(pr.state || "open").toLowerCase(); const h = pr.head && typeof pr.head === "object" ? (pr.head.ref || pr.head.sha) : pr.head; const b = pr.base && typeof pr.base === "object" ? (pr.base.ref || pr.base.sha) : pr.base; return st === "open" && h === headRef && b === baseRef; }); if (existing) { if (names.updateTool) { const updated = await __dshCallTool(names.updateTool, Object.assign({}, o.updateArgs || {}, { owner: o.owner, repo: o.repo, pullNumber: existing.number !== undefined && existing.number !== null ? existing.number : undefined, title: o.title, body: o.body, head: headRef, base: baseRef })); return { created: false, updated: true, reused: false, pr: updated }; } return { created: false, updated: false, reused: true, pr: existing }; } const created = await __dshCallTool(names.createTool, Object.assign({}, o.createArgs || {}, { owner: o.owner, repo: o.repo, head: headRef, base: baseRef, title: o.title, body: o.body })); return { created: true, updated: false, reused: false, pr: created }; };',
   'codemode.upsertPr = __dshHide(__dshB10UpsertPr);',
   // ---- fetchAllPages: cursor/page pagination with de-dup ----
-  'const __dshB10FetchAllPages = async (opts) => { const o = opts && typeof opts === "object" ? opts : {}; const names = __dshB10Cfg(o.tools, { pageTool: o.pageTool || "" }); if (!names.pageTool) throw new Error("fetchAllPages: tools.pageTool (or opts.pageTool) is required"); const maxPages = Number.isFinite(o.maxPages) && o.maxPages > 0 ? Math.floor(o.maxPages) : 20; const cursorKey = o.cursorKey || "cursor"; const items = []; const seen = {}; let cursor; let pages = 0; while (pages < maxPages) { const args = Object.assign({}, o.pageArgs || {}, {}, cursor === undefined ? {} : (o.pageBased ? { page: cursor } : { [cursorKey]: cursor })); const page = await __dshCallTool(names.pageTool, args); pages += 1; if (page === null || page === undefined) return { items, pages, nextCursor: null, truncated: false }; const raw = Array.isArray(page) ? page : (page.items !== undefined ? page.items : (page.data !== undefined ? page.data : __dshB10ToArray(page))); const list = Array.isArray(raw) ? raw : []; if (list.length === 0) return { items, pages, nextCursor: null, truncated: false }; for (const item of list) { let key; try { key = JSON.stringify(item); } catch (_) { key = __dshB10Str(item); } if (!Object.prototype.hasOwnProperty.call(seen, key)) { seen[key] = true; items.push(item); } } const next = page.nextCursor !== undefined ? page.nextCursor : (page.next !== undefined ? page.next : (page.pageInfo ? page.pageInfo.endCursor : undefined)); if (next === undefined || next === null || next === "") return { items, pages, nextCursor: null, truncated: false }; if (next === cursor) return { items, pages, nextCursor: next, truncated: false }; cursor = next; } return { items, pages, nextCursor: cursor === undefined ? null : cursor, truncated: true }; };',
+  // Security audit: preserve upstream truncation flags across the guest
+  // adapter. A page that says truncated:true means the whole collection is
+  // incomplete even when the cursor chain ends normally.
+  'const __dshB10FetchAllPages = async (opts) => { const o = opts && typeof opts === "object" ? opts : {}; const names = __dshB10Cfg(o.tools, { pageTool: o.pageTool || "" }); if (!names.pageTool) throw new Error("fetchAllPages: tools.pageTool (or opts.pageTool) is required"); const maxPages = Number.isFinite(o.maxPages) && o.maxPages > 0 ? Math.floor(o.maxPages) : 20; const cursorKey = o.cursorKey || "cursor"; const items = []; const seen = {}; let cursor; let pages = 0; let upstreamTruncated = false; const note = (p) => { if (!p || typeof p !== "object") return; const f = p.truncated !== undefined ? p.truncated : (p.result && typeof p.result === "object" ? p.result.truncated : undefined); if (f === true || f === 1 || f === "1" || f === "true") upstreamTruncated = true; }; const out = (extra) => ({ items, pages, nextCursor: extra.nextCursor === undefined ? null : extra.nextCursor, truncated: extra.truncated === true || upstreamTruncated, upstreamTruncated }); while (pages < maxPages) { const args = Object.assign({}, o.pageArgs || {}, {}, cursor === undefined ? {} : (o.pageBased ? { page: cursor } : { [cursorKey]: cursor })); const page = await __dshCallTool(names.pageTool, args); pages += 1; note(page); if (page === null || page === undefined) return out({ truncated: false }); const raw = Array.isArray(page) ? page : (page.items !== undefined ? page.items : (page.data !== undefined ? page.data : __dshB10ToArray(page))); const list = Array.isArray(raw) ? raw : []; if (list.length === 0) return out({ truncated: false }); for (const item of list) { let key; try { key = JSON.stringify(item); } catch (_) { key = __dshB10Str(item); } if (!Object.prototype.hasOwnProperty.call(seen, key)) { seen[key] = true; items.push(item); } } const next = page.nextCursor !== undefined ? page.nextCursor : (page.next !== undefined ? page.next : (page.pageInfo ? page.pageInfo.endCursor : undefined)); if (next === undefined || next === null || next === "") return out({ truncated: false }); if (next === cursor) return out({ nextCursor: next, truncated: false }); cursor = next; } return out({ nextCursor: cursor, truncated: true }); };',
   'codemode.fetchAllPages = __dshHide(__dshB10FetchAllPages);',
   // ---- repoGrep: list files then read each, regex search with line/column ----
-  'const __dshB10RepoGrep = async (opts) => { const o = opts && typeof opts === "object" ? opts : {}; const names = __dshB10Cfg(o.tools, { listTool: o.listTool || "", readTool: o.readTool || "github__get_file_contents" }); if (!names.listTool) throw new Error("repoGrep: tools.listTool (or opts.listTool) is required"); if (!o.pattern) throw new Error("repoGrep: pattern is required"); const flags = o.flags === undefined ? "i" : o.flags; let re; try { re = o.pattern instanceof RegExp ? o.pattern : new RegExp(o.pattern, flags); } catch (e) { throw new Error("repoGrep: invalid pattern: " + __dshB10Str(e && e.message ? e.message : e)); } const global = re.global ? re : new RegExp(re.source, re.flags.indexOf("g") >= 0 ? re.flags : re.flags + "g"); const files = __dshB10ToArray(await __dshCallTool(names.listTool, Object.assign({}, o.listArgs || {}, { owner: o.owner, repo: o.repo }))).map((f) => (typeof f === "string" ? f : (f && typeof f === "object" ? (f.path || f.name) : null))).filter((f) => typeof f === "string" && f.length > 0); const limit = Number.isFinite(o.limit) && o.limit > 0 ? o.limit : 50; const matches = []; const errors = []; let truncated = false; for (const file of files) { if (matches.length >= limit) { truncated = true; break; } let raw; try { raw = await __dshCallTool(names.readTool, Object.assign({}, o.readArgs || {}, { owner: o.owner, repo: o.repo, path: file })); } catch (e) { errors.push({ file, error: __dshB10Str(e && e.message ? e.message : e) }); continue; } let text = raw; if (raw && typeof raw === "object") text = raw.text !== undefined ? raw.text : (raw.content !== undefined ? raw.content : (raw.result && raw.result.text !== undefined ? raw.result.text : "")); if (typeof text !== "string") { const nf = codemode.normalizeFile(raw, names.readTool); text = nf.content || ""; } const lines = text.split(/\\r?\\n/); for (let i = 0; i < lines.length; i += 1) { global.lastIndex = 0; let m; while ((m = global.exec(lines[i])) !== null) { matches.push({ file, line: i + 1, column: m.index + 1, text: lines[i] }); if (m[0] === "") global.lastIndex += 1; if (matches.length >= limit) { truncated = true; break; } } if (matches.length >= limit) break; } } return { matches, errors, scanned: files.length - errors.length, truncated }; };',
+  // Security audit: a truncated read means grep only saw a prefix of that
+  // file — matches may be missing, so report both limit and upstream truncation.
+  'const __dshB10RepoGrep = async (opts) => { const o = opts && typeof opts === "object" ? opts : {}; const names = __dshB10Cfg(o.tools, { listTool: o.listTool || "", readTool: o.readTool || "github__get_file_contents" }); if (!names.listTool) throw new Error("repoGrep: tools.listTool (or opts.listTool) is required"); if (!o.pattern) throw new Error("repoGrep: pattern is required"); const flags = o.flags === undefined ? "i" : o.flags; let re; try { re = o.pattern instanceof RegExp ? o.pattern : new RegExp(o.pattern, flags); } catch (e) { throw new Error("repoGrep: invalid pattern: " + __dshB10Str(e && e.message ? e.message : e)); } const global = re.global ? re : new RegExp(re.source, re.flags.indexOf("g") >= 0 ? re.flags : re.flags + "g"); const files = __dshB10ToArray(await __dshCallTool(names.listTool, Object.assign({}, o.listArgs || {}, { owner: o.owner, repo: o.repo }))).map((f) => (typeof f === "string" ? f : (f && typeof f === "object" ? (f.path || f.name) : null))).filter((f) => typeof f === "string" && f.length > 0); const limit = Number.isFinite(o.limit) && o.limit > 0 ? o.limit : 50; const matches = []; const errors = []; let truncated = false; let upstreamTruncated = false; for (const file of files) { if (matches.length >= limit) { truncated = true; break; } let raw; try { raw = await __dshCallTool(names.readTool, Object.assign({}, o.readArgs || {}, { owner: o.owner, repo: o.repo, path: file })); } catch (e) { errors.push({ file, error: __dshB10Str(e && e.message ? e.message : e) }); continue; } if (raw && typeof raw === "object") { const f = raw.truncated !== undefined ? raw.truncated : (raw.result && typeof raw.result === "object" ? raw.result.truncated : undefined); if (f === true || f === 1 || f === "1" || f === "true") upstreamTruncated = true; } let text = raw; if (raw && typeof raw === "object") text = raw.text !== undefined ? raw.text : (raw.content !== undefined ? raw.content : (raw.result && raw.result.text !== undefined ? raw.result.text : "")); if (typeof text !== "string") { const nf = codemode.normalizeFile(raw, names.readTool); text = nf.content || ""; if (nf.truncated) upstreamTruncated = true; } const lines = text.split(/\\r?\\n/); for (let i = 0; i < lines.length; i += 1) { global.lastIndex = 0; let m; while ((m = global.exec(lines[i])) !== null) { matches.push({ file, line: i + 1, column: m.index + 1, text: lines[i] }); if (m[0] === "") global.lastIndex += 1; if (matches.length >= limit) { truncated = true; break; } } if (matches.length >= limit) break; } } return { matches, errors, scanned: files.length - errors.length, truncated: truncated || upstreamTruncated, upstreamTruncated }; };',
   'codemode.repoGrep = __dshHide(__dshB10RepoGrep);',
   // Batch 11 · GitHub Actions read-only REST helpers. Gateway-side only: the
   // host performs the fetch with GITHUB_TOKEN; no new MCP tool is registered.
@@ -437,6 +469,8 @@ const GUEST_PRELUDE = [
   'codemode.github_actions_list_workflow_runs = __dshHide((opts) => __dshInvoke("github_actions_list_workflow_runs", [opts]));',
   'codemode.github_actions_list_workflow_jobs = __dshHide((opts) => __dshInvoke("github_actions_list_workflow_jobs", [opts]));',
   'codemode.github_actions_get_job_logs = __dshHide((opts) => __dshInvoke("github_actions_get_job_logs", [opts]));',
+  // Batch 15 P2 · one-call CI wait over the existing tool bridge.
+  'codemode.waitForPrChecks = __dshHide((opts) => __dshInvoke("wait_for_pr_checks", [opts]));',
 ].join('\n');
 const GUEST_PREFIX_LINES = GUEST_PRELUDE.split('\n').length;
 
@@ -560,6 +594,72 @@ function errorInfo(err, scriptLoc) {
  * the envelope as a JSON-encoded string (double serialization). `toJSON()`
  * makes the model receive `result` as the real structured value on the wire.
  */
+/**
+ * Batch 15 P1 · structured truncation metadata for model-facing results.
+ *
+ * The shared truncator (tool-format.js) marks cut values with an in-band
+ * `--- TRUNCATED ---` string. That is deliberately kept for compatibility, but
+ * a marker alone does not say which field was cut, how big the original was,
+ * whether the TAIL was lost, or how to continue reading. We derive that
+ * metadata here at the single model boundary, without changing the truncator.
+ */
+function withTruncationMetadata(value, original) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  // Only annotate when the boundary truncator actually changed the payload.
+  // A model may legitimately RETURN a string containing the marker (e.g. an
+  // upstream log excerpt); that is data, not evidence of boundary truncation.
+  let originalText;
+  let valueText;
+  try {
+    originalText = JSON.stringify(original);
+    valueText = JSON.stringify(value);
+  } catch (_) {
+    return value;
+  }
+  if (originalText === valueText) return value;
+  const keys = Object.keys(value);
+  const markedKeys = keys.filter((k) => {
+    if (k.includes('--- TRUNCATED ---')) return true;
+    const v = value[k];
+    return typeof v === 'string' && v.includes('--- TRUNCATED ---');
+  });
+  // The truncator uses the marker as a KEY on objects and arrays; its value
+  // holds the human-readable note (omitted keys / totals / field names).
+  const markerText = keys
+    .filter((k) => k.includes('--- TRUNCATED ---'))
+    .map((k) => String(value[k] ?? ''))
+    .concat(keys.filter((k) => typeof value[k] === 'string' && value[k].includes('--- TRUNCATED ---')).map((k) => String(value[k])))
+    .join(' ');
+  const marker = /--- TRUNCATED ---\s*([\d,]+)\s*(chars|items)?/i.exec(markerText);
+  const totalChars = marker ? Number((marker[1] ?? '0').replace(/,/g, '')) : null;
+  const summary = /top-level keys:\s*\[([^\]]*)\]/i.exec(markerText)?.[1] ?? null;
+  const omitted = /(\d[\d,]*)\s+keys? omitted:\s*([^.]+)/i.exec(markerText);
+  const continuation = keys.includes('truncated') || keys.includes('truncation') || keys.includes('nextStart')
+    ? 'Follow nextStart / readFileRange or grepSnippet to read the omitted segment.'
+    : 'Narrow the request (readFileRange / grepSnippet) and re-read the omitted segment.';
+  // Prefer the exact original size when available; fall back to the marker's
+  // embedded count. Either way the model gets a concrete total, not a bare cut.
+  let originalChars = totalChars;
+  if (original !== undefined) {
+    try {
+      const text = JSON.stringify(original);
+      if (typeof text === 'string') originalChars = text.length;
+    } catch (_) { /* keep the marker count */ }
+  }
+  const fields = markedKeys.filter((k) => !k.includes('--- TRUNCATED ---')).length
+    ? markedKeys.filter((k) => !k.includes('--- TRUNCATED ---'))
+    : (summary ? summary.split(',').map((s) => s.trim()) : []);
+  const meta = {
+    truncated: true,
+    // Compact keys keep the enriched result inside the model-output budget.
+    field: fields.length === 1 ? fields[0] : fields,
+    totalChars: originalChars,
+    tail: true,
+    next: 'readFileRange',
+  };
+  return { ...value, truncation: meta };
+}
+
 function makeOutput({ legacyResult, structuredResult, logs, toolCalls, isError = false }) {
   const out = {
     result: legacyResult,
@@ -1152,7 +1252,10 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
       // PR #41–#48: explicit canonical / merge kinds return the minimal
       // {number,url,sha,raw} view so callers never have to regex a URL for the
       // id. All other kinds keep the historical adapter behaviour unchanged.
-      if (kind === 'canonical' || kind === 'merge') return canonicalResult(value);
+      if (kind === 'canonical' || kind === 'merge') {
+        const canon = canonicalResult(value);
+        return { ...canon, rawUntrusted: canon.rawUntrusted ?? RESULT_RAW_MARKER };
+      }
       const name = (toolName !== undefined && toolName !== null && toolName !== '')
         ? toolName
         : (kind === 'file' ? 'get_file_contents'
@@ -1162,7 +1265,18 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
       // carries top-level number/url/sha; normalizeIssue keeps its documented
       // shape). Callers that need the unified minimal view use the explicit
       // `canonical` / `merge` kinds or codemode.canonicalize below.
-      return hostNormalizeResult(name, value);
+      const adapted = hostNormalizeResult(name, value);
+      // Batch 15 P0: host adapters attach notice/truncation as non-enumerable
+      // to preserve stable key sets for direct callers. Across the sandbox
+      // bridge we surface them as enumerable metadata so the MODEL sees them
+      // (a download notice must be a labelled field, never `content`).
+      if (!adapted || typeof adapted !== 'object') return adapted;
+      const modelView = { ...adapted };
+      for (const key of ['notice', 'noticeSha', 'truncation']) {
+        const v = adapted[key];
+        if (v !== undefined && v !== null) modelView[key] = v;
+      }
+      return modelView;
     },
     // Host pure-function bridges for the B10 follow-up write helpers. Safe:
     // only serializable data crosses (no functions).
@@ -1189,6 +1303,33 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
       env,
       ...(opts && typeof opts === 'object' ? opts : {}),
     }),
+    // Batch 15 P2 · read-only CI wait. The check callback uses the SAME
+    // upstream tool bridge as every codemode.<tool>() call (no new MCP tool,
+    // no direct REST/token handling). `pull_request_read` is aggregated, so
+    // method:"get_check_runs" is passed explicitly to avoid a probe round.
+    wait_for_pr_checks: (opts) => {
+      const o = opts && typeof opts === 'object' && !Array.isArray(opts) ? opts : {};
+      const tool = byIdent.get('github__pull_request_read') ?? [...byIdent.values()].find(
+        (t) => String(t?.tool ?? t?.name).endsWith('pull_request_read'),
+      );
+      if (!tool) {
+        return Promise.resolve({
+          ok: false, error: 'waitForPrChecks: github__pull_request_read is not available in this session',
+          pullNumber: o.pullNumber ?? null, polls: 0, timedOut: false,
+        });
+      }
+      return waitForPrChecks({
+        ...o,
+        check: async (args) => unwrapResult(await callTool(
+          tool.server,
+          tool.tool,
+          {
+            owner: args.owner, repo: args.repo, pullNumber: args.pullNumber,
+            method: 'get_check_runs',
+          },
+        )),
+      });
+    },
     stub: (name) => {
       throw new Error(`${name} is a write tool and unavailable in execute_read; use execute() instead`);
     },
@@ -1332,7 +1473,10 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
   }).then((sandboxReturn) => {
     // Model-facing value: structured truncation keeps the result valid JSON
     // of the same shape, with `--- TRUNCATED ---` markers at the cut points.
-    const structuredResult = truncateResultValue(sandboxReturn, { maxChars: maxResultChars });
+    const truncatedValue = truncateResultValue(sandboxReturn, { maxChars: maxResultChars });
+    // Batch 15 P1: derive explicit, machine-readable truncation metadata on
+    // the model-facing projection (field names, totals, tail flag, continuation).
+    const structuredResult = withTruncationMetadata(truncatedValue, sandboxReturn);
     // Legacy string view kept for direct callers of runInSandbox().
     let legacy;
     try { legacy = typeof sandboxReturn === 'string' ? sandboxReturn : JSON.stringify(sandboxReturn ?? null); }
@@ -1606,8 +1750,8 @@ export function createCodeModeTools(upstreamManager, options = {}) {
   const makeExecute = (name, readOnly) => ({
     name,
     description: (readOnly
-      ? 'Write JavaScript to call READ-ONLY upstream tools (get/list/search/query) via codemode.<tool>(args). This tool is annotated read-only so the client may prompt less; it runs the same sandbox as execute(). Only your return value enters the conversation. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'
-      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + ASYNC_GUIDANCE + ACTIONS_GUIDANCE + GH_HIGHFREQ_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
+      ? 'Write JavaScript to call READ-ONLY upstream tools (get/list/search/query) via codemode.<tool>(args). This tool is annotated read-only so the client may prompt less; it runs the same sandbox as execute(). Only your return value enters the conversation. Available read-only helpers: safeAll(tasks), unwrapBatch(x), readFileRange(), waitForPrChecks(), github_actions_*. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'
+      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), unwrapBatch(x), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + ASYNC_GUIDANCE + ACTIONS_GUIDANCE + GH_HIGHFREQ_GUIDANCE + B15_ERGONOMICS_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
     inputSchema: {
       type: 'object',
       properties: { code: { type: 'string', description: 'An async arrow function that calls codemode tools and returns a result.' } },

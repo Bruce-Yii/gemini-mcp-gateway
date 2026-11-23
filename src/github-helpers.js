@@ -48,6 +48,14 @@ function requireFn(fn, name) {
 }
 
 /**
+ * Batch 15 security audit · raw upstream values retained on canonical results
+ * are UNTRUSTED external data. Consumers must check this marker before treating
+ * `raw` as gateway-verified content. Exported so host and guest can agree on a
+ * single literal instead of growing two drifting spellings.
+ */
+export const UNTRUSTED_RAW_MARKER = 'untrusted-upstream-envelope';
+
+/**
  * Ensure a branch exists, idempotently.
  *
  * @param {object}   opts
@@ -203,16 +211,36 @@ export async function fetchAllPages({ fetchPage, maxPages = 20, cursorKey = 'cur
   const seen = new Set();
   let cursor;
   let pages = 0;
+  // Security audit: upstream truncation on ANY page must survive the adapter.
+  // Previously a page carrying `truncated:true` was silently reported as a
+  // complete result once its cursor ran out, so callers paginated as if they
+  // had the whole dataset.
+  let upstreamTruncated = false;
+  const noteTruncation = (page) => {
+    if (!page || typeof page !== 'object') return;
+    const raw = page.truncated ?? page.isTruncated ?? (page.truncation !== undefined);
+    if (raw === true || raw === 1 || raw === '1' || raw === 'true' || (raw && typeof raw === 'object')) {
+      upstreamTruncated = true;
+    }
+    const inner = page.result;
+    if (inner && typeof inner === 'object') noteTruncation(inner);
+  };
+  const out = (extra) => ({
+    items, pages, nextCursor: extra.nextCursor ?? null,
+    truncated: extra.truncated === true || upstreamTruncated,
+    upstreamTruncated,
+  });
 
   while (pages < maxPages) {
     const page = await fetchPage(cursor === undefined ? {} : { [cursorKey]: cursor });
     pages += 1;
-    if (page == null) return { items, pages, nextCursor: null, truncated: false };
+    noteTruncation(page);
+    if (page == null) return out({ truncated: false });
 
     const pageItems = toArray(page);
     const rawItems = Array.isArray(page) ? page : (page.items ?? page.data ?? toArray(page));
     const list = Array.isArray(rawItems) ? rawItems : pageItems;
-    if (list.length === 0) return { items, pages, nextCursor: null, truncated: false };
+    if (list.length === 0) return out({ truncated: false });
 
     for (const item of list) {
       let key;
@@ -229,16 +257,16 @@ export async function fetchAllPages({ fetchPage, maxPages = 20, cursorKey = 'cur
 
     const next = page.nextCursor ?? page.next ?? (page.pageInfo && page.pageInfo.endCursor);
     if (next === undefined || next === null || next === '') {
-      return { items, pages, nextCursor: null, truncated: false };
+      return out({ truncated: false });
     }
     if (next === cursor) {
       // Cursor did not advance: avoid an infinite loop, treat as exhausted.
-      return { items, pages, nextCursor: next, truncated: false };
+      return out({ nextCursor: next, truncated: false });
     }
     cursor = next;
   }
 
-  return { items, pages, nextCursor: cursor ?? null, truncated: true };
+  return out({ nextCursor: cursor, truncated: true });
 }
 
 /**
@@ -267,6 +295,10 @@ export async function repoGrep({ readFile, listFiles, pattern, flags = 'i', limi
   const matches = [];
   const errors = [];
   let truncated = false;
+  // Security audit: a truncated read means the grep only covered a PREFIX of
+  // that file. Matches may be missing, so the whole result is incomplete even
+  // if the match limit was not reached.
+  let upstreamTruncated = false;
 
   for (const file of files) {
     if (matches.length >= limit) {
@@ -279,6 +311,10 @@ export async function repoGrep({ readFile, listFiles, pattern, flags = 'i', limi
     } catch (err) {
       errors.push({ file, error: err instanceof Error ? err.message : String(err) });
       continue;
+    }
+    if (raw && typeof raw === 'object') {
+      const flag = raw.truncated ?? raw.isTruncated ?? (raw.result && raw.result.truncated);
+      if (flag === true || flag === 1 || flag === '1' || flag === 'true') upstreamTruncated = true;
     }
     let text = raw;
     if (raw && typeof raw === 'object') text = raw.text ?? raw.content ?? raw.result?.text ?? '';
@@ -305,7 +341,12 @@ export async function repoGrep({ readFile, listFiles, pattern, flags = 'i', limi
     }
   }
 
-  return { matches, errors, scanned: errors.length ? files.length - errors.length : files.length, truncated };
+  return {
+    matches, errors,
+    scanned: errors.length ? files.length - errors.length : files.length,
+    truncated: truncated || upstreamTruncated,
+    upstreamTruncated,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -463,9 +504,18 @@ export function canonicalResult(value) {
     // Values are strings; they are NEVER a fallback for `number` (URL-first).
     if (idRaw !== undefined && idRaw !== null) result.id = String(idRaw);
     if (nodeIdRaw !== undefined && nodeIdRaw !== null) result.nodeId = String(nodeIdRaw);
+    // Non-enumerable: keeps the historical 4-key shape byte-stable while
+    // explicitly labelling the retained upstream value as untrusted.
+    Object.defineProperty(result, 'rawUntrusted', {
+      value: UNTRUSTED_RAW_MARKER, enumerable: false, configurable: true, writable: true,
+    });
     return result;
   } catch (_) {
-    return { number: null, url: null, sha: null, raw: value };
+    return Object.defineProperty(
+      { number: null, url: null, sha: null, raw: value },
+      'rawUntrusted',
+      { value: UNTRUSTED_RAW_MARKER, enumerable: false, configurable: true, writable: true },
+    );
   }
 }
 
@@ -754,6 +804,120 @@ export async function githubActionsGetJobLogs(opts = {}) {
   return actionsOutcome(true, res.status, { text: res.text, truncated: res.truncated });
 }
 
+// ---------------------------------------------------------------------------
+// Batch 15 · CI polling ergonomics (read-only, injected tool bridge)
+// ---------------------------------------------------------------------------
+
+const DEFAULT_WAIT_TIMEOUT_MS = 30000;
+const DEFAULT_WAIT_MAX_POLLS = 30;
+const DEFAULT_WAIT_POLL_INTERVAL_MS = 1000;
+
+function sleepMs(ms) {
+  return new Promise((resolve) => { if (typeof setTimeout === 'function') setTimeout(resolve, ms); else resolve(); });
+}
+
+/** Normalize the many check-run shapes GitHub MCP returns into a flat list. */
+function normalizeCheckRuns(value) {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== 'object') return [];
+  for (const key of ['check_runs', 'checkRuns', 'checks', 'items', 'runs']) {
+    const found = value[key];
+    if (Array.isArray(found)) return found;
+  }
+  const inner = value.result;
+  if (inner && typeof inner === 'object') return normalizeCheckRuns(inner);
+  return [];
+}
+
+function checksCompleted(snapshot) {
+  const status = String(snapshot?.status ?? snapshot?.state ?? '').toLowerCase();
+  if (status === 'completed' || status === 'success' || status === 'failure' || status === 'failed'
+      || status === 'error' || status === 'neutral' || status === 'cancelled') return true;
+  const runs = normalizeCheckRuns(snapshot);
+  return runs.length > 0 && runs.every((r) => {
+    const s = String(r?.status ?? r?.state ?? '').toLowerCase();
+    return s === 'completed' || s === 'success' || s === 'failure' || s === 'error';
+  });
+}
+
+/**
+ * Wait at most `timeoutMs` (hard-capped at 30s) for PR checks to settle.
+ *
+ * Pure orchestration: the actual read is injected via `opts.check`, so the
+ * host bridge can implement it with the existing `pull_request_read`
+ * (`method:"get_check_runs"`) tool. No new MCP tool, no direct network call,
+ * no token handling here. A single call replaces 3–4 manual poll rounds.
+ *
+ * @returns {Promise<{ok:boolean,pullNumber:number|null,status:string|null,
+ *   conclusion:string|null,checkRuns:any[],polls:number,elapsedMs:number,
+ *   timedOut:boolean,rawUntrusted?:string}>}
+ */
+export async function waitForPrChecks({
+  owner,
+  repo,
+  pullNumber,
+  check,
+  timeoutMs = DEFAULT_WAIT_TIMEOUT_MS,
+  maxPolls = DEFAULT_WAIT_MAX_POLLS,
+  pollIntervalMs = DEFAULT_WAIT_POLL_INTERVAL_MS,
+} = {}) {
+  requireFn(check, 'check');
+  if (typeof owner !== 'string' || !owner || typeof repo !== 'string' || !repo) {
+    throw new TypeError('waitForPrChecks: owner and repo are required');
+  }
+  const number = toFiniteNumber(pullNumber);
+  if (number === null) throw new TypeError('waitForPrChecks: pullNumber is required');
+  const budget = Math.min(Math.max(0, Number(timeoutMs) || 0), 30000);
+  const pollsCap = Math.max(1, Math.min(Number(maxPolls) || 0, 100));
+  const interval = Math.max(0, Math.min(Number(pollIntervalMs) || 0, 5000));
+  const started = typeof Date.now === 'function' ? Date.now() : 0;
+  let polls = 0;
+  let snapshot = null;
+  let lastError = null;
+
+  for (;;) {
+    polls += 1;
+    try {
+      snapshot = await check({ owner, repo, pullNumber: number, poll: polls });
+    } catch (err) {
+      lastError = err && err.message ? err.message : String(err);
+      // A transient read failure must not kill the wait; keep the last good
+      // snapshot so the caller can still see partial evidence.
+    }
+    const runs = normalizeCheckRuns(snapshot);
+    const status = String(snapshot?.status ?? snapshot?.state ?? (runs.length ? 'in_progress' : 'pending'));
+    const done = checksCompleted(snapshot);
+    const elapsedMs = started ? Date.now() - started : 0;
+    if (done) {
+      return {
+        ok: true,
+        pullNumber: number,
+        status,
+        conclusion: snapshot?.conclusion ?? null,
+        checkRuns: runs,
+        polls,
+        elapsedMs,
+        timedOut: false,
+        ...(snapshot && typeof snapshot === 'object' && 'raw' in snapshot ? { rawUntrusted: UNTRUSTED_RAW_MARKER } : {}),
+      };
+    }
+    if (polls >= pollsCap || elapsedMs >= budget) {
+      return {
+        ok: false,
+        pullNumber: number,
+        status,
+        conclusion: null,
+        checkRuns: runs,
+        polls,
+        elapsedMs,
+        timedOut: true,
+        ...(lastError ? { error: lastError } : {}),
+      };
+    }
+    await sleepMs(interval);
+  }
+}
+
 export default {
   ensureBranch,
   createBranchIfMissing,
@@ -769,4 +933,6 @@ export default {
   githubActionsListWorkflowRuns,
   githubActionsListWorkflowJobs,
   githubActionsGetJobLogs,
+  waitForPrChecks,
+  UNTRUSTED_RAW_MARKER,
 };

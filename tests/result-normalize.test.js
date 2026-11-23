@@ -154,10 +154,12 @@ test('file：多个候选时选最长且非下载提示的正文', () => {
   assert.equal(out.content.includes('fetched file successfully'), false);
 });
 
-test('file：只有下载提示时仍返回它（无正文可选，不返回 null）', () => {
+test('file：只有下载提示时 content 为纯空正文，提示与 SHA 移到独立元数据字段', () => {
   const notice = 'successfully downloaded text file (SHA: abcdef123456, 81 chars)';
   const out = normalizeFileResult({ content: [{ type: 'text', text: notice }] });
-  assert.equal(out.content, notice);
+  assert.equal(out.content, '', 'notice is metadata, never model-facing file content');
+  assert.match(out.notice, /successfully downloaded/);
+  assert.equal(out.sha, 'abcdef123456');
 });
 
 test('file：--- TRUNCATED --- 标记与已有 truncated 都识别', () => {

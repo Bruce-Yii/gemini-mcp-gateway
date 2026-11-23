@@ -14,6 +14,33 @@
 
 const TRUNCATED_MARKER = '--- TRUNCATED ---';
 
+/**
+ * Batch 15 codemode ergonomics · security audit addendum.
+ *
+ * Canonical adapters intentionally retain the original upstream envelope in
+ * `raw` for diagnostics. The raw value is UNTRUSTED model-external data: it
+ * must be labelled explicitly so neither the model nor the capture audit can
+ * mistake it for gateway-verified output. The marker is non-enumerable so the
+ * historical stable field sets (FILE_KEYS / PR_KEYS / ISSUE_KEYS) stay intact.
+ */
+export const UNTRUSTED_RAW_MARKER = 'untrusted-upstream-envelope';
+function markUntrustedRaw(result) {
+  Object.defineProperty(result, 'rawUntrusted', {
+    value: UNTRUSTED_RAW_MARKER, enumerable: false, configurable: true, writable: true,
+  });
+  return result;
+}
+/** Attach non-enumerable diagnostic metadata without changing stable key sets. */
+function attachMeta(result, meta) {
+  for (const [key, value] of Object.entries(meta)) {
+    if (value === undefined || value === null) continue;
+    Object.defineProperty(result, key, {
+      value, enumerable: false, configurable: true, writable: true,
+    });
+  }
+  return result;
+}
+
 /** 安全读取一个属性：getter 抛错时视为不存在，不向外传播。 */
 function get(obj, key) {
   try {
@@ -105,7 +132,14 @@ function isDownloadNotice(text) {
   if (typeof text !== 'string') return false;
   const t = text.trim();
   if (t.length > 300) return false; // 正文不会这么短地被当提示
-  return /^(successfully\s+)?(downloaded|fetched|retrieved)\b/i.test(t) || /\bSHA:\s*[0-9a-f]{7,}/i.test(t);
+  // Narrow prefix match only: a real body that merely mentions "SHA:" or
+  // "downloaded" is NOT a notice. The broad SHA-anywhere rule used to filter
+  // out genuine file bodies and silently return empty content.
+  // Short status lines from download/fetch helpers are notices too — but only
+  // when they are standalone short lines, never a real body that mentions
+  // "downloaded" or "SHA:" somewhere in the middle.
+  return /^successfully downloaded text file \(SHA:/i.test(t)
+    || /^(successfully\s+)?(downloaded|fetched|retrieved)\b[\s.,!]*$/i.test(t);
 }
 
 /**
@@ -115,13 +149,55 @@ function isDownloadNotice(text) {
  * pure body (notice prefix removed) and `sha` is extracted from the notice.
  */
 const FILE_DOWNLOAD_NOTICE = /^successfully downloaded text file \(SHA: ([0-9a-f]+)\)\r?\n/i;
+// Notice with no trailing newline (notice-only payloads, or notice glued to a
+// body by a different upstream version). Keep the narrow prefix, never search
+// inside the body.
+const FILE_DOWNLOAD_NOTICE_INLINE = /^successfully downloaded text file \(SHA: ([0-9a-f]+)(?:,[^)]*)?\)[ \t]*(?:\r?\n)?/i;
 
 function stripDownloadNotice(text) {
-  if (typeof text !== 'string') return { text, sha: null };
-  const match = FILE_DOWNLOAD_NOTICE.exec(text);
+  if (typeof text !== 'string') return { text, sha: null, notice: null };
+  const match = FILE_DOWNLOAD_NOTICE.exec(text) || FILE_DOWNLOAD_NOTICE_INLINE.exec(text);
   return match
-    ? { text: text.slice(match[0].length), sha: match[1] }
-    : { text, sha: null };
+    ? { text: text.slice(match[0].length), sha: match[1], notice: match[0].trim() }
+    : { text, sha: null, notice: null };
+}
+
+/**
+ * Batch 15 P0 · content is ALWAYS pure body on every model-facing file result.
+ * A download notice is metadata, never text. This helper is the single place
+ * that decides what counts as a notice so no call site can reintroduce it.
+ */
+function pureFileText(value) {
+  if (Array.isArray(value)) {
+    // A content array may hide the notice in one of its text blocks. Collect
+    // its metadata while folding the array into the pure body.
+    const notices = [];
+    const texts = [];
+    for (const item of value) {
+      const body = extractBodyText(item);
+      if (body === null) continue;
+      const s = stripDownloadNotice(body);
+      if (typeof s.text === 'string' && s.text !== '') texts.push(s.text);
+      if (s.notice) notices.push(s);
+    }
+    // With a notice present, multiple text blocks are alternative bodies —
+    // joining them would prepend a short status/duplicate to the real body.
+    // Pick the longest, matching contentArrayToString's rule.
+    const text = notices.length && texts.length > 1
+      ? texts.reduce((best, t) => (t.length > best.length ? t : best), '')
+      : texts.join('\n');
+    return {
+      text,
+      sha: notices.length ? notices[0].sha : null,
+      notice: notices.length ? notices[0].notice : null,
+    };
+  }
+  const stripped = stripDownloadNotice(value);
+  return {
+    text: stripped.text,
+    sha: stripped.sha,
+    notice: stripped.notice,
+  };
 }
 
 /** 从一个 content/resource 项里取出可能的正文字符串（含嵌套 resource.text）。 */
@@ -155,11 +231,14 @@ function contentArrayToString(array) {
     (item) => isObj(item) && isObj(get(item, 'resource')),
   );
   if (hasDownloadNotice || hasNestedResource) {
-    const bodies = items.filter((t) => !isDownloadNotice(t));
-    const pool = bodies.length ? bodies : items;
+    // Batch 15 P0: a notice is never content. Strip the prefix from any
+    // candidate that carries one, then pick the longest remaining body.
+    const bodies = items.map((t) => pureFileText(t).text).filter((t) => typeof t === 'string' && t !== '');
+    const pool = bodies.length ? bodies : [];
+    if (!pool.length) return '';
     return pool.reduce((best, t) => (t.length > best.length ? t : best), '');
   }
-  return items.join('\n');
+  return items.map((t) => pureFileText(t).text).join('\n');
 }
 
 /** 把任意 content 漂移（字符串/数组/对象/resource 列表）折叠成字符串或 null。 */
@@ -338,8 +417,8 @@ export function normalizeFileResult(value) {
   try {
     const { value: v } = unwrap(value);
     if (typeof v === 'string') {
-      const stripped = stripDownloadNotice(v);
-      return {
+      const stripped = pureFileText(v);
+      return markUntrustedRaw(attachMeta({
         content: stripped.text,
         sha: stripped.sha,
         size: stripped.text.length,
@@ -347,38 +426,46 @@ export function normalizeFileResult(value) {
         path: null,
         truncated: isTruncated(null, stripped.text),
         raw: value,
-      };
+      }, { notice: stripped.notice, noticeSha: stripped.sha }));
     }
     const root = isObj(v) ? v : {};
     // content 优先取顶层；再尝试 resources[].text；最后尝试 result 里的同名键。
     const topText = pick(root, ['text', 'content', 'data']);
-    const topStripped = stripDownloadNotice(topText);
+    const topStripped = pureFileText(topText);
     let content = contentToString(topStripped.text);
     const rootResources = resourcesToText(get(root, 'resources'));
     // GitHub sometimes returns {text: "successfully downloaded ...\n<body>",
-    // resources:[{text: body}]}; prefer the resource body so the notice never
-    // becomes the file content. When there is no resource, the stripped text
-    // above still yields pure body.
-    if (rootResources && (isDownloadNotice(String(topText ?? '')) || /successfully downloaded/i.test(String(topText ?? '')))) {
-      content = rootResources;
+    // resources:[{text: body}]}; prefer the resource body (already stripped)
+    // so the notice never becomes the file content.
+    if (rootResources && /successfully downloaded/i.test(String(topText ?? ''))) {
+      content = pureFileText(rootResources).text;
     }
-    if (content === null) content = rootResources;
+    if (content === null) content = rootResources === null ? null : pureFileText(rootResources).text;
     let nestedShaFromNotice = null;
+    let nestedNotice = null;
     if (content === null) {
       const nested = get(root, 'result');
       if (isObj(nested)) {
         const nestedText = pick(nested, ['text', 'content', 'data']);
-        const nestedStripped = stripDownloadNotice(nestedText);
+        const nestedStripped = pureFileText(nestedText);
         nestedShaFromNotice = nestedStripped.sha;
+        nestedNotice = nestedStripped.notice;
         content = contentToString(nestedStripped.text);
         const nestedResources = resourcesToText(get(nested, 'resources'));
-        if (nestedResources && /successfully downloaded/i.test(String(nestedText ?? ''))) content = nestedResources;
-        if (content === null) content = nestedResources;
+        if (nestedResources && /successfully downloaded/i.test(String(nestedText ?? ''))) {
+          content = pureFileText(nestedResources).text;
+        }
+        if (content === null) content = nestedResources === null ? null : pureFileText(nestedResources).text;
       }
     }
+    // Batch 15 P0: final belt-and-braces strip. Even a resource body that
+    // starts with a download notice must not leak it into `content`.
+    const finalStripped = pureFileText(content);
+    content = finalStripped.text;
 
     const shaFromNotice = topStripped.sha
       ?? nestedShaFromNotice
+      ?? finalStripped.sha
       ?? (/SHA:\s*([0-9a-f]{7,})/i.exec(String(topText ?? ''))?.[1] ?? null);
     const sha = pick(root, ['sha', 'sha256', 'content_sha', 'commit_sha']) ?? shaFromNotice;
     // Batch 15 GPT online fix: derive `path` from root/resources URIs. Never
@@ -389,22 +476,27 @@ export function normalizeFileResult(value) {
     const sizeRaw = pick(root, ['size', 'bytes']);
     const sizeNum = Number(sizeRaw);
     const size = sizeRaw !== undefined && Number.isFinite(sizeNum) ? sizeNum : null;
-
-    return {
+    const notice = topStripped.notice ?? nestedNotice ?? finalStripped.notice;
+    // P0 batch 11: use the root (not just the top-level flag) so nested
+    // `result.truncated`, string flags and explicit `truncation` objects are
+    // never mistaken for a complete payload.
+    const truncated = explainTruncation(root, content) !== null;
+    return markUntrustedRaw(attachMeta({
       content: content !== null && typeof content === 'string' ? content : null,
       sha: sha !== undefined && sha !== null ? String(sha) : null,
       size,
       encoding: encoding !== undefined && encoding !== null ? String(encoding) : null,
       path: path !== undefined && path !== null ? String(path) : null,
-      // P0 batch 11: use the root (not just the top-level flag) so nested
-      // `result.truncated`, string flags and explicit `truncation` objects are
-      // never mistaken for a complete payload.
-      truncated: explainTruncation(root, content) !== null,
+      truncated,
       raw: value,
-    };
+    }, {
+      notice,
+      noticeSha: shaFromNotice,
+      truncation: truncated ? explainTruncation(root, content) : null,
+    }));
   } catch (_) {
     // 极端宿主对象（抛 getter 的 Proxy）也不能破坏调用方。
-    return {
+    return markUntrustedRaw({
       content: null,
       sha: null,
       size: null,
@@ -412,20 +504,50 @@ export function normalizeFileResult(value) {
       path: null,
       truncated: false,
       raw: value,
-    };
+    });
   }
 }
 
 /** 从 URL 里兜底提取 PR/Issue 编号。 */
 function numberFromUrl(value) {
   try {
-    const match = /\/pulls?\/(\d+)(?:\/|$|\?)|\/issues\/(\d+)(?:\/|$|\?)/.exec(String(value ?? ''));
+    const match = /\/pulls?\/(\d+)(?:\/|$|\?|#)|\/issues\/(\d+)(?:\/|$|\?|#)/.exec(String(value ?? ''));
     if (!match) return null;
     const raw = match[1] ?? match[2];
     return raw !== undefined ? Number(raw) : null;
   } catch (_) {
     return null;
   }
+}
+
+/**
+ * Batch 15 P0 · find the first PR/issue URL anywhere in a shape (root, result
+ * envelope, list items or a nested pull_request link). URL is the ONLY source
+ * of a user-visible number besides an explicit number field — database ids
+ * (id / node_id) are NEVER considered.
+ */
+function findNumberUrl(root) {
+  if (!isObj(root)) return null;
+  const urls = [];
+  const take = (obj) => {
+    if (!isObj(obj)) return;
+    for (const key of ['html_url', 'url', 'web_url', 'api_url']) {
+      const value = get(obj, key);
+      if (typeof value === 'string') urls.push(value);
+    }
+  };
+  take(root);
+  const nested = get(root, 'result');
+  if (isObj(nested)) take(nested);
+  const items = get(root, 'items');
+  if (Array.isArray(items) && items.length) take(items[0]);
+  const prLink = get(root, 'pull_request');
+  if (isObj(prLink)) take(prLink);
+  for (const url of urls) {
+    const n = numberFromUrl(url);
+    if (n !== null) return { url, number: n };
+  }
+  return null;
 }
 
 function toNumber(value) {
@@ -454,8 +576,12 @@ export function normalizePrResult(value) {
     const urlRaw = pick(root, ['html_url', 'url', 'web_url']);
     const url = urlRaw !== undefined && urlRaw !== null ? String(urlRaw) : null;
     // URL wins over explicit fields: it is the most reliable source of the
-    // user-visible PR number when both are present but disagree.
-    const number = numberFromUrl(url) ?? toNumber(pick(root, ['number', 'prNumber', 'pr_number']));
+    // user-visible PR number when both are present but disagree. Search the
+    // whole envelope (result/list items/pull_request link) so create/list/get/
+    // merge shapes all agree. `id` is never a fallback.
+    const found = findNumberUrl(root);
+    const number = (found ? found.number : numberFromUrl(url))
+      ?? toNumber(pick(root, ['number', 'prNumber', 'pr_number']));
     const head = isObj(get(root, 'head')) ? get(root, 'head') : {};
     const base = isObj(get(root, 'base')) ? get(root, 'base') : {};
     const shaRaw = pick(root, ['sha', 'head_sha', 'headSha']) ?? pick(head, ['sha']);
@@ -500,7 +626,7 @@ export function normalizePrResult(value) {
       configurable: true,
       writable: true,
     });
-    return result;
+    return markUntrustedRaw(result);
   } catch (_) {
     const result = {
       number: null,
@@ -520,7 +646,7 @@ export function normalizePrResult(value) {
       configurable: true,
       writable: true,
     });
-    return result;
+    return markUntrustedRaw(result);
   }
 }
 
@@ -536,21 +662,23 @@ export function normalizeIssueResult(value) {
     // Same rule as PRs: `id` is a database id, never an issue number.
     const urlRaw = pick(root, ['html_url', 'url', 'web_url']);
     const url = urlRaw !== undefined && urlRaw !== null ? String(urlRaw) : null;
-    const number = numberFromUrl(url) ?? toNumber(pick(root, ['number', 'issueNumber', 'issue_number']));
+    const found = findNumberUrl(root);
+    const number = (found ? found.number : numberFromUrl(url))
+      ?? toNumber(pick(root, ['number', 'issueNumber', 'issue_number']));
     const titleRaw = pick(root, ['title']);
     const stateRaw = pick(root, ['state']);
     const idRaw = pick(root, ['id', 'node_id']);
 
-    return {
+    return markUntrustedRaw({
       number,
       id: idRaw !== undefined && idRaw !== null ? String(idRaw) : null,
       url,
       state: stateRaw !== undefined && stateRaw !== null ? String(stateRaw) : null,
       title: titleRaw !== undefined && titleRaw !== null ? String(titleRaw) : null,
       raw: value,
-    };
+    });
   } catch (_) {
-    return { number: null, id: null, url: null, state: null, title: null, raw: value };
+    return markUntrustedRaw({ number: null, id: null, url: null, state: null, title: null, raw: value });
   }
 }
 
@@ -600,7 +728,7 @@ export function normalizeResult(toolName, value) {
   try {
     name = String(toolName ?? '').toLowerCase();
   } catch (_) {
-    return { raw: value };
+    return markUntrustedRaw({ raw: value });
   }
   // 兼容 server__tool / server.tool / server-tool 形式：只剥前缀，保留 tool 内的下划线。
   const parts = name.split(/__(?=[^_])|[.](?=[^.])|-(?=[^-])/);
@@ -610,5 +738,5 @@ export function normalizeResult(toolName, value) {
     if (PR_TOOL_NAMES.has(candidate)) return normalizePrResult(value);
     if (ISSUE_TOOL_NAMES.has(candidate)) return normalizeIssueResult(value);
   }
-  return { raw: value };
+  return markUntrustedRaw({ raw: value });
 }

@@ -143,7 +143,9 @@ test('P0-2: guest fileResult / host normalizeFileResult / readFileRange agree', 
 
 test('P0-2: normalization does not regress notice-only / long-line / truncation shapes', () => {
   const noticeOnly = 'successfully downloaded text file (SHA: abcdef123456, 81 chars)';
-  assert.equal(normalizeFileResult({ content: [{ type: 'text', text: noticeOnly }] }).content, noticeOnly);
+  const noticeResult = normalizeFileResult({ content: [{ type: 'text', text: noticeOnly }] });
+  assert.equal(noticeResult.content, '', 'notice is metadata only, never model-facing content');
+  assert.match(noticeResult.notice, /successfully downloaded/);
   const long = `x${'A'.repeat(900)}Z`;
   for (const value of [long, JSON.stringify({ content: long }), { resources: [{ text: long }] }]) {
     assert.equal(normalizeFileResult(value).content, long);
