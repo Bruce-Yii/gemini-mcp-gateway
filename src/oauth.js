@@ -103,15 +103,44 @@ function trimTrailingSlash(value) {
   return String(value).replace(/\/+$/, '');
 }
 
-/** Resolve the externally visible base URL (env > options > request headers). */
+function hostFromRequest(req) {
+  const headers = req?.headers ?? {};
+  const rawHost = headers['x-forwarded-host'] ?? headers.host;
+  if (!rawHost) return null;
+  // First value only: proxy chains may append `, proxy.example`.
+  const host = String(rawHost).split(',')[0].trim();
+  if (!host || host.length > 255) return null;
+  // Strict host[:port] only — a malicious value must never inject a path,
+  // credentials or a second origin into issuer/resource/CIMD documents.
+  if (!/^(\[[0-9a-fA-F:]+\]|[A-Za-z0-9.-]+)(:\d{1,5})?$/.test(host)) return null;
+  const rawProto = String(headers['x-forwarded-proto'] ?? '').split(',')[0].trim().toLowerCase();
+  const isLoopback = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(host);
+  const proto = rawProto === 'http' || rawProto === 'https' ? rawProto : (isLoopback ? 'http' : 'https');
+  return `${proto}://${host}`;
+}
+
+/**
+ * Resolve the externally visible base URL.
+ *
+ * Priority: explicit `options.baseUrl` > the origin the client actually used >
+ * `PUBLIC_BASE_URL` > `VERCEL_URL` > localhost.
+ *
+ * Origin consistency (2026-11-24): the AS `issuer`, the protected-resource
+ * `resource`/`authorization_servers`, the 401 `resource_metadata` URL and the
+ * CIMD `client_id` must ALL describe the same origin the client is talking to.
+ * Letting a deployment-wide `PUBLIC_BASE_URL` win over the request host used to
+ * emit a second origin (e.g. a `*-yu-ac3a.vercel.app` host) into every one of
+ * those documents even when the client connected via the documented domain;
+ * strict clients reject that as a cross-origin/mismatched resource. The request
+ * host therefore wins; `PUBLIC_BASE_URL` remains the canonical fallback for
+ * host-less callers (CLI, tests, health probes).
+ */
 export function resolveBaseUrl(options = {}, req) {
   if (options.baseUrl) return trimTrailingSlash(options.baseUrl);
+  const requestOrigin = hostFromRequest(req);
+  if (requestOrigin) return requestOrigin;
   if (process.env.PUBLIC_BASE_URL) return trimTrailingSlash(process.env.PUBLIC_BASE_URL);
   if (process.env.VERCEL_URL) return `https://${trimTrailingSlash(process.env.VERCEL_URL)}`;
-  const headers = req?.headers ?? {};
-  const host = headers['x-forwarded-host'] ?? headers.host;
-  const proto = headers['x-forwarded-proto'] ?? (host ? 'https' : 'http');
-  if (host) return `${trimTrailingSlash(String(proto))}://${host}`;
   return 'http://localhost:3000';
 }
 
