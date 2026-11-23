@@ -160,7 +160,7 @@ online-feedback.v1 记录
 
 ---
 
-## 8. 当前不要做的事
+## 8. 部署纪律（必须遵守）\n\n- 默认每天 ≤ 3 次生产部署；不为单点小改动部署。\n- docs/tests-only、中间态修复、未过全量测试的改动一律不部署。\n- 部署前过 `docs/DEPLOY-POLICY.md`；部署后记录 `docs/DEPLOYMENTS.md`。\n- 能本地/回放验证就不要发 preview。\n- 当前生产：`87d91af`（验收门 A PASS），下一次等完整批次。\n\n## 9. 当前不要做的事
 
 - 不要声称 Vercel 已部署最新代码；
 - 不要声称 ChatGPT Free/Plus 支持完整 MCP；
@@ -172,11 +172,11 @@ online-feedback.v1 记录
 
 ---
 
-## 9. 恢复时先读
+## 10. 恢复时先读
 
 1. `docs/EVALUATION.md`
 2. `docs/EXECUTION-PLAN.md`
 3. `docs/ledger/README.md`
 4. `docs/AUTH-READY.md`
 5. `docs/OPEN-SOURCE/RELEASE-LOCAL.md`
-6. `docs/HANDOFF-2026-11-23.md`\n7. `docs/ACCEPTANCE.md`（V0 真实验收门；测试绿 ≠ 验收）
+6. `docs/HANDOFF-2026-11-23.md`\n7. `docs/ACCEPTANCE.md`（V0 真实验收门；测试绿 ≠ 验收）\n8. `docs/DEPLOY-POLICY.md`（少部署/批量部署）\n9. `docs/DEPLOYMENTS.md`（部署日志）
