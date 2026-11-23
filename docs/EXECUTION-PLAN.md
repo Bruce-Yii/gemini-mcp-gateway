@@ -8,7 +8,7 @@
 
 - 全量：`1381 tests / 1375 pass / 0 fail / 6 todo`（提交 `7a82c1d` 后；lead 实跑）
 - worktree：干净
-- 生产 Vercel：**旧构建**；`100 deployments/day` 用尽，最新代码未部署
+- 生产 Vercel：**已部署 `87d91af`**（healthz commit/buildHash 已核）；真实客户端/授权验收未做
 - Auth：`docs/AUTH-READY.md` = **NOT READY**，不发起授权
 - OSS：**未公开**；只有本地产物 `work/oss-release-staging` / `work/oss-release-repo`
 

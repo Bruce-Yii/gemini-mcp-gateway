@@ -23,7 +23,7 @@
 - [ ] 部署记录可查；
 - [ ] 不是旧构建、不是本地 loopback。
 
-**当前：FAIL（未部署）**
+**当前：PASS（2026-11-24 部署 `87d91af`，healthz commit/buildHash 匹配）**
 
 ### B. 真实客户端任务
 
