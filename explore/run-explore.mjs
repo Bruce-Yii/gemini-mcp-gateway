@@ -136,7 +136,7 @@ console.error('explore concurrency:', CONCURRENCY);
 // OpenAI tool list and AnomalyCollector; no mgr is ever shared across workers.
 // `SHARED.serverToolCounts` is filled once in onReady and read-only afterwards,
 // so task attribution is identical regardless of which worker picks it up.
-const SHARED = { serverToolCounts: {} };
+const SHARED = { serverToolCounts: {}, failedServers: [] };
 
 async function createWorkerContext(workerIndex) {
   const mgr = new UpstreamManager(activeCfg, { auth: staticAuth });
@@ -156,12 +156,16 @@ async function createWorkerContext(workerIndex) {
     task, type, detail,
     applyServerCoverage(meta, task.server, SHARED.serverToolCounts[task.server] ?? 0, type),
   );
+  // Failed upstreams are an explicit, per-run input for hit-rate attribution.
+  // Capture them on SHARED so every worker marks its task rows identically.
+  const failedServers = [...(mgr.failedServers || [])];
   if (workerIndex === 0) {
+    SHARED.failedServers = failedServers;
     console.error('gateway tools:', toolNames.join(','));
-    console.error('upstreams connected:', [...mgr._clients.keys()].join(','), '| failed:', (mgr.failedServers || []).join(',') || 'none');
+    console.error('upstreams connected:', [...mgr._clients.keys()].join(','), '| failed:', failedServers.join(',') || 'none');
     console.error('tools exposed per server:', JSON.stringify(serverToolCounts));
   }
-  return { mgr, toolsByName, TOOLS: gatewayTools.map(oaTool), collector, flag, serverToolCounts };
+  return { mgr, toolsByName, TOOLS: gatewayTools.map(oaTool), collector, flag, serverToolCounts, failedServers };
 }
 
 // ---- LLM helpers ----
@@ -267,6 +271,13 @@ const manifest = {
   modelBase: MODEL_BASE,
   servers: EXPLORE_SERVERS,
   serverToolCounts: {}, // filled from the first worker in onReady (R8)
+  // Explicit input for downstream L1 smoke: which upstreams failed to connect
+  // in THIS run. `scripts/run-l1-smoke.mjs` reads this to build a degraded-subset
+  // baseline instead of comparing half-connected real runs to the all-connected
+  // 40-task snapshot. Derived from UpstreamManager.failedServers (not guessed
+  // from tool counts), so a server that connected but exposes 0 whitelisted
+  // tools is NOT mislabelled as an upstream failure.
+  failedServers: [], // filled from the first worker in onReady
   taskCount: selected.length,
   taskLimit: limit || null,
   toolContract: REQUIRED_TOOLS,
@@ -282,7 +293,7 @@ const manifest = {
 async function runTask(task, ctx) {
   // Local aliases keep the detector body below unchanged while binding every
   // shared-looking name to this worker's private context.
-  const { flag, collector, toolsByName, TOOLS } = ctx;
+  const { flag, collector, toolsByName, TOOLS, failedServers } = ctx;
   const taskStart = Date.now();
   const traceId = `${runId}:${task.id}`;
   const isBoundary = task.category === 'boundary';
@@ -301,6 +312,12 @@ async function runTask(task, ctx) {
     promptTokens: 0, completionTokens: 0, totalTokens: 0,
     llmMs: 0, toolMs: 0, maxSingleToolMs: 0, wallMs: 0,
     finished: false, finishReason: null,
+    // Failed-upstream marking (explicit input from UpstreamManager.failedServers).
+    // A task whose server failed to connect has no searchable tools, so it must
+    // be EXCLUDED from the hit-rate denominator (not counted as a miss and not
+    // silently dropped from some tasks but not others). The L1 smoke runner
+    // reads this field to build a like-for-like degraded baseline.
+    serverFailed: (failedServers ?? []).includes(task.server),
     searchHit: null, searchHitAt3: null, toolHit: null,
     anomalyCount: 0,
     // R8: LLM 429/5xx retries (infra, never an anomaly).
@@ -513,7 +530,9 @@ const { results: taskResults, contexts: workers } = await runWorkerPool(selected
     // Publish coverage once, before any task starts, so every worker's flag()
     // applies identical server-coverage attribution.
     SHARED.serverToolCounts = contexts[0]?.serverToolCounts ?? {};
+    SHARED.failedServers = contexts[0]?.failedServers ?? [];
     manifest.serverToolCounts = SHARED.serverToolCounts;
+    manifest.failedServers = SHARED.failedServers;
     manifest.workerCount = contexts.length;
   },
   worker: (task, ctx) => runTask(task, ctx),
@@ -522,8 +541,8 @@ const { results: taskResults, contexts: workers } = await runWorkerPool(selected
 
 // ---- aggregate metrics (R3/R6) ----
 const metricsPerTask = taskResults.filter(Boolean).map((r) => r.m);
-const summary = summarizeMetrics(metricsPerTask);
-const metrics = { runId, generatedAt: new Date().toISOString(), perTask: metricsPerTask, summary };
+const summary = summarizeMetrics(metricsPerTask, { failedServers: SHARED.failedServers });
+const metrics = { runId, generatedAt: new Date().toISOString(), failedServers: SHARED.failedServers, perTask: metricsPerTask, summary };
 
 // ---- final artifacts ----
 fs.mkdirSync('explore/results', { recursive: true });
@@ -538,6 +557,7 @@ const out = {
   runId,
   model: MODEL,
   manifest,
+  failedServers: SHARED.failedServers,
   totalTasks: selected.length,
   anomalies: collected.items,
   dedupCount: collected.dedupCount,
@@ -555,13 +575,48 @@ console.error('infraRetries', infraRetries);
 console.error('metrics', JSON.stringify(summary));
 
 /* ---------------- helpers (hoisted function declarations) ---------------- */
-function summarizeMetrics(rows) {
+
+/**
+ * Hit-rate denominators (see docs/eval/L1-SMOKE.md "Hit-rate denominator").
+ *
+ * For a task to be in the hit-rate denominator it must (a) have an expectedTool
+ * and (b) belong to a server that CONNECTED in this run (`serverFailed !== true`).
+ * A failed-server task is excluded from BOTH numerator and denominator — it is
+ * a skipped upstream, never a gateway miss. Counting it as a miss when the
+ * model happened to call search and dropping it when the model did not call
+ * search (the old null-exclusion rule) made the rate depend on model whim.
+ *
+ *   measurable = rows.filter(r => r.expectedTool && !r.serverFailed)
+ *   searchHitRate  = count(measurable, r.searchHit === true) / |measurable| * 100
+ *   searchHitAt3Rate = count(measurable, r.searchHitAt3 === true) / |measurable| * 100
+ *   toolHitRate    = count(measurable, r.toolHit === true) / |measurable| * 100
+ *
+ * `null` (search/execute never called) is a MISS for a measurable task: the
+ * gateway did not surface the expected tool in that task, regardless of
+ * whether the model chose to call a tool. The legacy raw rates (null excluded,
+ * failed servers included) remain in `toolRecallRaw` for backward comparison.
+ */
+function summarizeMetrics(rows, { failedServers = [] } = {}) {
   const n = rows.length || 1;
   const num = (k) => rows.reduce((s, r) => s + (Number(r[k]) || 0), 0);
   const avg = (k) => Math.round((num(k) / n) * 100) / 100;
+  const pct = (hit, total) => total ? Math.round((hit / total) * 1000) / 10 : null;
+
+  const failed = new Set(failedServers);
+  const isFailed = (r) => r.serverFailed === true || failed.has(r.server);
   const withTool = rows.filter((r) => r.expectedTool);
-  const searchHitRows = rows.filter((r) => r.searchHit !== null);
-  const toolHitRows = rows.filter((r) => r.toolHit !== null);
+  const measurable = withTool.filter((r) => !isFailed(r));
+  const skippedByServer = {};
+  for (const r of withTool.filter(isFailed)) {
+    skippedByServer[r.server] = (skippedByServer[r.server] ?? 0) + 1;
+  }
+
+  // Legacy raw view: null-excluded denominator, failed servers NOT excluded.
+  // Kept unchanged so old consumers/dashboards do not break; do not use it to
+  // judge gateway quality when any upstream failed.
+  const searchHitRows = withTool.filter((r) => r.searchHit !== null && r.searchHit !== undefined);
+  const toolHitRows = withTool.filter((r) => r.toolHit !== null && r.toolHit !== undefined);
+
   return {
     tasks: rows.length,
     turns: { sum: num('turns'), mean: avg('turns') },
@@ -575,11 +630,24 @@ function summarizeMetrics(rows) {
     latencyMs: { llmMs: num('llmMs'), toolMs: num('toolMs'), maxSingleToolMs: Math.max(0, ...rows.map((r) => r.maxSingleToolMs)), wallMs: num('wallMs') },
     // R8: LLM 429/5xx retries are infra signals, not anomalies.
     infraRetries: num('infraRetries'),
+    // Failed-server marking: explicit input, never inferred from tool counts.
+    failedServers: [...failed],
+    skippedByServer,
     toolRecall: {
       tasksWithExpectedTool: withTool.length,
-      searchHitRate: searchHitRows.length ? Math.round((searchHitRows.filter((r) => r.searchHit).length / searchHitRows.length) * 1000) / 10 : null,
-      searchHitAt3Rate: searchHitRows.length ? Math.round((searchHitRows.filter((r) => r.searchHitAt3).length / searchHitRows.length) * 1000) / 10 : null,
-      toolHitRate: toolHitRows.length ? Math.round((toolHitRows.filter((r) => r.toolHit).length / toolHitRows.length) * 1000) / 10 : null,
+      denominatorTasks: measurable.length,
+      denominatorFormula: 'expectedTool && !serverFailed; null counts as miss',
+      searchHitRate: pct(measurable.filter((r) => r.searchHit === true).length, measurable.length),
+      searchHitAt3Rate: pct(measurable.filter((r) => r.searchHitAt3 === true).length, measurable.length),
+      toolHitRate: pct(measurable.filter((r) => r.toolHit === true).length, measurable.length),
+    },
+    toolRecallRaw: {
+      note: 'LEGACY: null excluded from denominator, failed servers included; not like-for-like when upstreams fail',
+      searchHitDenominator: searchHitRows.length,
+      toolHitDenominator: toolHitRows.length,
+      searchHitRate: pct(searchHitRows.filter((r) => r.searchHit === true).length, searchHitRows.length),
+      searchHitAt3Rate: pct(searchHitRows.filter((r) => r.searchHitAt3 === true).length, searchHitRows.length),
+      toolHitRate: pct(toolHitRows.filter((r) => r.toolHit === true).length, toolHitRows.length),
     },
   };
 }

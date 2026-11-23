@@ -27,6 +27,13 @@
  * output and is NEVER used as a baseline (that caused baseline === current and
  * made all thresholds trivially pass). See docs/eval/L1-SMOKE.md.
  *
+ * Failed-upstream scope: in real mode the runner reads `failedServers` from the
+ * run manifest (or --failed-servers) and compares ONLY the connected servers'
+ * tasks against a byServer-derived degraded-subset baseline. Failed-server
+ * tasks are skipped, never counted as gateway misses, and never silently
+ * dropped from just part of the denominator. With 0 connected servers the run
+ * is reported as a no-measurement infra failure (exit 1), not a gateway FAIL.
+ *
  * Nothing here talks to a real upstream in fake/replay mode. Real results are
  * never fabricated: fake mode is explicitly labelled `mode: "fake-dry-run"`
  * and its numbers are NOT used to validate gateway behaviour, only the wiring.
@@ -40,6 +47,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(HERE, '..');
 const SMOKE_TASKS = path.join(ROOT, 'explore/tasks-smoke.json');
 const BASELINE_FILE = path.join(ROOT, 'explore/baselines/l1-smoke.json');
+const MANIFEST_FILE = path.join(ROOT, 'explore/results/manifest.json');
 const REPORT_MD = path.join(ROOT, 'docs/eval/l1-smoke-report.md');
 const REPORT_JSON = path.join(ROOT, 'docs/eval/l1-smoke.json');
 const REAL_STATE = path.join(ROOT, 'docs/eval/l1-real-state.json');
@@ -72,11 +80,40 @@ const rate = (hit, total) => (total > 0 ? round1((hit / total) * 100) : null);
  */
 const FATAL_TYPES = new Set(['runner_error', 'max_turns_exceeded']);
 
-/** Convert explore runner artifacts into L1 metrics. */
-export function metricsFromExplore({ tasks, perTask = [], anomalies = [], source = 'explore' }) {
-  const ids = tasks.map((t) => t.id);
+/**
+ * Hit-rate denominator formula (see docs/eval/L1-SMOKE.md):
+ *
+ *   measurable = tasks with expectedTool whose server is NOT in failedServers
+ *                 (OR whose row.serverFailed !== true)
+ *   primary rate (like-for-like with the FROZEN baseline, which was computed
+ *     with the same null-excluded rule):
+ *     searchHitRate = count(measurable, searchHit === true)
+ *                   / count(measurable, searchHit !== null && !== undefined)
+ *   coverage-adjusted diagnostic (null === never called => MISS):
+ *     searchHitRateAdjusted = count(measurable, searchHit === true) / |measurable|
+ *
+ * A failed-server task is excluded from BOTH numerator and denominator — it
+ * is a skipped upstream, never a gateway miss. The old harness sometimes
+ * counted such a task as `false` (when the model called search) and sometimes
+ * dropped it as `null` (when it did not), making the rate model-dependent.
+ */
+export const DENOMINATOR_FORMULA = 'measurable = expectedTool && !serverFailed; primary: hits / non-null (matches frozen baseline); adjusted: hits / |measurable| with null counted as miss';
+
+/**
+ * Convert explore runner artifacts into L1 metrics.
+ *
+ * When `failedServers` is provided (real mode), tasks belonging to those
+ * servers are removed from the measurement scope entirely: their rows,
+ * anomalies and hit-rate contributions all disappear. `skippedByServer`
+ * records what was removed. With no failedServers the legacy behavior is
+ * unchanged (backward compatible with replay/fake and existing consumers).
+ */
+export function metricsFromExplore({ tasks, perTask = [], anomalies = [], source = 'explore', failedServers = [] }) {
+  const failed = new Set(failedServers);
+  const scopedTasks = failed.size ? tasks.filter((t) => !failed.has(t.server)) : tasks;
+  const ids = scopedTasks.map((t) => t.id);
   const idSet = new Set(ids);
-  const rows = perTask.filter((r) => idSet.has(r.task));
+  const rows = perTask.filter((r) => idSet.has(r.task) && !failed.has(r.server));
   const relevant = anomalies.filter((a) => idSet.has(a.task));
   const fatalTasks = new Set(relevant.filter((a) => FATAL_TYPES.has(a.type)).map((a) => a.task));
   const gatewayAnomalies = relevant.filter((a) => a.attribution === 'gateway').length;
@@ -84,6 +121,13 @@ export function metricsFromExplore({ tasks, perTask = [], anomalies = [], source
   const toolRows = rows.filter((r) => r.toolHit !== null && r.toolHit !== undefined);
   const latencies = rows.map((r) => r.wallMs ?? 0);
   const tokens = rows.reduce((s, r) => s + (r.totalTokens ?? 0), 0);
+  const withTool = rows.filter((r) => r.expectedTool || r.searchHit !== null || r.toolHit !== null);
+  const skippedByServer = {};
+  if (failed.size) {
+    for (const t of tasks.filter((t) => failed.has(t.server))) {
+      skippedByServer[t.server] = (skippedByServer[t.server] ?? 0) + 1;
+    }
+  }
 
   return {
     tasks: ids.length,
@@ -94,9 +138,20 @@ export function metricsFromExplore({ tasks, perTask = [], anomalies = [], source
     anomalyCount: relevant.length,
     searchHitRate: rate(searchRows.filter((r) => r.searchHit === true).length, searchRows.length),
     toolHitRate: rate(toolRows.filter((r) => r.toolHit === true).length, toolRows.length),
+    // Coverage-adjusted diagnostics: null (never called) is a MISS, failed
+    // servers are out of scope. Not used for baseline comparison because the
+    // frozen baseline only stores the legacy rates.
+    searchHitRateAdjusted: rate(withTool.filter((r) => r.searchHit === true).length, withTool.length),
+    toolHitRateAdjusted: rate(withTool.filter((r) => r.toolHit === true).length, withTool.length),
+    searchDenominator: searchRows.length,
+    toolDenominator: toolRows.length,
+    adjustedDenominator: withTool.length,
+    denominatorFormula: DENOMINATOR_FORMULA,
     tokensPerTask: rows.length ? Math.round(tokens / rows.length) : 0,
     p95LatencyMs: Math.round(percentile(latencies, 95)),
     source,
+    failedServers: [...failed],
+    skippedByServer,
   };
 }
 
@@ -174,6 +229,15 @@ export function renderReport(result) {
   if (result.skippedServers?.length) {
     lines.push(`- Skipped servers: ${result.skippedServers.map((s) => `\`${s}\``).join(', ')} (no upstream calls, no quota burned)`);
   }
+  if (result.failedServers?.length) {
+    lines.push(`- Failed upstreams: ${result.failedServers.map((s) => `\`${s}\``).join(', ')} (their tasks are excluded from all metrics — skipped, not gateway misses)`);
+  }
+  if (result.baselineScope) {
+    lines.push(`- Comparison scope: \`${result.baselineScope}\``);
+  }
+  if (result.measuredTasks !== undefined && result.taskCount !== undefined) {
+    lines.push(`- Measured tasks: ${result.measuredTasks}/${result.taskCount}${result.skippedByServer && Object.keys(result.skippedByServer).length ? ` (skipped by server: ${Object.entries(result.skippedByServer).map(([s, n]) => `\`${s}\`:${n}`).join(', ')})` : ''}`);
+  }
   if (result.alert) {
     lines.push(`- Free-model volatility: **ALERT** — ${result.alertReason ?? 'consecutive regressions'}`);
   } else if (result.mode === 'real' && !result.ok) {
@@ -197,6 +261,11 @@ export function renderReport(result) {
   lines.push(`- Metrics source: ${m.source ?? '(unknown)'}`);
   lines.push(`- Baseline source: ${result.baseline?.source ?? '(unknown)'}`);
   lines.push(`- Baseline scope: ${result.baseline?.fallback ? OVERALL_FALLBACK_LABEL : (result.baseline?.perServer ? 'per-server snapshot (like-for-like)' : 'overall baseline')}`);
+  if (result.baseline?.baselineScope) lines.push(`- Baseline scope input: \`${result.baseline.baselineScope}\``);
+  if (m.denominatorFormula && !String(m.source ?? '').includes('fake-dry-run')) {
+    lines.push(`- Hit-rate denominator: ${m.denominatorFormula}`);
+    lines.push(`- Denominators: search=${m.searchDenominator ?? '—'}, tool=${m.toolDenominator ?? '—'}, adjusted=${m.adjustedDenominator ?? '—'}; adjusted rates (null = miss): search=${m.searchHitRateAdjusted ?? '—'}%, tool=${m.toolHitRateAdjusted ?? '—'}%`);
+  }
   if (result.notes?.length) for (const note of result.notes) lines.push(`- ${note}`);
   lines.push('');
   lines.push('> This report is generated by `scripts/run-l1-smoke.mjs`. In `fake-dry-run` mode the numbers exercise plumbing only and must NOT be read as gateway quality.', '');
@@ -219,6 +288,7 @@ export function parseArgs(argv = []) {
     return i >= 0 ? argv[i + 1] : undefined;
   };
   const servers = arg('servers');
+  const failedServers = arg('failed-servers');
   return {
     mode: arg('mode') ?? 'fake',
     input: arg('input'),
@@ -227,6 +297,10 @@ export function parseArgs(argv = []) {
     // Comma-separated allow-list. Empty string => all servers (legacy replay).
     servers: servers === undefined || servers === '' ? null
       : servers.split(',').map((s) => s.trim()).filter(Boolean),
+    // Explicit failed-server input; merged with the run manifest in real mode.
+    // Empty/undefined => rely on the manifest (legacy compatible).
+    failedServers: failedServers === undefined || failedServers === '' ? null
+      : failedServers.split(',').map((s) => s.trim()).filter(Boolean),
   };
 }
 
@@ -259,6 +333,35 @@ export function selectTasksByServers(tasks, servers) {
   const present = new Set(tasks.map((t) => t.server));
   const skippedServers = [...present].filter((s) => !allow.has(s));
   return { tasks: kept, skippedServers };
+}
+
+/**
+ * Normalize the explicit failed-server input (CLI) and the run manifest's
+ * `failedServers` (produced by explore/run-explore.mjs from
+ * UpstreamManager.failedServers). Both sources are merged; the result is
+ * sorted/deduped. A missing manifest field is treated as "unknown", i.e. an
+ * empty list — legacy runs keep their previous behavior.
+ */
+export function parseFailedServers({ explicit = [], manifest = {} } = {}) {
+  const values = [
+    ...(Array.isArray(explicit) ? explicit : String(explicit ?? '').split(',')),
+    ...(Array.isArray(manifest?.failedServers) ? manifest.failedServers : []),
+  ];
+  return [...new Set(values.map((s) => String(s).trim()).filter(Boolean))].sort();
+}
+
+/**
+ * Classify the comparison scope from the requested servers and the failures
+ * observed in this run:
+ *   full              — every requested server connected (legacy path)
+ *   degraded-subset   — some failed, but at least one server is measurable
+ *   no-measured-tasks — every requested server failed; nothing to compare
+ */
+export function baselineScopeFor({ requestedServers = [], failedServers = [] } = {}) {
+  const failed = new Set(failedServers);
+  const measured = requestedServers.filter((s) => !failed.has(s));
+  if (!measured.length) return 'no-measured-tasks';
+  return failed.size ? 'degraded-subset' : 'full';
 }
 
 /** Date-stamped real report paths (kept as history, never overwritten). */
@@ -325,7 +428,7 @@ function loadJson(file) {
  */
 export const OVERALL_FALLBACK_LABEL = 'baseline-source: overall 50; not per-server';
 
-export function deriveBaselineForServers(tasks, baselineDoc, thresholds = DEFAULT_THRESHOLDS) {
+export function deriveBaselineForServers(tasks, baselineDoc, thresholds = DEFAULT_THRESHOLDS, { baselineScope = 'full' } = {}) {
   // Backwards compatibility: the legacy signature was (tasks, thresholds?).
   // When callers pass thresholds instead of a baseline document, load the
   // FROZEN baseline file (never explore/results/*).
@@ -359,6 +462,7 @@ export function deriveBaselineForServers(tasks, baselineDoc, thresholds = DEFAUL
       baselineSource: 'byServer',
       perServer: true,
       servers,
+      baselineScope,
       fallback: false,
     };
   }
@@ -391,6 +495,7 @@ export function deriveBaselineForServers(tasks, baselineDoc, thresholds = DEFAUL
       baselineSource: 'byServer',
       perServer: true,
       servers,
+      baselineScope,
       fallback: false,
     };
   }
@@ -403,11 +508,12 @@ export function deriveBaselineForServers(tasks, baselineDoc, thresholds = DEFAUL
     baselineSource: OVERALL_FALLBACK_LABEL,
     perServer: false,
     servers,
+    baselineScope,
     fallback: true,
   };
 }
 
-function runRealMode(tasks, servers) {
+function runRealMode(tasks, servers, explicitFailedServers = []) {
   // Delegate to the existing runner with the smoke suite. It writes its own
   // artifacts under explore/results/; we convert them immediately afterwards.
   const allow = (servers ?? [...new Set(tasks.map((t) => t.server))]).join(',');
@@ -418,12 +524,25 @@ function runRealMode(tasks, servers) {
   if (res.status !== 0) throw new Error(`run-explore.mjs exited ${res.status}`);
   const metrics = loadJson(path.join(ROOT, 'explore/results/metrics.json'));
   const anomalies = loadJson(path.join(ROOT, 'explore/results/anomalies.json'));
+  const manifest = fs.existsSync(MANIFEST_FILE) ? loadJson(MANIFEST_FILE) : {};
+  // Prefer the manifest (authoritative: UpstreamManager.failedServers) and
+  // merge any explicit --failed-servers input. The CLI flag also covers old
+  // manifests that predate the failedServers field.
+  const failedServers = parseFailedServers({ explicit: explicitFailedServers, manifest });
+  // Also trust per-row markings written by the updated explore runner, so a
+  // 0-tool server that connected is not silently treated as a healthy server.
+  const rowFailed = new Set(
+    (metrics.perTask ?? []).filter((r) => r.serverFailed === true).map((r) => r.server),
+  );
+  const effectiveFailed = [...new Set([...failedServers, ...rowFailed])].sort();
   return {
     metrics: metricsFromExplore({
       tasks, perTask: metrics.perTask, anomalies: anomalies.anomalies,
+      failedServers: effectiveFailed,
       source: `run-explore.mjs suite=smoke servers=${allow} (${metrics.runId})`,
     }),
     runId: metrics.runId,
+    failedServers: effectiveFailed,
   };
 }
 
@@ -443,6 +562,46 @@ function runReplayMode(tasks, input) {
   };
 }
 
+/**
+ * Pure scope/baseline/comparison decision for a run. Extracted so the
+ * failed-server matrix (4/4, 2/4, 0/4) can be unit-tested without spawning a
+ * real run. See tests/l1-failed-server.test.js.
+ */
+export function evaluateL1Scope({
+  isReal = false, mode = 'replay', tasks = [], metrics = {},
+  baselineDoc = {}, thresholds = DEFAULT_THRESHOLDS,
+  failedServers = [], baselineScope = 'full', skippedServers = [],
+  notes = [],
+} = {}) {
+  const failedSet = new Set(failedServers);
+  const measuredTasks = baselineScope === 'full' ? tasks : tasks.filter((t) => !failedSet.has(t.server));
+  const noMeasurement = baselineScope === 'no-measured-tasks';
+
+  let effectiveBaseline = null;
+  let comparison = { ok: false, checks: [] };
+  if (!noMeasurement) {
+    if (isReal && (baselineScope !== 'full' || skippedServers.length)) {
+      effectiveBaseline = deriveBaselineForServers(measuredTasks, baselineDoc, thresholds, { baselineScope });
+      // Never hard-compare a degraded subset to the overall baseline: without
+      // per-server data there is no like-for-like degraded baseline.
+      if (effectiveBaseline.fallback && baselineScope !== 'full') {
+        notes.push(`no per-server snapshot for [${[...new Set(measuredTasks.map((t) => t.server))].sort().join(',')}]; refusing to compare degraded subset against the overall baseline (not like-for-like).`);
+        effectiveBaseline = null;
+      }
+    } else {
+      effectiveBaseline = (mode === 'fake' && baselineDoc.fake) ? baselineDoc.fake : baselineDoc;
+    }
+    if (effectiveBaseline) comparison = compareWithBaseline(metrics, effectiveBaseline, thresholds);
+  }
+  if (effectiveBaseline?.fallback) {
+    notes.push(`baseline fallback: ${OVERALL_FALLBACK_LABEL} — no per-server snapshot for [${[...new Set(measuredTasks.map((t) => t.server))].sort().join(',')}]; aggregate baseline is NOT like-for-like and regressions may be masked.`);
+  }
+  const countOk = metrics.tasks === measuredTasks.length;
+  const ok = !noMeasurement && !!effectiveBaseline && comparison.ok && countOk;
+  if (!countOk) notes.push(`task count mismatch: expected ${measuredTasks.length} measured tasks, got ${metrics.tasks}`);
+  return { effectiveBaseline, comparison, measuredTasks, noMeasurement, countOk, ok };
+}
+
 function main() {
   const opts = parseArgs(process.argv.slice(2));
   const { mode, input, date } = opts;
@@ -460,14 +619,26 @@ function main() {
     : { tasks: allTasks, skippedServers: [] };
 
   let metrics, runId = null;
+  let failedServers = [];
+  let baselineScope = 'full';
+  let skippedByServer = {};
   const notes = [];
   if (mode === 'fake') {
     metrics = fakeMetrics(tasks);
     notes.push('fake-dry-run: deterministic simulation, no model/upstream calls; only verifies runner + compare + report wiring.');
   } else if (isReal) {
-    ({ metrics, runId } = runRealMode(tasks, opts.servers ?? DEFAULT_REAL_SERVERS));
+    const requestedServers = opts.servers ?? DEFAULT_REAL_SERVERS;
+    ({ metrics, runId, failedServers } = runRealMode(tasks, requestedServers, opts.failedServers ?? []));
+    skippedByServer = metrics.skippedByServer ?? {};
+    baselineScope = baselineScopeFor({ requestedServers, failedServers });
     if (skippedServers.length) {
       notes.push(`skipped servers (${skippedServers.join(', ')}): no upstream calls made — Figma Starter quota preserved; mark as skipped, not failed.`);
+    }
+    if (failedServers.length) {
+      notes.push(`degraded upstreams: ${failedServers.join(', ')} — their tasks were SKIPPED (not gateway misses); comparing only the connected-server subset against a byServer-derived baseline.`);
+    }
+    if (baselineScope === 'no-measured-tasks') {
+      notes.push(`no measurable tasks: every requested upstream failed (${failedServers.join(', ')}) — this is an INFRA/no-measurement result, not a gateway regression; no baseline comparison was performed.`);
     }
     notes.push('Free-model volatility: a single red run still exits 1, but ALERT is only raised after two consecutive real-mode failures.');
   } else {
@@ -476,20 +647,16 @@ function main() {
 
   // Real/replay runs are compared to the frozen G6-derived baseline snapshot in
   // explore/baselines/l1-smoke.json; fake mode uses the separate fake entry.
-  // Real runs that skip Figma get a like-for-like byServer baseline from that
-  // SAME file — never from explore/results/*, which is the current run output.
+  // In degraded real mode the baseline is derived ONLY from the connected
+  // servers via byServer — never from the full 40-task snapshot and never from
+  // explore/results/* (the current run output).
   const thresholds = baselineDoc.thresholds ?? DEFAULT_THRESHOLDS;
-  const effectiveBaseline = isReal && skippedServers.length
-    ? deriveBaselineForServers(tasks, baselineDoc, thresholds)
-    : (mode === 'fake' && baselineDoc.fake) ? baselineDoc.fake : baselineDoc;
-  const comparison = compareWithBaseline(metrics, effectiveBaseline, thresholds);
-  if (effectiveBaseline.fallback) {
-    notes.push(`baseline fallback: ${OVERALL_FALLBACK_LABEL} — no per-server snapshot for [${[...new Set(tasks.map((t) => t.server))].sort().join(',')}]; aggregate baseline is NOT like-for-like and regressions may be masked.`);
-  }
-  // Task count must always match the effective smoke set.
-  const countOk = metrics.tasks === tasks.length;
-  const ok = comparison.ok && countOk;
-  if (!countOk) notes.push(`task count mismatch: expected ${tasks.length}, got ${metrics.tasks}`);
+  const {
+    effectiveBaseline, comparison, measuredTasks, noMeasurement, ok,
+  } = evaluateL1Scope({
+    isReal, mode, tasks, metrics, baselineDoc, thresholds,
+    failedServers, baselineScope, skippedServers, notes,
+  });
 
   let alert = false, alertReason = null;
   const paths = isReal ? realReportPaths(date) : { md: REPORT_MD, json: REPORT_JSON };
@@ -513,18 +680,23 @@ function main() {
     alert,
     alertReason,
     skippedServers,
-    taskCount: tasks.length,
+    failedServers,
+    baselineScope,
+    measuredTasks: metrics.measuredTasks ?? measuredTasks.length,
+    skippedByServer,
+    taskCount: measuredTasks.length,
     fullSmokeTaskCount: allTasks.length,
     datasetSha256: null,
     metrics,
-    baseline: {
+    baseline: effectiveBaseline ? {
       source: effectiveBaseline.source ?? '(unknown)',
       capturedAt: effectiveBaseline.capturedAt ?? null,
       metrics: effectiveBaseline.metrics ?? {},
       baselineSource: effectiveBaseline.baselineSource ?? 'overall',
       perServer: effectiveBaseline.perServer === true,
       fallback: effectiveBaseline.fallback === true,
-    },
+      baselineScope: effectiveBaseline.baselineScope ?? baselineScope,
+    } : null,
     comparison,
     notes,
   };
@@ -533,9 +705,11 @@ function main() {
   fs.writeFileSync(paths.json, JSON.stringify(result, null, 2) + '\n');
   fs.writeFileSync(paths.md, renderReport(result));
 
-  console.log(`[l1-smoke] ${result.mode}: ${ok ? 'PASS' : 'FAIL'}${alert ? ' ALERT' : ''} | tasks=${metrics.tasks}/${allTasks.length} skipped=${skippedServers.join(',') || 'none'} completion=${metrics.completionRate}% gatewayAnomalies=${metrics.gatewayAnomalyCount} searchHit=${metrics.searchHitRate}% toolHit=${metrics.toolHitRate}% tokens/task=${metrics.tokensPerTask} p95=${metrics.p95LatencyMs}ms`);
+  const scopeTag = baselineScope === 'full' ? '' : ` scope=${baselineScope}`;
+  console.log(`[l1-smoke] ${result.mode}: ${ok ? 'PASS' : 'FAIL'}${alert ? ' ALERT' : ''}${scopeTag} | measured=${metrics.tasks}/${result.taskCount} (full=${allTasks.length}) failed=${failedServers.join(',') || 'none'} skippedByServer=${JSON.stringify(skippedByServer)} completion=${metrics.completionRate}% gatewayAnomalies=${metrics.gatewayAnomalyCount} searchHit=${metrics.searchHitRate}% toolHit=${metrics.toolHitRate}% tokens/task=${metrics.tokensPerTask} p95=${metrics.p95LatencyMs}ms`);
   console.log(`[l1-smoke] report: ${path.relative(ROOT, paths.md)}`);
-  if (effectiveBaseline.fallback) console.warn(`[l1-smoke] WARNING: ${OVERALL_FALLBACK_LABEL}`);
+  if (effectiveBaseline?.fallback) console.warn(`[l1-smoke] WARNING: ${OVERALL_FALLBACK_LABEL}`);
+  if (noMeasurement) console.error('[l1-smoke] NO MEASUREMENT: all requested upstreams failed; infra/reauth required, not a gateway regression.');
   for (const c of comparison.checks) if (c.status === 'fail') console.error(`[l1-smoke] REGRESSION ${c.metric}: ${c.current} vs baseline ${c.baseline} (${c.direction} tolerance ${c.tolerance})`);
   process.exit(ok ? 0 : 1);
 }

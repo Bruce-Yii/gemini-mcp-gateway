@@ -326,7 +326,19 @@ export function createGatewayServer(upstreamManager, options = {}) {
       name,
       description,
       inputSchema,
-      annotations,
+      annotations: {
+        // ChatGPT requires an explicit readOnlyHint on every tool. All tools
+        // already pass through sanitizeTool, so this only guarantees presence.
+        readOnlyHint: annotations?.readOnlyHint === true,
+        ...(annotations ?? {}),
+      },
+      // Auth metadata is additive and profile-independent: tools/list is a
+      // separate stateless HTTP request from initialize, so relying on a
+      // detected ChatGPT profile here would be unreliable. Gemini ignores
+      // unknown _meta keys; no tool name/schema is changed.
+      _meta: {
+        securitySchemes: [{ type: 'oauth2', scopes: ['mcp', 'offline_access'] }],
+      },
     })),
   }));
 

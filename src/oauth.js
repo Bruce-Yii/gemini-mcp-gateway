@@ -4,6 +4,11 @@
  * Implements the Gemini hard requirements: DCR with 6+ Google-hosted redirect
  * URIs, byte-preserving ~1400-char state, PKCE S256, non-rotating refresh
  * tokens and well-known metadata that returns 200 directly (no 404 probing).
+ *
+ * ChatGPT connector support is additive and strictly opt-in: the redirect
+ * allowlist includes OpenAI's documented callbacks, RFC 9207 `iss` is sent on
+ * every authorization response, and `ALLOW_DCR_FOR_CHATGPT=1` carves out a
+ * ChatGPT-only DCR path that never reuses the Gemini locked client.
  */
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
@@ -13,7 +18,7 @@ const MAX_BODY_BYTES = 1024 * 1024;
 const CODE_TTL_MS = 10 * 60 * 1000;
 const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
 
-const SCOPES = ['mcp', 'openid', 'email', 'profile'];
+const SCOPES = ['mcp', 'openid', 'email', 'profile', 'offline_access'];
 const RESPONSE_TYPES = ['code'];
 const GRANT_TYPES = ['authorization_code', 'refresh_token'];
 
@@ -22,6 +27,46 @@ const GOOGLE_REDIRECT_HOSTS = new Set([
   'oauth-redirect-sandbox.googleusercontent.com',
   'oauth-redirect-test.googleusercontent.com',
 ]);
+
+// ChatGPT's stable callback (used when the AS publishes RFC 9207 issuer
+// identification) and its callback-ID-specific form. Both are documented by
+// OpenAI; no other host or path shape is accepted.
+const CHATGPT_STABLE_REDIRECT = 'https://chatgpt.com/connector_platform_oauth_redirect';
+const CHATGPT_REDIRECT_PREFIX = 'https://chatgpt.com/connector/oauth/';
+const CHATGPT_CALLBACK_ID = /^[A-Za-z0-9_-]+$/;
+
+/** True when the URI is a Google relay or a documented ChatGPT callback. */
+export function isAllowedRedirectUri(value) {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 2048) return false;
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:') return false;
+  if (url.username || url.password) return false;
+  const host = url.hostname.toLowerCase();
+  if (GOOGLE_REDIRECT_HOSTS.has(host)) {
+    return url.pathname.startsWith('/r/') || url.pathname.startsWith('/a/');
+  }
+  if (host === 'chatgpt.com') {
+    if (value === CHATGPT_STABLE_REDIRECT) return true;
+    if (!value.startsWith(CHATGPT_REDIRECT_PREFIX)) return false;
+    const callbackId = value.slice(CHATGPT_REDIRECT_PREFIX.length);
+    return Boolean(callbackId) && CHATGPT_CALLBACK_ID.test(callbackId);
+  }
+  return false;
+}
+
+/** Backwards-compatible name kept for existing callers/tests. */
+export const isValidGoogleRedirectUri = isAllowedRedirectUri;
+
+/** True when the URI is one of ChatGPT's two documented OAuth callbacks. */
+export function isChatgptRedirectUri(value) {
+  return typeof value === 'string' && isAllowedRedirectUri(value) &&
+    new URL(value).hostname.toLowerCase() === 'chatgpt.com';
+}
 
 // ---------------------------------------------------------------------------
 // small helpers
@@ -170,21 +215,6 @@ async function readParams(req) {
   return Object.fromEntries(new URLSearchParams(raw || ''));
 }
 
-/** Validate a redirect URI against the strict Google-host allowlist. */
-export function isValidGoogleRedirectUri(value) {
-  if (typeof value !== 'string' || value.length === 0 || value.length > 2048) return false;
-  let url;
-  try {
-    url = new URL(value);
-  } catch {
-    return false;
-  }
-  if (url.protocol !== 'https:') return false;
-  if (!GOOGLE_REDIRECT_HOSTS.has(url.hostname.toLowerCase())) return false;
-  if (url.username || url.password) return false;
-  return url.pathname.startsWith('/r/') || url.pathname.startsWith('/a/');
-}
-
 function normalizeRedirects(params) {
   let list = params.redirect_uris ?? params.redirect_uri ?? [];
   if (typeof list === 'string') list = [list];
@@ -201,7 +231,23 @@ function isRegisteredRedirect(client, uri) {
   return Boolean(uri) && clientRedirects(client).includes(uri);
 }
 
-function consentPage({ clientName, clientId, redirectUri, state, codeChallenge, scope }) {
+/**
+ * LOCKED mode normally disables DCR. When ALLOW_DCR_FOR_CHATGPT=1 we carve out
+ * a single narrow exception: registrations whose redirects are ALL documented
+ * ChatGPT callbacks and whose declared metadata identifies an OpenAI client.
+ * Arbitrary hosts and unrecognised clients are still rejected.
+ */
+function isChatgptClientRegistration(params, redirects) {
+  if (redirects.length === 0 || !redirects.every(isChatgptRedirectUri)) return false;
+  const name = str(params.client_name).toLowerCase();
+  const metadataUrl = str(params.client_uri).toLowerCase();
+  if (name.includes('chatgpt') || name.includes('openai')) return true;
+  if (metadataUrl.includes('chatgpt.com') || metadataUrl.includes('openai.com')) return true;
+  return str(params.token_endpoint_auth_method) === 'none' ||
+    str(params.token_endpoint_auth_method) === 'private_key_jwt';
+}
+
+function consentPage({ clientName, clientId, redirectUri, state, codeChallenge, scope, resource }) {
   return [
     '<!doctype html>',
     '<html lang="en"><head><meta charset="utf-8">',
@@ -216,6 +262,7 @@ function consentPage({ clientName, clientId, redirectUri, state, codeChallenge, 
     `<input type="hidden" name="code_challenge" value="${escapeHtml(codeChallenge)}">`,
     '<input type="hidden" name="code_challenge_method" value="S256">',
     `<input type="hidden" name="scope" value="${escapeHtml(scope)}">`,
+    `<input type="hidden" name="resource" value="${escapeHtml(resource)}">`,
     '<input type="hidden" name="response_type" value="code">',
     '<button type="submit">Approve</button>',
     '</form></body></html>',
@@ -252,6 +299,12 @@ export function createOAuthHandlers(store, options = {}) {
   const ALLOWED_CLIENT_ID = options.allowedClientId ?? process.env.ALLOWED_CLIENT_ID ?? '';
   const ALLOWED_CLIENT_SECRET = options.allowedClientSecret ?? process.env.ALLOWED_CLIENT_SECRET ?? '';
   const LOCKED = Boolean(ALLOWED_CLIENT_ID);
+  // Explicit opt-in ONLY: production has ALLOWED_CLIENT_ID set, so DCR is off by
+  // default. Setting ALLOW_DCR_FOR_CHATGPT=1 opens a narrow ChatGPT-only DCR
+  // carve-out; Gemini's pre-registered client and its secret are untouched.
+  const ALLOW_DCR_FOR_CHATGPT = options.allowDcrForChatgpt ?? ['1', 'true', 'yes'].includes(
+    String(process.env.ALLOW_DCR_FOR_CHATGPT ?? '').toLowerCase(),
+  );
 
   function clientAllowed(clientId, clientSecret, checkSecret = false) {
     if (!LOCKED) return true;
@@ -262,10 +315,20 @@ export function createOAuthHandlers(store, options = {}) {
     return true;
   }
 
+  /** A DCR-registered ChatGPT public client, only when explicitly enabled. */
+  async function isChatgptDcrClient(clientId) {
+    if (!LOCKED || !ALLOW_DCR_FOR_CHATGPT || !clientId) return false;
+    const client = await store.getClient(str(clientId));
+    return client?.chatgptDcr === true;
+  }
+
   async function metadata(req, res) {
     const base = baseUrl(req);
     const doc = {
       issuer: base,
+      // RFC 9207: we append `iss` to EVERY authorization response, success and
+      // error alike. Stable issuer identifier must match authorization_servers.
+      authorization_response_iss_parameter_supported: true,
       authorization_endpoint: `${base}/oauth/authorize`,
       token_endpoint: `${base}/oauth/token`,
       revocation_endpoint: `${base}/oauth/revoke`,
@@ -291,9 +354,6 @@ export function createOAuthHandlers(store, options = {}) {
   }
 
   async function register(req, res) {
-    if (LOCKED) {
-      return oauthError(res, 403, 'invalid_request', 'dynamic client registration is disabled');
-    }
     let params;
     try {
       params = await readParams(req);
@@ -301,27 +361,42 @@ export function createOAuthHandlers(store, options = {}) {
       return oauthError(res, 400, 'invalid_request', 'invalid registration body');
     }
 
+    // Preserve the legacy locked behaviour byte-for-byte: with no explicit
+    // opt-in, DCR is rejected with 403 *before* any redirect validation.
     const redirects = normalizeRedirects(params);
+    const chatgptDcr = isChatgptClientRegistration(params, redirects);
+    if (LOCKED && !(ALLOW_DCR_FOR_CHATGPT && chatgptDcr)) {
+      return oauthError(res, 403, 'invalid_request', 'dynamic client registration is disabled');
+    }
     if (redirects.length === 0) {
       return oauthError(res, 400, 'invalid_redirect_uri', 'at least one redirect_uri is required');
     }
-    const invalid = redirects.find((uri) => !isValidGoogleRedirectUri(uri));
+    // Single shared validator for DCR, authorize and token: Google relays and
+    // documented ChatGPT callbacks only, never an arbitrary host.
+    const invalid = redirects.find((uri) => !isAllowedRedirectUri(uri));
     if (invalid) {
       return oauthError(res, 400, 'invalid_redirect_uri', 'redirect_uri host or path is not allowed');
+    }
+    if (!LOCKED && !chatgptDcr && redirects.some(isChatgptRedirectUri)) {
+      return oauthError(res, 400, 'invalid_redirect_uri', 'ChatGPT clients must be identified explicitly');
     }
 
     // Deterministic client id: same redirect set always maps to the same client.
     const canonical = [...redirects].sort().join('\n');
     const clientId = `gmc_${createHash('sha256').update(canonical).digest('hex').slice(0, 32)}`;
-    const authMethod = str(params.token_endpoint_auth_method) || 'client_secret_post';
+    const authMethod = str(params.token_endpoint_auth_method) ||
+      (chatgptDcr ? 'none' : 'client_secret_post');
     const providedSecret = str(params.client_secret);
     const record = {
       clientId,
-      clientName: str(params.client_name) || 'Google',
+      clientName: str(params.client_name) || (chatgptDcr ? 'ChatGPT' : 'Google'),
       redirectUris: redirects,
       responseTypes: [...RESPONSE_TYPES],
       grantTypes: [...GRANT_TYPES],
       tokenEndpointAuthMethod: authMethod,
+      chatgptDcr,
+      // Platform isolation: never reuse/overwrite the Gemini locked client.
+      platform: chatgptDcr ? 'chatgpt' : 'gemini',
       createdAt: Date.now(),
     };
     if (providedSecret) record.client_secret = providedSecret;
@@ -361,30 +436,76 @@ export function createOAuthHandlers(store, options = {}) {
     const challengeMethod = str(params.code_challenge_method) || 'S256';
     const scope = str(params.scope);
     const responseType = str(params.response_type);
+    const resourceParam = str(params.resource);
     console.log(`[oauth] authorize method=${method} client_id=${clientId} redirect=${redirectUri.slice(0,90)} scope=${scope}`);
 
-    // In locked mode, credentials come from env; build a synthetic client on the
-    // fly so no KV write is needed. Anyone without the exact client_id is rejected.
+    const issuer = baseUrl(req);
+    // RFC 9207: once the redirect is known to be one of OUR allowlisted
+    // callbacks, send protocol errors back through it with `iss` attached.
+    // Before that point there is no safe place to send the user: use JSON.
+    const canRedirect = isAllowedRedirectUri(redirectUri);
+    const redirectError = (error, description, status = 400) => {
+      if (canRedirect) {
+        const location = buildRedirectUrl(redirectUri, [
+          ['error', error],
+          ['error_description', description],
+          ['state', state],
+          ['iss', issuer],
+        ]);
+        sendHtml(res, 200, redirectPage(location));
+        return;
+      }
+      oauthError(res, status, error, description);
+    };
+
+    // In locked mode, Gemini credentials come from env; build a synthetic
+    // client on the fly so no KV write is needed. ChatGPT uses its OWN registered
+    // client (platform=chatgpt) via the explicit DCR carve-out — never the
+    // Gemini ALLOWED_CLIENT_ID, whose redirect stays Google-only.
     let client = await store.getClient(clientId);
+    const chatgptClient = client?.platform === 'chatgpt' || Boolean(await isChatgptDcrClient(clientId));
     if (LOCKED && clientAllowed(clientId)) {
-      client = client ?? { clientId, clientName: 'Gemini', redirectUris: [redirectUri] };
-      // Accept any Google-hosted redirect for the single allowed client.
-      if (!client.redirectUris?.includes(redirectUri)) client.redirectUris = [redirectUri];
+      // Gemini's locked client is Google-relay-only: ChatGPT callbacks must
+      // never be attached to it, even when the global allowlist includes them.
+      if (redirectUri.startsWith('https://chatgpt.com/')) {
+        return oauthError(res, 400, 'invalid_request', 'Gemini client cannot use a ChatGPT redirect');
+      }
+      client = client ?? { clientId, clientName: 'Gemini', platform: 'gemini', redirectUris: [] };
+      if (!client.redirectUris?.includes(redirectUri)) client.redirectUris = [...clientRedirects(client), redirectUri];
     }
     if (!client) {
       return oauthError(res, 400, 'invalid_client', 'unknown client_id');
     }
-    if (!clientAllowed(clientId)) {
+    if (!clientAllowed(clientId) && !chatgptClient) {
+      return oauthError(res, 401, 'invalid_client', 'client not allowed');
+    }
+    // Shared check for every platform: no arbitrary host, and the exact URI must
+    // be registered for this client.
+    if (!isAllowedRedirectUri(redirectUri)) {
+      return oauthError(res, 400, 'invalid_request', 'redirect_uri host or path is not allowed');
+    }
+    // A ChatGPT client may ONLY use ChatGPT callbacks; Gemini's locked client
+    // may only use Google relay callbacks. Never mix platforms.
+    if (chatgptClient && !isChatgptRedirectUri(redirectUri)) {
+      return redirectError('invalid_request', 'ChatGPT clients must use a ChatGPT redirect_uri');
+    }
+    if (!chatgptClient && client.platform === 'chatgpt') {
       return oauthError(res, 401, 'invalid_client', 'client not allowed');
     }
     if (!isRegisteredRedirect(client, redirectUri)) {
-      return oauthError(res, 400, 'invalid_request', 'redirect_uri is not registered for this client');
+      if (LOCKED && clientAllowed(clientId) && client.platform !== 'chatgpt' && isAllowedRedirectUri(redirectUri)) {
+        // Legacy Gemini behaviour: the single allowed client accepts any
+        // allowlisted redirect without a prior DCR record.
+        client.redirectUris = [...clientRedirects(client), redirectUri];
+      } else {
+        return redirectError('invalid_request', 'redirect_uri is not registered for this client');
+      }
     }
     if (responseType && responseType !== 'code') {
-      return oauthError(res, 400, 'unsupported_response_type', 'only response_type=code is supported');
+      return redirectError('unsupported_response_type', 'only response_type=code is supported');
     }
     if (!codeChallenge || challengeMethod !== 'S256') {
-      return oauthError(res, 400, 'invalid_request', 'PKCE code_challenge with S256 is required');
+      return redirectError('invalid_request', 'PKCE code_challenge with S256 is required');
     }
 
     if (method !== 'POST') {
@@ -399,6 +520,7 @@ export function createOAuthHandlers(store, options = {}) {
           state,
           codeChallenge,
           scope,
+          resource: resourceParam,
         }),
       );
       return;
@@ -413,22 +535,27 @@ export function createOAuthHandlers(store, options = {}) {
       // preserves its bytes on the way back to the client.
       state,
       scope,
+      resource: resourceParam,
+      platform: chatgptClient ? 'chatgpt' : 'gemini',
       codeChallenge,
       codeChallengeMethod: 'S256',
       createdAt: now,
       expiresAt: now + CODE_TTL_MS,
     });
 
+    // RFC 9207 issuer identification: every successful response carries `iss`,
+    // exactly equal to metadata.issuer and protected resource authorization_servers.
     const location = buildRedirectUrl(redirectUri, [
       ['code', code],
       ['state', state],
+      ['iss', issuer],
     ]);
     // 200 + meta refresh rather than a bare 302: Google's relay performs a
     // second navigation that a strict CSP (form-action 'self') would block.
     sendHtml(res, 200, redirectPage(location));
   }
 
-  async function issueAccessToken(storeRef, { clientId, scope, refreshTokenHash, existingRefreshToken }) {
+  async function issueAccessToken(storeRef, { clientId, scope, resource, refreshTokenHash, existingRefreshToken }) {
     const accessToken = randomBytes(32).toString('base64url');
     const refreshToken = existingRefreshToken ?? randomBytes(32).toString('base64url');
     const accessTokenHash = hashSecret(accessToken);
@@ -437,6 +564,7 @@ export function createOAuthHandlers(store, options = {}) {
     await storeRef.saveToken(accessToken, {
       clientId,
       scope: scope ?? '',
+      resource: resource ?? '',
       tokenHash: accessTokenHash,
       refreshTokenHash: resolvedRefreshHash,
       issuedAt: now,
@@ -463,6 +591,21 @@ export function createOAuthHandlers(store, options = {}) {
     if (params.redirect_uri && str(params.redirect_uri) !== record.redirectUri) {
       return oauthError(res, 400, 'invalid_grant', 'redirect_uri does not match the code');
     }
+    // Token endpoint goes through the same redirect validator as DCR/authorize.
+    if (params.redirect_uri && !isAllowedRedirectUri(str(params.redirect_uri))) {
+      return oauthError(res, 400, 'invalid_grant', 'redirect_uri host or path is not allowed');
+    }
+    // Platform isolation: a ChatGPT code must not be redeemed by a Gemini
+    // client id (and vice versa).
+    const chatgptCode = record.platform === 'chatgpt' || isChatgptRedirectUri(record.redirectUri);
+    const redeemingClient = await store.getClient(str(params.client_id));
+    if (chatgptCode && (redeemingClient?.platform === 'gemini' ||
+        (LOCKED && str(params.client_id) === ALLOWED_CLIENT_ID))) {
+      return oauthError(res, 401, 'invalid_client', 'platform mismatch: ChatGPT code');
+    }
+    if (!chatgptCode && redeemingClient?.platform === 'chatgpt') {
+      return oauthError(res, 401, 'invalid_client', 'platform mismatch: Gemini code');
+    }
 
     const verifier = str(params.code_verifier);
     const computed = createHash('sha256').update(verifier).digest('base64url');
@@ -470,11 +613,12 @@ export function createOAuthHandlers(store, options = {}) {
       return oauthError(res, 400, 'invalid_grant', 'PKCE code_verifier is invalid');
     }
 
-    // Locked mode: the pre-registered client's secret must match the env value.
-    if (LOCKED && !clientAllowed(str(params.client_id), str(params.client_secret), true)) {
+    // Locked mode: the pre-registered Gemini client's secret must match the env
+    // value. ChatGPT DCR clients are public PKCE clients with no secret.
+    if (LOCKED && !chatgptCode && !clientAllowed(str(params.client_id), str(params.client_secret), true)) {
       return oauthError(res, 401, 'invalid_client', 'client credentials are invalid');
     }
-    if (record.clientId) {
+    if (record.clientId && !chatgptCode) {
       const client = await store.getClient(record.clientId);
       if (client?.clientSecretHash) {
         if (!safeEqual(hashSecret(str(params.client_secret)), client.clientSecretHash)) {
@@ -483,13 +627,19 @@ export function createOAuthHandlers(store, options = {}) {
       }
     }
 
+    // Echo `resource` when the client requested it (MCP 2025-11-25 / RFC 8707).
+    // The value is recorded at authorize time (including through the consent
+    // form); a token request may also supply it directly.
+    const resource = str(params.resource) || str(record.resource);
     const tokens = await issueAccessToken(store, {
       clientId: record.clientId,
       scope: record.scope,
+      resource,
     });
     await store.saveRefresh(tokens.refreshToken, {
       clientId: record.clientId,
       scope: record.scope ?? '',
+      resource,
       tokenHash: hashSecret(tokens.refreshToken),
       accessTokenHash: hashSecret(tokens.accessToken),
       issuedAt: Date.now(),
@@ -502,6 +652,7 @@ export function createOAuthHandlers(store, options = {}) {
       expires_in: tokens.expiresIn,
       refresh_token: tokens.refreshToken,
       scope: record.scope ?? '',
+      ...(resource ? { resource } : {}),
     });
   }
 
@@ -515,17 +666,21 @@ export function createOAuthHandlers(store, options = {}) {
       return oauthError(res, 400, 'invalid_grant', 'refresh_token expired');
     }
     const clientId = str(params.client_id);
-    if (LOCKED && !clientAllowed(clientId, str(params.client_secret), true)) {
+    const chatgptRefresh = (await isChatgptDcrClient(clientId)) ||
+      (LOCKED && clientId && clientId === ALLOWED_CLIENT_ID && str(record.platform) === 'chatgpt');
+    if (LOCKED && !chatgptRefresh && !clientAllowed(clientId, str(params.client_secret), true)) {
       return oauthError(res, 401, 'invalid_client', 'client credentials are invalid');
     }
     if (clientId && record.clientId && clientId !== record.clientId) {
       return oauthError(res, 400, 'invalid_grant', 'client_id does not match the refresh token');
     }
 
+    const resource = str(params.resource) || str(record.resource);
     // Non-rotating: the same refresh token stays valid and is returned again.
     const tokens = await issueAccessToken(store, {
       clientId: record.clientId,
       scope: record.scope,
+      resource,
       refreshTokenHash: record.tokenHash ?? hashSecret(refreshToken),
       existingRefreshToken: refreshToken,
     });
@@ -537,6 +692,7 @@ export function createOAuthHandlers(store, options = {}) {
       // Deliberately the same token as the request — never rotate.
       refresh_token: refreshToken,
       scope: record.scope ?? '',
+      ...(resource ? { resource } : {}),
     });
   }
 

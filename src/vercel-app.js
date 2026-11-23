@@ -148,10 +148,21 @@ export function createAppHandler(options = {}) {
 
   function unauthorized(res, resourceMetadataUrl, reason) {
     const bodyError = reason === 'missing_token' ? 'invalid_request' : 'invalid_token';
+    const description = `Bearer token ${reason}`;
+    // OpenAI auth docs: ChatGPT only shows its OAuth linking UI when the tool
+    // error carries `_meta["mcp/www_authenticate"]`, an array of strings that
+    // include both `error` and `error_description`. This is ADDITIVE: the
+    // existing WWW-Authenticate header and top-level error fields are unchanged,
+    // so Gemini's byte-level contract is preserved.
+    const challenge = `Bearer resource_metadata="${resourceMetadataUrl}", error="${bodyError}", error_description="${description}"`;
     sendJson(
       res,
       401,
-      { error: bodyError, error_description: `Bearer token ${reason}` },
+      {
+        error: bodyError,
+        error_description: description,
+        _meta: { 'mcp/www_authenticate': [challenge] },
+      },
       { 'www-authenticate': `Bearer resource_metadata="${resourceMetadataUrl}"` },
     );
   }
