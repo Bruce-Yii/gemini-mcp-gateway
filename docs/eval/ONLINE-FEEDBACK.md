@@ -218,3 +218,13 @@
   批次文档，归属仅按任务声明登记，待 lead 核实，不虚构 PR/提交/文件内容。
 - **本批只写文档**：不改 `src/`、`scripts/`、`tests/`、README、其它 docs、workflows；
   不 commit / push / deploy。
+
+## 7. 2026-11-23 Gemini 记录与 join
+
+- 记录：[online-feedback-2026-11-23-gemini.md](online-feedback-2026-11-23-gemini.md)
+- Join：[ONLINE-SEMIONLINE-JOIN-2026-11-23.md](ONLINE-SEMIONLINE-JOIN-2026-11-23.md)
+- 主文档：[../EVALUATION.md](../EVALUATION.md)
+- 索引：[README.md](README.md)
+
+F1–F6 全部来自生产旧构建；F1/F2 代码层已修但未部署，F3–F6 为半在线缺口/在线-only 维度。
+

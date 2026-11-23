@@ -260,3 +260,12 @@ action, only guard against regression.
 - **Evidence chain**: all items have `requestIds:["unknown"]`, `captureVerified:false`;
   no requestId is invented. The L1/G6 join point stays §4 **N9**; this addendum
   registers mappings only and never treats an online observation as an L1 task.
+
+## 7. Gemini 2026-11-23 addendum join
+
+N1–N9 覆盖基础轴，但 F3–F6 暴露出四个此前没有的半在线维度：batch wrapper contract、truncation tail metadata、atomic-by-default、CI wait helper。对应新增 J1–J6 任务集：xplore/tasks-online-gap-2.json。
+
+- join 矩阵：[ONLINE-SEMIONLINE-JOIN-2026-11-23.md](ONLINE-SEMIONLINE-JOIN-2026-11-23.md)
+- 总览：[../EVALUATION.md](../EVALUATION.md)
+- 索引：[README.md](README.md)
+

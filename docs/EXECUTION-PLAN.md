@@ -113,3 +113,13 @@
 - typed plan：没 A/B 数据不切默认；先 `/v2`。
 - OSS：**新仓库**，私有仓库不公开；发布前过 `EXPORT-MANIFEST`。
 - 部署：最新 commit 未部署前，不宣称线上生效。
+
+## 6. Eval workstream（新增）
+
+- 总览：docs/EVALUATION.md
+- schema/流程：docs/eval/ONLINE-FEEDBACK.md
+- 缺口：docs/eval/SEMI-ONLINE-GAPS.md
+- join：docs/eval/ONLINE-SEMIONLINE-JOIN-2026-11-23.md
+- N1–N9 + J1–J6：explore/tasks-online-gap.json / tasks-online-gap-2.json
+- 未完成：L1 online-gap profile（l1-task-wire）、在线 replay（online-replay-harness）、部署后同任务复验、真实客户端 lane、canary/shadow、自动 intake
+
