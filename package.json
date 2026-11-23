@@ -34,6 +34,7 @@
     "smoke:l1:real": "node scripts/run-l1-smoke.mjs --mode real",
     "verify:github": "node scripts/verify-real-github.mjs",
     "check": "node --check src/server.js",
+    "check:boundaries": "node scripts/check-module-boundaries.mjs",
     "check:config": "node scripts/check-config.mjs",
     "bench": "node bench/run.mjs",
     "bench:dry": "node bench/run.mjs --dry-run",

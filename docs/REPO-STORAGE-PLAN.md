@@ -104,7 +104,7 @@ docs/
 ### 阶段 A（现在，低风险）
 
 1. 新增 `docs/REPO-MAP.md`：每个 src/test/script 文件 → 六模块归属；
-2. 新增 `scripts/check-module-boundaries.mjs`：只检查依赖方向，不移动文件；
+2. ✅ 已新增 `scripts/check-module-boundaries.mjs`：只检查依赖方向，不移动文件；已有 9 条 legacy 边，新增违规 fail；
 3. 文档树加索引：`docs/architecture/README.md` 等，不迁移文件；
 4. 新文件一律按模块命名/目录放置，旧文件先不动。
 
