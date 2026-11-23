@@ -19,6 +19,8 @@
 
 | 2026-11-24 06:40 | `1481408` | P0 fixes deployment (v2 plan IO, capture options, allow/deny, commitSha, queue LRU) | READY | healthz commit=1481408… buildHash=c604c31a…; `/mcp` 401 |
 
+| 2026-11-24 07:45 | `5039ac6` | CLI（手动） | PR80-101 feedback 修复：GitHub/API、写前预检、结构化截断、feedback eval profile | **DEPLOYED / HEALTHZ UNVERIFIED** | 部署 URL `https://gemini-mcp-gateway-op7188tzr-yu-ac3a.vercel.app`；本地网络 TLS 握手失败，healthz 未核；不得当 READY |
+
 ## 规则
 
 - 每次部署前过 [DEPLOY-POLICY.md](DEPLOY-POLICY.md) 检查；
