@@ -5,7 +5,7 @@
 > 你的任务不是“接着跑测试”，而是独立判断：这个网关到底能不能在真实客户端、真实仓库、真实授权下可靠工作。
 >
 > 当前日期锚点：2026-11-24（Asia/Singapore）。
-> 当前生产：`9ab0e57`。当前验收：**V0 只过了 A（部署可追溯）**，整体 **NOT ACCEPTED**。
+> 当前生产：`9ab0e57`。当前验收：**V0 0/7，A PARTIAL**，整体 **NOT ACCEPTED**。
 > 当前全量回归基线：1381 tests / 1375 pass / 0 fail / 6 todo（接手后请自己重跑）。
 
 ---
@@ -57,13 +57,22 @@
 ### 已确认
 
 - 生产：`https://gemini-mcp-gateway.vercel.app`
-  - `/healthz` 返回 `commit=9ab0e570caf84f1bc2f5ed1fff3ba20bbe234472`
+  - `/healthz` 返回 `commit=9ab0e57d7c3b1a7ebda548d1319887c1b70a64da`
   - `buildHash=02c96881...`
-  - 验收门 A：PASS（仅“部署可追溯”）。
+  - 验收门 A：PARTIAL（自动部署导致验收 commit 失效；独立审查修正）。
 - 回归：1381 tests / 1375 pass / 0 fail / 6 todo（自己重跑确认）。
 - 安全修复：模型错误脱敏、截断审计、预算、`__proto__`、typed-plan 截断/approve 等已修。
 - 评测：在线记录、F/G 矩阵、N1–N9、J1–J6、L1 online-gap profile、replay harness、eval-cycle 已存在。
 - OSS：本地 staging / release repo 可审计，301 文件级别，无 remote/push/tag。
+
+### 独立审查后的最新事实（2026-11-24）
+
+- 独立审查：`docs/OPEN-SOURCE/INDEPENDENT-REVIEW-2026-11-24.md`；
+- 自动 production 部署已通过 `vercel.json` 的 `git.deploymentEnabled.main=false` 关闭；push `05f607c`/`c5a0a06` 后生产仍是 `9ab0e57`；
+- 一次性验收仓库：`Bruce-Yii/gateway-acceptance-test`（私有，seed `b8dd7b1`）；
+- owner 策略已定：Linear PAT(static)+Notion 自有 DCR/static+Vercel 自有 OAuth；现有 DSH token 只读、不 refresh；
+- 生产 env 仍缺显式 owner；KV 仍 production+preview 共用；origin 仍 `yu-ac3a`；
+- 真实客户端/B/C/D/E/F/G 仍未验收。
 
 ### 未确认 / 不通过
 
