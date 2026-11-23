@@ -44,6 +44,10 @@ import {
   truncateResultValue,
   truncateResponseText,
 } from './tool-format.js';
+// B14 typed-plan host helper (sandbox-only; NOT a new MCP tool). The typed-plan
+// engine stays a pure host module; this import is the single runtime bridge
+// between Code Mode and the executor. No tool schema/route changes follow from it.
+import { executeTypedPlan } from './typed-plan.js';
 
 const DEFAULT_MAX_CALLS = 50; // max upstream tool calls per execute() (was 30)
 const DEFAULT_MAX_RESULT_CHARS = 20000; // cap the execute() return value
@@ -141,6 +145,13 @@ const GUEST_PRELUDE = [
   // Gemini new feedback #3: pure-local service status helper (no network call
   // and, crucially, no new MCP tool — its schema would force a Gemini reconnect).
   'codemode.services = __dshHide(() => __dshInvoke("services", []));',
+  // B14 · typed-plan host helper. Sandbox-only helper (NOT a fourth tool and
+  // NOT an inputSchema change): the model calls it from an execute({code})
+  // script. The real executor + io adapter live on the host; only (plan, opts)
+  // cross the bridge and only a stable plain object comes back. The host forces
+  // readOnly for execute_read and dryRun-by-default for execute, and never
+  // throws across the boundary (errors become {ok:false,...} data).
+  'codemode.runTypedPlan = __dshHide((plan, opts) => __dshInvoke("runTypedPlan", [plan, opts]));',
   // QuickJS has no event loop/timers. A microtask-based shim keeps the common
   // `await new Promise(r => setTimeout(r, 0))` pattern working without blocking
   // the host event loop (a host-side sleep would freeze the whole MCP server).
@@ -876,13 +887,177 @@ export function searchWithFallback(tools, query, limit = 8) {
   return { res, hint, isSelect };
 }
 
+/* ------------------------------------------------------------------ *
+ * B14 · typed-plan host helper (sandbox-only, no MCP tool/schema change)
+ *
+ * `codemode.runTypedPlan(plan, opts)` is a guest prelude helper that goes
+ * through the same host bridge as every other capability. The typed-plan
+ * executor itself is a pure host module (src/typed-plan.js); the bridge here
+ * builds its `io` adapter from the SAME upstream tool bridge used by the
+ * codemode read/write helpers, then delegates to executeTypedPlan().
+ *
+ * Safety invariants (enforced on the HOST, never trusted from the guest):
+ *   - `readOnly` from the enclosing execute_read context is forced on, whatever
+ *     the guest passes in opts — a write op can never escape the read sandbox.
+ *   - `dryRun` defaults to true for execute(); a real write needs an explicit
+ *     dryRun:false plus approve (the engine's own whole-plan gate).
+ *   - every throw is converted to a stable `{ok:false,...}` result; nothing is
+ *     silently truncated or swallowed, and the sandbox never crashes.
+ * ------------------------------------------------------------------ */
+
+/** Resolve a tool by short name / full `__`-qualified name from the mounted set. */
+function resolveTypedPlanTool(tools, candidates) {
+  const list = Array.isArray(tools) ? tools : [];
+  for (const wanted of candidates) {
+    const hit = list.find((t) => {
+      const name = String(t?.name ?? t?.tool ?? '');
+      return name === wanted || name.endsWith(`__${wanted}`);
+    });
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/**
+ * Build the default REAL io adapter for typed plans from the upstream tool
+ * bridge. Read ops reuse the exact same tool defaults as the guest codemode
+ * helpers (github__get_file_contents / list+read for grep); write ops go
+ * through file-write's patcher (already applied by the op) + the create/update
+ * tools / branch / PR tools, mirroring codemode.applyFilePatch/ensureBranch/
+ * upsertPr. Callers can replace this wholesale via `typedPlanIO`.
+ */
+function createDefaultTypedPlanIO({ tools, callTool }) {
+  const toolName = (t) => String(t?.name ?? t?.tool ?? '');
+  const readTool = resolveTypedPlanTool(tools, ['get_file_contents']);
+  const listTool = resolveTypedPlanTool(tools, ['list_repo_contents', 'list_directory_contents', 'list_repository_content', 'list_files']);
+  const writeTool = resolveTypedPlanTool(tools, ['create_or_update_file', 'push_files']);
+  const branchListTool = resolveTypedPlanTool(tools, ['list_branches']);
+  const branchCreateTool = resolveTypedPlanTool(tools, ['create_branch']);
+  const prListTool = resolveTypedPlanTool(tools, ['list_pull_requests']);
+  const prCreateTool = resolveTypedPlanTool(tools, ['create_pull_request']);
+  const prUpdateTool = resolveTypedPlanTool(tools, ['update_pull_request']);
+
+  const invoke = async (tool, args) => {
+    if (!tool) throw new Error('typed-plan io: required upstream tool is unavailable');
+    return unwrapResult(await callTool(tool.server, tool.tool, args ?? {}));
+  };
+
+  const fileText = (raw) => {
+    const nf = hostNormalizeResult(toolName(readTool) || 'get_file_contents', raw);
+    if (typeof nf?.content === 'string') return { text: nf.content, sha: nf.sha ?? null, truncated: !!nf.truncated };
+    const value = raw && typeof raw === 'object' && raw.result ? raw.result : raw;
+    if (value && typeof value.text === 'string') return { text: value.text, sha: value.sha ?? null, truncated: false };
+    return { text: null, sha: null, truncated: false };
+  };
+
+  return {
+    readFileRange: async (args) => {
+      const raw = await invoke(readTool, {
+        owner: args.owner, repo: args.repo, path: args.path,
+        ...(args.ref !== undefined ? { ref: args.ref } : {}),
+      });
+      const { text, sha, truncated } = fileText(raw);
+      if (text === null) throw new Error(`readFileRange: no file text for ${args.path}`);
+      const allLines = text.replace(/\r\n?/g, '\n').split('\n');
+      const totalLines = allLines.length;
+      const start = Number.isFinite(args.startLine) ? Math.max(1, Math.floor(args.startLine)) : 1;
+      const end = Number.isFinite(args.endLine)
+        ? Math.max(start - 1, Math.min(totalLines, Math.floor(args.endLine)))
+        : totalLines;
+      return {
+        path: args.path,
+        text,
+        sha,
+        lines: allLines.slice(start - 1, end),
+        totalLines,
+        truncated: truncated || start > 1 || end < totalLines,
+      };
+    },
+    repoGrep: async (args) => {
+      if (!listTool) throw new Error('repoGrep: no repository list tool is available in this session');
+      const listed = await invoke(listTool, { owner: args.owner, repo: args.repo, path: args.pathPrefix });
+      const entries = Array.isArray(listed) ? listed : (listed?.items ?? listed?.data ?? []);
+      const files = entries.map((e) => (typeof e === 'string' ? e : e?.path ?? e?.name)).filter((p) => typeof p === 'string' && p.length);
+      const limit = Number.isFinite(args.limit) && args.limit > 0 ? args.limit : 50;
+      let re;
+      try { re = new RegExp(args.pattern, 'i'); } catch (e) { throw new Error(`repoGrep: invalid pattern: ${e.message}`); }
+      const matches = [];
+      let truncated = false;
+      for (const file of files) {
+        if (matches.length >= limit) { truncated = true; break; }
+        const raw = await invoke(readTool, { owner: args.owner, repo: args.repo, path: file });
+        const { text } = fileText(raw);
+        if (text === null) continue;
+        text.replace(/\r\n?/g, '\n').split('\n').forEach((line, i) => {
+          if (matches.length < limit && re.test(line)) matches.push({ path: file, line: i + 1, text: line });
+        });
+      }
+      return { pattern: args.pattern, matches, truncated };
+    },
+    ensureBranch: async (args) => {
+      const branches = branchListTool ? await invoke(branchListTool, { owner: args.owner, repo: args.repo }) : [];
+      const names = (Array.isArray(branches) ? branches : (branches?.branches ?? [])).map((b) => (typeof b === 'string' ? b : b?.name));
+      if (names.includes(args.branch)) return { branch: args.branch, created: false, reused: true };
+      const created = await invoke(branchCreateTool, { owner: args.owner, repo: args.repo, branch: args.branch });
+      return { branch: args.branch, created: true, reused: false, result: created };
+    },
+    writeFile: async (args) => {
+      const written = await invoke(writeTool, {
+        owner: args.owner, repo: args.repo, path: args.path,
+        content: args.content, message: args.message ?? 'typed-plan write',
+        ...(args.branch !== undefined ? { branch: args.branch } : {}),
+        ...(args.sha !== undefined ? { sha: args.sha } : {}),
+      });
+      return { path: args.path, written: true, result: written };
+    },
+    openPr: async (args) => {
+      if (prListTool) {
+        const prs = await invoke(prListTool, { owner: args.owner, repo: args.repo, head: args.head, base: args.base, state: 'open' });
+        const found = (Array.isArray(prs) ? prs : (prs?.items ?? [])).find(
+          (pr) => pr?.head?.ref === args.head && pr?.base?.ref === args.base && String(pr?.state ?? 'open').toLowerCase() === 'open',
+        );
+        if (found) {
+          const updated = prUpdateTool
+            ? await invoke(prUpdateTool, { owner: args.owner, repo: args.repo, pullNumber: found.number, title: args.title })
+            : found;
+          return { number: found.number, created: false, updated: true, result: updated };
+        }
+      }
+      const created = await invoke(prCreateTool, {
+        owner: args.owner, repo: args.repo, head: args.head, base: args.base, title: args.title,
+      });
+      return { number: created?.number ?? null, created: true, updated: false, result: created };
+    },
+    runChecks: async (args) => ({ command: args.command, ok: true, skipped: true, reason: 'no host check runner is wired for typed plans' }),
+  };
+}
+
+/** Stable fallback used when even the bridge wrapper itself fails unexpectedly. */
+function typedPlanFailure(error, dryRun, readOnly) {
+  const message = error && typeof error.message === 'string' ? error.message : String(error);
+  return {
+    ok: false,
+    dryRun: dryRun === true,
+    steps: [],
+    stoppedAt: null,
+    error: `runTypedPlan bridge error: ${message}`,
+    meta: {
+      planVersion: 'v2.0.0',
+      readOnly: readOnly === true,
+      approvedOps: [],
+      executedCount: 0,
+    },
+    validationErrors: [`runTypedPlan bridge error: ${message}`],
+  };
+}
+
 /**
  * Run normalized model code in a hardened QuickJS sandbox (Vercel `run` SDK).
  * The `codemode` global is assembled by the guest prelude from a single host
  * bridge; all counting/validation/audit stays on the host side.
  * @returns { result, logs, toolCalls } with the unchanged legacy output shape.
  */
-export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CALLS, maxResultChars = DEFAULT_MAX_RESULT_CHARS, timeout = EXEC_TIMEOUT_MS, totalTimeout, unavailableTools = [], servicesInfo = { services: [] }, fetch: hostFetch, env }) {
+export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CALLS, maxResultChars = DEFAULT_MAX_RESULT_CHARS, timeout = EXEC_TIMEOUT_MS, totalTimeout, unavailableTools = [], servicesInfo = { services: [] }, fetch: hostFetch, env, typedPlanIO, typedPlanOps, typedPlanReadOnly = false }) {
   const normalized = normalizeCode(code);
   const instrumented = instrumentLineMarkers(normalized);
   const logs = [];
@@ -945,6 +1120,28 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
     // upstream state only; a getter (when provided) keeps it fresh even if the
     // manager was populated after createCodeModeTools() ran.
     services: () => (typeof servicesInfo === 'function' ? servicesInfo() : servicesInfo),
+    // B14 · sandbox-only typed-plan helper. `typedPlanReadOnly` (set by the
+    // execute_read handler) is forced on here so a guest cannot opt out; the
+    // dryRun default is applied host-side too. Errors never cross the bridge.
+    runTypedPlan: (plan, opts) => {
+      const o = opts && typeof opts === 'object' && !Array.isArray(opts) ? opts : {};
+      const readOnly = typedPlanReadOnly === true;
+      const dryRun = o.dryRun === undefined ? true : o.dryRun === true;
+      try {
+        const io = typedPlanIO && typeof typedPlanIO === 'object'
+          ? typedPlanIO
+          : createDefaultTypedPlanIO({ tools, callTool });
+        return executeTypedPlan(plan, {
+          io,
+          ...(typedPlanOps && typeof typedPlanOps === 'object' ? { ops: typedPlanOps } : {}),
+          dryRun,
+          approve: o.approve,
+          readOnly,
+        });
+      } catch (err) {
+        return typedPlanFailure(err, dryRun, readOnly);
+      }
+    },
     // B10 integration: the canonical adapter runs in the host realm so its
     // `raw` field keeps the exact adapter semantics. Guest cannot pass functions
     // across the bridge, so only (kind, toolName, value) are serialized in.
@@ -1433,6 +1630,11 @@ export function createCodeModeTools(upstreamManager, options = {}) {
         servicesInfo: getServices,
         fetch: options.fetch,
         env: options.env,
+        // B14 typed-plan host helper: read-only is a host-enforced boundary and
+        // the io/ops adapters are injectable for offline tests / future wiring.
+        typedPlanReadOnly: readOnly,
+        typedPlanIO: options.typedPlanIO,
+        typedPlanOps: options.typedPlanOps,
       });
       // MakeOutput() attaches a toJSON() that emits the full audit payload;
       // unwrap it first so the projection below is what server.js serializes.
