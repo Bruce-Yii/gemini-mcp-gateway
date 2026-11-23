@@ -517,7 +517,15 @@ const CODE_EXT_RE = /\.(?:[cm]?[jt]sx?|mts|cts)$/i;
 // no transform/emit. `checked:false` means "we could not actually parse this
 // file" and must never be reported as a passed syntax check.
 import { parse as acornParse } from 'acorn';
-import { stripTypeScriptTypes } from 'node:module';
+import { createRequire } from 'node:module';
+
+// Node 20 has no `stripTypeScriptTypes`; a static named import would crash the
+// whole module at load time on Node 20. Resolve it lazily and degrade to an
+// explicit `checked:false` (never a fake pass) when unavailable.
+const nodeModule = createRequire(import.meta.url)('node:module');
+const stripTypeScriptTypes = typeof nodeModule.stripTypeScriptTypes === 'function'
+  ? nodeModule.stripTypeScriptTypes
+  : null;
 
 function balanceScan(source) {
   const stack = [];
@@ -628,6 +636,14 @@ export function precheckText(text, path) {
 
   let parseable = source;
   if (isTs) {
+    if (!stripTypeScriptTypes) {
+      const err = balanceScan(source);
+      const reason = 'node:module.stripTypeScriptTypes is unavailable on this Node version; TypeScript syntax not checked';
+      if (err) {
+        return { ...base, ok: false, errors: [err], error: err, language, checked: false, check: 'balance', reason };
+      }
+      return { ...base, language, checked: false, check: 'balance', reason };
+    }
     try {
       // Node 22+ only. strip-only mode intentionally rejects enums/namespaces/
       // decorators; those are reported as unchecked, never as a fake pass.

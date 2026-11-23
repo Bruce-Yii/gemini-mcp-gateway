@@ -9,6 +9,9 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+
+const TS_STRIP_AVAILABLE = typeof createRequire(import.meta.url)('node:module').stripTypeScriptTypes === 'function';
 
 import {
   precheckText,
@@ -28,7 +31,7 @@ test('precheckText returns the structured {ok,errors,language,checked} shape', (
     ['checked', 'errors', 'language', 'ok']);
   assert.equal(good.ok, true);
   assert.equal(good.language, 'typescript');
-  assert.equal(good.checked, true);
+  assert.equal(good.checked, TS_STRIP_AVAILABLE);
   assert.deepEqual(good.errors, []);
 });
 
@@ -55,7 +58,7 @@ test('precheckText parses .js/.mjs/.cjs with acorn — syntax errors fail BEFORE
   assert.deepEqual(calls, [], 'a syntax error must block the write');
 });
 
-test('precheckText uses node:module.stripTypeScriptTypes for .ts and still rejects real syntax errors', () => {
+test('precheckText uses node:module.stripTypeScriptTypes for .ts and still rejects real syntax errors', { skip: !TS_STRIP_AVAILABLE }, () => {
   const ok = precheckText('function f<T>(x: T): T { return x; }\n', 'a.ts');
   assert.equal(ok.ok, true);
   assert.equal(ok.language, 'typescript');
