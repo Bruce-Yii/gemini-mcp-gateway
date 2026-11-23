@@ -2,12 +2,12 @@
 /**
  * Repository module-boundary audit.
  *
- * This is the first, low-risk step of the six-module storage architecture:
- * it maps the current flat src/ files to logical modules and reports import
- * edges that violate the target dependency direction.
+ * The src/ tree has been physically migrated into six module directories, with
+ * flat re-export shims left at the old paths for backwards compatibility. This
+ * script scans only the real implementations under src/<module>/; shims are
+ * intentionally excluded from boundary calculation (they contain no logic).
  *
- * It does NOT move files. Existing violations are explicitly baselined so new
- * violations fail, while the migration can proceed module by module later.
+ * Existing cross-module edges are explicitly baselined so new violations fail.
  *
  * Usage:
  *   node scripts/check-module-boundaries.mjs
@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 
 const SRC = path.resolve('src');
 
+/** Logical module -> implementation files (basenames). */
 export const MODULES = {
   shared: ['config.js', 'sanitize.js', 'catalog.js', 'build-info.js', 'store.js'],
   client: ['oauth.js', 'client-platform.js', 'client-profile.js'],
@@ -41,6 +42,8 @@ for (const [module, files] of Object.entries(MODULES)) {
   }
 }
 
+const MODULE_NAMES = new Set(Object.keys(MODULES));
+
 const ALLOWED = {
   shared: new Set(['shared']),
   client: new Set(['client', 'shared']),
@@ -52,26 +55,48 @@ const ALLOWED = {
 
 /**
  * Known pre-existing edges. Each one is a migration debt item, not a licence
- * for new violations. Keep this list small and shrink it as modules move.
+ * for new violations. Keep this list small and shrink it as modules settle.
  */
 export const LEGACY_EDGES = new Set([
-  'execution->client',       // codemode.js -> client-profile.js
-  'execution->evidence',     // codemode.js / codemode-v2.js -> capture.js
-  'upstream->execution',     // upstreams.js -> tool-format.js
-  'upstream->evidence',      // upstreams.js / upstream-auth.js -> capture.js
-  'upstream->client',        // upstream-oauth.js -> oauth.js
-  'evidence->client',        // capture.js -> client-platform.js
-  'shared->upstream',        // config.js -> upstream-auth.js
+  'execution->client',       // execution/codemode.js -> client/client-profile.js
+  'execution->evidence',     // execution/codemode.js / codemode-v2.js -> evidence/capture.js
+  'upstream->execution',     // upstream/upstreams.js -> execution/tool-format.js
+  'upstream->evidence',      // upstream/upstreams.js / upstream-auth.js -> evidence/capture.js
+  'upstream->client',        // upstream/upstream-oauth.js -> client/oauth.js
+  'evidence->client',        // evidence/capture.js -> client/client-platform.js
+  'shared->upstream',        // shared/config.js -> upstream/upstream-auth.js
 ]);
 
+/** Basename lookup, preserved for the original flat-layout API. */
 export function moduleOf(file) {
-  return FILE_TO_MODULE.get(file) ?? 'unmapped';
+  return FILE_TO_MODULE.get(path.basename(String(file))) ?? 'unmapped';
 }
 
+/**
+ * Resolve a module-relative path (e.g. '../evidence/capture.js') or a flat
+ * basename to a canonical 'module/file.js' key used by the scanner.
+ */
+export function canonicalKey(file) {
+  const raw = String(file).replace(/\\/g, '/').replace(/^\.\//, '');
+  const parts = raw.split('/').filter(Boolean);
+  const base = parts.pop();
+  if (!base) return raw;
+  if (parts.length === 0) {
+    const mod = FILE_TO_MODULE.get(base);
+    return mod ? `${mod}/${base}` : base;
+  }
+  const dir = parts[parts.length - 1];
+  return MODULE_NAMES.has(dir) ? `${dir}/${base}` : base;
+}
+
+/**
+ * Parse relative ESM imports. Handles both legacy './x.js' (used by unit
+ * tests) and migrated '../module/x.js' paths.
+ */
 export function importsOf(source) {
   const out = new Set();
-  for (const m of String(source).matchAll(/from\s+['"]\.\/([^'"]+)['"]/g)) {
-    let target = m[1];
+  for (const m of String(source).matchAll(/from\s+['"](\.[^'"]+)['"]/g)) {
+    let target = m[1].replace(/^\.\//, '');
     if (!target.endsWith('.js')) target += '.js';
     out.add(target);
   }
@@ -82,10 +107,14 @@ export function analyzeGraph(graph) {
   const edges = [];
   const violations = [];
   for (const [file, deps] of Object.entries(graph)) {
-    const from = moduleOf(file);
+    // Preserve original keys in edge output for API compatibility; canonical
+    // paths are used only for module lookup.
+    const fromFile = file;
+    const from = moduleOf(canonicalKey(file));
     for (const dep of deps) {
-      const to = moduleOf(dep);
-      const edge = { fromFile: file, toFile: dep, from, to, allowed: false, legacy: false };
+      const toFile = dep;
+      const to = moduleOf(canonicalKey(dep));
+      const edge = { fromFile, toFile, from, to, allowed: false, legacy: false };
       if (from === 'unmapped' || to === 'unmapped') {
         edge.reason = 'unmapped file';
         violations.push(edge);
@@ -103,11 +132,25 @@ export function analyzeGraph(graph) {
   return { edges, violations };
 }
 
+/** Walk only real implementation directories; root shims are not scanned. */
+export function scanModules(srcDir = SRC) {
+  const files = [];
+  for (const module of Object.keys(MODULES)) {
+    const dir = path.join(srcDir, module);
+    if (!fs.existsSync(dir)) continue;
+    for (const name of fs.readdirSync(dir).sort()) {
+      if (!name.endsWith('.js')) continue;
+      files.push(`${module}/${name}`);
+    }
+  }
+  return files;
+}
+
 function main() {
   const args = new Set(process.argv.slice(2));
   const json = args.has('--json');
   const strict = args.has('--strict');
-  const files = fs.readdirSync(SRC).filter((f) => f.endsWith('.js')).sort();
+  const files = scanModules(SRC);
   const graph = {};
   for (const file of files) {
     graph[file] = importsOf(fs.readFileSync(path.join(SRC, file), 'utf8'));
@@ -127,7 +170,7 @@ function main() {
       violations,
     }, null, 2));
   } else {
-    console.log(`[module-boundaries] src files=${files.length} edges=${edges.length}`);
+    console.log(`[module-boundaries] src modules=${files.length} edges=${edges.length} (shims excluded)`);
     for (const [name, list] of Object.entries(MODULES)) {
       console.log(`  ${name}: ${list.length}`);
     }

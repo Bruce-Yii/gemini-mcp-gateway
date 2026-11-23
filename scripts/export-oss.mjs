@@ -68,6 +68,10 @@ export const ALLOWLIST = Object.freeze([
   'docker-compose.yml',
   // source & tests & public scripts
   'api',
+  // The whole src tree is exported: the six physical module directories
+  // (src/client, src/execution, src/upstream, src/evidence, src/runtime,
+  // src/shared) hold the real implementations; the flat src/*.js files are
+  // compatibility shims. Both are part of the public source tree.
   'src',
   'tests',
   'scripts',
@@ -403,6 +407,27 @@ export function buildPlan(root = SCRIPT_ROOT, options = {}) {
   };
 }
 
+/**
+ * The six physical module directories must be present in an OSS plan. Shims
+ * alone are not enough: if a module directory is missing from the allowlist or
+ * the source tree, the public package would ship only re-export stubs.
+ */
+export const OSS_MODULE_DIRS = Object.freeze([
+  'src/client',
+  'src/execution',
+  'src/upstream',
+  'src/evidence',
+  'src/runtime',
+  'src/shared',
+]);
+
+export function checkModuleFiles(plan) {
+  const selected = new Set(plan.files);
+  const missing = OSS_MODULE_DIRS.filter((dir) => !plan.files.some((rel) => rel.startsWith(`${dir}/`)));
+  const moduleFiles = plan.files.filter((rel) => OSS_MODULE_DIRS.some((dir) => rel.startsWith(`${dir}/`)));
+  return { ok: missing.length === 0, missing, moduleFileCount: moduleFiles.length, selected };
+}
+
 const TEXT_EXTENSIONS = new Set([
   '', '.js', '.mjs', '.cjs', '.json', '.md', '.txt', '.yml', '.yaml', '.toml',
   '.html', '.css', '.sh', '.ps1', '.example', '.jsonl', '.svg',
@@ -559,6 +584,17 @@ function main(argv) {
     onError: (error, dir) => console.error(`[export-oss] cannot read ${dir}: ${error.message}`),
   });
   console.log(`[export-oss] plan: ${plan.counts.included} include, ${plan.counts.denied} denied, ${plan.counts.outsideAllowlist} outside allowlist (of ${plan.counts.total})`);
+  // Only enforce module layout on the real repository (synthetic test trees
+  // contain a single src/server.js and are not expected to have six modules).
+  const isRealRepo = plan.files.includes('src/shared/build-info.js');
+  if (isRealRepo) {
+    const moduleCheck = checkModuleFiles(plan);
+    console.log(`[export-oss] module implementations in plan: ${moduleCheck.moduleFileCount} across ${OSS_MODULE_DIRS.length} directories`);
+    if (!moduleCheck.ok) {
+      console.error(`[export-oss] REFUSING to export: missing module directories: ${moduleCheck.missing.join(', ')}`);
+      return 1;
+    }
+  }
   for (const rel of plan.denied.slice(0, 40)) console.log(`[export-oss] DENIED   ${rel}`);
   if (plan.counts.denied > 40) console.log(`[export-oss] ... and ${plan.counts.denied - 40} more denylisted path(s)`);
   if (plan.counts.denied > 0) {

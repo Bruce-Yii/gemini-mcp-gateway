@@ -22,7 +22,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const GENERATED = path.join(root, 'src', 'build-info.js');
+// Physical migration: the real module lives in src/shared/; the flat
+// src/build-info.js file is now a re-export shim.
+const GENERATED = path.join(root, 'src', 'shared', 'build-info.js');
 // vercel.json is deliberately NOT hashed: Vercel normalizes (minifies) it in the
 // build sandbox, so its bytes differ from the checkout even for the same commit.
 // The deployment's git commit already covers that file.
@@ -31,12 +33,18 @@ const STATIC_INPUTS = ['package.json', 'config.example.json', path.join('api', '
 function listRuntimeFiles() {
   const files = STATIC_INPUTS.map((rel) => path.join(root, rel)).filter((file) => fs.existsSync(file));
   const srcDir = path.join(root, 'src');
-  for (const name of fs.readdirSync(srcDir)) {
-    if (!name.endsWith('.js')) continue;
-    const file = path.join(srcDir, name);
-    if (path.resolve(file) === path.resolve(GENERATED)) continue; // generated, not an input
-    files.push(file);
-  }
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const file = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(file);
+      } else if (entry.name.endsWith('.js')) {
+        if (path.resolve(file) === path.resolve(GENERATED)) continue; // generated, not an input
+        files.push(file);
+      }
+    }
+  };
+  walk(srcDir);
   return files.sort();
 }
 
@@ -95,5 +103,5 @@ if (process.argv.includes('--print')) {
     '',
   ].join('\n');
   fs.writeFileSync(GENERATED, content);
-  console.log('[build-info] wrote src/build-info.js', JSON.stringify(info));
+  console.log('[build-info] wrote src/shared/build-info.js', JSON.stringify(info));
 }
