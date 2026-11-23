@@ -123,8 +123,7 @@ online-feedback.v1 记录
 - 读写分离：`execute_read` 不接受写 op；`execute` 才可写。
 - 写多文件默认优先 `writeFiles` / `push_files` 原子入口；
   失败保留 `partial:true` / `written` / `remaining` / `compensation`。
-- PR 
-umber` 必须 URL 优先 `/pull/(\d+)`；`id`/`nodeId` 只作独立字段，
+- PR `umber`` 必须 URL 优先 `/pull/(\d+)`；`id`/`nodeId` 只作独立字段，
   **永不**用 id 兜底 number。
 - raw upstream envelope 与 canonical output 必须区分；raw 不得无标记泄漏到
   capture/模型可见输出（capture 仍按 full-fidelity 保存，见 §6）。
