@@ -1,0 +1,776 @@
+{
+  "date": "2026-11-23",
+  "metrics": {
+    "requests": 20,
+    "mcpRequests": 20,
+    "nonMcpRequests": 0,
+    "errors": 3,
+    "mcpErrors": 3,
+    "statuses": {
+      "200": 16,
+      "202": 3,
+      "401": 1
+    },
+    "errorClasses": {
+      "auth": 1,
+      "upstream_4xx": 2
+    },
+    "routeErrors": {},
+    "tools": {
+      "tools/list": 5,
+      "tools/call": 10,
+      "notifications/initialized": 3,
+      "initialize": 2
+    },
+    "upstreams": {
+      "execute": 5,
+      "execute_read": 5
+    },
+    "durations": [
+      1,
+      4,
+      6,
+      6,
+      8,
+      9,
+      9,
+      9,
+      22,
+      34,
+      624,
+      672,
+      940,
+      997,
+      2089,
+      3080,
+      3263,
+      4285,
+      5153,
+      5213
+    ],
+    "bytes": 69980,
+    "truncated": 0,
+    "overflow": 0,
+    "truncationRate": 0,
+    "overflowRate": 0,
+    "errorRate": 0.15,
+    "byDay": {
+      "2026-11-23": 20
+    },
+    "byHour": {
+      "00": 6,
+      "01": 3,
+      "02": 6,
+      "03": 5
+    },
+    "byDayHour": {
+      "2026-11-23T00": 6,
+      "2026-11-23T01": 3,
+      "2026-11-23T02": 6,
+      "2026-11-23T03": 5
+    },
+    "byRoute": {
+      "POST /mcp": {
+        "calls": 20,
+        "errors": 0,
+        "errorRate": 0,
+        "p50Ms": 34,
+        "p95Ms": 5153,
+        "avgMs": 1321,
+        "errorClasses": {},
+        "truncated": 0,
+        "overflow": 0,
+        "modelTruncationSuspects": 9
+      }
+    },
+    "upstreamStats": {
+      "github": {
+        "calls": 9,
+        "errors": 1,
+        "errorRate": 0.1111,
+        "p50Ms": 3080,
+        "p95Ms": 5213,
+        "avgMs": 2855,
+        "errorClasses": {
+          "upstream_4xx": 1
+        },
+        "truncated": 0,
+        "overflow": 0,
+        "modelTruncationSuspects": 9
+      },
+      "unknown": {
+        "calls": 11,
+        "errors": 2,
+        "errorRate": 0.1818,
+        "p50Ms": 9,
+        "p95Ms": 624,
+        "avgMs": 67,
+        "errorClasses": {
+          "upstream_4xx": 1,
+          "auth": 1
+        },
+        "truncated": 0,
+        "overflow": 0,
+        "modelTruncationSuspects": 0
+      }
+    },
+    "toolStats": {
+      "execute": {
+        "calls": 5,
+        "errors": 1,
+        "errorRate": 0.2,
+        "p50Ms": 3080,
+        "p95Ms": 5213,
+        "avgMs": 3002,
+        "errorClasses": {
+          "upstream_4xx": 1
+        },
+        "truncated": 0,
+        "overflow": 0,
+        "modelTruncationSuspects": 4
+      },
+      "execute_read": {
+        "calls": 5,
+        "errors": 1,
+        "errorRate": 0.2,
+        "p50Ms": 2089,
+        "p95Ms": 4285,
+        "avgMs": 2261,
+        "errorClasses": {
+          "upstream_4xx": 1
+        },
+        "truncated": 0,
+        "overflow": 0,
+        "modelTruncationSuspects": 5
+      }
+    },
+    "model_truncation_suspects": 9,
+    "modelTruncationRate": 0.45,
+    "modelTruncationByServer": {
+      "github": 9
+    },
+    "modelTruncationByTool": {
+      "execute": 4,
+      "execute_read": 5
+    },
+    "modelTruncationBySession": {
+      "unknown": 9
+    },
+    "byProject": {
+      "github:Bruce-Yii/recruitment-agent": {
+        "key": "github:Bruce-Yii/recruitment-agent",
+        "requests": 10,
+        "mcpRequests": 10,
+        "errors": 2,
+        "toolCalls": 10,
+        "truncationSuspects": 9,
+        "firstTs": "2026-11-23T00:43:27.842Z",
+        "lastTs": "2026-11-23T03:24:31.708Z",
+        "firstTsRaw": "2026-11-23T00:43:27.842Z",
+        "lastTsRaw": "2026-11-23T03:24:31.708Z",
+        "sessionIds": [],
+        "clientPlatforms": [
+          "unknown"
+        ],
+        "requestIdSamples": [
+          "008159d0-eb18-4739-9475-3e318cdb91a8",
+          "04179ab4-ee1d-42c4-92ae-d7a12c74c574",
+          "05188d82-bee4-4a7b-b7b0-6708c3ad951a",
+          "0ad764c9-9944-4774-9473-5b4cecd317b7",
+          "122bb398-d2f4-4e86-8bfc-b344ba52fc04"
+        ]
+      }
+    },
+    "projectTimelines": [
+      {
+        "projectKey": "github:Bruce-Yii/recruitment-agent",
+        "sessionId": null,
+        "requests": 10,
+        "mcpRequests": 10,
+        "errors": 2,
+        "toolCalls": 10,
+        "truncationSuspects": 9,
+        "firstTs": "2026-11-23T00:43:27.842Z",
+        "lastTs": "2026-11-23T03:24:31.708Z",
+        "firstTsRaw": "2026-11-23T00:43:27.842Z",
+        "lastTsRaw": "2026-11-23T03:24:31.708Z",
+        "requestIdSamples": [
+          "008159d0-eb18-4739-9475-3e318cdb91a8",
+          "04179ab4-ee1d-42c4-92ae-d7a12c74c574",
+          "05188d82-bee4-4a7b-b7b0-6708c3ad951a",
+          "0ad764c9-9944-4774-9473-5b4cecd317b7",
+          "122bb398-d2f4-4e86-8bfc-b344ba52fc04"
+        ],
+        "primaryProjectRequests": 10,
+        "clientPlatforms": [
+          "unknown"
+        ]
+      }
+    ],
+    "byClientPlatform": {
+      "unknown": {
+        "platform": "unknown",
+        "requests": 20,
+        "mcpRequests": 20,
+        "errors": 3,
+        "toolCalls": 10,
+        "truncationSuspects": 9,
+        "sessions": 7,
+        "projects": 1,
+        "sessionIds": [
+          "a32db5ae-11b7-457a-89b7-5981f00748ae",
+          "b9f3aad4-27f6-49f4-a8d7-eb3cc87a6285",
+          "aced1235-2932-47ca-a48d-0c615dce7de2",
+          "0ec8bd85-4dbc-4577-a8f4-5d2d3ab53cff",
+          "a16475e4-ed7a-435c-92a8-38ca49c2c609",
+          "79d59449-0d26-4da4-a91a-1389c0632fc3",
+          "65ebe187-1692-4bc0-8fb3-0ff10eef9ecc"
+        ],
+        "projectKeys": [
+          "github:Bruce-Yii/recruitment-agent"
+        ],
+        "requestIdSamples": [
+          "0069576d-86d7-477a-924f-1eb65a19fc30",
+          "008159d0-eb18-4739-9475-3e318cdb91a8",
+          "02217adb-8545-41a7-b3fb-554aef02c87d",
+          "04179ab4-ee1d-42c4-92ae-d7a12c74c574",
+          "05188d82-bee4-4a7b-b7b0-6708c3ad951a"
+        ],
+        "clientPlatforms": [
+          "unknown"
+        ]
+      }
+    },
+    "platformSummary": [
+      {
+        "platform": "unknown",
+        "requests": 20,
+        "mcpRequests": 20,
+        "errors": 3,
+        "toolCalls": 10,
+        "truncationSuspects": 9,
+        "sessions": 7,
+        "projects": 1,
+        "requestIdSamples": [
+          "0069576d-86d7-477a-924f-1eb65a19fc30",
+          "008159d0-eb18-4739-9475-3e318cdb91a8",
+          "02217adb-8545-41a7-b3fb-554aef02c87d",
+          "04179ab4-ee1d-42c4-92ae-d7a12c74c574",
+          "05188d82-bee4-4a7b-b7b0-6708c3ad951a"
+        ]
+      }
+    ],
+    "p50Ms": 34,
+    "p95Ms": 5153,
+    "avgMs": 1321,
+    "date": "2026-11-23"
+  },
+  "sessions": [
+    {
+      "windowId": "session:65ebe187-1692-4bc0-8fb3-0ff10eef9ecc",
+      "strategy": "sessionId",
+      "sessionId": "65ebe187-1692-4bc0-8fb3-0ff10eef9ecc",
+      "taskId": null,
+      "requests": 1,
+      "mcpRequests": 1,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-23T00:04:08.700Z",
+      "lastTs": "2026-11-23T00:04:08.700Z",
+      "firstTsRaw": "2026-11-23T00:04:08.700Z",
+      "lastTsRaw": "2026-11-23T00:04:08.700Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "253b7a33-e18c-44a8-a3f5-6e0a9a661482"
+      ],
+      "methods": {
+        "initialize": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 1
+      }
+    },
+    {
+      "windowId": "session:0ec8bd85-4dbc-4577-a8f4-5d2d3ab53cff",
+      "strategy": "sessionId",
+      "sessionId": "0ec8bd85-4dbc-4577-a8f4-5d2d3ab53cff",
+      "taskId": null,
+      "requests": 1,
+      "mcpRequests": 1,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-23T00:04:31.993Z",
+      "lastTs": "2026-11-23T00:04:31.993Z",
+      "firstTsRaw": "2026-11-23T00:04:31.993Z",
+      "lastTsRaw": "2026-11-23T00:04:31.993Z",
+      "clientInfo": {
+        "ip": "66.249.83.225"
+      },
+      "requestIdSamples": [
+        "0f2fc4ca-a43d-4d62-8ec8-696be5e4803b"
+      ],
+      "methods": {
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 1
+      }
+    },
+    {
+      "windowId": "window:001",
+      "strategy": "first-request",
+      "sessionId": null,
+      "taskId": null,
+      "requests": 1,
+      "mcpRequests": 1,
+      "mcpErrors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-23T00:43:27.842Z",
+      "lastTs": "2026-11-23T00:43:27.842Z",
+      "firstTsRaw": "2026-11-23T00:43:27.842Z",
+      "lastTsRaw": "2026-11-23T00:43:27.842Z",
+      "clientInfo": {
+        "ip": "192.178.23.41"
+      },
+      "requestIdSamples": [
+        "008159d0-eb18-4739-9475-3e318cdb91a8"
+      ],
+      "methods": {
+        "tools/call": 1
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "recruitment-agent",
+          "key": "github:Bruce-Yii/recruitment-agent",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 1
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/recruitment-agent"
+      ],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 1
+      }
+    },
+    {
+      "windowId": "session:a32db5ae-11b7-457a-89b7-5981f00748ae",
+      "strategy": "sessionId",
+      "sessionId": "a32db5ae-11b7-457a-89b7-5981f00748ae",
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-23T00:48:41.521Z",
+      "lastTs": "2026-11-23T02:43:25.860Z",
+      "firstTsRaw": "2026-11-23T00:48:41.521Z",
+      "lastTsRaw": "2026-11-23T02:43:25.860Z",
+      "clientInfo": {
+        "ip": "192.178.10.73"
+      },
+      "requestIdSamples": [
+        "23e9ce77-bfd9-4c3d-bf07-38893671baa8",
+        "0069576d-86d7-477a-924f-1eb65a19fc30"
+      ],
+      "methods": {
+        "tools/list": 2
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 2
+      }
+    },
+    {
+      "windowId": "session:aced1235-2932-47ca-a48d-0c615dce7de2",
+      "strategy": "sessionId",
+      "sessionId": "aced1235-2932-47ca-a48d-0c615dce7de2",
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-23T00:49:29.052Z",
+      "lastTs": "2026-11-23T00:49:29.157Z",
+      "firstTsRaw": "2026-11-23T00:49:29.052Z",
+      "lastTsRaw": "2026-11-23T00:49:29.157Z",
+      "clientInfo": {
+        "name": "Gemini",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "08d1817d-fe0d-466f-a36a-ab9f41bfd638",
+        "066a4bc8-d492-4bc3-a417-2c991de23f86"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 2
+      }
+    },
+    {
+      "windowId": "session:79d59449-0d26-4da4-a91a-1389c0632fc3",
+      "strategy": "sessionId",
+      "sessionId": "79d59449-0d26-4da4-a91a-1389c0632fc3",
+      "taskId": null,
+      "requests": 1,
+      "mcpRequests": 1,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-23T01:33:16.382Z",
+      "lastTs": "2026-11-23T01:33:16.382Z",
+      "firstTsRaw": "2026-11-23T01:33:16.382Z",
+      "lastTsRaw": "2026-11-23T01:33:16.382Z",
+      "clientInfo": {
+        "ip": "192.178.10.70"
+      },
+      "requestIdSamples": [
+        "1a77f7fd-50b4-4477-bee6-bd5972dfe035"
+      ],
+      "methods": {
+        "notifications/initialized": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 1
+      }
+    },
+    {
+      "windowId": "window:002",
+      "strategy": "idle-gap",
+      "sessionId": null,
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 1,
+      "toolCalls": 2,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-23T01:41:01.797Z",
+      "lastTs": "2026-11-23T01:47:15.012Z",
+      "firstTsRaw": "2026-11-23T01:41:01.797Z",
+      "lastTsRaw": "2026-11-23T01:47:15.012Z",
+      "clientInfo": {
+        "ip": "108.177.68.105"
+      },
+      "requestIdSamples": [
+        "1a817a1c-a10b-4ce7-9bd7-2bd40c9ac9af",
+        "2580ed3d-10c6-4666-ade1-cefd829b922e"
+      ],
+      "methods": {
+        "tools/call": 2
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "recruitment-agent",
+          "key": "github:Bruce-Yii/recruitment-agent",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 2
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/recruitment-agent"
+      ],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 2
+      }
+    },
+    {
+      "windowId": "session:a16475e4-ed7a-435c-92a8-38ca49c2c609",
+      "strategy": "sessionId",
+      "sessionId": "a16475e4-ed7a-435c-92a8-38ca49c2c609",
+      "taskId": null,
+      "requests": 1,
+      "mcpRequests": 1,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-23T02:05:19.229Z",
+      "lastTs": "2026-11-23T02:05:19.229Z",
+      "firstTsRaw": "2026-11-23T02:05:19.229Z",
+      "lastTsRaw": "2026-11-23T02:05:19.229Z",
+      "clientInfo": {
+        "ip": "192.178.10.69"
+      },
+      "requestIdSamples": [
+        "17386381-ce7b-4af6-b08a-0473a6524cca"
+      ],
+      "methods": {
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 1
+      }
+    },
+    {
+      "windowId": "window:003",
+      "strategy": "idle-gap",
+      "sessionId": null,
+      "taskId": null,
+      "requests": 1,
+      "mcpRequests": 1,
+      "mcpErrors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-23T02:09:42.629Z",
+      "lastTs": "2026-11-23T02:09:42.629Z",
+      "firstTsRaw": "2026-11-23T02:09:42.629Z",
+      "lastTsRaw": "2026-11-23T02:09:42.629Z",
+      "clientInfo": {
+        "ip": "108.177.68.41"
+      },
+      "requestIdSamples": [
+        "122bb398-d2f4-4e86-8bfc-b344ba52fc04"
+      ],
+      "methods": {
+        "tools/call": 1
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "recruitment-agent",
+          "key": "github:Bruce-Yii/recruitment-agent",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 1
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/recruitment-agent"
+      ],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 1
+      }
+    },
+    {
+      "windowId": "window:004",
+      "strategy": "idle-gap",
+      "sessionId": null,
+      "taskId": null,
+      "requests": 1,
+      "mcpRequests": 1,
+      "mcpErrors": 1,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-23T02:35:21.610Z",
+      "lastTs": "2026-11-23T02:35:21.610Z",
+      "firstTsRaw": "2026-11-23T02:35:21.610Z",
+      "lastTsRaw": "2026-11-23T02:35:21.610Z",
+      "clientInfo": {
+        "ip": "108.177.68.7"
+      },
+      "requestIdSamples": [
+        "0ad764c9-9944-4774-9473-5b4cecd317b7"
+      ],
+      "methods": {
+        "tools/call": 1
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "recruitment-agent",
+          "key": "github:Bruce-Yii/recruitment-agent",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 1
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/recruitment-agent"
+      ],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 1
+      }
+    },
+    {
+      "windowId": "session:b9f3aad4-27f6-49f4-a8d7-eb3cc87a6285",
+      "strategy": "sessionId",
+      "sessionId": "b9f3aad4-27f6-49f4-a8d7-eb3cc87a6285",
+      "taskId": null,
+      "requests": 1,
+      "mcpRequests": 1,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-23T02:50:53.068Z",
+      "lastTs": "2026-11-23T02:50:53.068Z",
+      "firstTsRaw": "2026-11-23T02:50:53.068Z",
+      "lastTsRaw": "2026-11-23T02:50:53.068Z",
+      "clientInfo": {
+        "ip": "192.178.10.69"
+      },
+      "requestIdSamples": [
+        "02217adb-8545-41a7-b3fb-554aef02c87d"
+      ],
+      "methods": {
+        "notifications/initialized": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 1
+      }
+    },
+    {
+      "windowId": "window:005",
+      "strategy": "idle-gap",
+      "sessionId": null,
+      "taskId": null,
+      "requests": 6,
+      "mcpRequests": 6,
+      "mcpErrors": 1,
+      "toolCalls": 5,
+      "truncationSuspects": 5,
+      "firstTs": "2026-11-23T02:59:19.577Z",
+      "lastTs": "2026-11-23T03:24:31.708Z",
+      "firstTsRaw": "2026-11-23T02:59:19.577Z",
+      "lastTsRaw": "2026-11-23T03:24:31.708Z",
+      "clientInfo": {
+        "ip": "108.177.68.197"
+      },
+      "requestIdSamples": [
+        "04179ab4-ee1d-42c4-92ae-d7a12c74c574",
+        "05188d82-bee4-4a7b-b7b0-6708c3ad951a",
+        "18363ca8-233e-494a-ad84-af1e0b308b0d",
+        "1cd75759-e07f-4a23-92d9-42d5933b0f93",
+        "235b7418-e323-44e9-b07b-6b4fe8e584e1"
+      ],
+      "methods": {
+        "tools/call": 5,
+        "tools/list": 1
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "recruitment-agent",
+          "key": "github:Bruce-Yii/recruitment-agent",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 5
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/recruitment-agent"
+      ],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 6
+      }
+    }
+  ],
+  "byProject": {
+    "github:Bruce-Yii/recruitment-agent": {
+      "key": "github:Bruce-Yii/recruitment-agent",
+      "requests": 10,
+      "mcpRequests": 10,
+      "errors": 2,
+      "toolCalls": 10,
+      "truncationSuspects": 9,
+      "firstTs": "2026-11-23T00:43:27.842Z",
+      "lastTs": "2026-11-23T03:24:31.708Z",
+      "firstTsRaw": "2026-11-23T00:43:27.842Z",
+      "lastTsRaw": "2026-11-23T03:24:31.708Z",
+      "sessionIds": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestIdSamples": [
+        "008159d0-eb18-4739-9475-3e318cdb91a8",
+        "04179ab4-ee1d-42c4-92ae-d7a12c74c574",
+        "05188d82-bee4-4a7b-b7b0-6708c3ad951a",
+        "0ad764c9-9944-4774-9473-5b4cecd317b7",
+        "122bb398-d2f4-4e86-8bfc-b344ba52fc04"
+      ]
+    }
+  },
+  "projectTimelines": [
+    {
+      "projectKey": "github:Bruce-Yii/recruitment-agent",
+      "sessionId": null,
+      "requests": 10,
+      "mcpRequests": 10,
+      "errors": 2,
+      "toolCalls": 10,
+      "truncationSuspects": 9,
+      "firstTs": "2026-11-23T00:43:27.842Z",
+      "lastTs": "2026-11-23T03:24:31.708Z",
+      "firstTsRaw": "2026-11-23T00:43:27.842Z",
+      "lastTsRaw": "2026-11-23T03:24:31.708Z",
+      "requestIdSamples": [
+        "008159d0-eb18-4739-9475-3e318cdb91a8",
+        "04179ab4-ee1d-42c4-92ae-d7a12c74c574",
+        "05188d82-bee4-4a7b-b7b0-6708c3ad951a",
+        "0ad764c9-9944-4774-9473-5b4cecd317b7",
+        "122bb398-d2f4-4e86-8bfc-b344ba52fc04"
+      ],
+      "primaryProjectRequests": 10,
+      "clientPlatforms": [
+        "unknown"
+      ]
+    }
+  ]
+}
