@@ -15,7 +15,7 @@
   - 不能拿旧构建的在线反馈直接判新代码仍失败；
   - 部署窗口恢复后，必须重新跑 `healthz` / `tools/list` / 在线同任务复验。
 - **工作区全量测试以最近一次 lead 跑出的结果为准**；不要用其他 agent 的中间态。
-  当前基线：`1352 tests / 1346 pass / 0 fail / 6 todo`（2026-11-23 晚，提交 `4a77fc0` 后）。
+  当前基线：`1381 tests / 1375 pass / 0 fail / 6 todo`（2026-11-23 晚，提交 `7a82c1d` 后）。
 - **不找用户反复要授权**：授权只有在 `docs/AUTH-READY.md` 全绿后才发起；
   当前明确 **NOT READY**。
 - **OSS 未公开**：只有 `work/oss-release-staging` / `work/oss-release-repo`

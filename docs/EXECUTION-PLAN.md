@@ -6,7 +6,7 @@
 
 ## 0. 当前快照
 
-- 全量：`1352 tests / 1346 pass / 0 fail / 6 todo`（提交 `4a77fc0` 后；lead 实跑）
+- 全量：`1381 tests / 1375 pass / 0 fail / 6 todo`（提交 `7a82c1d` 后；lead 实跑）
 - worktree：干净
 - 生产 Vercel：**旧构建**；`100 deployments/day` 用尽，最新代码未部署
 - Auth：`docs/AUTH-READY.md` = **NOT READY**，不发起授权
