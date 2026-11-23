@@ -36,6 +36,29 @@
 | MCP 2026 实现 | 故意暂缓，等客户端升级 |
 | 多文件写事务 | 已由 `write-transaction` 完成（`00b62bf`） |
 
+## 完成情况（2026-11-23 08:20）
+
+| Agent | 结果 |
+|---|---|
+| `project-tag-core` | ✅ 20 tests；capture 已有 `projects[]/primaryProject`；commit `9a0fc58` |
+| `project-tag-eval` | ✅ 10 tests；digest `byProject/projectTimelines`；join `projectKey`；commit `4e97507` |
+| `l1-regression` | ✅ 结论：notion/vercel 2/4 上游失败 + hit-rate 分母口径；非搜索代码回归 |
+| `docker-verify` | ✅ 真实 build/run；非 root/health/`/mcp` 可达；commit `e175ca4` |
+| `oss-export-verify` | ⚠️ 导出脚本/模板验证通过；staging `npm test` 9 fail，因测试依赖私有 fixture（follow-up） |
+| `project-llm-labeler` | ✅ 16 tests；advisory-only；commit `c199353` |
+| `client-adapter` | ✅ 25 tests；Gemini/Claude/ChatGPT profile；commit `b1a4956` |
+| `design-backlog` | ✅ 持久状态/自适应/Figama 方案 |
+| `gh-feedback-fixes` | ✅ 21 tests；branch alias、PR number、Actions helper；commit `b1a4956` |
+| `reconnect-research` | ✅ 结论：网关不能强制重连；Skew Protection 不适用；commit `e175ca4` |
+
+## Follow-ups（未完成）
+
+1. **OSS staging 测试裁剪**：9 个失败全是 allowlisted 测试依赖 private fixtures（`explore/trace.mjs`、`golden-mcpmark`、`l1-smoke.json`、`tasks-v2`、`data/tool-dataset.json` 等）。需要公开导出专用 test fixture 或在 export 时排除这些测试，不能假装通过。
+2. **L1 failed-server 口径**：real 模式应对 failed servers 选退化基线/skip，并修正 searchHit/toolHit 分母（`null` 被剔除）；否则上游凭据失败会被误判为搜索回归。
+3. **最新 commit 部署**：`b1a4956` 已 push，但 Vercel 未自动产生新 deployment；healthz 仍是 `998ab60`。需在安全窗口手动部署并复验。
+4. **真实 PR #53 回归**：用真实形状 `{id:5444514334,url:/pull/53}` 跑一次 merge helper 回放；Actions helper 用真实 CI run 验证。
+5. **taskId 显式锚点**：项目 tag 已覆盖多数场景；是否还需要 taskId 需再评估。
+
 ## 集成顺序
 
 1. 项目 tag core + eval（先 core 后 eval 合）；
