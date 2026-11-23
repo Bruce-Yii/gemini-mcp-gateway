@@ -104,8 +104,8 @@ Limen 式的 `dev-mcp`、toolgate、IBM 的 `mcp-context-forge` 等都在压缩�
 要求 **Node.js >= 20.19**。
 
 ```bash
-git clone https://github.com/Bruce-Yii/gemini-mcp-gateway.git
-cd gemini-mcp-gateway
+git clone https://github.com/example-org/codemode-mcp-gateway.git
+cd codemode-mcp-gateway
 npm ci
 npm test            # 离线测试套件
 npm run smoke       # 假上游 MCP server，无需凭据

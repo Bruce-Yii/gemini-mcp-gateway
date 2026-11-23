@@ -24,10 +24,15 @@ import {
 } from '../scripts/run-l1-smoke.mjs';
 
 const readJson = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
-const hasFixtures = ONLINE_GAP_TASK_FILES.every((f) => fs.existsSync(path.join(ROOT, f)));
+// The default L1 run also reads explore/tasks-smoke.json, which is excluded
+// from the OSS export too. Guard both the profile tasks and the legacy smoke
+// fixture so every fixture-dependent test reports an explicit SKIP in staging.
+const SMOKE_TASK_FILE = 'explore/tasks-smoke.json';
+const hasFixtures = ONLINE_GAP_TASK_FILES.concat(SMOKE_TASK_FILE)
+  .every((f) => fs.existsSync(path.join(ROOT, f)));
 const fixtureSkip = hasFixtures
   ? false
-  : 'private eval fixtures explore/tasks-online-gap{,-2}.json are excluded from the OSS export (see docs/OPEN-SOURCE/EXPORT-TEST-CURATION.md)';
+  : 'private eval fixtures explore/tasks-online-gap{,-2}.json and explore/tasks-smoke.json are excluded from the OSS export (see docs/OPEN-SOURCE/EXPORT-TEST-CURATION.md)';
 const fixtureTest = (name, fn) => test(name, { skip: fixtureSkip }, fn);
 
 /* ------------------------------------------------------------------ *
@@ -282,7 +287,7 @@ test('0 fail: no-frozen-baseline run is a wiring PASS with all-unknown metrics (
   assert.match(renderOnlineGapReport(result), /no baseline: all metrics unknown/i);
 });
 
-test('end-to-end: default `node scripts/run-l1-smoke.mjs --mode fake` still exits 0 with unchanged 50-task PASS', () => {
+fixtureTest('end-to-end: default `node scripts/run-l1-smoke.mjs --mode fake` still exits 0 with unchanged 50-task PASS', () => {
   const runner = path.join(ROOT, 'scripts/run-l1-smoke.mjs');
   const mdPath = path.join(ROOT, 'docs/eval/l1-smoke-report.md');
   const jsonPath = path.join(ROOT, 'docs/eval/l1-smoke.json');
@@ -305,7 +310,7 @@ test('end-to-end: default `node scripts/run-l1-smoke.mjs --mode fake` still exit
   }
 });
 
-test('end-to-end: `--profile online-gap` runs offline, writes separate current-result files, exits 0', () => {
+fixtureTest('end-to-end: `--profile online-gap` runs offline, writes separate current-result files, exits 0', () => {
   const runner = path.join(ROOT, 'scripts/run-l1-smoke.mjs');
   const beforeJson = fs.existsSync(ONLINE_GAP_RESULT_JSON) ? fs.readFileSync(ONLINE_GAP_RESULT_JSON, 'utf8') : null;
   const beforeMd = fs.existsSync(ONLINE_GAP_RESULT_MD) ? fs.readFileSync(ONLINE_GAP_RESULT_MD, 'utf8') : null;

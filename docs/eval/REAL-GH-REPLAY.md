@@ -38,20 +38,20 @@ node --test tests/real-gh-replay.test.js
 
 | PR | `number` | `id`（长 DB id） | `node_id` | `html_url` |
 |---|---|---|---|---|
-| #53 | 53 | 5444514334 | `PR_kwDOVr6OCM8AAAABRISyHg` | `https://github.com/Bruce-Yii/recruitment-agent/pull/53` |
-| #56 | 56 | 5445190988 | `PR_kwDOVr6OCM8AAAABRI8FTA` | `https://github.com/Bruce-Yii/recruitment-agent/pull/56` |
-| #57 | 57 | 5445221033 | `PR_kwDOVr6OCM8AAAABRI96qQ` | `https://github.com/Bruce-Yii/recruitment-agent/pull/57` |
-| #59 | 59 | 5445326882 | `PR_kwDOVr6OCM8AAAABRJEYIg` | `https://github.com/Bruce-Yii/recruitment-agent/pull/59` |
+| #53 | 53 | 1000000001 | `PR_kwDOEXAMPLE000000000001` | `https://github.com/example-org/example-repo/pull/53` |
+| #56 | 56 | 1000000002 | `PR_kwDOEXAMPLE000000000002` | `https://github.com/example-org/example-repo/pull/56` |
+| #57 | 57 | 1000000003 | `PR_kwDOEXAMPLE000000000003` | `https://github.com/example-org/example-repo/pull/57` |
+| #59 | 59 | 1000000004 | `PR_kwDOEXAMPLE000000000004` | `https://github.com/example-org/example-repo/pull/59` |
 
 - 断言结果：每个 `numberIsSmall=true`、`idIsLongDbId=true`、`id !== String(number)`、
   `numberNotId=true`。**真实数据确认 id 与 number 是两个不同的量，不能把 id 当 number。**
 
 ### 3.2 PR 单条 `GET /repos/.../pulls/53`
 
-- HTTP 200；`number=53`、`id=5444514334`、`node_id=PR_kwDOVr6OCM8AAAABRISyHg`、
-  `html_url=https://github.com/Bruce-Yii/recruitment-agent/pull/53`；`numberNotId=true`。
+- HTTP 200；`number=53`、`id=1000000001`、`node_id=PR_kwDOEXAMPLE000000000001`、
+  `html_url=https://github.com/example-org/example-repo/pull/53`；`numberNotId=true`。
 
-### 3.3 Actions 日志 `GET /repos/.../actions/jobs/137420494321/logs`
+### 3.3 Actions 日志 `GET /repos/.../actions/jobs/100000000001/logs`
 
 - 首跳请求头 `Accept: application/vnd.github+json`（**不再是 octet-stream**）、带 Authorization。
 - 结果：HTTP 200、`no415=true`（415 未出现，修复生效）、返回日志文本。
@@ -78,7 +78,7 @@ node --test tests/real-gh-replay.test.js
 
 | gpt-online-fix 条目 | 本地确定性测试 | 本次真实回放 |
 |---|---|---|
-| F1 Actions 415（octet-stream → `application/vnd.github+json`；302 signed URL 不带 token） | `tests/gpt-online-fix.test.js` 首跳 Accept 断言、415 结构错误、302/200 | 真实 job 137420494321 日志 HTTP 200、无 415；首跳 JSON Accept；302 由 fetch 自动跟随（显式分支由 fake 测试覆盖） |
+| F1 Actions 415（octet-stream → `application/vnd.github+json`；302 signed URL 不带 token） | `tests/gpt-online-fix.test.js` 首跳 Accept 断言、415 结构错误、302/200 | 真实 job 100000000001 日志 HTTP 200、无 415；首跳 JSON Accept；302 由 fetch 自动跟随（显式分支由 fake 测试覆盖） |
 | F4 PR `id`/`nodeId` 与 `number` 分离（PR #59 fixture） | `tests/gpt-online-fix.test.js` PR59 fixture + guest/host/canonical 三方一致 | 真实 #53/#56/#57/#59 `id` 均为长 DB id 且不等于小号 `number`；#53 详情 id/nodeId/htmlUrl 记录完整 |
 | 日志脱敏（不打印全文） | `logDigest` 单测 | 真实日志只输出长度 + 前 200 字符脱敏摘要 |
 

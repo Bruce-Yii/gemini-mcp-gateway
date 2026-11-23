@@ -46,12 +46,12 @@ Status: unverified
 ## F3
 Severity: P1
 Category: pr-number-id-confusion
-Symptom: prResult 把 DB id 5444514334 当 PR number，真实 PR 为 #53
+Symptom: prResult 把 DB id 1000000001 当 PR number，真实 PR 为 #53
 Evidence: Source: user-report
-Detail: 用户报告 create_pull_request 返回 {id:5444514334, url:.../pull/53}，旧 normalizePrResult 把 id 回退为 number，导致后续 merge 调用 404。证据与 batch-11-gh-feedback「反馈 2」一致；PR #53 是外部 PR 事实，不是本仓库 capture 证据。
+Detail: 用户报告 create_pull_request 返回 {id:1000000001, url:.../pull/53}，旧 normalizePrResult 把 id 回退为 number，导致后续 merge 调用 404。证据与 batch-11-gh-feedback「反馈 2」一致；PR #53 是外部 PR 事实，不是本仓库 capture 证据。
 CaptureVerified: false
 PR: #53
-Reproduction: 用真实形状 {id:5444514334, url:".../pull/53"} 跑 normalizePrResult / prResult，应得到 number=53；该修复已在 batch-11 有 21 项定向测试覆盖，但「真实 PR #53 回放」尚未做（见 batch-12 follow-up #4）。
+Reproduction: 用真实形状 {id:1000000001, url:".../pull/53"} 跑 normalizePrResult / prResult，应得到 number=53；该修复已在 batch-11 有 21 项定向测试覆盖，但「真实 PR #53 回放」尚未做（见 batch-12 follow-up #4）。
 RequestIds: unknown
 Status: fixed
 

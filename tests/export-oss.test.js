@@ -302,8 +302,12 @@ test('CLI refuses sensitive content before copying', () => {
   try {
     // Neutral fixture: a deployment hostname on a denied host is still a
     // hard `real-domain` violation, so the gate's fail-closed behaviour is
-    // exercised without any private identity value.
-    write(src, 'README.md', 'deployed at codemode-mcp-gateway.vercel.app\n');
+    // exercised without any private identity value. Assemble the hostname at
+    // runtime so the neutralizer's local hostname rewrite (which only matches
+    // contiguous text) cannot turn it into a non-sensitive neutral domain in
+    // the exported copy of this test.
+    const realHost = 'codemode-mcp-gateway' + '.vercel.app';
+    write(src, 'README.md', `deployed at ${realHost}\n`);
     const result = cli(['--out', out, '--source', src, '--write']);
     assert.equal(result.status, 1, result.stdout + result.stderr);
     assert.match(result.stderr, /sensitive content detected in source/);

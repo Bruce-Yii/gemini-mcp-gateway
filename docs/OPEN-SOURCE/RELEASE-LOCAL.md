@@ -1,9 +1,41 @@
 # OSS release: local repository preparation (2026-11-23)
 
+> **Final blocker-fix re-export (2026-11-23 ~22:00 +08:00):** all blockers in
+> `docs/ledger/batch-15-oss-reverify.md` §§3–6 were cleared locally; full
+> evidence is in `docs/ledger/batch-15-oss-publish-blockers.md`. Staging and the
+> local release repo were re-exported (301 files each, one local initial commit,
+> 0 remotes, 0 tags). The exact commit hash is recorded in the local ledger.
+> `npm ci`,
+> `npm test` (**0 fail** in private 1352 / staging 1352 / repo 1352, with
+> 117 reason-bearing skips in the export trees), `audit-truncation --ci`,
+> `check-config`, `check-task-coverage` (explicit `SKIP:` in exports, real audit
+> in the private repo) and `export-oss --check` all exit 0. Real DB/node/job ids
+> are at 0 hits in the export. Package identity is unified in `package.json`,
+> `package-lock.json` and both READMEs. **Remaining work is pure human action:**
+> confirm the real owner/repo name, write release notes, create the first tag.
+> No push, remote, tag, deploy or private commit. The earlier sections below are
+> historical runs.
+
 > Scope: **local only**. A standalone git repository was created from the latest
 > validated OSS staging snapshot. No remote was added, nothing was pushed,
 > nothing was published or deployed. The private repository's source, README,
 > workflows, and git history were not modified and were not committed.
+
+> **Update 2026-11-23 evening (latest-source re-verification):** staging and the
+> local release repo were rebuilt again from the latest available source
+> (private HEAD `01d58f0` at export time; a later docs-only commit `3523094`
+> landed during the run and does not affect the export). Staging now has **297
+> files**; the repo was re-created with a single commit **`db10c63991594ebb684224962d3eac7e1b9bad3f`**, 297 tracked files, no remote, no tag.
+> `export-oss --check` PASSED (296 text files), `npm ci` / `audit-truncation
+> --ci` / `check-config` green. **`npm test` is NOT green in the export tree**
+> (1316 / 1199 pass / 11 fail / 100 skip / 6 todo in staging; 1200 pass / 10 fail
+> in repo) and `check-task-coverage.mjs` exits 1 on the excluded
+> `explore/figma-tasks.json`, so the CI first-push gate has **2 open problems**.
+> Independent scans confirm 0 personal-handle / real-domain / absolute-path
+> leaks, but real PR DB ids/node_ids/job id survive in 8+1 files
+> (`docs/eval/REAL-GH-REPLAY.md`, 5 other eval docs, 2 `src/` comments). Full
+> evidence in `docs/ledger/batch-15-oss-reverify.md`. The earlier sections below
+> are the historical runs.
 
 > **Update 2026-11-23 (P0 fix):** the historical 263-file snapshot below was
 > superseded. The canonical neutralizer/detector fix re-exported **287 files**
@@ -80,6 +112,18 @@ The 96 skips are explicit fixture-gated tests from the curation work recorded in
 `RELEASE-DRYRUN.md` §7; they are reported as skips, not fake passes.
 
 ## 4. Blocker status
+
+> **Latest re-verification (evening 2026-11-23, see
+> `docs/ledger/batch-15-oss-reverify.md`):** the P0 handle fix still holds
+> (0 handle forms in raw + decoded + compacted scans), but two **new open
+> blockers** were found in the 297-file snapshot: (a) real PR DB ids/node_ids/
+> job id survive in `docs/eval/*` (5 docs) and two `src/` comments — `export-oss
+> --check` does not detect numeric identifiers; (b) the CI first-push gate is
+> red: `npm test` 10–11 fail in the export tree (unguarded private fixtures in
+> `typed-plan-ab.test.js`, `l1-online-gap-wire.test.js`,
+> `online-semionline-join.test.js`, plus the neutralizer-signature tests) and
+> `check-task-coverage.mjs` exits 1 on excluded `explore/figma-tasks.json`.
+> Identity follow-ups in §4.1 (package-lock / README clone URLs) remain open.
 
 ### P0 — RESOLVED (2026-11-23)
 

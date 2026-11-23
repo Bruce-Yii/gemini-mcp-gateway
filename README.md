@@ -1,6 +1,6 @@
 # gemini-mcp-gateway
 
-[![CI](https://github.com/Bruce-Yii/gemini-mcp-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/Bruce-Yii/gemini-mcp-gateway/actions/workflows/ci.yml)
+[![CI](https://github.com/example-org/codemode-mcp-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/example-org/codemode-mcp-gateway/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D20.19-339933.svg)](package.json)
 
@@ -124,8 +124,8 @@ intentionally do not maintain a long aggregator feature table.
 Requirements: **Node.js >= 20.19**.
 
 ```bash
-git clone https://github.com/Bruce-Yii/gemini-mcp-gateway.git
-cd gemini-mcp-gateway
+git clone https://github.com/example-org/codemode-mcp-gateway.git
+cd codemode-mcp-gateway
 npm ci
 npm test            # offline suite
 npm run smoke       # fake upstream MCP server, no credentials

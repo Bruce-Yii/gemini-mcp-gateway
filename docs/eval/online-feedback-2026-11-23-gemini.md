@@ -82,7 +82,7 @@ Symptom: PR 结果的 `number` 偶尔是内部对象 ID（数据库 id）而非 
 Evidence: Source: user-report
 Detail: 用户报告：生产旧构建上 `create_pull_request` 一类返回中，`number` 偶尔取到内部 DB id 而不是 URL 中的 PR 号；按该 number 做后续操作时报错。证据为在线用户观察；PR 号本身不是本网关 capture 证据，且用户未给出可回放 requestId。
 CaptureVerified: false
-Reproduction: 用真实形状 `{id:5444514334, url:"https://api.github.com/repos/o/r/pulls/53"}` 跑 normalizePrResult，断言 `number === 53`（来自 URL）且 `id` 仅以字符串保留、绝不被当作 number。本地纯函数测试已覆盖该形状；真实 PR 回放未做。
+Reproduction: 用真实形状 `{id:1000000001, url:"https://api.github.com/repos/o/r/pulls/53"}` 跑 normalizePrResult，断言 `number === 53`（来自 URL）且 `id` 仅以字符串保留、绝不被当作 number。本地纯函数测试已覆盖该形状；真实 PR 回放未做。
 RequestIds: unknown
 Status: fixed 代码层
 

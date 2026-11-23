@@ -571,7 +571,7 @@ export function normalizePrResult(value) {
     const { value: v } = unwrap(value);
     const root = isObj(v) ? v : {};
     // `id` is GitHub's internal database id, NOT the PR number. A real
-    // create_pull_request returns {id:5444514334, url:'.../pull/53'}; treating
+    // create_pull_request returns {id:1000000001, url:'.../pull/53'}; treating
     // id as number made the subsequent merge call 404. Never fall back to id.
     const urlRaw = pick(root, ['html_url', 'url', 'web_url']);
     const url = urlRaw !== undefined && urlRaw !== null ? String(urlRaw) : null;

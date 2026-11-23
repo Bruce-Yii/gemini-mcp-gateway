@@ -1,5 +1,15 @@
 # OSS release dry-run: staging export + publication gate (2026-11-23)
 
+> **Final blocker-fix re-run (2026-11-23 ~22:00 +08:00):** the publication
+> blockers found in §8 were cleared and the export/gates re-run. Staging and
+> local release repo: 301 files; `npm ci`, `npm test` (**0 fail**; 117 explicit
+> SKIPs in the export trees), `audit-truncation --ci`, `check-config`,
+> `check-task-coverage` (explicit SKIP with reason in exports), `export-oss
+> --check` all exit 0; 0 real DB/node/job ids in the export; unified
+> `codemode-mcp-gateway` identity. Full evidence:
+> `docs/ledger/batch-15-oss-publish-blockers.md`. Remaining items are pure human
+> actions (owner/repo name, release notes, first tag). No push/remote/tag.
+
 > Scope: **records an actual dry-run only**. No `git init`, `git add`, `git commit`,
 > `git push`, remote setup, npm publish, or deploy was performed. No source,
 > README, other docs, or workflow was changed by this task. No commit was made.
@@ -172,3 +182,30 @@ task.**
 
 Skips in staging are explicit and carry the fixture reason; nothing is
 reported as a fake pass. No commit was made.
+
+## 8. Latest-source re-verification (2026-11-23 evening)
+
+A further re-export from the latest source (private HEAD `01d58f0` at export
+time; `3523094` landed during the run as a docs-only commit) produced **297
+staging files** (up from 287) and a new local repo commit
+`db10c63991594ebb684224962d3eac7e1b9bad3f` (no remote, no tag). Neutralizer:
+297 included / 54 replacements / 0 post-write violations; `export-oss --check`:
+`checked 296 text files`, CHECK PASSED.
+
+Gates in the new staging tree: `npm ci` exit 0; `npm test` **exit 1 — 1316 tests
+/ 1199 pass / 11 fail / 100 skipped / 6 todo** (10 fail in the repo copy);
+`audit-truncation --ci` exit 0 PASS; `check-config` exit 0 `config OK`;
+`eval-search` / `audit-tools` / `measure-context` explicit SKIP with exit 0;
+`bench/run.mjs --dry-run` and `write-build-info --print` exit 0. The new
+failures are fixture/neutralizer-signature artifacts: `typed-plan-ab.test.js`
+(5), `l1-online-gap-wire.test.js` (2), `online-semionline-join.test.js` (1),
+`export-oss.test.js` + `oss-neutralizer.test.js` (2, private-handle signature
+scrubbed from export), and one flaky capture timing assertion (passed in the
+other tree). The same six files pass 92/92 in the private checkout with
+fixtures present. **`check-task-coverage.mjs --server figma` (a CI step) still
+exits 1 on the excluded `explore/figma-tasks.json`** — the remaining open part
+of audit F-09. Therefore the CI first-push gate is not green (2 problems).
+Independent scans: 0 personal handle / real domain / absolute path, but real
+PR DB ids/node_ids/job id remain in 8+1 files — a publication blocker outside
+this task's write scope. Full evidence:
+`docs/ledger/batch-15-oss-reverify.md`. No push, tag, or private commit.

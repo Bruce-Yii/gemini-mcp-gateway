@@ -12,7 +12,7 @@
  *   node scripts/check-task-coverage.mjs --server figma --no-search
  */
 import fs from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { searchEntries } from '../src/catalog.js';
@@ -124,6 +124,19 @@ function searchValidation(tasks) {
     }
   }
   return { tested: schemaTasks.length, misses };
+}
+
+// The Figma tasks/snapshot/dataset files are private eval fixtures and are
+// excluded from the clean OSS export. When they are absent (e.g. CI in a clean
+// clone of the public repo), emit an explicit reason-bearing SKIP and exit 0
+// so gate commands stay green; never silently fake a coverage result. In the
+// private repo the fixtures exist and the original audit runs unchanged.
+const missingFixtures = [tasksPath, snapshotPath, datasetPath].filter((p) => !fs.existsSync(p));
+if (missingFixtures.length > 0) {
+  console.log('SKIP: private eval fixtures excluded from the OSS export are missing: '
+    + missingFixtures.map((p) => relative(root, p)).join(', ')
+    + '; no coverage audit performed (see docs/OPEN-SOURCE/EXPORT-TEST-CURATION.md).');
+  process.exit(0);
 }
 
 const tasksFile = JSON.parse(fs.readFileSync(tasksPath, 'utf8'));

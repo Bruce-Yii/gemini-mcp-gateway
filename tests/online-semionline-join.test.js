@@ -56,8 +56,16 @@ const REQUIRED_AXES = [
   'atomic-by-default',
 ];
 // Keys that would indicate a real credential/path leaked into the task set.
-const FORBIDDEN_CREDENTIAL_PATTERN =
-  /\b(GITHUB_TOKEN|GH_TOKEN|OPENAI_API_KEY|ANTHROPIC_API_KEY|client[_-]?secret|access[_-]?token|refresh[_-]?token|Bearer\s+\S+|\\[A-Za-z0-9_]+\\.secrets\\)\b/i;
+// The vault-path fragment is assembled at runtime so the OSS neutralizer's
+// path rewrite cannot corrupt this regex source in the exported copy of this
+// test. The compiled pattern is identical in the private repo and the export.
+const VAULT_SUFFIX = '\\\\.se' + 'crets' + '\\\\)\\b';
+const FORBIDDEN_CREDENTIAL_PATTERN = new RegExp(
+  '\\b(GITHUB_TOKEN|GH_TOKEN|OPENAI_API_KEY|ANTHROPIC_API_KEY|client[_-]?secret|'
+  + 'access[_-]?token|refresh[_-]?token|Bearer\\s+\\S+|\\\\[A-Za-z0-9_]+'
+  + VAULT_SUFFIX,
+  'i',
+);
 
 let tasks;
 let taskParseError;

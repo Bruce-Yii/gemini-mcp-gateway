@@ -65,7 +65,7 @@ Evidence: Source: user-report
 Detail: 在线实测：用户需要区分 PR number（URL 中的 #59）与 GitHub 数据库 id / GraphQL node_id；旧 prResult 只返回一个把 id 与 node_id 混在一起的字段，canonicalResult 完全没有 id/nodeId。要求 additive 保留 id/nodeId（有则 string），number 仍 URL 优先，绝不能用 id 当 number（历史 bug：把 DB id 当 number 导致 merge 404，见 batch-11）。
 CaptureVerified: false
 PR: #59
-Reproduction: 用 {id:5444514334, node_id:"PR_kwDOABC123", number:999, html_url:".../pull/59"} 跑 normalizePrResult / canonicalResult / 沙箱 codemode.prResult：断言 number=59、id="5444514334"、nodeId="PR_kwDOABC123"，且 number !== Number(id)。测试在 tests/gpt-online-fix.test.js，已通过。
+Reproduction: 用 {id:1000000001, node_id:"PR_kwDOABC123", number:999, html_url:".../pull/59"} 跑 normalizePrResult / canonicalResult / 沙箱 codemode.prResult：断言 number=59、id="1000000001"、nodeId="PR_kwDOABC123"，且 number !== Number(id)。测试在 tests/gpt-online-fix.test.js，已通过。
 RequestIds: unknown
 Status: fixed
 

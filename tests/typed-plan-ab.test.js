@@ -45,6 +45,15 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TASK_FILE = path.join(ROOT, 'explore', 'tasks-online-gap.json');
 const RUNNER_FILE = path.join(ROOT, 'scripts', 'typed-plan-ab.mjs');
 
+// explore/tasks-online-gap.json is a private eval fixture excluded from the OSS
+// export. Guard the fixture-dependent tests so the clean export reports an
+// explicit reason-bearing SKIP instead of crashing with ENOENT. In the private
+// repo the fixture exists and every test runs unchanged.
+const fixtureSkip = fs.existsSync(TASK_FILE)
+  ? false
+  : 'private eval fixture explore/tasks-online-gap.json is excluded from the OSS export (see docs/OPEN-SOURCE/EXPORT-TEST-CURATION.md)';
+const fixtureTest = (name, fn) => test(name, { skip: fixtureSkip }, fn);
+
 const fixtureTasks = () => loadTaskSet(TASK_FILE);
 
 // Simple registry-expressible task for typed-plan execution tests.
@@ -76,7 +85,7 @@ test('profiles: F is v1 code, S is v2 plan+fallback, tool face is identical', ()
 });
 
 // 2. fixture 运行 ------------------------------------------------------------
-test('fixture run: N1–N9 load and produce 9 paired metrics with identical tasks/prompts', async () => {
+fixtureTest('fixture run: N1–N9 load and produce 9 paired metrics with identical tasks/prompts', async () => {
   const tasks = fixtureTasks();
   assert.equal(tasks.length, 9);
   assert.deepEqual(tasks.map((t) => t.id), ['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7', 'N8', 'N9']);
@@ -105,7 +114,7 @@ test('fixture run: N1–N9 load and produce 9 paired metrics with identical task
   }
 });
 
-test('fixture run repeated 3x alternates F→S / S→F and stays deterministic', async () => {
+fixtureTest('fixture run repeated 3x alternates F→S / S→F and stays deterministic', async () => {
   const tasks = fixtureTasks().slice(0, 3);
   const a = await runAB(tasks, { repeats: 3, environment: 'fake' });
   const b = await runAB(tasks, { repeats: 3, environment: 'fake' });
@@ -313,7 +322,7 @@ test('enough real Gemini data: gates evaluate pass/fail, still no automatic swit
 });
 
 // 8. report ------------------------------------------------------------------
-test('buildReport emits JSON + markdown with all gates and a paired task table', async () => {
+fixtureTest('buildReport emits JSON + markdown with all gates and a paired task table', async () => {
   const ab = await runAB(fixtureTasks().slice(0, 2), { environment: 'fake', repeats: 1 });
   const report = buildReport(ab, { platform: 'gemini' });
   const json = renderJson(report);
@@ -347,7 +356,7 @@ test('writeReport writes deterministic files in a temp dir (no repo changes)', a
 });
 
 // 9. 确定性 / 不联网 ---------------------------------------------------------
-test('determinism: full report is byte-identical across repeated runs', async () => {
+fixtureTest('determinism: full report is byte-identical across repeated runs', async () => {
   const tasks = fixtureTasks();
   const a = renderJson(buildReport(await runAB(tasks, { repeats: 2 })));
   const b = renderJson(buildReport(await runAB(tasks, { repeats: 2 })));
@@ -392,7 +401,7 @@ test('parseArgs: CLI defaults stay offline and do not write by default', () => {
   assert.throws(() => parseArgs(['--bogus']), /unknown arg/);
 });
 
-test('loadTaskSet: accepts both bare arrays and {tasks:[...]} JSON', () => {
+fixtureTest('loadTaskSet: accepts both bare arrays and {tasks:[...]} JSON', () => {
   const tasks = fixtureTasks();
   assert.deepEqual(loadTaskSet(tasks), tasks);
   assert.equal(loadTaskSet(TASK_FILE).length, 9);

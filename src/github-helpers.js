@@ -474,7 +474,7 @@ export function canonicalResult(value) {
     const head = safeGet(root, 'head');
     const commit = safeGet(root, 'commit');
     // `id` is a database identifier and must NEVER be used as a PR/issue
-    // number (real create_pull_request returns {id:5444514334, url:.../pull/53}).
+    // number (real create_pull_request returns {id:1000000001, url:.../pull/53}).
     // URL is authoritative when present; explicit number fields are next.
     const urlRaw = firstDefined(root, ['html_url', 'url', 'web_url']);
     let numberOut = null;
