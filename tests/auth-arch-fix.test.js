@@ -115,10 +115,12 @@ test('R1: only explicit owner=gateway may refresh; unknown owners are shared', (
   assert.equal(auth._grantOwner(null, { source: 'gateway-dcr' }), 'gateway');
   assert.equal(auth._grantOwner(null, { source: 'dsh-mcp-connector-oauth-grant' }), 'dsh');
   assert.equal(auth._grantOwner(null, { grantOwner: 'manual' }), 'manual');
-  // R1 legacy exception: ONLY an unmarked record in a v1 key defaults to gateway.
-  assert.equal(auth._grantOwner({}, { legacy: true }), 'gateway');
+  // 2026-11-24 owner-marking: the legacy-v1 exception is GONE. An unmarked
+  // record read from a v1 key is `shared` too and must never be refreshed.
+  assert.equal(auth._grantOwner({}, { legacy: true }), 'shared');
   assert.equal(auth._mayRefresh({}), false);
-  assert.equal(auth._mayRefresh({}, { legacy: true }), true);
+  assert.equal(auth._mayRefresh({}, { legacy: true }), false);
+  assert.equal(auth._grantOwner({ owner: 'gateway' }, { legacy: true }), 'gateway');
 });
 
 test('R1: explicit owner=gateway still refreshes normally', async () => {
