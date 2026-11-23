@@ -1,3 +1,5 @@
+- **完全态架构**：[FRAMEWORK-FULL.md](FRAMEWORK-FULL.md)
+
 # FRAMEWORK — 项目框架与架构总纲
 
 > **优先级：最高。**
@@ -508,3 +510,11 @@ D. 网关内部把客户端已发起的 execute 视为 host approval，减少模
 - 共同结论：架构方向成立，但“架构承诺”与“生产默认”仍有距离；Native/Hybrid、按客户端选执行器、RuntimeAdapter、多客户端隔离、主动/被动字段隔离仍是 L0–L1。
 - 真实 tools/list 3/5；owner 迁移/KV 隔离/真实客户端/真实写/授权生命周期未验收。
 - 开源仍是 L0（公开 README 已有超出证据的宣称）。
+
+### 全仓库逐文件审计（2026-11-24）
+
+10 个分区、486 个 tracked 文件（审计文档自身除外）逐文件阅读；汇总：
+`docs/architecture-audit/FULL-REPO-FINDINGS.md`
+
+核心结论：架构方向成立，代码原型强；但“架构承诺”高于“生产默认”，真实客户端/写回环/授权仍未验收；文档 stale/矛盾多，不能当验收。
+关键代码缺口：v2 plan IO 未接、callTool 不复核 allow/deny、commitSha 被 blobSha 覆盖、startCapture options 未透传、多客户端隔离/taskId 缺失。
