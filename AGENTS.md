@@ -141,9 +141,9 @@ online-feedback.v1 记录
 - 但 **模型可见错误** 必须做 secret 形态脱敏（Bearer/ghp_/github_pat_/API key 等）；
   不要把上游原始错误里的 token 回显给模型。
 - 安全审计发现（`docs/eval/CODEMODE-SECURITY-AUDIT.md`）中：
-  - 已修：typed-plan 截断写、per-step approve；
-  - 仍修中/待验：模型错误脱敏、截断审计误判、预算绕过、`__proto__` 原型污染、
-    fallback `truncated` 语义；
+  - 已修：typed-plan 截断写、per-step approve、模型错误脱敏、截断审计误判、
+    预算绕过、`__proto__` 原型污染、fallback `truncated` 语义；
+  - 仍待验/待修：审计报告 F-08/F-09 的边界项，以报告为准；
   - 不要把“capture 原样保存”误认为“可以回显给模型”。
 - 不碰真实凭据：`config.example.json` 只能占位；真实 token 不进仓库/日志。
   本地凭据从 vault 读；只有当 refresh token 真正失效且 AUTH-READY 全绿时，
