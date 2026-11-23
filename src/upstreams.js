@@ -13,7 +13,10 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { isAllowed } from './catalog.js';
-import { UpstreamAuth, defaultProvider } from './upstream-auth.js';
+import {
+  UpstreamAuth, defaultProvider, resolveEnvironment,
+  REAUTH_REQUIRED, STATIC_TOKEN_NO_REFRESH, ReauthRequiredError,
+} from './upstream-auth.js';
 import { normalizeToolArguments } from './sanitize.js';
 import { captureEvent } from './capture.js';
 import { createFigmaGuard, isFigmaQuotaError } from './figma-guard.js';
@@ -197,12 +200,15 @@ function aggregate(errors) {
 export class UpstreamManager {
   constructor(configs = [], options = {}) {
     this.configs = Array.isArray(configs) ? configs : [];
+    // All token state is namespaced by deployment environment. A preview
+    // deployment must never read, refresh, or revoke a production grant.
+    this.environment = options.environment ?? resolveEnvironment();
     /** @type {Array<{server:string, tool:string, name:string, description?:string, inputSchema?:object, _client:Client}>} */
     this.entries = [];
     /** server name -> { client, transport, config } */
     this._clients = new Map();
     this._closed = new Set();
-    this._auth = options.auth ?? new UpstreamAuth();
+    this._auth = options.auth ?? new UpstreamAuth({ environment: this.environment });
     // Figma-only quota breaker + read cache. In-memory and per-instance.
     this.figmaGuard = options.figmaGuard ?? createFigmaGuard(options.figmaGuardOptions);
     // Test seam: inject a fake MCP client without touching the real SDK.
@@ -223,6 +229,12 @@ export class UpstreamManager {
       envClientSecret: config.clientSecretEnv ? process.env[config.clientSecretEnv] : undefined,
       envExpiresIn: config.expiresInEnv ? Number(process.env[config.expiresInEnv]) : undefined,
       envObtainedAt: config.obtainedAtEnv ? Number(process.env[config.obtainedAtEnv]) : undefined,
+      // Grant ownership is the deepest root cause: a DSH-exported rotating
+      // grant must never be refreshed by the gateway. Configs can declare it
+      // explicitly (grantOwner / grantSource); env vars work too so operators
+      // can tag a shared grant without redeploying config.
+      grantOwner: config.grantOwner ?? process.env[config.grantOwnerEnv ?? ''] ?? undefined,
+      source: config.grantSource ?? process.env[config.grantSourceEnv ?? ''] ?? undefined,
       tokenUrl: provider.tokenUrl,
       mcpUrl: provider.mcpUrl,
     }, { force });
@@ -312,8 +324,21 @@ export class UpstreamManager {
           // exactly one refresh (through UpstreamAuth's lock/CAS/needsReauth
           // guards) and reconnect exactly once. invalid_grant / other errors
           // never take this path, so a dead grant cannot be burned by retries.
-          if (!isAuthError(err) || !providerFor(config)?.tokenUrl) throw err;
-          console.error(`[upstreams] ${name} 上游拒绝 token (401/invalid_token)，强制刷新一次并重连`);
+          if (!isAuthError(err)) throw err;
+          if (!providerFor(config)?.tokenUrl) {
+            // Static bearer upstream (Vercel/GitHub/custom): there is NO
+            // refresh endpoint and no rotating grant to recover. Retrying the
+            // same env token can never help — say so explicitly instead of
+            // failing with a raw 401 that looks like a transient glitch.
+            const noRefresh = new ReauthRequiredError(name, STATIC_TOKEN_NO_REFRESH);
+            captureEvent('upstream_auth', {
+              server: name, phase: 'static_token_expired', environment: this.environment,
+              status: REAUTH_REQUIRED, reason: STATIC_TOKEN_NO_REFRESH,
+            });
+            console.error(`[upstreams] ${noRefresh.message}（长期 token 或补齐 refreshUrl + clientId 后重新授权）`);
+            throw noRefresh;
+          }
+          console.error(`[upstreams] ${name} 上游拒绝 token (401/invalid_token)，强制刷新一次并重连（env=${this.environment}）`);
           try {
             if (client) await client.close();
             else if (transport) await transport.close();
@@ -323,6 +348,19 @@ export class UpstreamManager {
           client = undefined;
           transport = undefined;
           const freshToken = await this._resolveToken(config, { force: true });
+          const authStatus = typeof this._auth.getAuthStatus === 'function'
+            ? await this._auth.getAuthStatus(name)
+            : null;
+          if (authStatus?.status === REAUTH_REQUIRED) {
+            // Terminal grant: do not reconnect with a token we know is dead.
+            // Report the explicit status instead of pretending another attempt
+            // could work. Existing rate limits (one refresh attempt) hold.
+            captureEvent('upstream_auth', {
+              server: name, phase: 'reauth_required', environment: this.environment,
+              status: REAUTH_REQUIRED, reason: authStatus.reason,
+            });
+            console.error(`[upstreams] ${name} ${REAUTH_REQUIRED}: ${authStatus.reason}`);
+          }
           tools = await establish(freshToken); // second (and final) attempt
         }
 

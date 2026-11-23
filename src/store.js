@@ -106,6 +106,45 @@ export class TokenStore {
   }
 
   /**
+   * Release a refresh LEASE only if we still own it. The lock value is JSON
+   * `{"owner":"<uuid>","expiresAt":<ms>}`; compare-and-delete avoids the
+   * classic bug where an expired worker A deletes worker B's lock, letting a
+   * third worker refresh concurrently and burn a rotating grant.
+   */
+  async releaseLease(key, owner) {
+    const script =
+      "local cur = redis.call('GET', KEYS[1]); " +
+      "if not cur then return 0 end; " +
+      "local ok, obj = pcall(cjson.decode, cur); " +
+      "if not ok then return 0 end; " +
+      "if tostring(obj.owner) ~= ARGV[1] then return 0 end; " +
+      "redis.call('DEL', KEYS[1]); return 1";
+    const r = await this._commandBody(['EVAL', script, '1', key, String(owner)]);
+    return Number(r) === 1;
+  }
+
+  /**
+   * Renew a lease's expiry only while we still own it. Long provider calls can
+   * outlive the initial 30s TTL; without renewal a second worker could acquire
+   * the lock mid-refresh and consume the already-spent rotating grant.
+   */
+  async renewLease(key, owner, ttlSeconds) {
+    const script =
+      "local cur = redis.call('GET', KEYS[1]); " +
+      "if not cur then return 0 end; " +
+      "local ok, obj = pcall(cjson.decode, cur); " +
+      "if not ok then return 0 end; " +
+      "if tostring(obj.owner) ~= ARGV[1] then return 0 end; " +
+      "obj.expiresAt = tonumber(ARGV[2]); " +
+      "redis.call('SET', KEYS[1], cjson.encode(obj), 'PX', ARGV[3]); return 1";
+    const r = await this._commandBody([
+      'EVAL', script, '1', key, String(owner),
+      String(Date.now() + ttlSeconds * 1000), String(ttlSeconds * 1000),
+    ]);
+    return Number(r) === 1;
+  }
+
+  /**
    * Fencing CAS for a token record: write `nextJson` only if the current
    * record's refresh_token still equals `expectedRefresh`. Prevents a stale
    * refresh result from overwriting a newer token written by another worker.
