@@ -1,0 +1,57 @@
+{
+  "$schemaNote": "DESIGN / CONFIG EXAMPLE ONLY. The current runtime (src/client-profile.js, src/oauth.js) does NOT read this file. Encoding this JSON does not change any behavior. See docs/OPEN-SOURCE/CLIENT-PROFILES.md.",
+  "schemaVersion": "1.0-draft",
+  "clientId": "claude",
+  "clientPlatform": "claude-ai-web-connectors",
+  "displayName": "Claude (claude.ai web connectors / Claude Desktop remote)",
+  "status": "untested-design-target",
+
+  "resultEncoding": {
+    "mode": "text-json-only",
+    "textJson": true,
+    "structuredContent": false,
+    "note": "TEXT results are enough; structuredContent is optional and disabled by default here. Matches CLIENT_PROFILES[claude]. Keep tool results under the hosted ~150,000 character cap (gateway truncates at 8000)."
+  },
+
+  "annotationsDefault": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false,
+    "note": "Claude REQUIRES both readOnlyHint and destructiveHint declared on every tool. sanitizeTool already emits the three hints; src/client-profile.js keeps them identical across profiles. These values are the declared defaults, not a new behavior."
+  },
+
+  "oauth": {
+    "flow": "OAuth 2.0 with DCR or CIMD by default; user-entered client id/secret or Anthropic-held creds also supported",
+    "callbackAllowlist": {
+      "exact": ["https://claude.ai/api/mcp/auth_callback"],
+      "note": "This is the redirect used when the user manually enters a client id/secret. IMPORTANT: src/oauth.js does NOT currently list this host in isAllowedRedirectUri() - allowing it would require a code/config change. This entry is a documented design target only. DCR/CIMD paths do not use this callback."
+    },
+    "scopes": ["mcp", "openid", "email", "profile", "offline_access"],
+    "constraints": [
+      "401 response must carry WWW-Authenticate: Bearer resource_metadata=\"...\".",
+      "Only the first authorization_servers entry is consumed.",
+      "S256 PKCE on every request.",
+      "Public clients rotate refresh tokens (the gateway currently does NOT rotate - a known gap, see limitations).",
+      "Discovery/register/token endpoints must respond within 10s; refresh within 30s; token endpoint form-urlencoded."
+    ]
+  },
+
+  "toolSurface": {
+    "expectedTools": ["search", "execute_read", "execute"],
+    "naming": "server__tool (keep canonical name)",
+    "schema": "All tools must declare readOnlyHint + destructiveHint; no documented tool-count cap."
+  },
+
+  "knownLimitations": [
+    "Auth settings cannot be edited after saving a connector - remove and re-add.",
+    "Hosted tool result cap ~150,000 characters (Claude Code: 25k tokens / 16 MiB); tool call timeout 240s.",
+    "Public internet, HTTPS 443 only, IPv4 egress from 160.79.104.0/21; private/CGNAT URLs rejected.",
+    "Static header credential mode is beta/limited and out of scope here.",
+    "Gateway refresh tokens are non-rotating - conflicts with Claude's public-client expectation; must be validated before claiming support.",
+    "claude.ai callback is NOT in the current OAuth allowlist - manual client id/secret setup will fail until that is addressed."
+  ],
+  "unverified": [
+    "No live end-to-end connection against this gateway has been performed; source is the first-party docs surveyed in docs/OPEN-SOURCE/WEB-CLIENTS.md (grabbed 2026-11-23).",
+    "Claude Desktop remote uses the same account-level connector path, but has not been tested here."
+  ]
+}

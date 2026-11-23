@@ -1,0 +1,57 @@
+{
+  "$schemaNote": "DESIGN / CONFIG EXAMPLE ONLY. The current runtime (src/client-profile.js, src/oauth.js) does NOT read this file. Encoding this JSON does not change any behavior. See docs/OPEN-SOURCE/CLIENT-PROFILES.md.",
+  "schemaVersion": "1.0-draft",
+  "clientId": "gemini",
+  "clientPlatform": "gemini-web-custom-apps",
+  "displayName": "Gemini (web custom apps)",
+  "status": "tested-baseline",
+
+  "resultEncoding": {
+    "mode": "text-json-only",
+    "textJson": true,
+    "structuredContent": false,
+    "note": "Gemini cannot consume structuredContent. Keep content:[{type:'text',text:JSON.stringify(result)}] and strip structuredContent entirely. Matches CLIENT_PROFILES[gemini] in src/client-profile.js."
+  },
+
+  "annotationsDefault": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false,
+    "note": "Defaults only for tools with no annotations at all; sanitizeTool already sets explicit hints. Today src/client-profile.js keeps annotations identical across profiles - these values are the design target, not a new behavior."
+  },
+
+  "oauth": {
+    "flow": "OAuth 2.1 DCR + PKCE S256 (or pre-registered client id/secret in advanced settings)",
+    "callbackAllowlist": {
+      "hosts": [
+        "oauth-redirect.googleusercontent.com",
+        "oauth-redirect-sandbox.googleusercontent.com",
+        "oauth-redirect-test.googleusercontent.com"
+      ],
+      "pathPrefixes": ["/r/", "/a/"],
+      "note": "Exact shape enforced by isAllowedRedirectUri() in src/oauth.js: https only, no userinfo, host in set, pathname starts with /r/ or /a/."
+    },
+    "scopes": ["mcp", "openid", "email", "profile", "offline_access"],
+    "constraints": [
+      "Non-rotating refresh tokens (returned unchanged on refresh).",
+      "Byte-preserving state (~1400 chars).",
+      "AS metadata must include registration_endpoint even for pre-registered clients.",
+      "Enterprise connector path uses a different fixed redirect (https://vertexaisearch.cloud.google.com/oauth-redirect) and is OUT OF SCOPE of this profile."
+    ]
+  },
+
+  "toolSurface": {
+    "expectedTools": ["search", "execute_read", "execute"],
+    "naming": "server__tool (double underscore; Gemini splits on first underscore)",
+    "schema": "sanitizeTool before registration; flat schemas; stable order; no mid-session tools/list_changed"
+  },
+
+  "knownLimitations": [
+    "Account-gated: personal Google account, 18+, US only, English UI, Activity on; work/school accounts unsupported.",
+    "No structuredContent; schema snapshot taken at registration - changing tools requires a new version path (/v1, /v2).",
+    "GET on the Streamable HTTP stream may return 405 - expected."
+  ],
+  "unverified": [
+    "No second real Gemini account/region has been tested; baseline is the single existing deployment."
+  ]
+}

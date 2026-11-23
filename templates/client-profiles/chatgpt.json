@@ -1,0 +1,63 @@
+{
+  "$schemaNote": "DESIGN / CONFIG EXAMPLE ONLY. The current runtime (src/client-profile.js, src/oauth.js) does NOT read this file. Encoding this JSON does not change any behavior. See docs/OPEN-SOURCE/CLIENT-PROFILES.md.",
+  "schemaVersion": "1.0-draft",
+  "clientId": "chatgpt",
+  "clientPlatform": "chatgpt-web-connectors",
+  "displayName": "ChatGPT (web connectors)",
+  "status": "untested-design-target",
+
+  "resultEncoding": {
+    "mode": "structured-content-plus-text-json",
+    "textJson": true,
+    "structuredContent": true,
+    "note": "ChatGPT prefers both structuredContent and the same JSON in the text block. src/client-profile.js can derive structuredContent from a single JSON text block, or preserve an existing one."
+  },
+
+  "annotationsDefault": {
+    "readOnlyHint": false,
+    "destructiveHint": false,
+    "openWorldHint": false,
+    "note": "DESIGN TARGET, NOT IMPLEMENTED. src/client-profile.js currently keeps annotations identical across profiles; ChatGPT treats tools without readOnlyHint as write actions requiring confirmation. Set explicit hints via sanitizeTool when this profile is adopted."
+  },
+
+  "oauth": {
+    "flow": "OAuth 2.1, PKCE S256 mandatory, DCR or CIMD or pre-registered client",
+    "callbackAllowlist": {
+      "exact": ["https://chatgpt.com/connector_platform_oauth_redirect"],
+      "prefix": "https://chatgpt.com/connector/oauth/",
+      "callbackIdPattern": "^[A-Za-z0-9_-]+$",
+      "note": "Matches isAllowedRedirectUri() in src/oauth.js: stable callback exactly, or prefix + non-empty callback id of [A-Za-z0-9_-]. No other host or path shape is accepted."
+    },
+    "scopes": ["mcp", "openid", "email", "profile", "offline_access"],
+    "constraints": [
+      "offline_access required or access is lost on expiry.",
+      "RFC 9207 issuer identification: server advertises authorization_response_iss_parameter_supported=true and appends iss to every authorization response.",
+      "resource parameter must match exactly.",
+      "DCR in LOCKED mode needs the narrow carve-out below; it is not enabled by default."
+    ],
+    "dcr": {
+      "currentState": "blocked-by-default-in-locked-mode",
+      "requiredSwitch": "ALLOW_DCR_FOR_CHATGPT=1",
+      "suggestedConfigKey": "oauth.chatgptDcr.enabled",
+      "suggestedProfileName": "chatgpt-dcr",
+      "note": "src/oauth.js has isChatgptClientRegistration(): in LOCKED mode, DCR is rejected unless ALLOW_DCR_FOR_CHATGPT is set AND every redirect is a documented ChatGPT callback AND metadata identifies an OpenAI client. Use a separate switch/profile name; do not widen the Gemini pre-registered client or its secret. No code change is made here."
+    }
+  },
+
+  "toolSurface": {
+    "expectedTools": ["search", "execute_read", "execute"],
+    "naming": "server__tool (keep canonical name; do not rename per client)",
+    "schema": "Undocumented token/volume caps reported by community (e.g. <5000 tokens, 2.43MB) - unverified; our 3 tools are small."
+  },
+
+  "knownLimitations": [
+    "Full MCP is plan-gated: Business/Enterprise/Edu; Pro is read/fetch only; Free/Go not supported. Web only, not mobile; admins/owners publish connectors.",
+    "No static API key / bearer header field in the ChatGPT UI - OAuth, no auth, or per-tool mixed schemes only.",
+    "Security review may reject tool text that suggests arbitrary code execution - 'execute(code)' name/description is a real risk.",
+    "Tools without readOnlyHint are treated as write actions needing confirmation."
+  ],
+  "unverified": [
+    "All ChatGPT behavior above is from first-party docs / community reports as surveyed in docs/OPEN-SOURCE/WEB-CLIENTS.md (grabbed 2026-11-23); no live end-to-end connection against this gateway has been performed.",
+    "Schema token/volume limits are not vendor-documented - reproduce before treating as requirements."
+  ]
+}
