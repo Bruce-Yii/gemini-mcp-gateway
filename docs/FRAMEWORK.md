@@ -533,3 +533,38 @@ D. 网关内部把客户端已发起的 execute 视为 host approval，减少模
   - external-imported（外部导入，legacy，只读，不 refresh）
 - 代码里的 owner=dsh 只是当前迁移兼容值，不应出现在完全态架构；
 - 产品目标不是“不顶 DSH”，而是“网关授权独立、可预期、不反复失效”。
+
+---
+
+## 17. 主动 ↔ 被动关联机制（修正第六点）
+
+第六点现实不是“对不上”，而是“能对，但靠人眼、麻烦”：
+
+- 用户每次主动提问，都会把反馈发到开发窗口；
+- 开发窗口/台账有真实时间戳；
+- 被动 capture 也有时间戳；
+- 理论上可按时间、平台、任务对齐，但缺少标准字段和自动关联，容易漏/错。
+
+设计目标：用户零额外操作；开发窗口只记一条标准记录；被动 capture 自动；关联脚本输出 exact/likely/weak/unmatched；对不上写原因，不硬配。
+
+### 最小机制
+
+1. 主动侧：`active-eval.v1`
+   - activeEvalId、平台、模式、项目、prompt、taskFingerprint、startedAt/endedAt、expected、observed、来源窗口/台账；
+2. 被动侧：capture 已有 requestId/session/platform/project/时间；补 clientMode、taskId；
+3. 关联：`link-active-passive`
+   - exact：taskId/activeEvalId；
+   - likely：时间窗 + 平台 + 项目 + 工具序列指纹；
+   - weak：只有时间/平台；
+   - unmatched：写原因；
+4. 主动标签回填被动；主动规则反哺被动检查器；统计一致率后再降低主动频率。
+
+详见：[docs/eval/ACTIVE-PASSIVE-CORRELATION.md](eval/ACTIVE-PASSIVE-CORRELATION.md)
+
+### 边界
+
+- 不编造 requestId；
+- 不把 unmatched 当 pass；
+- 不跨构建硬比；
+- 主动记录时间用真实消息时间/UTC；
+- 被动 capture 不为主动记录改变。

@@ -120,3 +120,6 @@ L4 人工在线反馈           用户真实窗口，发现新维度
 6. 更新 `ONLINE-SEMIONLINE-JOIN-*.md`；
 7. 部署后同任务复验，更新状态；
 8. 不许只写“已记录”就结束。
+
+- 主动↔被动时间戳/任务关联设计：[eval/ACTIVE-PASSIVE-CORRELATION.md](eval/ACTIVE-PASSIVE-CORRELATION.md)
+
