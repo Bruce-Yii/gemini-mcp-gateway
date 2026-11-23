@@ -15,6 +15,8 @@
 | 2026-11-24 02:08 | `34c406d` | git push | handoff 状态更新 | **未部署** | 同上 |
 | 2026-11-24 02:16 | `9ab0e57`（复核） | 只读复核 | 确认自动部署已停、生产未漂移 | **PASS** | ① healthz：`commit=9ab0e57…`、`buildHash=02c96881…`、`env=production`、`mode=codemode`；② Vercel `GET /v6/deployments?projectId=…&limit=15`：最新 production 部署仍是 `9ab0e57`（01:51:21），其后 `05f607c/c5a0a06/36e4c76/34c406d` 全部 `deployed=false`；③ 无 preview 部署产生 |
 
+| 2026-11-24 02:57 | `d1f36ba` | CLI（手动） | 合并 #6/#7 后部署：owner 标记 + 入站 origin 一致 | READY | `deploymentId=dpl_7qGruKcZ8ffE7rri6erS6ZaiqiNS`；healthz `commit=d1f36ba…` / `buildHash=a1002d86…`；两域名的 issuer/resource/CIMD/401 各自与请求 host 一致 |
+
 ## 规则
 
 - 每次部署前过 [DEPLOY-POLICY.md](DEPLOY-POLICY.md) 检查；

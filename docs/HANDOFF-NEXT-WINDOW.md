@@ -2,14 +2,14 @@
 
 > **状态更新（2026-11-24）**：接手窗口已经完成独立审查并返回报告，见 `docs/OPEN-SOURCE/INDEPENDENT-REVIEW-2026-11-24.md`。
 > 本文现在是“背景 + 审查清单”，**不是待发给下一个窗口的指令**；不要再让新窗口重复做已经完成的审查。
-> 当前生产 `9ab0e57`；push→production 自动部署已关；一次性验收仓库 `Bruce-Yii/gateway-acceptance-test` 已建。
+> 当前生产 `d1f36ba`（2026-11-24 02:57 手动部署）；push→production 自动部署已关（branch 仍生成 preview）；一次性验收仓库 `Bruce-Yii/gateway-acceptance-test` 已用真实写回环跑通（PR #1；CI 被 GitHub 账户 billing 阻塞）。
 
 > 给下一个接手的 agent / 人。
 > **不要先信这份文档，也不要先信上一任 lead 的验收结论。**
 > 你的任务不是“接着跑测试”，而是独立判断：这个网关到底能不能在真实客户端、真实仓库、真实授权下可靠工作。
 >
 > 当前日期锚点：2026-11-24（Asia/Singapore）。
-> 当前生产：`9ab0e57`。当前验收：**V0 0/7，A PARTIAL**，整体 **NOT ACCEPTED**。
+> 当前生产：`d1f36ba`。当前验收：**V0 1/7（仅 A PASS）**，整体 **NOT ACCEPTED**。
 > 当前全量回归基线：1381 tests / 1375 pass / 0 fail / 6 todo（接手后请自己重跑）。
 
 ---

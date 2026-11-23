@@ -23,7 +23,7 @@
 - [ ] 部署记录可查；
 - [ ] 不是旧构建、不是本地 loopback。
 
-**当前：PARTIAL（生产 `9ab0e57`；healthz 匹配，但验收 commit 已失效、push 自动部署 40 次、部署记录不全）**
+**当前：PASS（2026-11-24 02:57 手动部署 `d1f36ba`；healthz `commit=d1f36ba…` / `buildHash=a1002d86…` 与本地计算一致；DEPLOYMENTS 已登记 `dpl_7qGruKcZ8ffE7rri6erS6ZaiqiNS`。历史 40 次自动部署仍不可追溯，不影响当前构建判定）**
 
 ### B. 真实客户端任务
 
@@ -61,7 +61,7 @@
 - [ ] 失败不留半成品；
 - [ ] 仓库无脏文件。
 
-**当前：PARTIAL（真实只读 replay 做过；真实写未在验收仓库跑）**
+**当前：PARTIAL（真实写回环已在验收仓库跑通 read→patch→commit→PR，见 `ACCEPTANCE-EVIDENCE-2026-11-24.md`；CI 因 GitHub 账户 billing 未启动，不是网关失败）**
 
 ### D. 授权生命周期
 
