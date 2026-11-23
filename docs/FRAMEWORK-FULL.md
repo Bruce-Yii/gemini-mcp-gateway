@@ -132,7 +132,7 @@
 
 - `UpstreamRegistry`：provider、transport、auth mode、SOP；
 - `ProviderAdapter`：GitHub/Notion/Linear/Vercel/Figma/未来搜索类；
-- `GrantBroker`：owner（gateway/dsh/manual）、refresh、static、DCR/CIMD；
+- `GrantBroker`：owner（gateway-owned / manual static / external-imported legacy）、refresh、static、DCR/CIMD；
 - `CanonicalAdapter`：file/PR/issue/action/result；
 - `WriteTransaction`：patch/commit/PR/CI/回滚；
 - `UpstreamHealth`：tools/list、auth status、quota；
@@ -141,7 +141,7 @@
 完全态行为：
 
 - 每个上游有固定 8 步 SOP；
-- 网关独立 grant，不共享 DSH refresh token；
+- 网关独立 grant，不共享外部宿主导入的 refresh token；
 - 未标记 grant 永不 refresh；
 - owner/环境/客户端作用域可审计；
 - 首次接入有引导；
@@ -379,7 +379,7 @@ ReleaseAdapter
 
 1. 真实 Web 非代码客户端完成多步骤读写；
 2. 读正文干净、写原子、失败无半成品；
-3. 授权网关独立，不顶 DSH，重启可用；
+3. 授权网关独立，不依赖外部宿主导入，重启可用；
 4. 多客户端隔离，taskId 可追溯；
 5. 主动/被动评测同窗可对照，成本下降；
 6. 至少两种运行时无扣费风险可复现；
