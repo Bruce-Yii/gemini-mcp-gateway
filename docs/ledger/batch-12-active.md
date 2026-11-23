@@ -14,7 +14,7 @@
 | `oss-export-verify` | 跑 export staging + 干净 clone 测试 | `docs/OPEN-SOURCE/EXPORT-VERIFICATION.md`，必要时 export 脚本 | staging 无禁带文件；`npm ci/test/audit` |
 | `project-llm-labeler` | 离线 LLM 项目分类（advisory） | `scripts/classify-projects.mjs`、tests、`docs/ledger/batch-11-project-llm.md` | schema/低置信度/无 repo/多 repo；不覆盖原始标签 |
 | `client-adapter` | Gemini/Claude/ChatGPT 结果编码 profile | `src/client-profile.js`、`src/server.js`、`src/codemode.js`、tests、`docs/ledger/batch-11-client-adapter.md` | 默认 Gemini 逐字节兼容；Gemini 无 structuredContent；ChatGPT 双编码 |
-| `design-backlog` | 持久状态 / 自适应 Code Mode / Figma 跨实例缓存 | 3 个 `docs/ledger/batch-11-*.md` | 每项有现状/方案/收益风险/验收/不做 |
+| `design-backlog` | 持久状态 / 自适应 Code Mode / Figma 跨实例缓存 | 3 个 `docs/ledger/batch-11-*.md` | 每项有现状/方案/收益风险/验收/不做 |\n| `gh-feedback-fixes` | 分支别名 `branch`、PR `number` 修正、GitHub Actions 只读日志 helper | `src/github-helpers.js`、`src/result-normalize.js`、`src/codemode.js`、tests、ledger | 真实 PR id/number 场景；helper 不新增工具面；全量测试 |\n| `reconnect-research` | 发版后旧会话重连缓解方案（只读） | `docs/ledger/batch-11-reconnect.md` | 明确网关不能强制客户端，给可行缓解 |
 
 ## 当前已完成（本轮之前）
 
