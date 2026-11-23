@@ -26,6 +26,7 @@ import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { waitUntil } from '@vercel/functions';
 import { BUILD } from './build-info.js';
+import { extractProjects } from './project-tag.js';
 
 const MAX_BODY_BYTES = 32 * 1024 * 1024;
 // Fallback POST timeout — keep it short so a dead endpoint never holds the
@@ -477,6 +478,15 @@ export function startCapture(req, res, options = {}) {
       // Additive model-output truncation audit. Computed from data already in
       // the envelope; capture semantics and all existing fields are unchanged.
       model: buildModelOutputAudit({ events: context.events, response: { status: res.statusCode } }),
+      // Additive project/repository tag derived from the REQUEST only (pure,
+      // no model/network/upstream-result parsing). Never fail capture on it.
+      ...(() => {
+        try {
+          return extractProjects({ __gatewayRawBody: req.__gatewayRawBody });
+        } catch {
+          return { projects: [], primaryProject: null };
+        }
+      })(),
     };
 
     // Record the drop in Vercel logs unconditionally, even when `waitUntil`
