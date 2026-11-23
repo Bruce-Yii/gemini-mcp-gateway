@@ -77,6 +77,14 @@ export const DSH_GRANT_SOURCE = 'dsh-mcp-connector-oauth-grant';
 /** Owners we recognise. Anything else is treated as foreign/shared. */
 export const GRANT_OWNERS = Object.freeze(['gateway', 'dsh', 'manual']);
 
+/**
+ * Explicit auth modes. `static_bearer` is an owner-created, non-rotating
+ * credential (Linear PAT, Notion static MCP token). It is usable but can NEVER
+ * be refreshed — expiry/revocation is terminal and the owner must rotate it.
+ */
+export const AUTH_MODES = Object.freeze(['oauth', 'static_bearer']);
+export const STATIC_BEARER = 'static_bearer';
+
 /** Error type for callers that want to distinguish terminal auth failures. */
 export class ReauthRequiredError extends Error {
   constructor(server, reason = REAUTH_REQUIRED) {
@@ -515,8 +523,41 @@ export class UpstreamAuth {
    */
   async getAccessToken(server, {
     envToken, envRefresh, envClientId, envClientSecret, envExpiresIn, envObtainedAt,
-    tokenUrl, mcpUrl, grantOwner, source,
+    tokenUrl, mcpUrl, grantOwner, source, authMode,
   } = {}, { force = false } = {}) {
+    // ── Explicit static_bearer path ───────────────────────────────────────
+    // An owner-created static token (Linear PAT / Notion static MCP token) has
+    // NO rotating grant. Return it verbatim, persist an owner=manual marker so
+    // getAuthStatus() never mistakes it for a gateway grant, and NEVER call a
+    // token endpoint — even when force:true (a provider 401 cannot be fixed by
+    // refreshing a token that has no refresh endpoint).
+    if (authMode === STATIC_BEARER) {
+      if (!envToken) return undefined;
+      if (this.store.isConfigured()) {
+        const key = this._key(server, 'manual');
+        try {
+          const existing = await this.store._command('get', key);
+          if (!existing) {
+            await this._save(server, {
+              access_token: envToken,
+              owner: 'manual',
+              source: source ?? 'manual',
+              environment: this.environment,
+              grantId: `manual:${this.environment}:${server}`,
+              authMode: STATIC_BEARER,
+              bootstrapped: false,
+            });
+          }
+        } catch { /* static token works even without KV */ }
+      }
+      // A forced retry on a static credential is terminal — say so explicitly
+      // instead of silently returning the same dead token as if it were fine.
+      if (force) {
+        this._status.set(server, { status: REAUTH_REQUIRED, reason: STATIC_TOKEN_NO_REFRESH, at: Date.now() });
+      }
+      return envToken;
+    }
+
     const provider = {
       tokenUrl: tokenUrl ?? DEFAULT_PROVIDERS[server]?.tokenUrl,
       mcpUrl: mcpUrl ?? DEFAULT_PROVIDERS[server]?.mcpUrl,

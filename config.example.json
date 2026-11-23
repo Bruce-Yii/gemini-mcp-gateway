@@ -1,6 +1,27 @@
 {
   "mode": "codemode",
   "maxWhitelistTools": 0,
+  "_authProvisioning": {
+    "_comment": "PLACEHOLDERS ONLY - no real tokens. See docs/AUTH-READY.md before asking the user to authorize.",
+    "linear": {
+      "preferredMode": "static_bearer",
+      "tokenEnv": "LINEAR_PAT_STATIC",
+      "grantOwner": "manual",
+      "status": "placeholder - run scripts/auth-provision.mjs --provider linear --token-env LINEAR_PAT_STATIC --verify"
+    },
+    "notion": {
+      "preferredMode": "static_bearer",
+      "tokenEnv": "NOTION_MCP_STATIC_TOKEN",
+      "grantOwner": "manual",
+      "status": "placeholder - needs Business/Enterprise static MCP token; DCR OAuth not implemented in upstream-oauth.js"
+    },
+    "vercel": {
+      "preferredMode": "oauth",
+      "clientIdEnv": "VERCEL_OAUTH_CLIENT_ID",
+      "requiredScopes": ["openid", "offline_access"],
+      "status": "placeholder - OAuth-only, CIMD/pre-approved client required; no static token"
+    }
+  },
   "servers": [
     {
       "name": "github",

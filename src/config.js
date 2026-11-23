@@ -11,6 +11,17 @@ import { defaultProvider } from './upstream-auth.js';
 
 export const MODES = ['codemode', 'whitelist'];
 
+/**
+ * Explicit upstream auth modes. `static_bearer` means the credential is an
+ * owner-created, non-rotating bearer token (Linear PAT, Notion static MCP
+ * token, Vercel REST token for non-MCP upstreams). It MUST NOT enter the OAuth
+ * refresh path — see `src/upstream-auth.js` and `src/upstreams.js`.
+ * `oauth` (the default when refresh fields are present) uses the rotating
+ * grant lifecycle owned by the gateway.
+ */
+export const AUTH_MODES = Object.freeze(['oauth', 'static_bearer']);
+export const STATIC_BEARER = 'static_bearer';
+
 const NAME_RE = /^[A-Za-z0-9_-]{1,32}$/;
 const ENV_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
@@ -19,6 +30,8 @@ const SERVER_KEYS = new Set([
   'name', 'transport', 'url', 'command', 'args', 'env', 'headers',
   'tokenEnv', 'tokenHeader', 'authScheme', 'refreshEnv', 'clientIdEnv', 'clientSecretEnv', 'expiresInEnv', 'obtainedAtEnv',
   'refreshUrl', 'authorizeUrl', 'oauthScopes', 'oauthRedirectUri', 'allowTools', 'denyTools',
+  // Explicit auth mode for gateway-owned credentials (see AUTH_MODES above).
+  'authMode', 'staticBearer',
 ]);
 
 export class ConfigError extends Error {
@@ -126,6 +139,35 @@ export function validateConfig(value, { env = process.env } = {}) {
       }
       if (server.authScheme && !server.tokenEnv) {
         warnings.push(`${at}: authScheme is ignored without tokenEnv`);
+      }
+
+      // ── Explicit auth mode ─────────────────────────────────────────────
+      // `authMode` opts a server into a credential lifecycle. Only
+      // "oauth" (rotating, gateway-owned grant) and "static_bearer"
+      // (owner-created, non-rotating token) are valid. Never infer this from
+      // envToken alone — callers must state their intent explicitly.
+      if (server.authMode !== undefined && !AUTH_MODES.includes(server.authMode)) {
+        issues.push(`${at}.authMode must be one of ${AUTH_MODES.join(', ')} (got ${JSON.stringify(server.authMode)})`);
+      }
+      if (server.staticBearer !== undefined && typeof server.staticBearer !== 'boolean') {
+        issues.push(`${at}.staticBearer must be a boolean`);
+      }
+      const isStatic = server.authMode === STATIC_BEARER || server.staticBearer === true;
+      if (isStatic && server.authMode === 'oauth') {
+        issues.push(`${at}: authMode "oauth" conflicts with staticBearer:true`);
+      }
+      if (isStatic) {
+        if (!server.tokenEnv) {
+          issues.push(`${at}: authMode "static_bearer" requires tokenEnv`);
+        }
+        // A static token has no rotating grant. Refusing refresh fields here
+        // prevents a silent misconfiguration where the gateway would look for
+        // a refresh token that can never exist.
+        for (const key of ['refreshEnv', 'refreshUrl', 'authorizeUrl', 'clientIdEnv', 'clientSecretEnv', 'expiresInEnv', 'obtainedAtEnv']) {
+          if (server[key] !== undefined) {
+            issues.push(`${at}: ${key} is not allowed with authMode "static_bearer" (static tokens are not refreshed)`);
+          }
+        }
       }
 
       for (const key of ['tokenEnv', 'refreshEnv', 'clientIdEnv', 'clientSecretEnv', 'expiresInEnv', 'obtainedAtEnv']) {
