@@ -48,6 +48,7 @@
   - OAuth 2.1 / RFC 9700：refresh token 绑定 client/grant，replay 会吊销整个 grant；
   - DSH 与网关必须是两个独立 client / 独立 grant；
   - 二选一：网关独立授权，或 DSH 做 token broker；**默认网关独立授权**。
+- `owner=dsh` 只是当前迁移兼容值，不是产品 owner 类型；完全态 owner 见 `docs/FRAMEWORK-FULL.md`。
 - 网关 token 记录必须带：
   - `owner`（gateway / dsh / manual）；
   - `source`、`grantId`、`environment`；
