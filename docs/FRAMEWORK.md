@@ -1,3 +1,5 @@
+- 仓库文件存储架构：[REPO-STORAGE-PLAN.md](REPO-STORAGE-PLAN.md)、[REPO-MAP.md](REPO-MAP.md)
+
 - **完全态架构**：[FRAMEWORK-FULL.md](FRAMEWORK-FULL.md)
 
 # FRAMEWORK — 项目框架与架构总纲
