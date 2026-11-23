@@ -9,6 +9,14 @@
     }
   },
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
-  ]
+    {
+      "source": "/(.*)",
+      "destination": "/api/index"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "main": false
+    }
+  }
 }
