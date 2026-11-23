@@ -178,7 +178,8 @@ online-feedback.v1 记录
 
 ## 10. 恢复时先读
 
-1. `docs/HANDOFF-NEXT-WINDOW.md`（新窗口接手必读）`n2. `docs/EVALUATION.md`
+1. `docs/HANDOFF-NEXT-WINDOW.md`（新窗口接手必读）
+2. `docs/EVALUATION.md`
 3. `docs/EXECUTION-PLAN.md`
 4. `docs/ledger/README.md`
 5. `docs/AUTH-READY.md`
