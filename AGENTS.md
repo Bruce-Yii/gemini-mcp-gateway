@@ -8,12 +8,8 @@
 
 ## 0. 当前真实状态（先读，防止把“代码已修”当“线上已生效”）
 
-- **生产是旧构建**：`https://gemini-mcp-gateway.vercel.app` 仍在跑旧代码；
-  Vercel 免费额度 `100 deployments/day` 已用尽，最新修复**未部署**。
-  因此：
-  - 不能写“线上已修好”；
-  - 不能拿旧构建的在线反馈直接判新代码仍失败；
-  - 部署窗口恢复后，必须重新跑 `healthz` / `tools/list` / 在线同任务复验。
+- **生产已部署 `87d91af`**：`https://gemini-mcp-gateway.vercel.app` healthz 已核 `commit=87d91af0...` / `buildHash=02c96881...`。
+  “部署成功”不等于验收通过：真实客户端、真实写回环、授权生命周期、同任务在线复验仍未完成；不能写“线上已验收”。
 - **工作区全量测试以最近一次 lead 跑出的结果为准**；不要用其他 agent 的中间态。
   当前基线：`1381 tests / 1375 pass / 0 fail / 6 todo`（2026-11-23 晚，提交 `7a82c1d` 后）。
 - **不找用户反复要授权**：授权只有在 `docs/AUTH-READY.md` 全绿后才发起；
@@ -103,7 +99,8 @@ online-feedback.v1 记录
   顺序/名称/schema 不得在会话中途改变。
 - `execute_read` 是只读通道；`execute` 是读写通道。写操作必须有
   dryRun / host approve；guest 不能靠 per-step approve 自授权。
-- Gemini 不消费 `notifications/tools/list_changed`；改 schema 必须换版本路径
+- Gemini 不消费 
+notifications/tools/list_changed`；改 schema 必须换版本路径
   （例如 `/mcp/v2`），不能原地改。
 - `ENABLE_MCP_V2=1` 才启用 `/mcp/v2`；默认关闭；v1 逐字不变。
 - `/mcp/v2` 仍是同名同序三工具；`plan` 是入参，不是第四个工具。
@@ -127,7 +124,9 @@ online-feedback.v1 记录
 - 读写分离：`execute_read` 不接受写 op；`execute` 才可写。
 - 写多文件默认优先 `writeFiles` / `push_files` 原子入口；
   失败保留 `partial:true` / `written` / `remaining` / `compensation`。
-- PR `number` 必须 URL 优先 `/pull/(\d+)`；`id`/`nodeId` 只作独立字段，
+- PR 
+umber` 必须 URL 优先 `/pull/(\d+)`；`id`/
+odeId` 只作独立字段，
   **永不**用 id 兜底 number。
 - raw upstream envelope 与 canonical output 必须区分；raw 不得无标记泄漏到
   capture/模型可见输出（capture 仍按 full-fidelity 保存，见 §6）。
@@ -160,7 +159,15 @@ online-feedback.v1 记录
 
 ---
 
-## 8. 部署纪律（必须遵守）\n\n- 默认每天 ≤ 3 次生产部署；不为单点小改动部署。\n- docs/tests-only、中间态修复、未过全量测试的改动一律不部署。\n- 部署前过 `docs/DEPLOY-POLICY.md`；部署后记录 `docs/DEPLOYMENTS.md`。\n- 能本地/回放验证就不要发 preview。\n- 当前生产：`87d91af`（验收门 A PASS），下一次等完整批次。\n\n## 9. 当前不要做的事
+## 8. 部署纪律（必须遵守）
+
+- 默认每天 ≤ 3 次生产部署；不为单点小改动部署。
+- docs/tests-only、中间态修复、未过全量测试的改动一律不部署。
+- 部署前过 `docs/DEPLOY-POLICY.md`；部署后记录 `docs/DEPLOYMENTS.md`。
+- 能本地/回放验证就不要发 preview。
+- 当前生产：`87d91af`（验收门 A PASS），下一次等完整批次。
+
+## 9. 当前不要做的事
 
 - 不要声称 Vercel 已部署最新代码；
 - 不要声称 ChatGPT Free/Plus 支持完整 MCP；
@@ -179,4 +186,7 @@ online-feedback.v1 记录
 3. `docs/ledger/README.md`
 4. `docs/AUTH-READY.md`
 5. `docs/OPEN-SOURCE/RELEASE-LOCAL.md`
-6. `docs/HANDOFF-2026-11-23.md`\n7. `docs/ACCEPTANCE.md`（V0 真实验收门；测试绿 ≠ 验收）\n8. `docs/DEPLOY-POLICY.md`（少部署/批量部署）\n9. `docs/DEPLOYMENTS.md`（部署日志）
+6. `docs/HANDOFF-2026-11-23.md`
+7. `docs/ACCEPTANCE.md`（V0 真实验收门；测试绿 ≠ 验收）
+8. `docs/DEPLOY-POLICY.md`（少部署/批量部署）
+9. `docs/DEPLOYMENTS.md`（部署日志）
