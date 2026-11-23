@@ -171,15 +171,52 @@ function auditHash(value) {
   }
 }
 
-/** An explicit truncation marker on the wire — never inferred from prose. */
+/** An explicit truncation marker on the wire — never inferred from prose.
+ *
+ * F-03 (audit poisoning): the old text branch matched the bare field name
+ * `truncated:` regardless of its value, so an upstream-controlled string or
+ * nested JSON field `{"truncated":false}` suppressed the P0 silent-truncation
+ * detector. Only a TRUE flag or a fixed wire marker counts now:
+ *   - boolean `true` or object with a truthy truncation flag (checked before
+ *     stringification, including nested `result` envelopes);
+ *   - the two fixed in-band markers `--- TRUNCATED ---` / `…[truncated N]`.
+ * A `truncated:false` declaration (string or JSON) is never a truncation mark.
+ */
 function hasExplicitTruncationMark(...values) {
+  const TRUE_FLAGS = ['truncated', 'isTruncated', 'truncation'];
+  const truthyFlag = (obj) => {
+    if (!obj || typeof obj !== 'object') return false;
+    for (const key of TRUE_FLAGS) {
+      const v = obj[key];
+      if (v === true || v === 1 || v === '1' || v === 'true') return true;
+      // A `truncation` object is itself a positive declaration, even when its
+      // nested `reason` is absent; `truncated:false` must NOT match here.
+      if (key === 'truncation' && v && typeof v === 'object') return true;
+    }
+    return false;
+  };
   return values.some((value) => {
-    if (typeof value === 'boolean') return value === true;
-    if (value && typeof value === 'object' && value.truncated === true) return true;
+    if (value === true) return true;
+    if (value && typeof value === 'object') {
+      if (truthyFlag(value)) return true;
+      // Nested gateway/upstream envelope: { result: {...} }.
+      if (truthyFlag(value.result)) return true;
+    }
     const text = typeof value === 'string' ? value : (() => {
       try { return JSON.stringify(value) ?? ''; } catch { return ''; }
     })();
-    return /--- TRUNCATED ---|…\[truncated\s*\d*\]|(?:^|["'\s])truncated["'\s]*:/i.test(text);
+    // A JSON-encoded explicit flag must be parsed, not regex-matched as prose:
+    // `{"truncated":false}` is NOT a mark; `{"truncated":true}` IS.
+    if (text.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(text);
+        if (truthyFlag(parsed)) return true;
+        if (truthyFlag(parsed.result)) return true;
+      } catch { /* prose that merely starts with '{' is not a flag */ }
+    }
+    // Fixed markers only. No field-name-only branch: upstream prose such as
+    // `"truncated": false` or `truncated: no` can no longer disable the audit.
+    return /--- TRUNCATED ---|…\[truncated\s*\d*\]/i.test(text);
   });
 }
 

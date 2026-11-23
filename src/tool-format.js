@@ -4,6 +4,66 @@
  * return identical shapes, and every tool call unwraps results consistently.
  */
 
+/* ------------------------------------------------------------------ *
+ * F-01 · model-visible error redaction (NOT capture redaction)
+ *
+ * Security audit F-01: upstream error text (Bearer headers, GitHub PATs,
+ * Slack tokens, API keys, token/secret query parameters) used to reach the
+ * model verbatim via `unwrapResult`'s isError throw and the sandbox bridge.
+ *
+ * Boundary: this is the MODEL-VISIBLE projection only. `captureEvent` and all
+ * capture sinks stay full-fidelity by explicit product decision — the raw
+ * `Error.message` (including any secret) remains untouched for the audit
+ * trail; only the text handed to the model / JSON-RPC response is redacted.
+ * Error `code`, envelope shape and prefix strings are preserved byte-for-byte.
+ * ------------------------------------------------------------------ */
+
+// Ordered: longest/most-specific first so a token is consumed once. Each entry
+// has a capture group for the part that must be kept (label/separator); token
+// families have no such group and are replaced wholesale.
+const SECRET_PATTERNS = [
+  // Authorization headers and explicit secret assignments (query/body/form).
+  // Keep the label + separator so the error stays actionable ("api_key=[REDACTED]").
+  /\b(authorization\s*:\s*(?:bearer|basic|token|sentry-bearer)\s+)[A-Za-z0-9._~+/=-]+/gi,
+  /\b(bearer\s+)[A-Za-z0-9._~+/=-]+/gi,
+  /\b((?:access[_-]?token|refresh[_-]?token|client[_-]?secret|api[_-]?key|apikey|token|secret|password|passwd|pwd)\s*[:=]\s*["']?)[^\s&"',;}\[\]]+/gi,
+  /\b([?&](?:access[_-]?token|refresh[_-]?token|client[_-]?secret|api[_-]?key|apikey|token|secret|code)=)[^&\s#"']+/gi,
+  // Well-known token prefixes (no capture group -> whole match is replaced).
+  /\bgh[pousr]_[A-Za-z0-9]+/g,
+  /\bgithub_pat_[A-Za-z0-9_]+/g,
+  /\bxox[baprs]-[A-Za-z0-9-]+/g,
+  /\bsk-[A-Za-z0-9_-]{8,}/g,
+  /\bAKIA[A-Z0-9]{16}\b/g,
+  /\bAIza[A-Za-z0-9_-]{20,}\b/g,
+];
+
+/** Redact credential-shaped substrings in MODEL-VISIBLE text only. */
+export function redactSecrets(text) {
+  if (typeof text !== 'string' || text === '') return text;
+  let out = text;
+  for (const pattern of SECRET_PATTERNS) {
+    pattern.lastIndex = 0;
+    out = out.replace(pattern, (match, prefix) => (
+      // The 2nd callback arg is `offset` (a number) for patterns WITHOUT a
+      // capture group; only a string is a real prefix to preserve.
+      typeof prefix === 'string' ? `${prefix}[REDACTED]` : '[REDACTED]'
+    ));
+  }
+  return out;
+}
+
+/** Model-visible message of an Error: prefer an explicitly attached redacted
+ * projection (upstreamError), otherwise redact the public message. The raw
+ * `error.message` is never mutated so capture retains full fidelity. */
+export function modelErrorMessage(err) {
+  if (err && typeof err === 'object') {
+    const safe = err.modelMessage;
+    if (typeof safe === 'string') return redactSecrets(safe);
+  }
+  const raw = err instanceof Error ? err.message : (err && typeof err.message === 'string' ? err.message : String(err));
+  return redactSecrets(raw);
+}
+
 /** Build a compact param signature from an inputSchema. */
 export function formatParams(inputSchema, { full = false } = {}) {
   const schema = inputSchema && typeof inputSchema === 'object' ? inputSchema : {};
@@ -426,7 +486,10 @@ export function unwrapResult(result) {
 
   const allText = texts.join('\n');
   if (r.isError === true) {
-    throw new Error(allText || 'upstream tool returned an error');
+    // F-01: the thrown text is model-visible (sandbox try/catch and tool error
+    // responses). Redact credential shapes here; the raw upstream envelope is
+    // still captured verbatim by captureEvent before unwrapResult runs.
+    throw new Error(redactSecrets(allText) || 'upstream tool returned an error');
   }
 
   // Cloudflare contract: structuredContent is exposed directly — but ONLY when

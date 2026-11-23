@@ -26,7 +26,7 @@ import { encodeModelOutput, resolveClientProfile } from './client-profile.js';
 // B10 integration: canonical adapters are exposed into the sandbox through the
 // existing host bridge (values serialize; guest functions cannot cross it).
 // The existing fileResult/prResult helpers stay byte-for-byte unchanged.
-import { normalizeResult as hostNormalizeResult, UNTRUSTED_RAW_MARKER as RESULT_RAW_MARKER } from './result-normalize.js';
+import { normalizeResult as hostNormalizeResult, explainTruncation, UNTRUSTED_RAW_MARKER as RESULT_RAW_MARKER } from './result-normalize.js';
 // B10 follow-up (PR #41–#48): unified write semantics. These are pure host
 // modules; only data crosses the bridge, so the guest helpers below stay thin.
 import {
@@ -41,6 +41,8 @@ import {
 import { applyFilePatches, precheckText, normalizeWriteResult } from './file-write.js';
 import {
   unwrapResult,
+  redactSecrets,
+  modelErrorMessage,
   formatToolSummary,
   formatToolDetail,
   truncateResultValue,
@@ -52,7 +54,24 @@ import {
 import { executeTypedPlan } from './typed-plan.js';
 
 const DEFAULT_MAX_CALLS = 50; // max upstream tool calls per execute() (was 30)
+const MAX_TYPED_PLAN_STEPS = 64; // align v1 bridge with the v2 schema's maxItems
 const DEFAULT_MAX_RESULT_CHARS = 20000; // cap the execute() return value
+// F-06: the `run` SDK injects every syncHostFunctions group as a guest global.
+// Calling it `__bridge` let guest code bypass __dshInvoke's Error rebuilding and
+// reach the host registry with raw `{value}` / `{__hostError,...}` envelopes.
+// Use a non-guessable group name so `__bridge` is simply undefined in guest.
+const BRIDGE_GLOBAL = '__dshHostBridge9f4c2a';
+// F-06: tool names come from upstream MCP servers (untrusted). Binding a tool
+// called `__proto__` / `constructor` onto the guest `codemode` object mutates
+// its prototype or shadows a built-in; filter these at the host boundary.
+const RESERVED_TOOL_IDENTS = new Set([
+  '__proto__', 'constructor', 'prototype', '__defineGetter__', '__defineSetter__',
+  '__lookupGetter__', '__lookupSetter__',
+  '__dshInvoke', '__dshHide', '__dshLine', '__dshStr', '__dshSearch', '__dshCal',
+  'codemode', 'search', 'console', 'stub', 'tool', 'log', 'atob', 'btoa',
+  'crypto', 'TextEncoder', 'TextDecoder', 'URL', 'URLSearchParams',
+  'setTimeout', 'clearTimeout', 'safeAll', 'unwrap', 'unwrapBatch',
+]);
 const EXEC_TIMEOUT_MS = 30000;
 const ARG_FIELD_MAX = 200; // cap each arg field in the audit trail (prevents context leak)
 const DEFAULT_MAX_LOG_CHARS = 4000; // cap serialized console logs so a chatty script cannot flood context
@@ -132,11 +151,17 @@ const B15_ERGONOMICS_GUIDANCE = [
  * host calibrate the SDK's internal wrapper offset for error line numbers.
  */
 const GUEST_PRELUDE = [
-  'const __dshCal = (() => { const m = /run\\.js:(\\d+)/.exec(String(new Error().stack || "")); return m ? Number(m[1]) : 1; })();',
+  // F-06: no stable `__bridge` global for guest code. The real host bridge is
+  // injected under BRIDGE_GLOBAL; this const makes any legacy probe see
+  // `undefined` instead of a callable raw registry proxy. Kept on line 1 with
+  // the sentinel Error so prelude line numbering stays byte-identical.
+  'const __bridge = undefined; const __dshCal = (() => { const m = /run\\.js:(\\d+)/.exec(String(new Error().stack || "")); return m ? Number(m[1]) : 1; })();',
   'const __dshHide = (f) => { try { Object.defineProperty(f, "constructor", { value: undefined, configurable: true }); } catch (_) {} return f; };',
   'let __dshLineNo = 0;',
   'const __dshLine = __dshHide((n) => { __dshLineNo = n; });',
-  'const __dshInvoke = (name, args) => { const r = __bridge.invoke(name, args); if (r && r.__hostError) { const e = new Error(r.message); e.name = r.type; e.__dshHostOrigin = true; throw e; } return r.value; };',
+  // F-06: use the non-guessable bridge global; guest code cannot reach the raw
+  // registry envelope through a stable `__bridge` name any more.
+  `const __dshInvoke = (name, args) => { const r = ${BRIDGE_GLOBAL}.invoke(name, args); if (r && r.__hostError) { const e = new Error(r.message); e.name = r.type; e.__dshHostOrigin = true; if (r.code) e.code = r.code; throw e; } return r.value; };`,
   'const __dshStr = (x) => { if (typeof x === "string") return x; try { const s = JSON.stringify(x); return s === undefined ? "" : s; } catch (_) { return String(x); } };',
   'const console = __dshHide({ log: __dshHide((...a) => __dshInvoke("log", ["", a.map(__dshStr)])), info: __dshHide((...a) => __dshInvoke("log", ["", a.map(__dshStr)])), debug: __dshHide((...a) => __dshInvoke("log", ["", a.map(__dshStr)])), warn: __dshHide((...a) => __dshInvoke("log", ["WARN", a.map(__dshStr)])), error: __dshHide((...a) => __dshInvoke("log", ["ERROR", a.map(__dshStr)])) });',
   'const atob = __dshHide((s) => __dshInvoke("atob", [s]));',
@@ -926,9 +951,14 @@ export function pickScriptLoc(stack, codeStartLine, codeLines = 1) {
 
 function makeErrorOutput(err, logs, toolCalls, scriptLoc) {
   const info = errorInfo(err, scriptLoc);
+  // F-01: `out.error` is part of the model-facing output shape (status/error).
+  // Redact its message copy as well; the original `err` stays raw for capture.
+  info.message = redactSecrets(info.message);
   // Keep the legacy message prefix byte-for-byte for existing callers/tests;
   // append the caught script location only when a vm stack provided one.
-  const rawMessage = err instanceof Error ? err.message : String(err);
+  // F-01: the final model-facing execute error is redacted too — errors that
+  // bypass the bridge (SDK/timeout/sandbox throw) reach this path directly.
+  const rawMessage = modelErrorMessage(err);
   const loc = info.line != null ? ` (script line ${info.line}:${info.column})` : '';
   const message = `execute error: ${rawMessage}${loc}`;
   const out = makeOutput({
@@ -1026,7 +1056,37 @@ function resolveTypedPlanTool(tools, candidates) {
  * tools / branch / PR tools, mirroring codemode.applyFilePatch/ensureBranch/
  * upsertPr. Callers can replace this wholesale via `typedPlanIO`.
  */
-function createDefaultTypedPlanIO({ tools, callTool }) {
+/**
+ * F-07 · typed-plan fileText fallback, extracted as a pure host helper so the
+ * "unknown vs explicit" contract can be regression-tested deterministically.
+ * `truncated:null` means the upstream reported no evidence either way; it is
+ * NEVER a silent `false` that would let a truncated read be written back.
+ */
+export function fileTextFromRaw(raw, { normalizeName = 'get_file_contents' } = {}) {
+  const nf = hostNormalizeResult(normalizeName, raw);
+  if (typeof nf?.content === 'string') {
+    const reason = explainTruncation(raw, nf.content);
+    return {
+      text: nf.content,
+      sha: nf.sha ?? null,
+      truncated: reason === null ? null : true,
+      ...(reason === null ? {} : { truncation: reason }),
+    };
+  }
+  const value = raw && typeof raw === 'object' && raw.result ? raw.result : raw;
+  if (value && typeof value.text === 'string') {
+    const reason = explainTruncation(raw, value.text);
+    return {
+      text: value.text,
+      sha: value.sha ?? null,
+      truncated: reason === null ? null : true,
+      ...(reason === null ? {} : { truncation: reason }),
+    };
+  }
+  return { text: null, sha: null, truncated: null };
+}
+
+function createDefaultTypedPlanIO({ tools, callTool, charge }) {
   const toolName = (t) => String(t?.name ?? t?.tool ?? '');
   const readTool = resolveTypedPlanTool(tools, ['get_file_contents']);
   const listTool = resolveTypedPlanTool(tools, ['list_repo_contents', 'list_directory_contents', 'list_repository_content', 'list_files']);
@@ -1039,16 +1099,15 @@ function createDefaultTypedPlanIO({ tools, callTool }) {
 
   const invoke = async (tool, args) => {
     if (!tool) throw new Error('typed-plan io: required upstream tool is unavailable');
+    // F-04: every typed-plan upstream invocation consumes the SAME per-execute
+    // budget as codemode.<tool>(). `charge` throws a stable limit error before
+    // callTool so an over-budget plan cannot reach the upstream at all.
+    if (charge) charge();
     return unwrapResult(await callTool(tool.server, tool.tool, args ?? {}));
   };
 
-  const fileText = (raw) => {
-    const nf = hostNormalizeResult(toolName(readTool) || 'get_file_contents', raw);
-    if (typeof nf?.content === 'string') return { text: nf.content, sha: nf.sha ?? null, truncated: !!nf.truncated };
-    const value = raw && typeof raw === 'object' && raw.result ? raw.result : raw;
-    if (value && typeof value.text === 'string') return { text: value.text, sha: value.sha ?? null, truncated: false };
-    return { text: null, sha: null, truncated: false };
-  };
+  // F-07: single host helper for BOTH the canonical and fallback shapes.
+  const fileText = (raw) => fileTextFromRaw(raw, { normalizeName: toolName(readTool) || 'get_file_contents' });
 
   return {
     readFileRange: async (args) => {
@@ -1070,7 +1129,11 @@ function createDefaultTypedPlanIO({ tools, callTool }) {
         sha,
         lines: allLines.slice(start - 1, end),
         totalLines,
-        truncated: truncated || start > 1 || end < totalLines,
+        // F-07: null means "upstream did not report either way"; a boolean
+        // true from a range cut or an explicit flag is still authoritative.
+        truncated: truncated === true || start > 1 || end < totalLines
+          ? true
+          : truncated ?? null,
       };
     },
     repoGrep: async (args) => {
@@ -1086,8 +1149,11 @@ function createDefaultTypedPlanIO({ tools, callTool }) {
       for (const file of files) {
         if (matches.length >= limit) { truncated = true; break; }
         const raw = await invoke(readTool, { owner: args.owner, repo: args.repo, path: file });
-        const { text } = fileText(raw);
+        const { text, truncated: fileTruncated } = fileText(raw);
         if (text === null) continue;
+        // F-07: an upstream-truncated file must make the whole grep result
+        // truncated, not just the local match limit.
+        if (fileTruncated === true) truncated = true;
         text.replace(/\r\n?/g, '\n').split('\n').forEach((line, i) => {
           if (matches.length < limit && re.test(line)) matches.push({ path: file, line: i + 1, text: line });
         });
@@ -1168,12 +1234,39 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
   const cache = new Map();
   let calls = 0;
 
-  // Map sanitized JS identifier -> original tool descriptor.
-  const byIdent = new Map();
-  for (const t of tools) byIdent.set(sanitizeToolName(t.name), t);
+  /**
+   * F-04 · single charging point for EVERY bridge capability that performs
+   * upstream I/O: codemode.<tool>, runTypedPlan I/O and github_actions_* REST
+   * helpers. The historical message and `calls > maxCalls` check stay
+   * byte-identical for registry.tool so existing budget semantics do not move;
+   * the new paths simply stop bypassing the same counter. A stable `code`
+   * makes the over-budget outcome deterministic for callers/tests.
+   */
+  const chargeBudget = (kind = 'tool') => {
+    calls += 1;
+    if (calls > maxCalls) {
+      const err = new Error(`tool call limit (${maxCalls}) exceeded`);
+      err.code = 'TOOL_CALL_LIMIT_EXCEEDED';
+      err.kind = kind;
+      throw err;
+    }
+  };
 
-  const hostErrorMessage = (err) => (err instanceof Error || (err && typeof err.message === 'string'))
-    ? String(err.message) : String(err);
+  // Map sanitized JS identifier -> original tool descriptor.
+  // F-06: upstream tool names are untrusted input. Never bind a reserved
+  // identifier: `__proto__` would change `codemode`'s prototype and
+  // `constructor`/built-in names would shadow guest helpers.
+  const byIdent = new Map();
+  for (const t of tools) {
+    const ident = sanitizeToolName(t.name);
+    if (!ident || RESERVED_TOOL_IDENTS.has(ident)) continue;
+    byIdent.set(ident, t);
+  }
+
+  // F-01: every string crossing the bridge into the guest is a MODEL-VISIBLE
+  // error. Prefer the redacted projection attached by upstreamError, else
+  // redact here. Capture keeps the raw original (see captureEvent call sites).
+  const hostErrorMessage = (err) => modelErrorMessage(err);
   const hostErrorType = (err) => (err instanceof Error || (err && typeof err.name === 'string'))
     ? String(err.name || 'Error') : 'UnknownError';
 
@@ -1228,9 +1321,28 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
       const readOnly = typedPlanReadOnly === true;
       const dryRun = o.dryRun === undefined ? true : o.dryRun === true;
       try {
-        const io = typedPlanIO && typeof typedPlanIO === 'object'
-          ? typedPlanIO
-          : createDefaultTypedPlanIO({ tools, callTool });
+        // F-04: v1 plans have no step cap of their own; enforce the same 64-step
+        // ceiling as v2 HERE (host side, guest cannot pass an override) so a
+        // huge plan cannot even be validated into an unbounded I/O loop.
+        if (Array.isArray(plan) && plan.length > MAX_TYPED_PLAN_STEPS) {
+          const err = new Error(`typed plan exceeds ${MAX_TYPED_PLAN_STEPS} steps (${plan.length})`);
+          err.code = 'TYPED_PLAN_TOO_MANY_STEPS';
+          throw err;
+        }
+        let io;
+        if (typedPlanIO && typeof typedPlanIO === 'object') {
+          // Injected adapter: charge once per method invocation (runChecks is a
+          // local stub, no upstream I/O). Individual underlying invokes are the
+          // adapter's responsibility; the default adapter charges each one.
+          io = {};
+          for (const [name, fn] of Object.entries(typedPlanIO)) {
+            io[name] = typeof fn === 'function'
+              ? (...args) => { if (name !== 'runChecks') chargeBudget('typedPlan'); return fn(...args); }
+              : fn;
+          }
+        } else {
+          io = createDefaultTypedPlanIO({ tools, callTool, charge: () => chargeBudget('typedPlan') });
+        }
         return executeTypedPlan(plan, {
           io,
           ...(typedPlanOps && typeof typedPlanOps === 'object' ? { ops: typedPlanOps } : {}),
@@ -1287,22 +1399,24 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
     hasTool: (name) => byIdent.has(String(name)),
     // Batch 11 · GitHub Actions read-only REST helpers. Gateway-side fetch is
     // injected (tests pass a fake); token comes from GITHUB_TOKEN and is never
-    // logged or echoed. These do NOT consume the upstream tool-call budget.
-    github_actions_list_workflow_runs: (opts) => githubActionsListWorkflowRuns({
-      fetch: hostFetch ?? (typeof fetch === 'function' ? fetch : undefined),
-      env,
-      ...(opts && typeof opts === 'object' ? opts : {}),
-    }),
-    github_actions_list_workflow_jobs: (opts) => githubActionsListWorkflowJobs({
-      fetch: hostFetch ?? (typeof fetch === 'function' ? fetch : undefined),
-      env,
-      ...(opts && typeof opts === 'object' ? opts : {}),
-    }),
-    github_actions_get_job_logs: (opts) => githubActionsGetJobLogs({
-      fetch: hostFetch ?? (typeof fetch === 'function' ? fetch : undefined),
-      env,
-      ...(opts && typeof opts === 'object' ? opts : {}),
-    }),
+    // logged or echoed. F-04: these DO consume the same per-execute tool-call
+    // budget now (they issue outbound REST GETs); a stable error is returned
+    // when the budget is exhausted, matching registry.tool's limit message.
+    ...(() => {
+      const action = (fn) => (opts) => {
+        chargeBudget('githubActions');
+        return fn({
+          fetch: hostFetch ?? (typeof fetch === 'function' ? fetch : undefined),
+          env,
+          ...(opts && typeof opts === 'object' ? opts : {}),
+        });
+      };
+      return {
+        github_actions_list_workflow_runs: action(githubActionsListWorkflowRuns),
+        github_actions_list_workflow_jobs: action(githubActionsListWorkflowJobs),
+        github_actions_get_job_logs: action(githubActionsGetJobLogs),
+      };
+    })(),
     // Batch 15 P2 · read-only CI wait. The check callback uses the SAME
     // upstream tool bridge as every codemode.<tool>() call (no new MCP tool,
     // no direct REST/token handling). `pull_request_read` is aggregated, so
@@ -1320,14 +1434,17 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
       }
       return waitForPrChecks({
         ...o,
-        check: async (args) => unwrapResult(await callTool(
-          tool.server,
-          tool.tool,
-          {
-            owner: args.owner, repo: args.repo, pullNumber: args.pullNumber,
-            method: 'get_check_runs',
-          },
-        )),
+        check: async (args) => {
+          chargeBudget('waitForPrChecks');
+          return unwrapResult(await callTool(
+            tool.server,
+            tool.tool,
+            {
+              owner: args.owner, repo: args.repo, pullNumber: args.pullNumber,
+              method: 'get_check_runs',
+            },
+          ));
+        },
       });
     },
     stub: (name) => {
@@ -1350,8 +1467,7 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
         : null;
       if (dedupeKey !== null && cache.has(dedupeKey)) return cache.get(dedupeKey);
 
-      calls += 1;
-      if (calls > maxCalls) throw new Error(`tool call limit (${maxCalls}) exceeded`);
+      chargeBudget('tool');
       toolCalls.push({
         name: tool.name,
         args: summarizeArgs(finalArgs),
@@ -1368,16 +1484,30 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
 
   const invoke = (name, args) => {
     try {
+      // F-06: registry keys are fixed host capabilities. Reject prototype and
+      // inherited names explicitly so no guest-crafted name can reach Object
+      // prototype methods or a reserved internal function.
+      if (typeof name !== 'string'
+        || name === '__proto__' || name === 'constructor' || name === 'prototype'
+        || !Object.prototype.hasOwnProperty.call(registry, name)) {
+        throw new Error(`unknown bridge function: ${String(name)}`);
+      }
       const fn = registry[name];
-      if (!fn) throw new Error(`unknown bridge function: ${name}`);
+      if (typeof fn !== 'function') throw new Error(`unknown bridge function: ${name}`);
       return Promise.resolve()
         .then(() => fn(...(Array.isArray(args) ? args : [])))
         .then(
           (value) => ({ value }),
-          (err) => ({ __hostError: 1, message: hostErrorMessage(err), type: hostErrorType(err) }),
+          (err) => ({
+            __hostError: 1, message: hostErrorMessage(err), type: hostErrorType(err),
+            ...(err && typeof err.code === 'string' ? { code: err.code } : {}),
+          }),
         );
     } catch (err) {
-      return { __hostError: 1, message: hostErrorMessage(err), type: hostErrorType(err) };
+      return {
+        __hostError: 1, message: hostErrorMessage(err), type: hostErrorType(err),
+        ...(err && typeof err.code === 'string' ? { code: err.code } : {}),
+      };
     }
   };
 
@@ -1401,16 +1531,18 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
   };
   for (const tool of unavailableTools ?? []) {
     const ident = sanitizeToolName(tool.name);
+    // F-06: reserved idents are never bound, even as stubs.
+    if (!ident || RESERVED_TOOL_IDENTS.has(ident)) continue;
     if (!byIdent.has(ident)) {
       const expr = `__dshInvoke("stub", [${JSON.stringify(tool.name)}])`;
       bind(ident, expr);
-      if (tool.name !== ident) bind(tool.name, expr);
+      if (tool.name !== ident && !RESERVED_TOOL_IDENTS.has(tool.name)) bind(tool.name, expr);
     }
   }
   for (const [ident, tool] of byIdent) {
     const expr = `__dshInvoke("tool", [${JSON.stringify(ident)}, args])`;
     bind(ident, expr, true);
-    if (tool.name !== ident) bind(tool.name, expr, true);
+    if (tool.name !== ident && !RESERVED_TOOL_IDENTS.has(tool.name)) bind(tool.name, expr, true);
   }
 
   // Keep the sentinel on prelude line 1 and the model function immediately
@@ -1445,7 +1577,9 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
       maxResultBytes: 16 * 1024 * 1024,
       maxBridgeRequests: 2048,
     },
-    syncHostFunctions: { __bridge: { invoke } },
+    // F-06: inject under a non-guessable group name; guest code can only reach
+    // the registry through __dshInvoke (which rebuilds guest Errors).
+    syncHostFunctions: { [BRIDGE_GLOBAL]: { invoke } },
   });
 
   const run = runner.run({ source, abortSignal: controller.signal }).then((res) => {

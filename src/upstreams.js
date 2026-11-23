@@ -20,6 +20,9 @@ import {
 import { normalizeToolArguments } from './sanitize.js';
 import { captureEvent } from './capture.js';
 import { createFigmaGuard, isFigmaQuotaError } from './figma-guard.js';
+// F-01: only the MODEL-VISIBLE projection is redacted. `error.message` below
+// stays raw so `captureEvent` keeps its full-fidelity audit trail.
+import { redactSecrets } from './tool-format.js';
 
 export function tapTransport(transport, server) {
   if (!transport) return transport;
@@ -186,10 +189,20 @@ function isAuthError(err) {
   return parts.some((p) => /\b401\b|invalid_token|invalid access token|unauthorized/i.test(p));
 }
 
-/** Wrap any failure with the upstream name so logs point at the right server. */
+/** Wrap any failure with the upstream name so logs point at the right server.
+ * F-01: keep `message` RAW for capture (full fidelity is an explicit product
+ * decision), but attach a redacted `modelMessage` that every model-visible
+ * error path prefers. Non-enumerable so JSON.stringify/capture never drops or
+ * duplicates it, and the public error shape is unchanged. */
 function upstreamError(name, action, err) {
   const error = new Error(`[upstream:${name}] ${action}: ${messageOf(err)}`);
   error.cause = err;
+  Object.defineProperty(error, 'modelMessage', {
+    value: redactSecrets(error.message),
+    enumerable: false,
+    configurable: true,
+    writable: false,
+  });
   return error;
 }
 
