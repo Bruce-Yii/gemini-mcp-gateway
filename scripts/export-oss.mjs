@@ -25,8 +25,18 @@
  * Public (testable) pure functions:
  *   buildPlan(root, [options])        -> { files, directories, skipped, ... }
  *   validateExport(root, [options])   -> { ok, violations, checkedFiles }
+ *   validateSelected(root, files)     -> { ok, violations }
  *   scanTree(root, [options])         -> raw file list (used by both)
+ *   canonicalizeForScan(text)         -> decoded lowercase text
+ *   detectHandleForms(text)           -> [{ form, sample }] for any encoding
+ *   hasHandleLeak(text)               -> boolean
+ *   neutralizeHandleText(text, pats, rep) -> { text, replacements }
+ *
+ * P0 fix: the detector canonicalizes escaped / URL-encoded / concatenated
+ * handle forms before matching, so a neutralizer that emits an escaped handle
+ * can no longer produce a false PASS from `--check`.
  */
+import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -122,20 +132,141 @@ export const DENYLIST = Object.freeze([
   '*.capture.jsonl',
 ]);
 
+/* -------------------------------------------------------------------------- *
+ * Personal-handle detection (P0 fix)
+ *
+ * The old detector matched only one literal form. The neutralizer rewrote that
+ * literal into a JS unicode escape, so the exported tree evaded detection and
+ * `--check` reported a false PASS.
+ *
+ * The fix has two layers:
+ *   1. Canonicalization: decode unicode/hex escapes, URL encoding (including
+ *      double encoding), HTML entities, case and concatenation syntax, then
+ *      compare candidate tokens by SHA-256 against stored handle digests.
+ *   2. No recoverable signature in this source: only one-way digests are
+ *      embedded. The detector cannot rebuild the handle it guards, and its
+ *      own exported copy is clean by construction.
+ *
+ * Digests are of the lowercased canonical handle with and without a hyphen.
+ * -------------------------------------------------------------------------- */
+
+const HANDLE_DIGESTS = Object.freeze(new Set([
+  '475d2db4bab2ff52561db77331627ca1811d2997ec907ba1adae23f9973aac0c',
+  '921a4128fd209045574d4489ab6f15019ff31873991446b008d99701f24b6e7c',
+]));
+
+function digest(value) {
+  return createHash('sha256').update(value).digest('hex');
+}
+
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Decode all supported encoding layers; repeat so doubled encodings collapse. */
+export function canonicalizeForScan(text) {
+  let out = String(text);
+  for (let round = 0; round < 4; round += 1) {
+    const before = out;
+    out = out.replace(/\\{1,2}u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    out = out.replace(/\\{1,2}x([0-9a-fA-F]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    out = out.replace(/%([0-9a-fA-F]{2})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    out = out.replace(/&(?:#(?:x(?:2d|45)|45)|hyphen|dash);/gi, '-');
+    if (out === before) break;
+  }
+  // Normalize all Unicode hyphen variants to ASCII '-'.
+  return out.toLowerCase().replace(/[\u2010-\u2015]/g, '-');
+}
+
+/** Compact view: quotes, plus signs and whitespace removed (concatenation). */
+function compactForScan(text) {
+  return canonicalizeForScan(text).replace(/['"`+\s]/g, '');
+}
+
+/** Return the handle token if a canonicalized string contains it, else null. */
+function findHandleToken(canonicalText) {
+  // Candidate tokens: letter/hyphen runs. The handle is 8 or 9 characters.
+  const re = /[a-z-]{8,9}/g;
+  let match;
+  while ((match = re.exec(canonicalText)) !== null) {
+    const token = match[0].replace(/^-+|-+$/g, '');
+    if (HANDLE_DIGESTS.has(digest(token))) return token;
+  }
+  return null;
+}
+
 /**
- * Sensitive-value detectors. These are content/path checks only -- nothing is
- * rewritten or "redacted"; a hit is a hard validation failure.
+ * Return all personal-handle hits in `text`. Each hit is { form, sample }.
+ * `form` names the concrete encoding class found in the raw input.
  */
+export function detectHandleForms(text) {
+  const input = String(text);
+  const hits = [];
+  const canonical = canonicalizeForScan(input);
+  const compact = compactForScan(input);
+  const canonicalToken = findHandleToken(canonical);
+  const compactToken = canonicalToken ? null : findHandleToken(compact);
+
+  // Concrete encoding classes, named only when a real handle token is present.
+  const encodedPatterns = [
+    { form: 'literal', re: /[a-z]{5}\s*-?\s*[a-z]{3}/i },
+    { form: 'unicode-escape', re: /\\{1,2}u002d/i },
+    { form: 'url-encoded', re: /%(?:2d|45|252d|2545)/i },
+    { form: 'html-entity', re: /&(?:#(?:x(?:2d|45)|45)|hyphen|dash);/i },
+  ];
+  if (canonicalToken) {
+    for (const { form, re } of encodedPatterns) {
+      if (re.test(input)) hits.push({ form, sample: re.exec(input)[0] });
+    }
+    if (hits.length === 0) hits.push({ form: 'canonical', sample: canonicalToken });
+  } else if (compactToken) {
+    hits.push({ form: 'concatenated', sample: compactToken });
+  }
+  return hits;
+}
+
+/** True if `text` contains any recoverable form of the personal handle. */
+export function hasHandleLeak(text) {
+  return detectHandleForms(text).length > 0;
+}
+
+/**
+ * Replace every recoverable handle form in `text` with `replacement`.
+ * Used by scripts/prepare-neutral-source.mjs so both tools share one grammar.
+ * Returns { text, replacements }. The replacement grammar itself is supplied
+ * by the neutralizer from an external (denylisted) signature file, so no
+ * handle literal is stored in this detector.
+ */
+export function neutralizeHandleText(text, patterns, replacement = 'example-org') {
+  let out = String(text);
+  let replacements = 0;
+  for (const { re, flags = 'gi', replacement: perPattern } of patterns) {
+    const matcher = new RegExp(re.source, flags);
+    const value = perPattern ?? replacement;
+    out = out.replace(matcher, () => { replacements += 1; return value; });
+  }
+  // Safety net: never let a form the canonicalizer recognizes survive.
+  if (hasHandleLeak(out)) {
+    out = out.split('\n').map((line) => (hasHandleLeak(line) ? replacement : line)).join('\n');
+    replacements += 1;
+  }
+  return { text: out, replacements };
+}
+
+/** Sensitive-value detectors. Content/path checks only; a hit is a hard fail. */
 const SENSITIVE_PATTERNS = Object.freeze([
-  // Unicode escapes keep the detector source itself free of literal hits,
-  // so this script can be exported without being flagged by its own scan.
-  { id: 'personal-handle', re: /Bruce\u002dYii/i, note: 'default personal GitHub handle / author name' },
+  { id: 'personal-handle', note: 'default personal GitHub handle / author name (any encoding)', test: (s) => hasHandleLeak(s) },
   { id: 'personal-path-dsh', re: /D:\\\u00312412/i, note: 'personal Windows workspace path' },
   { id: 'personal-path-home', re: /dsh\u002dhome[\\/]/i, note: 'personal home/vault path' },
   { id: 'vault-path', re: /\.\u0073ecrets[\\/]/i, note: 'local vault / secrets path' },
   { id: 'real-domain', re: /(?:gemini-mcp-gateway|codemode-mcp-gateway)\.(?:vercel\.app|onrender\.com|railway\.app|netlify\.app)/i, note: 'real deployment hostname' },
   { id: 'secret-assignment', re: /['"]?(?:API_KEY|ACCESS_TOKEN|CLIENT_SECRET|REFRESH_TOKEN|BEARER)['"]?\s*[:=]\s*['"][A-Za-z0-9_\-]{20,}['"]/i, note: 'literal secret-like value' },
 ]);
+
+/** Run one detector entry against a string; supports regex or predicate forms. */
+function matchesPattern(detector, text) {
+  return detector.re ? detector.re.test(text) : detector.test(text);
+}
 
 /** Normalize any platform path to posix separators for matching. */
 function toPosix(p) {
@@ -301,9 +432,9 @@ export function validateExport(root, options = {}) {
       violations.push({ file: rel, kind: 'denylist', detail: 'denylisted file present in export tree' });
       continue;
     }
-    for (const { id, re, note } of SENSITIVE_PATTERNS) {
-      if (re.test(rel)) {
-        violations.push({ file: rel, kind: id, detail: `sensitive path: ${note}` });
+    for (const detector of SENSITIVE_PATTERNS) {
+      if (matchesPattern(detector, rel)) {
+        violations.push({ file: rel, kind: detector.id, detail: `sensitive path: ${detector.note}` });
       }
     }
     if (!isTextFile(rel)) continue;
@@ -320,9 +451,9 @@ export function validateExport(root, options = {}) {
       continue;
     }
     checkedFiles += 1;
-    for (const { id, re, note } of SENSITIVE_PATTERNS) {
-      if (re.test(content)) {
-        violations.push({ file: rel, kind: id, detail: `sensitive content: ${note}` });
+    for (const detector of SENSITIVE_PATTERNS) {
+      if (matchesPattern(detector, content)) {
+        violations.push({ file: rel, kind: detector.id, detail: `sensitive content: ${detector.note}` });
       }
     }
   }
@@ -471,8 +602,8 @@ export function validateSelected(root, files) {
   const base = resolve(root);
   const violations = [];
   for (const rel of files) {
-    for (const { id, re, note } of SENSITIVE_PATTERNS) {
-      if (re.test(rel)) violations.push({ file: rel, kind: id, detail: `sensitive path: ${note}` });
+    for (const detector of SENSITIVE_PATTERNS) {
+      if (matchesPattern(detector, rel)) violations.push({ file: rel, kind: detector.id, detail: `sensitive path: ${detector.note}` });
     }
     if (!isTextFile(rel)) continue;
     let content;
@@ -487,8 +618,8 @@ export function validateSelected(root, files) {
       violations.push({ file: rel, kind: 'unreadable', detail: error.message });
       continue;
     }
-    for (const { id, re, note } of SENSITIVE_PATTERNS) {
-      if (re.test(content)) violations.push({ file: rel, kind: id, detail: `sensitive content: ${note}` });
+    for (const detector of SENSITIVE_PATTERNS) {
+      if (matchesPattern(detector, content)) violations.push({ file: rel, kind: detector.id, detail: `sensitive content: ${detector.note}` });
     }
   }
   return { ok: violations.length === 0, violations };
