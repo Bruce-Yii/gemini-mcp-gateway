@@ -269,3 +269,51 @@ N1–N9 覆盖基础轴，但 F3–F6 暴露出四个此前没有的半在线维
 - 总览：[../EVALUATION.md](../EVALUATION.md)
 - 索引：[README.md](README.md)
 
+---
+
+## 8. Addendum 2026-11-24 — PR #80–#101 反馈 → 新增半在线轴 N10–N16（append-only）
+
+> 本节**只追加**，不改上文 N1–N9 的任何定义；编号故意从 **N10** 起，
+> 避免与旧 **N1–N9**（`explore/tasks-online-gap.json`）及 **J1–J6**
+> （`explore/tasks-online-gap-2.json`）冲突。任务集：
+> `explore/tasks-online-gap-3.json`（N10–N16）。本节不改 src/scripts/tests，
+> 不 commit/push/deploy；全部 fake/replay、`dryRun:true`、`forRealWrite=false`，
+> `requestIds:unknown`。
+>
+> 来源：`docs/eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md`、
+> `docs/eval/FEEDBACK-2026-11-24-MATRIX.md`。**重要更正**：20 次是已知每次执行/单轮
+> 工具调用上限（非 R2 分页/分母 bug）；9 个 model truncation suspect 一律 advisory。
+
+### 8.1 为什么需要新编号
+
+N1–N9/J1–J6 覆盖了字节回环、分支/ref、PR number、发现成本、Actions 日志、长会话、
+平台编码、写安全、batch wrapper、尾截断元数据、atomic-by-default、CI wait。
+本批反馈还暴露了六个**此前没有半在线轴**的维度（创建幂等与主键、写前语法预检、
+补丁式编辑、CI 失败重跑、delete/rename 原子提交、合并后分支清理），以及一条
+「advisory 信号与执行上限不得误用为判据/分母」的证据链轴。它们不能塞进 N1–N9
+而不改写旧任务定义，故新增 N10–N16。
+
+### 8.2 N10–N16 登记
+
+| ID | 半在线轴（抽象，不照抄原文） | 缺口类型 | 与旧轴关系 | 验收判据 |
+|---|---|---|---|---|
+| **N10** | 创建调用幂等 + 返回主键从 canonical 源重导 | G3+G6 | 新轴；旧 N3/J2 只管 PR number | 同键创建 1 次；number URL 优先；空值不作成功 |
+| **N11** | 写前 TS/TSX + 正则预检 + 唯一命中 patch 编辑 | G1+G3+G6 | 新轴；旧 N9/J5 只管原子写 | 无效文件 path+line 结构化错误、push 中止、零落盘；patch 每 oldText 命中 1 次 |
+| **N12** | advisory truncation suspect 与判据分离 | G5+G3+G6 | 扩展 J4（尾元数据），加 suspect 隔离 | 元数据齐全、尾字段有着落；suspect 计数 0/9 不改布尔判据 |
+| **N13** | 一次等待到终态 + 失败 job 重跑 | G3+G6 | 扩展 J6（只覆盖 wait），补 rerun | ciWaitRounds===1；rerun 1 次；302 不转 token；无 helper 记 unknown |
+| **N14** | delete+add（重命名）单原子提交 | G3+G6 | 新轴；旧 J5 只测多文件原子写 | 单 commit；注入失败零落盘；partial/compensation 齐全 |
+| **N15** | 合并后源分支删除（显式守卫动作） | G3+G6 | 新轴 | 成功删 1 次、失败删 0 次；ref 来自 canonical PR |
+| **N16** | 证据链：不造 UUID、20 次=执行上限、suspect=advisory、同构建配对 | G5+G6 | 新轴；补 N9 证据链未落地部分 | 全部 requestIds unknown；20 记上限非 bug；禁止跨构建硬比 |
+
+### 8.3 关闭标准（沿用 §1.2）
+
+一条轴关闭需要同时满足：(1) 有确定性离线测试编码该属性；(2) L1/G6 runner 能报告同一属性。
+本批 N10–N16 目前是**任务定义 + 断言点**，尚未接入 runner（与 N1–N9/J1–J6 的历史一致：
+先登记任务，再由 runner 落地）。所以状态为 `registered`，不是 `covered`；
+按 `AGENTS.md`，在线反馈与模型输出不驱动改代码/部署。
+
+- 矩阵：[FEEDBACK-2026-11-24-MATRIX.md](FEEDBACK-2026-11-24-MATRIX.md)
+- 离线任务集：`explore/tasks-feedback-2026-11-24.json`（FB1–FB10）
+- 半在线任务集：`explore/tasks-online-gap-3.json`（N10–N16）
+- 台账：`docs/ledger/batch-17-feedback-eval.md`
+

@@ -564,6 +564,65 @@ function toNumber(value) {
 }
 
 /**
+ * Batch 17 · ONE canonical core for PR and Issue results.
+ *
+ * All upstream shapes (create/get/list/merge, JSON text, `{result}`, list
+ * items, `pull_request` links) go through the SAME number resolution:
+ *   1. explicit URL anywhere in the envelope  (authoritative)
+ *   2. explicit number field
+ *   3. NEVER an internal `id` / `node_id`
+ * `id` and `nodeId` stay separate string fields. Returning this shared base
+ * keeps `prResult` / `normalizePr` / `normalizeIssue` byte-consistent across
+ * every path instead of drifting into per-function rules.
+ */
+function canonicalIdentity(value, { numberKeys } = {}) {
+  const { value: v } = unwrap(value);
+  const root = isObj(v) ? v : {};
+  const urlRaw = pick(root, ['html_url', 'url', 'web_url', 'api_url']);
+  const url = urlRaw !== undefined && urlRaw !== null ? String(urlRaw) : null;
+  const found = findNumberUrl(root);
+  const number = (found ? found.number : numberFromUrl(url)) ?? toNumber(pick(root, numberKeys));
+  const idRaw = pick(root, ['id']) ?? pick(root, ['node_id', 'nodeId']);
+  const nodeIdRaw = pick(root, ['node_id', 'nodeId']);
+  return {
+    root,
+    number,
+    url,
+    id: idRaw !== undefined && idRaw !== null ? String(idRaw) : null,
+    nodeId: nodeIdRaw !== undefined && nodeIdRaw !== null ? String(nodeIdRaw) : null,
+  };
+}
+
+/** Batch 17 · minimal canonical Issue view shared by every normalize path. */
+export function canonicalIssueResult(value) {
+  try {
+    const { number, url, id, nodeId, root } = canonicalIdentity(value, {
+      numberKeys: ['number', 'issueNumber', 'issue_number', 'prNumber', 'pr_number'],
+    });
+    const titleRaw = pick(root, ['title']);
+    const stateRaw = pick(root, ['state']);
+    const result = {
+      number,
+      id,
+      url,
+      state: stateRaw !== undefined && stateRaw !== null ? String(stateRaw) : null,
+      title: titleRaw !== undefined && titleRaw !== null ? String(titleRaw) : null,
+      raw: value,
+    };
+    Object.defineProperty(result, 'nodeId', {
+      value: nodeId, enumerable: false, configurable: true, writable: true,
+    });
+    return markUntrustedRaw(result);
+  } catch (_) {
+    const result = { number: null, id: null, url: null, state: null, title: null, raw: value };
+    Object.defineProperty(result, 'nodeId', {
+      value: null, enumerable: false, configurable: true, writable: true,
+    });
+    return markUntrustedRaw(result);
+  }
+}
+
+/**
  * 归一化 GitHub PR 返回值。
  * @returns {{number:number|null, title:string|null, url:string|null, state:string|null,
  *           headSha:string|null, baseRef:string|null, mergeable:boolean|null,
@@ -571,20 +630,11 @@ function toNumber(value) {
  */
 export function normalizePrResult(value) {
   try {
-    const { value: v } = unwrap(value);
-    const root = isObj(v) ? v : {};
-    // `id` is GitHub's internal database id, NOT the PR number. A real
-    // create_pull_request returns {id:1000000001, url:'.../pull/53'}; treating
-    // id as number made the subsequent merge call 404. Never fall back to id.
-    const urlRaw = pick(root, ['html_url', 'url', 'web_url']);
-    const url = urlRaw !== undefined && urlRaw !== null ? String(urlRaw) : null;
-    // URL wins over explicit fields: it is the most reliable source of the
-    // user-visible PR number when both are present but disagree. Search the
-    // whole envelope (result/list items/pull_request link) so create/list/get/
-    // merge shapes all agree. `id` is never a fallback.
-    const found = findNumberUrl(root);
-    const number = (found ? found.number : numberFromUrl(url))
-      ?? toNumber(pick(root, ['number', 'prNumber', 'pr_number']));
+    // Batch 17: identity resolution is shared with Issue normalization so
+    // URL-first / id-never-fallback cannot drift between the two paths.
+    const { root, number, url, id, nodeId } = canonicalIdentity(value, {
+      numberKeys: ['number', 'prNumber', 'pr_number'],
+    });
     const head = isObj(get(root, 'head')) ? get(root, 'head') : {};
     const base = isObj(get(root, 'base')) ? get(root, 'base') : {};
     const shaRaw = pick(root, ['sha', 'head_sha', 'headSha']) ?? pick(head, ['sha']);
@@ -592,11 +642,6 @@ export function normalizePrResult(value) {
     const titleRaw = pick(root, ['title']);
     const stateRaw = pick(root, ['state']);
     const mergeableRaw = pick(root, ['mergeable', 'mergeable_state']);
-    // Keep `id` as the DB id when present; fall back to node_id only for this
-    // legacy field so existing callers keep working. `nodeId` is the additive,
-    // unambiguous GraphQL id exposed by the batch-15 GPT online fix.
-    const idRaw = pick(root, ['id']) ?? pick(root, ['node_id']);
-    const nodeIdRaw = pick(root, ['node_id', 'nodeId']);
 
     const result = {
       number,
@@ -615,7 +660,7 @@ export function normalizePrResult(value) {
               : null,
       sha: shaRaw !== undefined && shaRaw !== null ? String(shaRaw) : null,
       // DB id, always a string, never a number fallback.
-      id: idRaw !== undefined && idRaw !== null ? String(idRaw) : null,
+      id,
       raw: value,
     };
     // `nodeId` is additive but deliberately NON-ENUMERABLE: the stable field
@@ -624,10 +669,7 @@ export function normalizePrResult(value) {
     // the original stable shape. Number remains URL-first; id/nodeId never
     // masquerade as a PR number.
     Object.defineProperty(result, 'nodeId', {
-      value: nodeIdRaw !== undefined && nodeIdRaw !== null ? String(nodeIdRaw) : null,
-      enumerable: false,
-      configurable: true,
-      writable: true,
+      value: nodeId, enumerable: false, configurable: true, writable: true,
     });
     return markUntrustedRaw(result);
   } catch (_) {
@@ -659,30 +701,10 @@ export function normalizePrResult(value) {
  *           title:string|null, raw:*}}
  */
 export function normalizeIssueResult(value) {
-  try {
-    const { value: v } = unwrap(value);
-    const root = isObj(v) ? v : {};
-    // Same rule as PRs: `id` is a database id, never an issue number.
-    const urlRaw = pick(root, ['html_url', 'url', 'web_url']);
-    const url = urlRaw !== undefined && urlRaw !== null ? String(urlRaw) : null;
-    const found = findNumberUrl(root);
-    const number = (found ? found.number : numberFromUrl(url))
-      ?? toNumber(pick(root, ['number', 'issueNumber', 'issue_number']));
-    const titleRaw = pick(root, ['title']);
-    const stateRaw = pick(root, ['state']);
-    const idRaw = pick(root, ['id', 'node_id']);
-
-    return markUntrustedRaw({
-      number,
-      id: idRaw !== undefined && idRaw !== null ? String(idRaw) : null,
-      url,
-      state: stateRaw !== undefined && stateRaw !== null ? String(stateRaw) : null,
-      title: titleRaw !== undefined && titleRaw !== null ? String(titleRaw) : null,
-      raw: value,
-    });
-  } catch (_) {
-    return markUntrustedRaw({ number: null, id: null, url: null, state: null, title: null, raw: value });
-  }
+  // Batch 17: delegate to the SHARED canonical Issue view. Previously this
+  // path had its own copy of the URL-first logic while `canonicalIssue` in
+  // github-helpers.js had another, so create/get/list paths could disagree.
+  return canonicalIssueResult(value);
 }
 
 // --- 工具名分发 -------------------------------------------------------------

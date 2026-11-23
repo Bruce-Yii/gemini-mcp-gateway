@@ -1,0 +1,232 @@
+{
+  "generatedAt": "2026-11-23T23:43:55.463Z",
+  "profile": "feedback",
+  "tasks": 17,
+  "mode": "fake-dry-run",
+  "ok": true,
+  "allUnknown": true,
+  "loaded": [
+    {
+      "id": "FB1",
+      "fixtureHash": "2d7e4c33079ec413"
+    },
+    {
+      "id": "FB2",
+      "fixtureHash": "4bee72c11199bb40"
+    },
+    {
+      "id": "FB3",
+      "fixtureHash": "6c25ce1aba6ea2e2"
+    },
+    {
+      "id": "FB4",
+      "fixtureHash": "7a3874b65e1bbd16"
+    },
+    {
+      "id": "FB5",
+      "fixtureHash": "c6903c663e4023e1"
+    },
+    {
+      "id": "FB6",
+      "fixtureHash": "6e735b14cb23a488"
+    },
+    {
+      "id": "FB7",
+      "fixtureHash": "f40f5ebe0c03606f"
+    },
+    {
+      "id": "FB8",
+      "fixtureHash": "6da36419b07f07c5"
+    },
+    {
+      "id": "FB9",
+      "fixtureHash": "7ebc40942a276fb0"
+    },
+    {
+      "id": "FB10",
+      "fixtureHash": "94155029b51157ed"
+    },
+    {
+      "id": "N10",
+      "fixtureHash": "2a9d2f567271f0bb"
+    },
+    {
+      "id": "N11",
+      "fixtureHash": "cb0e0b886338885c"
+    },
+    {
+      "id": "N12",
+      "fixtureHash": "7ad5d2311a8021af"
+    },
+    {
+      "id": "N13",
+      "fixtureHash": "4ae3542d9eb8f21a"
+    },
+    {
+      "id": "N14",
+      "fixtureHash": "c1b2b5650f18db27"
+    },
+    {
+      "id": "N15",
+      "fixtureHash": "b1a36744cc8506c0"
+    },
+    {
+      "id": "N16",
+      "fixtureHash": "d9668d9edc1192d1"
+    }
+  ],
+  "skipped": [],
+  "baselineSource": null,
+  "metrics": {
+    "tasks": 17,
+    "measuredTasks": 0,
+    "perTask": {
+      "FB1": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "FB2": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "FB3": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "FB4": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "FB5": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "FB6": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "FB7": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "FB8": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": "unknown"
+      },
+      "FB9": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "FB10": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "N10": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "N11": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "N12": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "N13": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": "unknown"
+      },
+      "N14": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "N15": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "N16": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      }
+    },
+    "source": "feedback profile (fake/replay only; not a gateway quality measurement)"
+  },
+  "comparison": {
+    "ok": false,
+    "checks": [],
+    "allUnknown": true
+  },
+  "notes": [
+    "Fake/replay wiring check only; not a gateway quality measurement.",
+    "Baseline is read-only and keyed by task id + fixture hash; current results are stored separately."
+  ]
+}

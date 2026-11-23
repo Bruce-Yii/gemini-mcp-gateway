@@ -199,6 +199,166 @@ export function applyTextPatch(rawText, unifiedDiff) {
   return { ok: true, text: result, added, removed, hunks: parsed.hunks.length };
 }
 
+// ---------------------------------------------------------------------------
+// PR80-101 feedback #2: first-class patch-style local edits.
+// `{path, edits:[{oldText,newText}]}` — unique match, automatic sha, atomic.
+// ---------------------------------------------------------------------------
+
+/** Count non-overlapping occurrences of a non-empty needle. */
+function countOccurrences(haystack, needle) {
+  let count = 0;
+  let from = 0;
+  while (from <= haystack.length) {
+    const at = haystack.indexOf(needle, from);
+    if (at < 0) break;
+    count += 1;
+    from = at + needle.length;
+  }
+  return count;
+}
+
+/**
+ * Locate `oldText` in the CURRENT working text. Exact match first; then try
+ * CRLF/lone-CR variants of the needle so an LF patch can target a CRLF file
+ * without rewriting unrelated line endings ("保留换行").
+ */
+function findEditMatch(text, oldText) {
+  const exact = text.indexOf(oldText);
+  if (exact >= 0) {
+    const count = countOccurrences(text, oldText);
+    return count === 1 ? { ok: true, at: exact, needle: oldText, count } : { ok: false, count };
+  }
+  const variants = [];
+  if (oldText.includes('\n') && !oldText.includes('\r')) {
+    variants.push(oldText.replace(/\n/g, '\r\n'), oldText.replace(/\n/g, '\r'));
+  } else if (oldText.includes('\r')) {
+    variants.push(oldText.replace(/\r\n?/g, '\n'));
+  }
+  for (const needle of variants) {
+    const at = text.indexOf(needle);
+    if (at < 0) continue;
+    const count = countOccurrences(text, needle);
+    return count === 1 ? { ok: true, at, needle, count } : { ok: false, count };
+  }
+  return { ok: false, count: 0 };
+}
+
+/**
+ * PURE local edit application. Every edit must match EXACTLY ONCE in the
+ * working text (later edits see earlier results). Any miss, multi-hit or bad
+ * shape aborts the whole operation: `text` is the untouched ORIGINAL.
+ *
+ * @param {string} source original file text (line endings are preserved)
+ * @param {Array<{oldText:string,newText:string}>} edits ordered local edits
+ * @returns {{ok:true,text:string,edits:Array}|{ok:false,error:string,text:string}}
+ */
+export function editText(source, edits) {
+  const original = typeof source === 'string' ? source : String(source == null ? '' : source);
+  if (!Array.isArray(edits) || edits.length === 0) {
+    return { ok: false, error: 'edits must be a non-empty array', text: original };
+  }
+  let text = original;
+  const applied = [];
+  for (let i = 0; i < edits.length; i += 1) {
+    const edit = edits[i];
+    if (!edit || typeof edit !== 'object') {
+      return { ok: false, error: `edits[${i}] must be an object`, text: original };
+    }
+    const { oldText, newText } = edit;
+    if (typeof oldText !== 'string' || oldText.length === 0) {
+      return { ok: false, error: `edits[${i}].oldText must be a non-empty string (blank/ambiguous edits are refused)`, text: original };
+    }
+    if (typeof newText !== 'string') {
+      return { ok: false, error: `edits[${i}].newText must be a string`, text: original };
+    }
+    const match = findEditMatch(text, oldText);
+    if (match.count !== 1) {
+      const error = match.count > 1
+        ? `edits[${i}].oldText matched ${match.count} times; require exactly one match`
+        : `edits[${i}].oldText not found`;
+      return { ok: false, error, text: original };
+    }
+    text = text.slice(0, match.at) + newText + text.slice(match.at + match.needle.length);
+    applied.push({ index: i, at: match.at, oldBytes: Buffer.byteLength(match.needle), newBytes: Buffer.byteLength(newText) });
+  }
+  return { ok: true, text, edits: applied };
+}
+
+/**
+ * Host-side orchestration for local edits: read → editText → precheck → write.
+ * Mirrors applyFilePatch's safety contract (truncated reads refused, dryRun by
+ * default, precheck failure blocks the write, no fake commit identity).
+ *
+ * `getSha(path)` fills the optimistic-lock sha automatically when the caller
+ * did not provide one; `write(path, text, {sha, path})` receives it. Set
+ * `includeContent:true` to stage the full text for an atomic `commitFiles`
+ * caller (the codemode wiring agent handles that path).
+ */
+export async function applyTextEdits({
+  read, write, getSha, path, edits, sha,
+  dryRun = true, includeContent = false, precheck = true, ...rest
+} = {}) {
+  if (typeof read !== 'function') return { ok: false, error: 'read must be a function' };
+  if (!dryRun && typeof write !== 'function') return { ok: false, error: 'write must be a function when dryRun is false' };
+  if (typeof path !== 'string' || path.length === 0) return { ok: false, error: 'path must be a non-empty string' };
+
+  let rawText;
+  try {
+    rawText = await read(path);
+  } catch (e) {
+    return { ok: false, error: `read failed: ${String(e && e.message ? e.message : e)}` };
+  }
+  if (typeof rawText === 'string' && rawText.includes('--- TRUNCATED ---')) {
+    return { ok: false, error: 'refusing to edit a truncated read: re-read the full file before writing' };
+  }
+
+  const applied = editText(rawText, edits);
+  if (!applied.ok) return { ok: false, error: applied.error };
+
+  const diff = {
+    path,
+    added: 0,
+    removed: 0,
+    hunks: applied.edits.length,
+    edits: applied.edits,
+    diff: buildDiffSummary(path, typeof rawText === 'string' ? rawText : String(rawText), applied.text, 0, 0, applied.edits.length),
+  };
+
+  if (precheck) {
+    const checked = precheckText(applied.text, path);
+    if (!checked.ok) return { ok: false, error: checked.error, precheck: checked.check, diff };
+  }
+
+  const resolvedSha = await resolveSha({ path, sha, getSha });
+  if (dryRun) {
+    const out = { ok: true, diff, sha: resolvedSha ?? null };
+    if (includeContent) out.content = applied.text;
+    return out;
+  }
+
+  let writeResult;
+  try {
+    writeResult = await write(path, applied.text, { sha: resolvedSha, path });
+  } catch (e) {
+    return { ok: false, error: `write failed: ${String(e && e.message ? e.message : e)}`, diff };
+  }
+  if (writeResult && typeof writeResult === 'object' && writeResult.ok === false) {
+    return { ok: false, error: writeResult.error || 'write failed', diff };
+  }
+  const out = { ok: true, diff };
+  if (writeResult && typeof writeResult === 'object') {
+    const nestedContent = writeResult.content && typeof writeResult.content === 'object' ? writeResult.content : null;
+    const nestedCommit = writeResult.commit && typeof writeResult.commit === 'object' ? writeResult.commit : null;
+    const blobSha = writeResult.sha ?? nestedContent?.sha;
+    const commitSha = writeResult.commitSha ?? nestedCommit?.sha ?? resolvedSha;
+    if (commitSha !== undefined) out.commitSha = commitSha;
+    if (blobSha !== undefined) { out.sha = blobSha; out.blobSha = blobSha; }
+    if (writeResult.content !== undefined) out.content = writeResult.content;
+  }
+  void rest;
+  return out;
+}
+
 /**
  * Build a compact unified-diff summary string for logging / preview.
  * Groups changed lines into bare +N/-M lines with a short context snippet;
@@ -352,73 +512,167 @@ export async function applyFilePatch({ read, write, path, patch, dryRun = true, 
 
 const CODE_EXT_RE = /\.(?:[cm]?[jt]sx?|mts|cts)$/i;
 
+// acorn and node:module.stripTypeScriptTypes are the ONLY syntax helpers used
+// here. This is NOT a TypeScript compiler: no type checking, no JSX/TSX AST,
+// no transform/emit. `checked:false` means "we could not actually parse this
+// file" and must never be reported as a passed syntax check.
+import { parse as acornParse } from 'acorn';
+import { stripTypeScriptTypes } from 'node:module';
+
+function balanceScan(source) {
+  const stack = [];
+  const pairs = { ')': '(', ']': '[', '}': '{' };
+  let quote = null;
+  let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
+  for (let i = 0; i < source.length; i += 1) {
+    const c = source[i];
+    const next = source[i + 1];
+    if (lineComment) {
+      if (c === '\n') lineComment = false;
+      continue;
+    }
+    if (blockComment) {
+      if (c === '*' && next === '/') { blockComment = false; i += 1; }
+      continue;
+    }
+    if (quote) {
+      if (escaped) { escaped = false; continue; }
+      if (c === '\\') { escaped = true; continue; }
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '/' && next === '/') { lineComment = true; i += 1; continue; }
+    if (c === '/' && next === '*') { blockComment = true; i += 1; continue; }
+    if (c === '"' || c === "'" || c === '`') { quote = c; continue; }
+    if (c === '(' || c === '[' || c === '{') stack.push({ c, i });
+    else if (c === ')' || c === ']' || c === '}') {
+      const top = stack.pop();
+      if (!top || top.c !== pairs[c]) {
+        return `bracket balance precheck failed at offset ${i}: unexpected ${c}`;
+      }
+    }
+  }
+  if (quote) return `bracket balance precheck failed: unterminated ${quote} quote`;
+  if (blockComment) return 'bracket balance precheck failed: unterminated block comment';
+  if (stack.length) return `bracket balance precheck failed: unclosed ${stack[stack.length - 1].c}`;
+  return null;
+}
+
+const PARSE_OPTS = [
+  { ecmaVersion: 'latest', sourceType: 'module', allowAwaitOutsideFunction: true },
+  { ecmaVersion: 'latest', sourceType: 'script', allowAwaitOutsideFunction: true },
+];
+
 /**
- * Lightweight write-before syntax precheck. Deliberately NOT a compiler:
- *  - `.json` (and `.jsonc`-free JSON) must parse strictly with JSON.parse.
- *  - JS/TS-family files only get a bracket/quote balance scan; no tsc, no AST,
- *    no type checking — a passing result does not mean the code compiles.
- * Other extensions are not checked (returns ok).
+ * Write-before syntax precheck (PR80-101 feedback #1).
  *
- * @returns {{ok:true,check:string}|{ok:false,error:string,check:string}}
+ * Structured result: `{ ok, errors, language, checked, check, error? }`.
+ *  - `errors`: array of human-readable syntax errors (empty when ok).
+ *  - `language`: 'json' | 'javascript' | 'typescript' | 'jsx' | 'tsx' | 'other'.
+ *  - `checked`: true only when an actual parse/JSON.parse ran. When a parser is
+ *    unavailable (JSX/TSX AST, strip-only unsupported TS, no acorn), the result
+ *    stays non-blocking but explicitly reports `checked:false` + `reason`.
+ *
+ * Legacy fields `check` and `error` are preserved so existing callers (host
+ * applyFilePatch and the QuickJS sandbox bridge) keep working unchanged.
+ * Failure of a real parse is a hard stop before any write: no partial write.
+ *
+ * Deliberately NOT a compiler: no tsc, no type checking, no emit.
  */
 export function precheckText(text, path) {
   const source = typeof text === 'string' ? text : String(text == null ? '' : text);
   const name = typeof path === 'string' ? path.toLowerCase() : '';
+  const base = { ok: true, errors: [], language: 'other', checked: false, check: 'none' };
+
   if (name.endsWith('.json')) {
     try {
       JSON.parse(source);
-      return { ok: true, check: 'json' };
+      return { ...base, language: 'json', checked: true, check: 'json' };
     } catch (e) {
-      return { ok: false, check: 'json', error: `JSON precheck failed: ${String(e && e.message ? e.message : e)}` };
+      const error = `JSON precheck failed: ${String(e && e.message ? e.message : e)}`;
+      return { ...base, ok: false, errors: [error], error, language: 'json', checked: true, check: 'json' };
     }
   }
-  if (CODE_EXT_RE.test(name)) {
-    const stack = [];
-    const pairs = { ')': '(', ']': '[', '}': '{' };
-    let quote = null;
-    let escaped = false;
-    let lineComment = false;
-    let blockComment = false;
-    for (let i = 0; i < source.length; i += 1) {
-      const c = source[i];
-      const next = source[i + 1];
-      if (lineComment) {
-        if (c === '\n') lineComment = false;
-        continue;
-      }
-      if (blockComment) {
-        if (c === '*' && next === '/') { blockComment = false; i += 1; }
-        continue;
-      }
-      if (quote) {
-        if (escaped) { escaped = false; continue; }
-        if (c === '\\') { escaped = true; continue; }
-        if (c === quote) quote = null;
-        continue;
-      }
-      if (c === '/' && next === '/') { lineComment = true; i += 1; continue; }
-      if (c === '/' && next === '*') { blockComment = true; i += 1; continue; }
-      if (c === '"' || c === "'" || c === '`') { quote = c; continue; }
-      if (c === '(' || c === '[' || c === '{') stack.push({ c, i });
-      else if (c === ')' || c === ']' || c === '}') {
-        const top = stack.pop();
-        if (!top || top.c !== pairs[c]) {
-          return { ok: false, check: 'balance', error: `bracket balance precheck failed at offset ${i}: unexpected ${c}` };
+  if (!CODE_EXT_RE.test(name)) return base;
+
+  const isTsx = /\.(tsx|mtsx|ctsx)$/.test(name) || name.endsWith('.jsx');
+  const isTs = /\.(ts|mts|cts)$/.test(name);
+  const language = isTsx ? (name.includes('tsx') ? 'tsx' : 'jsx') : (isTs ? 'typescript' : 'javascript');
+
+  // Some capture fixtures carry Markdown prose in a .ts/.js path (e.g. a
+  // README body read via a file tool). Parsing that as code would produce
+  // misleading syntax errors. Recognize the common Markdown prefixes and
+  // report the file as UNCHECKED rather than pretending it was parsed.
+  // A `#!/...` shebang is deliberately NOT treated as Markdown.
+  if (/^(?:#{1,6}\s|>|```|~~)/.test(source.trimStart())) {
+    const reason = 'content looks like Markdown/prose, not JavaScript/TypeScript source; syntax not checked';
+    const err = balanceScan(source);
+    if (err) {
+      return { ...base, ok: false, errors: [err], error: err, language, checked: false, check: 'balance', reason };
+    }
+    return { ...base, language, checked: false, check: 'balance', reason };
+  }
+
+  // JSX/TSX needs an AST acorn (without a JSX plugin) does not have. Be honest:
+  // fall back to the legacy balance scan but NEVER claim a syntax check passed.
+  if (isTsx) {
+    const err = balanceScan(source);
+    const reason = 'JSX/TSX AST parsing is not available (acorn has no JSX plugin here)';
+    if (err) {
+      return { ...base, ok: false, errors: [err], error: err, language, checked: false, check: 'balance', reason };
+    }
+    return { ...base, language, checked: false, check: 'balance', reason };
+  }
+
+  let parseable = source;
+  if (isTs) {
+    try {
+      // Node 22+ only. strip-only mode intentionally rejects enums/namespaces/
+      // decorators; those are reported as unchecked, never as a fake pass.
+      parseable = stripTypeScriptTypes(source, { mode: 'strip' });
+    } catch (e) {
+      const msg = String(e && e.message ? e.message : e);
+      const unsupported = /not supported in strip-only mode|decorator|experimentalDecorator/i.test(msg);
+      if (unsupported) {
+        const err = balanceScan(source);
+        const reason = `TypeScript strip-only mode cannot handle this syntax: ${msg}`;
+        if (err) {
+          return { ...base, ok: false, errors: [err], error: err, language, checked: false, check: 'balance', reason };
         }
+        return { ...base, language, checked: false, check: 'balance', reason };
       }
+      // A genuine syntax error in TS source. Keep the legacy error prefix so
+      // existing callers/assertions that look for "bracket balance precheck
+      // failed" still match.
+      const error = `bracket balance precheck failed: ${msg}`;
+      return { ...base, ok: false, errors: [error], error, language, checked: true, check: 'balance' };
     }
-    if (quote) {
-      return { ok: false, check: 'balance', error: `bracket balance precheck failed: unterminated ${quote} quote` };
-    }
-    if (blockComment) {
-      return { ok: false, check: 'balance', error: 'bracket balance precheck failed: unterminated block comment' };
-    }
-    if (stack.length) {
-      return { ok: false, check: 'balance', error: `bracket balance precheck failed: unclosed ${stack[stack.length - 1].c}` };
-    }
-    return { ok: true, check: 'balance' };
   }
-  return { ok: true, check: 'none' };
+
+  // Real syntax parse for .js/.mjs/.cjs and type-stripped .ts/.mts/.cts.
+  let parseError = null;
+  try {
+    let last = null;
+    let parsed = false;
+    for (const opts of PARSE_OPTS) {
+      try { acornParse(parseable, opts); parsed = true; break; }
+      catch (e) { last = e; }
+    }
+    if (!parsed) parseError = last;
+  } catch (e) {
+    // acorn itself is unavailable: degrade honestly instead of faking a pass.
+    const err = balanceScan(source);
+    const reason = `acorn parser unavailable: ${String(e && e.message ? e.message : e)}`;
+    if (err) return { ...base, ok: false, errors: [err], error: err, language, checked: false, check: 'balance', reason };
+    return { ...base, language, checked: false, check: 'balance', reason };
+  }
+  if (parseError) {
+    const error = `bracket balance precheck failed: ${String(parseError && parseError.message ? parseError.message : parseError)}`;
+    return { ...base, ok: false, errors: [error], error, language, checked: true, check: 'balance' };
+  }
+  return { ...base, language, checked: true, check: 'balance' };
 }
 
 /**
@@ -723,6 +977,8 @@ export const writeFiles = applyFilePatches;
 
 export default {
   applyTextPatch,
+  editText,
+  applyTextEdits,
   applyFilePatch,
   applyFilePatches,
   writeFiles,

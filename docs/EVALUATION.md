@@ -126,3 +126,25 @@ L4 人工在线反馈           用户真实窗口，发现新维度
 
 - 2026-11-24 PR #80–#101 真实反馈与被动 scorecard 对照：[eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md](eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md)
 
+---
+
+## 8. 2026-11-24 PR #80–#101 反馈接入（append-only）
+
+> 本批把真实体感反馈转成可重复回归，不只是写报告；不改 src/scripts/tests，不 commit/push/deploy。
+> 更正：`20` 次是**已知每次执行/单轮工具调用上限**（见 `GEMINI-PROBE.md`），不是 R2 分页/capture 分母 bug；
+> 样本不足、不能定量的结论保留。9 个 `model truncation suspect` 标 **advisory**，不作事实/判据。
+
+- **F/G/N/J 矩阵**：[eval/FEEDBACK-2026-11-24-MATRIX.md](eval/FEEDBACK-2026-11-24-MATRIX.md)
+  — 反馈项 → 能证明/不能证明 → G 缺口分类 → 离线任务 → 半在线任务 → 验收。
+- **离线任务集**：`explore/tasks-feedback-2026-11-24.json`（FB1–FB10，
+  覆盖 issue 重复 / PR number / 文件 content 污染 / batch unwrap / TS 预检 / patch edit /
+  truncation / CI rerun+wait / delete+rename / branch cleanup；每条含 tool-level truth、
+  fixture、断言点；不编造 requestId）。
+- **半在线任务集**：`explore/tasks-online-gap-3.json`（N10–N16，抽象自反馈、不照抄原文；
+  编号避开旧 N1–N9 与 J1–J6）。
+- **缺口登记**：[eval/SEMI-ONLINE-GAPS.md](eval/SEMI-ONLINE-GAPS.md) §8 N10–N16（append-only）。
+- **台账**：`docs/ledger/batch-17-feedback-eval.md`。
+
+状态：FB/N10–N16 为已登记任务（fake/replay、`dryRun:true`、`forRealWrite=false`、
+`requestIds:unknown`），尚未接入真实 runner；部署后同任务在线复验与 join/baseline 更新不在本批。
+

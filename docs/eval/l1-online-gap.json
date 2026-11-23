@@ -1,0 +1,207 @@
+{
+  "generatedAt": "2026-11-23T23:43:55.532Z",
+  "profile": "online-gap",
+  "mode": "fake-dry-run",
+  "ok": true,
+  "allUnknown": true,
+  "loaded": [
+    {
+      "id": "N1",
+      "fixtureHash": "25cbce196ea8b979"
+    },
+    {
+      "id": "N2",
+      "fixtureHash": "a07872fb13b32d2b"
+    },
+    {
+      "id": "N3",
+      "fixtureHash": "121270d02fadcd7c"
+    },
+    {
+      "id": "N4",
+      "fixtureHash": "28a029387b0a219a"
+    },
+    {
+      "id": "N5",
+      "fixtureHash": "8f23013ac0a979ba"
+    },
+    {
+      "id": "N6",
+      "fixtureHash": "59a07a78b6776775"
+    },
+    {
+      "id": "N7",
+      "fixtureHash": "ae47446b38f83ffe"
+    },
+    {
+      "id": "N8",
+      "fixtureHash": "bc9617520035a73f"
+    },
+    {
+      "id": "N9",
+      "fixtureHash": "7802495c54473263"
+    },
+    {
+      "id": "J1",
+      "fixtureHash": "7abfe38c61e85ae9"
+    },
+    {
+      "id": "J2",
+      "fixtureHash": "cdf4b706ffe2108d"
+    },
+    {
+      "id": "J3",
+      "fixtureHash": "08fd828dea89a5dc"
+    },
+    {
+      "id": "J4",
+      "fixtureHash": "592404292b3d14f3"
+    },
+    {
+      "id": "J5",
+      "fixtureHash": "e5a3e746e3ccc968"
+    },
+    {
+      "id": "J6",
+      "fixtureHash": "bbf5675c4366cd5f"
+    }
+  ],
+  "skipped": [],
+  "baselineSource": null,
+  "metrics": {
+    "tasks": 15,
+    "measuredTasks": 0,
+    "perTask": {
+      "N1": {
+        "writePostConditionOk": "unknown",
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "N2": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "N3": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": "unknown",
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "N4": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "N5": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "N6": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "N7": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "N8": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "N9": {
+        "writePostConditionOk": "unknown",
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "J1": {
+        "writePostConditionOk": "unknown",
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "J2": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": "unknown",
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "J3": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": "unknown",
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "J4": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": "unknown",
+        "atomicByDefault": null,
+        "ciWaitRounds": null
+      },
+      "J5": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": "unknown",
+        "ciWaitRounds": null
+      },
+      "J6": {
+        "writePostConditionOk": null,
+        "idAsPrNumberCount": null,
+        "wrapperUnwrapDepthConsistent": null,
+        "truncationTailMetadataOk": null,
+        "atomicByDefault": null,
+        "ciWaitRounds": "unknown"
+      }
+    },
+    "source": "online-gap profile (fake/replay only; not a gateway quality measurement)"
+  },
+  "comparison": {
+    "ok": false,
+    "checks": [],
+    "allUnknown": true
+  },
+  "notes": [
+    "Fake/replay wiring check only; not a gateway quality measurement.",
+    "Baseline is read-only and keyed by task id + fixture hash; current results are stored separately."
+  ]
+}

@@ -165,6 +165,72 @@ function jsonSize(value) {
   try { return JSON.stringify(value)?.length ?? 0; } catch { return 0; }
 }
 
+/* ------------------------------------------------------------------ *
+ * PR80-101 feedback #3 · structured truncation metadata
+ *
+ * A truncation marker alone tells the model "something was lost" but not
+ * WHICH fields or how big they were, so it cannot decide what to re-request.
+ * Every truncated object/string now carries `truncation.fields` (one entry per
+ * original top-level key: UTF-8 bytes + line count when meaningful), plus a
+ * `tail` excerpt and a `next` locating hint. The legacy `--- TRUNCATED ---`
+ * token and F-08 `truncated:true` flag are untouched.
+ * ------------------------------------------------------------------ */
+
+const MAX_TRUNCATION_FIELDS = 32;
+const TRUNCATION_TAIL_CHARS = 120;
+
+/** UTF-8 byte size of a value (JSON representation). */
+function utf8Bytes(value) {
+  const s = JSON.stringify(value);
+  return typeof s === 'string' ? Buffer.byteLength(s, 'utf8') : 0;
+}
+
+/** Per-original-top-level-key sizes, so a model can target a narrow re-read. */
+export function truncationFields(value) {
+  const fields = {};
+  if (typeof value === 'string') return fields;
+  if (Array.isArray(value)) {
+    value.slice(0, MAX_TRUNCATION_FIELDS).forEach((item, i) => {
+      fields[String(i)] = { bytes: utf8Bytes(item) };
+    });
+    if (value.length > MAX_TRUNCATION_FIELDS) {
+      fields.__moreKeys = value.length - MAX_TRUNCATION_FIELDS;
+    }
+    return fields;
+  }
+  if (value && typeof value === 'object') {
+    Object.entries(value).slice(0, MAX_TRUNCATION_FIELDS).forEach(([key, item]) => {
+      const entry = { bytes: utf8Bytes(item) };
+      if (typeof item === 'string' && item.includes('\n')) entry.lines = item.split('\n').length;
+      fields[key] = entry;
+    });
+    const total = Object.keys(value).length;
+    if (total > MAX_TRUNCATION_FIELDS) fields.__moreKeys = total - MAX_TRUNCATION_FIELDS;
+  }
+  return fields;
+}
+
+/** Short tail excerpt of the ORIGINAL value (never fabricated). */
+function truncationTail(value) {
+  if (typeof value === 'string') return value.slice(-TRUNCATION_TAIL_CHARS);
+  let serialized;
+  try { serialized = JSON.stringify(value); } catch { return ''; }
+  return typeof serialized === 'string' ? serialized.slice(-TRUNCATION_TAIL_CHARS) : '';
+}
+
+/** Build the full metadata block. `reason` preserves F-08 upstream reasons. */
+export function buildTruncationMeta(value, { reason } = {}) {
+  const next = typeof value === 'string'
+    ? 'use grepSnippet(text, keyword) or text.slice to locate a segment, then narrow the request'
+    : 're-request only the large fields named above (or use a cursor/limit)';
+  return {
+    ...(reason !== undefined ? { reason } : {}),
+    fields: truncationFields(value),
+    tail: truncationTail(value),
+    next,
+  };
+}
+
 function shrinkable(value) {
   return typeof value === 'string' || (typeof value === 'object' && value !== null);
 }
@@ -179,10 +245,25 @@ export function truncateResponseText(text, { maxChars = 24000 } = {}) {
   if (typeof text !== 'string' || text.length <= maxChars) return text;
   // Keep `--- TRUNCATED --- <n> chars` verbatim for existing assertions; the
   // extra sentences are append-only guidance (total length + locating hint).
-  const suffix =
+  // PR80-101: also emit a machine-readable truncation block (fields/tail/next)
+  // so the model does not have to guess which part of a large text was lost.
+  let meta = buildTruncationMeta(text);
+  const head =
     `\n\n${TRUNC_MARKER} ${text.length.toLocaleString()} chars total ` +
     `(limit ${maxChars.toLocaleString()}). Use grepSnippet/text.slice to locate ` +
     `a segment, then narrow the request.`;
+  const suffixOf = (m) => `${head} truncation.fields=${JSON.stringify(m.fields)} tail=${JSON.stringify(m.tail)} next=${JSON.stringify(m.next)}`;
+  let suffix = suffixOf(meta);
+  // Keep the structured block (and the verbatim marker) even under a tight
+  // budget by shortening the OPTIONAL tail/next excerpts, never the marker.
+  while (suffix.length > maxChars && meta.tail.length > 0) {
+    meta = { ...meta, tail: meta.tail.slice(0, -1) };
+    suffix = suffixOf(meta);
+  }
+  while (suffix.length > maxChars && meta.next.length > 0) {
+    meta = { ...meta, next: meta.next.slice(0, -1) };
+    suffix = suffixOf(meta);
+  }
   let keep = Math.max(0, maxChars - suffix.length);
   let out = text.slice(0, keep) + suffix;
   while (keep > 0 && out.length > maxChars) {
@@ -196,13 +277,25 @@ export function truncateResponseText(text, { maxChars = 24000 } = {}) {
 function shrinkString(value, maxChars) {
   // `<n> chars` is the full original length (a locating hint, not a count of
   // removed bytes) — keep that prefix stable and extend it with guidance.
-  const suffix =
-    ` ${TRUNC_MARKER} ${value.length.toLocaleString()} chars total ` +
-    `(use grepSnippet/text.slice to locate)`;
+  // PR80-101: structured fields/tail/next travel with nested strings too, but
+  // when the per-value budget is tiny the COMPACT legacy suffix wins: keeping
+  // early content is more useful than a marker-only string.
+  const meta = buildTruncationMeta(value);
+  const head = ` ${TRUNC_MARKER} ${value.length.toLocaleString()} chars total (use grepSnippet/text.slice to locate)`;
+  const full = `${head} truncation.fields=${JSON.stringify(meta.fields)} tail=${JSON.stringify(meta.tail)} next=${JSON.stringify(meta.next)}`;
+  const compact = `${head} truncation.fields=${JSON.stringify(meta.fields)} tail=${JSON.stringify(meta.tail.slice(0, 24))} next="narrow the request"`;
+  const minimal = head;
+  let suffix = [full, compact, minimal].find((candidate) => candidate.length + 2 <= maxChars) ?? minimal;
   let keep = Math.max(0, maxChars - suffix.length - 2);
   let out = value.slice(0, keep) + suffix;
   while (keep > 0 && jsonSize(out) > maxChars) {
     keep = Math.max(0, keep - (jsonSize(out) - maxChars));
+    out = value.slice(0, keep) + suffix;
+  }
+  // Last resort for an extremely small budget: never lose the marker.
+  if (jsonSize(out) > maxChars && minimal.length + 2 <= maxChars) {
+    suffix = minimal;
+    keep = Math.max(0, maxChars - suffix.length - 2);
     out = value.slice(0, keep) + suffix;
   }
   return jsonSize(out) <= maxChars ? out : TRUNC_MARKER.slice(0, Math.max(0, maxChars - 2));
@@ -343,6 +436,66 @@ function isImagePayload(value) {
 }
 
 /**
+ * Attach structured truncation metadata to an already-shrunk object/array
+ * without exceeding `maxChars`. The legacy marker is never removed; when the
+ * budget is tight we shorten the marker's explanatory note and the optional
+ * tail/next excerpts first, and keep every top-level field entry as long as
+ * possible. If even that cannot fit, return the original shrunk value rather
+ * than emitting an over-budget or half-written result.
+ */
+function attachTruncationMeta(base, original, maxChars) {
+  if (!base || typeof base !== 'object' || Array.isArray(base)) return base;
+  const upstreamReason = truncationReason(original?.truncated) ?? truncationReason(original?.truncation)
+    ?? truncationReason(original?.isTruncated);
+  let meta = buildTruncationMeta(original, { reason: upstreamReason ?? undefined });
+  const prior = base.truncation && typeof base.truncation === 'object' && !Array.isArray(base.truncation)
+    ? base.truncation : {};
+  const merged = () => ({ ...meta, ...prior, fields: meta.fields, tail: meta.tail, next: meta.next });
+  const markerKey = Object.keys(base).find((k) => k.startsWith(TRUNC_MARKER));
+  const originalNote = markerKey ? base[markerKey] : undefined;
+  // F-08 compatibility: when shrinkObject chose a STRING `truncation` reason,
+  // keep that field exactly as-is and expose the structured block under
+  // `truncationMeta` instead. Never turn a string reason into an object.
+  const legacyStringReason = typeof base.truncation === 'string';
+  const candidate = (note) => {
+    const withMarker = note === undefined ? base : { ...base, [markerKey]: note };
+    return legacyStringReason
+      ? { ...withMarker, truncationMeta: merged() }
+      : { ...withMarker, truncation: merged() };
+  };
+
+  let out = candidate(originalNote);
+  if (jsonSize(out) <= maxChars) return out;
+
+  // First keep the full marker note (existing assertions depend on its
+  // "top-level keys: [...]" / "N keys omitted" summary) and trim only the
+  // OPTIONAL tail/next excerpts.
+  while (meta.next.length > 0 || meta.tail.length > 0) {
+    meta = {
+      ...meta,
+      next: meta.next.length > 0 ? meta.next.slice(0, -1) : meta.next,
+      tail: meta.next.length > 0 ? meta.tail : (meta.tail.length > 0 ? meta.tail.slice(0, -1) : meta.tail),
+    };
+    out = candidate(originalNote);
+    if (jsonSize(out) <= maxChars) return out;
+  }
+  // Then drop the reason (if any) and keep fields-only metadata.
+  if (meta.reason !== undefined) {
+    const { reason: _reason, ...rest } = meta;
+    void _reason;
+    meta = rest;
+    out = candidate(originalNote);
+    if (jsonSize(out) <= maxChars) return out;
+  }
+  // Only now shorten the marker note; the marker key itself stays verbatim.
+  for (const note of ['truncated', '']) {
+    out = candidate(note);
+    if (jsonSize(out) <= maxChars) return out;
+  }
+  return base;
+}
+
+/**
  * Bound a value to `maxChars` of serialized JSON, keeping its shape valid.
  * Strings are truncated as text; objects/arrays are shrunk structurally.
  *
@@ -372,8 +525,18 @@ export function truncateResultValue(value, { maxChars = 24000 } = {}) {
   if (serialized.length <= maxChars) {
     out = rest;
   } else {
-    const shrunk = shrink(JSON.parse(serialized), maxChars);
-    out = jsonSize(shrunk) <= maxChars ? shrunk : truncateResponseText(serialized, { maxChars });
+    // Reserve room for the structured truncation block BEFORE shrinking, so
+    // fields/tail/next are present without pushing the output over maxChars.
+    // Reserve a modest, bounded slice of the budget for the structured block.
+    // Reserving ALL of it would squeeze short values down to a bare marker;
+    // attachTruncationMeta() trims the optional tail/next if the estimate is
+    // slightly short.
+    const metaReserve = Math.min(360, Math.max(96, Math.floor(maxChars / 3)));
+    const base = (() => {
+      const shrunk = shrink(JSON.parse(serialized), maxChars - metaReserve);
+      return jsonSize(shrunk) <= maxChars ? shrunk : truncateResponseText(serialized, { maxChars });
+    })();
+    out = attachTruncationMeta(base, rest, maxChars);
   }
   if (images && out && typeof out === 'object' && !Array.isArray(out)) {
     return { ...out, images };

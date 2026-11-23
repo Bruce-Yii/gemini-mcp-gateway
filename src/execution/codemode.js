@@ -36,6 +36,14 @@ import {
   githubActionsListWorkflowJobs,
   githubActionsGetJobLogs,
   waitForPrChecks,
+  // Batch 17 · PR #80–#101 feedback helpers (pure orchestration over injected
+  // callables; the host registry below builds those callables from the ACTUAL
+  // tools mounted in this session, so we never invent an upstream capability).
+  createIssue as createIssueHelper,
+  rerunFailedJobs as rerunFailedJobsHelper,
+  mergePrWithOptionalBranchDelete as mergeWithBranchDeleteHelper,
+  deleteFiles as deleteFilesHelper,
+  renameFiles as renameFilesHelper,
   UNTRUSTED_RAW_MARKER,
 } from './github-helpers.js';
 import { applyFilePatches, precheckText, normalizeWriteResult } from './file-write.js';
@@ -137,6 +145,17 @@ const B15_ERGONOMICS_GUIDANCE = [
   'CI polling: codemode.waitForPrChecks({owner,repo,pullNumber,timeoutMs?,maxPolls?}) waits up to 30s in ONE call and returns the latest {status,conclusion,checkRuns[],polls,truncated} snapshot instead of 3–4 manual polls.',
 ].join(' ');
 
+// Batch 17 · PR #80–#101 feedback. One line each so the new helpers are
+// discoverable in BOTH execute descriptions without a probing round. No tool
+// surface or default behaviour changes; all helpers are sandbox-only.
+const B17_FEEDBACK_GUIDANCE = [
+  'GitHub Issue creation: codemode.createIssue({owner,repo,title,body?,listArgs?,createArgs?,maxPolls?}) dedupes by repo+title/body, short-polls after create for the list-index delay, and returns {ok,created,reused,issue:{number,id,url,state,title}} — number is ALWAYS URL/field-derived, never an internal id; a repeated call is idempotent.',
+  'Batch unwrapping: codemode.unwrapBatch(x) ALWAYS returns a flat [{ok,value}] array for a single result, {ok,value}, JSON string or nested array; codemode.unwrap(x) flattens one upstream envelope. Never hand-peel an extra {ok,value} layer.',
+  'CI: codemode.waitForPrChecks({owner,repo,pullNumber,...}) waits up to 30s in one call; codemode.rerunFailedJobs({owner,repo,runId}) calls an injected upstream rerun tool and returns code UNSUPPORTED_UPSTREAM_TOOL when none is mounted (never a fake success).',
+  'Branch cleanup: codemode.mergePrWithOptionalBranchDelete({owner,repo,pullNumber,head,deleteBranch:true}) deletes the source branch ONLY with the explicit flag and an injected delete tool; no default deletion.',
+  'Multi-file delete/rename: codemode.deleteFiles({paths}) and codemode.renameFiles({renames:[{from,to}]}) are TWO-PHASE because push_files supports only {path,content}; results carry atomic:false and partial:true. Only an injected git-data callback can make them atomic — do not claim otherwise.',
+].join(' ');
+
 /**
  * Guest-side compatibility layer, injected as a single function body prefix.
  *
@@ -206,8 +225,12 @@ const GUEST_PRELUDE = [
   // `{ok,value}` slot, an upstream envelope, or an array of any of those)
   // produces the SAME array of {ok,value} slots. This is the ONE place that
   // decides unwrapping depth so callers never guess how many layers to peel.
-  'const __dshFlattenSlot = (item) => { if (item && typeof item === "object" && !Array.isArray(item) && typeof item.ok === "boolean" && "value" in item) return { ok: item.ok, value: item.value }; let v = item; if (v && typeof v === "object" && !Array.isArray(v)) { if (Object.prototype.hasOwnProperty.call(v, "result") && !Object.prototype.hasOwnProperty.call(v, "content") && !Object.prototype.hasOwnProperty.call(v, "text")) v = v.result; else if (Object.prototype.hasOwnProperty.call(v, "value")) v = v.value; } return { ok: true, value: v }; };',
-  'const __dshUnwrapBatch = (input) => { const arr = Array.isArray(input) ? input : (input === null || input === undefined ? [] : [input]); const out = []; for (const item of arr) { if (Array.isArray(item)) { for (const sub of item) out.push(__dshFlattenSlot(sub)); } else out.push(__dshFlattenSlot(item)); } return out; };',
+  'const __dshFlattenSlot = (item) => { if (item && typeof item === "object" && !Array.isArray(item) && typeof item.ok === "boolean" && "value" in item) return { ok: item.ok, value: item.value }; if (item && typeof item === "object" && !Array.isArray(item)) { const keys = Object.keys(item); if (keys.length === 1 && (keys[0] === "result" || keys[0] === "value")) return __dshFlattenSlot(item[keys[0]]); } return { ok: true, value: item }; };',
+  // Batch 17: JSON strings and `{result}`/`{value}` envelopes now go through
+  // the SAME flat-slot contract as bare arrays and `{ok,value}` slots, so a
+  // double-wrapped batch never reaches model code as a surprise. Nested arrays
+  // are flattened. This is the single host+guest batch unwrapping contract.
+  'const __dshUnwrapBatch = (input) => { let v = input; if (typeof v === "string") { try { v = JSON.parse(v); } catch (_) { return [{ ok: true, value: input }]; } } if (v === null || v === undefined) return []; const out = []; const push = (item) => { if (Array.isArray(item)) { for (const sub of item) push(sub); return; } out.push(__dshFlattenSlot(item)); }; push(v); return out; };',
   'const unwrapBatch = __dshHide(__dshUnwrapBatch); codemode.unwrapBatch = unwrapBatch;',
   // Gemini feedback #4: extract context windows around a keyword from a long
   // text — avoids hand-writing slice/indexOf loops after results get truncated.
@@ -496,6 +519,15 @@ const GUEST_PRELUDE = [
   'codemode.github_actions_get_job_logs = __dshHide((opts) => __dshInvoke("github_actions_get_job_logs", [opts]));',
   // Batch 15 P2 · one-call CI wait over the existing tool bridge.
   'codemode.waitForPrChecks = __dshHide((opts) => __dshInvoke("wait_for_pr_checks", [opts]));',
+  // Batch 17 · PR #80–#101 feedback helpers. All are host-side pure
+  // orchestration over the SAME injected tool bridge / callables; no new MCP
+  // tool, no network in the sandbox. `callables` is built by the host registry
+  // from the tools actually present in this session (see registry.createIssue).
+  'codemode.createIssue = __dshHide((opts) => __dshInvoke("create_issue", [opts]));',
+  'codemode.rerunFailedJobs = __dshHide((opts) => __dshInvoke("rerun_failed_jobs", [opts]));',
+  'codemode.mergePrWithOptionalBranchDelete = __dshHide((opts) => __dshInvoke("merge_with_branch_delete", [opts]));',
+  'codemode.deleteFiles = __dshHide((opts) => __dshInvoke("delete_files", [opts]));',
+  'codemode.renameFiles = __dshHide((opts) => __dshInvoke("rename_files", [opts]));',
 ].join('\n');
 const GUEST_PREFIX_LINES = GUEST_PRELUDE.split('\n').length;
 
@@ -1263,6 +1295,45 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
     byIdent.set(ident, t);
   }
 
+  // Batch 17 · tool resolution for feedback helpers. We NEVER assume an
+  // upstream capability exists: a missing tool yields a missing callable, and
+  // the helper then returns UNSUPPORTED_UPSTREAM_TOOL / an honest partial.
+  const invokeToolByIdent = (ident, args) => {
+    const tool = byIdent.get(ident);
+    if (!tool) throw new Error(`unknown tool: ${ident}`);
+    return registry.tool(ident, args);
+  };
+  /** Find the first mounted ident whose bare name is one of `candidates`. */
+  const findToolIdent = (candidates) => {
+    for (const [ident, descriptor] of byIdent) {
+      const bare = String(descriptor?.tool ?? descriptor?.name ?? ident)
+        .split(/__/).pop();
+      if (candidates.includes(bare)) return ident;
+    }
+    return null;
+  };
+  /** Build a name->callable map for the ACTUALLY mounted tools. */
+  const buildCallables = () => {
+    const out = {};
+    for (const [ident, descriptor] of byIdent) {
+      const full = String(descriptor?.name ?? ident);
+      const bare = String(descriptor?.tool ?? descriptor?.name ?? ident);
+      const fn = (args) => invokeToolByIdent(ident, args);
+      out[ident] = fn;
+      out[bare] = fn;
+      out[full] = fn;
+    }
+    return out;
+  };
+  /** Invoke an explicitly named merge tool, or a sensible default. */
+  const toolByIdentArg = (explicit, args, defaultBare) => {
+    const ident = (explicit && byIdent.has(explicit))
+      ? explicit
+      : (findToolIdent([String(defaultBare).split(/__/).pop()]) ?? null);
+    if (!ident) throw new Error(`toolByIdentArg: ${defaultBare} is unavailable in this session`);
+    return invokeToolByIdent(ident, args);
+  };
+
   // F-01: every string crossing the bridge into the guest is a MODEL-VISIBLE
   // error. Prefer the redacted projection attached by upstreamError, else
   // redact here. Capture keeps the raw original (see captureEvent call sites).
@@ -1445,6 +1516,56 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
             },
           ));
         },
+      });
+    },
+    // Batch 17 · build the injected callables map from the REAL tools present
+    // in this session. Tool names are resolved from `byIdent` / descriptors —
+    // never hard-coded as an assumed upstream capability. Every invocation goes
+    // through `registry.tool`, so budget, audit and dedup still apply.
+    create_issue: (opts) => {
+      const o = opts && typeof opts === 'object' && !Array.isArray(opts) ? opts : {};
+      // callables are derived from tools actually mounted in this session —
+      // an absent issue tool yields UNSUPPORTED_UPSTREAM_TOOL, never a fake.
+      return createIssueHelper({ ...o, callables: buildCallables(), tools });
+    },
+    rerun_failed_jobs: (opts) => {
+      const o = opts && typeof opts === 'object' && !Array.isArray(opts) ? opts : {};
+      const callables = buildCallables();
+      return rerunFailedJobsHelper({ ...o, callables });
+    },
+    merge_with_branch_delete: (opts) => {
+      const o = opts && typeof opts === 'object' && !Array.isArray(opts) ? opts : {};
+      const deleteIdent = findToolIdent(['delete_branch', 'delete_ref', 'delete_git_ref']);
+      return mergeWithBranchDeleteHelper({
+        ...o,
+        merge: (args) => toolByIdentArg(o.mergeTool, args, 'merge_pull_request'),
+        deleteBranchTool: deleteIdent
+          ? (args) => invokeToolByIdent(deleteIdent, args)
+          : undefined,
+      });
+    },
+    delete_files: (opts) => {
+      const o = opts && typeof opts === 'object' && !Array.isArray(opts) ? opts : {};
+      const deleteIdent = findToolIdent(['delete_file', 'delete_files', 'delete_git_file', 'delete_repository_file']);
+      const gitDataIdent = findToolIdent(['git_data', 'gitdata', 'git_data_api', 'commit_with_git_data']);
+      return deleteFilesHelper({
+        ...o,
+        deleteFile: deleteIdent ? (args) => invokeToolByIdent(deleteIdent, args) : undefined,
+        gitData: gitDataIdent ? (args) => invokeToolByIdent(gitDataIdent, args) : undefined,
+      });
+    },
+    rename_files: (opts) => {
+      const o = opts && typeof opts === 'object' && !Array.isArray(opts) ? opts : {};
+      const readIdent = findToolIdent(['get_file_contents']);
+      const writeIdent = findToolIdent(['create_or_update_file']);
+      const deleteIdent = findToolIdent(['delete_file', 'delete_files', 'delete_git_file', 'delete_repository_file']);
+      const gitDataIdent = findToolIdent(['git_data', 'gitdata', 'git_data_api', 'commit_with_git_data']);
+      return renameFilesHelper({
+        ...o,
+        readFile: readIdent ? (args) => invokeToolByIdent(readIdent, args) : undefined,
+        writeFile: writeIdent ? (args) => invokeToolByIdent(writeIdent, args) : undefined,
+        deleteFile: deleteIdent ? (args) => invokeToolByIdent(deleteIdent, args) : undefined,
+        gitData: gitDataIdent ? (args) => invokeToolByIdent(gitDataIdent, args) : undefined,
       });
     },
     stub: (name) => {
@@ -1884,8 +2005,8 @@ export function createCodeModeTools(upstreamManager, options = {}) {
   const makeExecute = (name, readOnly) => ({
     name,
     description: (readOnly
-      ? 'Write JavaScript to call READ-ONLY upstream tools (get/list/search/query) via codemode.<tool>(args). This tool is annotated read-only so the client may prompt less; it runs the same sandbox as execute(). Only your return value enters the conversation. Available read-only helpers: safeAll(tasks), unwrapBatch(x), readFileRange(), waitForPrChecks(), github_actions_*. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'
-      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), unwrapBatch(x), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + ASYNC_GUIDANCE + ACTIONS_GUIDANCE + GH_HIGHFREQ_GUIDANCE + B15_ERGONOMICS_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
+      ? 'Write JavaScript to call READ-ONLY upstream tools (get/list/search/query) via codemode.<tool>(args). This tool is annotated read-only so the client may prompt less; it runs the same sandbox as execute(). Only your return value enters the conversation. Available read-only helpers: safeAll(tasks), unwrapBatch(x), unwrap(x), readFileRange(), waitForPrChecks(), github_actions_*. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'
+      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), unwrapBatch(x), unwrap(x), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + ASYNC_GUIDANCE + ACTIONS_GUIDANCE + GH_HIGHFREQ_GUIDANCE + B15_ERGONOMICS_GUIDANCE + B17_FEEDBACK_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
     inputSchema: {
       type: 'object',
       properties: { code: { type: 'string', description: 'An async arrow function that calls codemode tools and returns a result.' } },

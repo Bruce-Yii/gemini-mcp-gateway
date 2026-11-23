@@ -86,6 +86,29 @@ export const ONLINE_GAP_RESULT_MD = path.join(ROOT, 'docs/eval/l1-online-gap-rep
 export const ONLINE_GAP_RESULT_JSON = path.join(ROOT, 'docs/eval/l1-online-gap.json');
 
 /* ------------------------------------------------------------------ *
+ * Optional `feedback` profile (additive; online-gap behaviour unchanged).
+ *
+ * Wires the PR #80-#101 feedback task sets (FB1-FB10 + N10-N16) into the
+ * same loading / baseline / reporting machinery as `online-gap`, but with its
+ * OWN expected ids, id-set label and current-result paths. It is enabled ONLY
+ * by `--profile feedback`. See docs/eval/L1-FEEDBACK-PROFILE.md.
+ * ------------------------------------------------------------------ */
+export const FEEDBACK_PROFILE = 'feedback';
+export const FEEDBACK_TASK_FILES = [
+  'explore/tasks-feedback-2026-11-24.json', // FB1–FB10 (offline, tool-level truth)
+  'explore/tasks-online-gap-3.json',        // N10–N16 (abstracted online-only axes)
+];
+export const FEEDBACK_EXPECTED_IDS = [
+  'FB1', 'FB2', 'FB3', 'FB4', 'FB5', 'FB6', 'FB7', 'FB8', 'FB9', 'FB10',
+  'N10', 'N11', 'N12', 'N13', 'N14', 'N15', 'N16',
+];
+export const FEEDBACK_ID_SET_LABEL = 'FB1–FB10/N10–N16';
+/** Independent current-result paths; no frozen baseline exists yet. */
+export const FEEDBACK_BASELINE_FILE = path.join(ROOT, 'explore/baselines/l1-feedback.json');
+export const FEEDBACK_RESULT_MD = path.join(ROOT, 'docs/eval/l1-feedback-report.md');
+export const FEEDBACK_RESULT_JSON = path.join(ROOT, 'docs/eval/l1-feedback.json');
+
+/* ------------------------------------------------------------------ *
  * Pure helpers (unit-tested in tests/l1-smoke.test.js)
  * ------------------------------------------------------------------ */
 
@@ -438,10 +461,13 @@ export function evaluateConsecutiveAlerts(state, { ok, date, runId }) {
  * ------------------------------------------------------------------ */
 
 /**
- * Load the N1–N9 + J1–J6 task sets. Unknown task ids and tasks whose required
- * fixture (a `preconditions` marker) is missing are reported as explicit SKIP
- * entries — never silently folded into a pass. Missing/unparseable files yield
- * an empty task list plus a SKIP for that whole file.
+ * Load a profile's task sets (default: N1–N9 + J1–J6; the `feedback` profile
+ * passes FB1–FB10 + N10–N16 via `files`/`expectedIds`/`idSetLabel`). Unknown task
+ * ids and tasks whose required fixture (a `preconditions` marker) is missing are
+ * reported as explicit SKIP entries — never silently folded into a pass.
+ * Missing/unparseable files yield an empty task list plus a SKIP for that file.
+ * `idSetLabel` only changes the human-readable SKIP reason; with the default
+ * value the online-gap reasons are byte-for-byte unchanged.
  *
  * A "fixture" is considered present when it resolves to a real path under ROOT
  * or is an inline description that does not name a missing file. Tasks carry
@@ -451,6 +477,7 @@ export function evaluateConsecutiveAlerts(state, { ok, date, runId }) {
 export function loadOnlineGapTasks({
   files = ONLINE_GAP_TASK_FILES,
   expectedIds = ONLINE_GAP_EXPECTED_IDS,
+  idSetLabel = 'N1–N9/J1–J6',
   root = ROOT,
   exists = (p) => fs.existsSync(p),
   read = (p) => JSON.parse(fs.readFileSync(p, 'utf8')),
@@ -474,7 +501,7 @@ export function loadOnlineGapTasks({
     for (const t of (doc?.tasks ?? [])) {
       const id = t?.id;
       if (!expectedSet.has(id)) {
-        skips.push({ id, file: rel, reason: 'SKIP: unknown task id (not in N1–N9/J1–J6)', kind: 'unknown-task' });
+        skips.push({ id, file: rel, reason: `SKIP: unknown task id (not in ${idSetLabel})`, kind: 'unknown-task' });
         continue;
       }
       if (seen.has(id)) {
@@ -691,11 +718,11 @@ function pickMetric(row, task, key, relevantIds) {
 }
 
 /** Deterministic report body for a profile run (no timestamp included). */
-export function renderOnlineGapReport(result) {
+export function renderOnlineGapReport(result, { title = 'L1 Online-Gap Wire Report', defaultProfile = ONLINE_GAP_PROFILE } = {}) {
   const lines = [
-    '# L1 Online-Gap Wire Report',
+    `# ${title}`,
     '',
-    `- Profile: \`${result.profile ?? ONLINE_GAP_PROFILE}\``,
+    `- Profile: \`${result.profile ?? defaultProfile}\``,
     `- Tasks: ${result.tasks ?? 0} loaded, ${result.skipped?.length ?? 0} SKIP`,
     `- Result: **${result.ok ? 'PASS' : 'FAIL'}**${result.allUnknown ? ' (no baseline: all metrics unknown)' : ''}`,
     `- Baseline: ${result.baselineSource ?? 'none (frozen file absent)'}`,
@@ -939,9 +966,22 @@ export function runOnlineGapProfile({
   write = (p, c) => fs.writeFileSync(p, c),
   mkdir = (p) => fs.mkdirSync(p, { recursive: true }),
   now = () => new Date().toISOString(),
+  // Optional overrides let the `feedback` profile reuse this machinery with
+  // independent paths/labels. Defaults keep online-gap byte-for-byte.
+  profile = ONLINE_GAP_PROFILE,
+  baselineFile = ONLINE_GAP_BASELINE_FILE,
+  resultJson = ONLINE_GAP_RESULT_JSON,
+  resultMd = ONLINE_GAP_RESULT_MD,
+  reportTitle = 'L1 Online-Gap Wire Report',
+  metricsSource = 'online-gap profile (fake/replay only; not a gateway quality measurement)',
+  // When provided, `taskCount` is stored on the result so the report's "loaded"
+  // line is accurate. Omitted by the online-gap profile to keep its output
+  // byte-for-byte unchanged (legacy quirk: that report shows 0 loaded).
+  taskCount = null,
 } = {}) {
   const loaded = tasks.map((t) => ({ id: t.id, fixtureHash: fixtureHashForTask(t) }));
   const metrics = computeOnlineGapMetrics(tasks, perTask);
+  metrics.source = metricsSource;
   const comparison = baseline
     ? compareOnlineGapCurrent({ perTask }, baseline, tasks)
     : { ok: false, checks: [], allUnknown: true };
@@ -950,13 +990,14 @@ export function runOnlineGapProfile({
   const ok = comparison.allUnknown ? true : comparison.ok;
   const result = {
     generatedAt: now(),
-    profile: ONLINE_GAP_PROFILE,
+    profile,
+    ...(taskCount === null ? {} : { tasks: taskCount }),
     mode: mode === 'fake' ? 'fake-dry-run' : mode,
     ok,
     allUnknown: comparison.allUnknown,
     loaded,
     skipped: skips,
-    baselineSource: baseline ? (baseline.source ?? ONLINE_GAP_BASELINE_FILE) : null,
+    baselineSource: baseline ? (baseline.source ?? baselineFile) : null,
     metrics,
     comparison,
     notes: [
@@ -964,37 +1005,76 @@ export function runOnlineGapProfile({
       'Baseline is read-only and keyed by task id + fixture hash; current results are stored separately.',
     ],
   };
-  const md = renderOnlineGapReport(result);
-  mkdir(path.dirname(ONLINE_GAP_RESULT_JSON));
-  write(ONLINE_GAP_RESULT_JSON, JSON.stringify(result, null, 2) + '\n');
-  write(ONLINE_GAP_RESULT_MD, md);
-  return { result, paths: { md: ONLINE_GAP_RESULT_MD, json: ONLINE_GAP_RESULT_JSON } };
+  const md = renderOnlineGapReport(result, { title: reportTitle, defaultProfile: profile });
+  mkdir(path.dirname(resultJson));
+  write(resultJson, JSON.stringify(result, null, 2) + '\n');
+  write(resultMd, md);
+  return { result, paths: { md: resultMd, json: resultJson } };
+}
+
+/**
+ * Thin wrapper: the `feedback` profile reuses loadOnlineGapTasks + the profile
+ * runner with its own ids, label and result files. No frozen baseline exists
+ * yet, so a fake run is a wiring PASS with all metrics unknown — never a
+ * gateway quality verdict. See docs/eval/L1-FEEDBACK-PROFILE.md.
+ */
+export function runFeedbackProfile({ mode = 'fake', tasks, skips = [], baseline = null, perTask = [], ...opts } = {}) {
+  return runOnlineGapProfile({
+    mode, tasks, skips, baseline, perTask,
+    profile: FEEDBACK_PROFILE,
+    baselineFile: FEEDBACK_BASELINE_FILE,
+    resultJson: FEEDBACK_RESULT_JSON,
+    resultMd: FEEDBACK_RESULT_MD,
+    reportTitle: 'L1 Feedback Wire Report',
+    metricsSource: 'feedback profile (fake/replay only; not a gateway quality measurement)',
+    taskCount: tasks.length,
+    ...opts,
+  });
 }
 
 function main() {
   const opts = parseArgs(process.argv.slice(2));
   const { mode, input, date } = opts;
 
-  // --- Optional additive profile: --profile online-gap ---
-  // Everything below this branch (down to the legacy code) is UNCHANGED when
-  // no --profile is supplied. The profile never mutates tasks-smoke.json, the
-  // G6 baseline, src/, or any workflow, and never writes the frozen baseline.
-  if (opts.profile === ONLINE_GAP_PROFILE) {
-    const { tasks, skips } = loadOnlineGapTasks();
-    const baseline = loadOnlineGapBaseline();
-    const { result } = runOnlineGapProfile({
+  // --- Optional additive profiles: --profile online-gap | feedback ---
+  // Everything below these branches (down to the legacy code) is UNCHANGED when
+  // no --profile is supplied. Profiles never mutate tasks-smoke.json, the G6
+  // baseline, src/, or any workflow, and never write a frozen baseline.
+  const PROFILES = {
+    [ONLINE_GAP_PROFILE]: {
+      load: () => loadOnlineGapTasks(),
+      baseline: () => loadOnlineGapBaseline(),
+      run: (args) => runOnlineGapProfile(args),
+      resultMd: ONLINE_GAP_RESULT_MD,
+    },
+    [FEEDBACK_PROFILE]: {
+      load: () => loadOnlineGapTasks({
+        files: FEEDBACK_TASK_FILES,
+        expectedIds: FEEDBACK_EXPECTED_IDS,
+        idSetLabel: FEEDBACK_ID_SET_LABEL,
+      }),
+      baseline: () => loadOnlineGapBaseline(FEEDBACK_BASELINE_FILE),
+      run: (args) => runFeedbackProfile(args),
+      resultMd: FEEDBACK_RESULT_MD,
+    },
+  };
+  if (opts.profile && PROFILES[opts.profile]) {
+    const cfg = PROFILES[opts.profile];
+    const { tasks, skips } = cfg.load();
+    const baseline = cfg.baseline();
+    const { result } = cfg.run({
       mode, tasks, skips, baseline,
       perTask: [], // fake/replay wiring only; real rows are supplied by a future runner
     });
-    console.log(`[l1-smoke] profile=${ONLINE_GAP_PROFILE}: ${result.ok ? 'PASS' : 'FAIL'}${result.allUnknown ? ' (no frozen baseline: all metrics unknown)' : ''} | loaded=${result.loaded.length} skipped=${result.skipped.length} baseline=${result.baselineSource ?? 'none'}`);
-    console.log(`[l1-smoke] report: ${path.relative(ROOT, ONLINE_GAP_RESULT_MD)}`);
+    console.log(`[l1-smoke] profile=${opts.profile}: ${result.ok ? 'PASS' : 'FAIL'}${result.allUnknown ? ' (no frozen baseline: all metrics unknown)' : ''} | loaded=${result.loaded.length} skipped=${result.skipped.length} baseline=${result.baselineSource ?? 'none'}`);
+    console.log(`[l1-smoke] report: ${path.relative(ROOT, cfg.resultMd)}`);
     for (const s of result.skipped) console.log(`[l1-smoke] ${s.reason} (${s.id ?? s.file})`);
     // Wiring check exit: 0 when nothing regressed. Unknown metrics are not a pass
     // on quality and are reported loudly; a regression (fail) exits 1.
     process.exit(result.ok ? 0 : 1);
   }
-  if (opts.profile && opts.profile !== ONLINE_GAP_PROFILE) {
-    console.error(`[l1-smoke] unknown profile: ${opts.profile} (only '${ONLINE_GAP_PROFILE}' is supported)`);
+  if (opts.profile) {
+    console.error(`[l1-smoke] unknown profile: ${opts.profile} (only '${ONLINE_GAP_PROFILE}' and '${FEEDBACK_PROFILE}' are supported)`);
     process.exit(2);
   }
   if (!VALID_MODES.has(mode)) {

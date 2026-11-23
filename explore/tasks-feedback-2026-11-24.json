@@ -1,0 +1,361 @@
+{
+  "generatedBy": "manual:feedback-eval-2026-11-24",
+  "source": "docs/eval/FEEDBACK-2026-11-24-MATRIX.md; docs/eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md; PR #80-#101 user-experience feedback",
+  "seed": "deterministic:feedback:fb1-fb10:v1",
+  "description": "Deterministic OFFLINE/半在线 regression task set that turns the PR #80-#101 real-use feedback into repeatable tasks. It does NOT modify tasks-smoke.json, tasks-online-gap.json (N1-N9), tasks-online-gap-2.json (J1-J6), src/, scripts/, tests/, README or workflows. Every task is fake/replay only: dryRun=true, forRealWrite=false, no network, no real credentials, no real writes. requestIds are unknown and are NEVER fabricated. Each task names tool-level truth (the exact expected MCP tool/args/result), a fixture, and assertion points. This is offline evidence only; it does not claim the live site is fixed and does not drive code/issue/PR/deploy decisions (AGENTS.md section 1). No commit/push/deploy.",
+  "count": 10,
+  "realWritesAllowed": false,
+  "defaults": {
+    "dryRun": true,
+    "forRealWrite": false,
+    "network": "fake/replay only",
+    "requestIds": "unknown",
+    "authorities": "schema-reverse | benchmark | official-verbatim",
+    "comparison": "same-task-same-build-paired; cross-build-hard-compare=forbidden",
+    "truncationSuspects": "advisory-only; never a verdict or an input to pass/fail"
+  },
+  "provenance": {
+    "feedbackWindow": "PR #80 -> PR #101 (2026-11-24), project github:Bruce-Yii/recruitment-agent",
+    "passiveScorecard": "docs/eval/scorecard-2026-11-23.md (20 requests / 10 tool calls / 9 model truncation suspects / 3 errors / p95 5153ms; clientPlatform unknown; 00:43-03:24Z)",
+    "twentyCountPolicy": "known per-execution/client tool-call cap (~20 per turn, Gemini web), NOT an R2 list pagination bug and NOT a capture-denominator bug. Sample is too small for quantitative conclusions.",
+    "truncationPolicy": "model truncation suspect is advisory only; may be model-side slice(), never treated as a gateway fact"
+  },
+  "tasks": [
+    {
+      "id": "FB1",
+      "name": "issue-create-no-duplicate-number",
+      "feedbackTheme": "建 Issue 返回 number 空/索引延迟/重复（如重复 #90）",
+      "server": "github",
+      "tool": "create_issue",
+      "category": "derived",
+      "prompt": "With a fake upstream, create one issue using a stable idempotency key and assert the tool-level truth: exactly ONE issue exists afterward (no duplicate even if the create is retried with the same key), and the normalized result carries a standard shape {number, id, url, state} with number taken from the issue URL (/issues/(\\d+)), never from id/nodeId. Simulate a post-create index delay: a first read-back briefly returns null, and a bounded short recheck then resolves the number; assert the caller observes the real number and not an empty one. Do NOT write to a real repo: dryRun=true, forRealWrite=false.",
+      "source": "docs/eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md OF-1; matrix FB1",
+      "authority": "schema-reverse",
+      "expectedTools": ["github__create_issue", "github__get_issue"],
+      "expectedOps": ["normalizeIssueResult", "assertNumberFromUrl", "assertSingleCreateWithIdempotencyKey", "assertBoundedRecheck"],
+      "toolLevelTruth": {
+        "call": "create_issue exactly once per idempotency key; get_issue recheck is read-only and bounded",
+        "result": "{number:90, id:'<string>', url:'https://github.com/o/r/issues/90', state:'open'}",
+        "invariants": ["number from URL, not id", "duplicate create suppressed", "empty number never returned as success"]
+      },
+      "fixture": {
+        "name": "issue-create-with-index-delay",
+        "shape": "fake create returns {id:'I_kwDO...', node_id:'...', html_url:'https://github.com/o/r/issues/90', number:null} then a delayed fake get returns {number:90,...}",
+        "requestIds": "unknown"
+      },
+      "assertionPoints": [
+        "issueCreateCount === 1 after two creates with the same idempotency key",
+        "normalized.number === 90 from URL",
+        "normalized.id is string, never adopted as number",
+        "no empty/null number surfaced as a successful result"
+      ],
+      "gapCodes": ["G1", "G3", "G6"],
+      "coverageAxis": "issue-idempotency-and-number",
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": ["fake upstream create/get only", "no real token, no network, no real write", "requestIds unknown"]
+    },
+    {
+      "id": "FB2",
+      "name": "pr-number-url-first",
+      "feedbackTheme": "建 PR number 偶发内部 ID（PR number 失真）",
+      "server": "github",
+      "tool": "pull_request_read",
+      "category": "derived",
+      "prompt": "Using the canonical real-shape PR fixture where id and number deliberately disagree, call github__pull_request_read and assert tool-level truth: normalized number is derived from the PR URL (/pull/(\\d+)), id is preserved as a string only and NEVER adopted as number. A subsequent fake merge must target the URL-derived number and not the internal id. dryRun=true, forRealWrite=false: no real merge.",
+      "source": "docs/eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md F2/OF; matrix FB2; complements N3/J2",
+      "authority": "schema-reverse",
+      "expectedTools": ["github__pull_request_read", "github__merge_pull_request"],
+      "expectedOps": ["normalizePrResult", "assertNumberFromUrl", "assertIdNotAdoptedAsNumber"],
+      "toolLevelTruth": {
+        "call": "pull_request_read on real-shape fixture; fake merge uses returned number",
+        "result": "{number:53, id:'5444514334', url:'https://api.github.com/repos/o/r/pulls/53'}",
+        "invariants": ["number === 53 from URL", "number !== Number(id)", "id string-only"]
+      },
+      "fixture": {
+        "name": "PR_REAL",
+        "shape": "{id:5444514334, html_url:'https://api.github.com/repos/o/r/pulls/53', number:999 (deliberately disagreeing)}",
+        "requestIds": "unknown"
+      },
+      "assertionPoints": [
+        "number === 53 (URL-derived)",
+        "id === '5444514334' string, number !== Number(id)",
+        "fake merge target === 53, not 999"
+      ],
+      "gapCodes": ["G1", "G2", "G6"],
+      "coverageAxis": "pr-number-url-first",
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": ["PR_REAL fixture", "no real token, no network, no real merge", "requestIds unknown"]
+    },
+    {
+      "id": "FB3",
+      "name": "file-content-notice-separated",
+      "feedbackTheme": "文件正文混入 successfully downloaded text file (SHA: ...) 注释，写回污染",
+      "server": "github",
+      "tool": "get_file_contents",
+      "category": "derived",
+      "prompt": "With a fake upstream returning the canonical GitHub shape {text: notice+body, resources:[{text:body}]}, call github__get_file_contents and assert tool-level truth: normalized content equals the body byte-for-byte (CJK + trailing newline), does NOT start with 'successfully downloaded', and sha is extracted from the notice into separate metadata. Then perform a fake patch + readback and assert no notice leaks into written bytes. dryRun=true, forRealWrite=false.",
+      "source": "docs/eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md F1/OF-2; matrix FB3; complements N1/J1",
+      "authority": "schema-reverse",
+      "expectedTools": ["github__get_file_contents", "github__create_or_update_file"],
+      "expectedOps": ["normalizeFileResult", "assertNoticeStripped", "assertShaFromNotice", "readbackByteEq"],
+      "toolLevelTruth": {
+        "call": "get_file_contents (read), fake create_or_update_file (write)",
+        "result": "content === body; metadata.sha === SHA from notice; no notice in content",
+        "invariants": ["byte-exact body", "notice only in metadata", "sha from notice"]
+      },
+      "fixture": {
+        "name": "RAW_notice_plus_body",
+        "shape": "{text:'successfully downloaded text file (SHA: <hex>)\\n'+body, resources:[{text:body}]}",
+        "requestIds": "unknown"
+      },
+      "assertionPoints": [
+        "normalizeFileResult(RAW).content === body byte-for-byte",
+        "content.startsWith('successfully downloaded') === false",
+        "metadata.sha === notice SHA",
+        "readback === intendedBody with zero notice bytes"
+      ],
+      "gapCodes": ["G1", "G2", "G6"],
+      "coverageAxis": "content-notice-separation",
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": ["RAW fixture with CJK + trailing newline", "no real token, no network, no real write", "requestIds unknown"]
+    },
+    {
+      "id": "FB4",
+      "name": "batch-unwrap-uniform-depth",
+      "feedbackTheme": "批处理多包一层 {ok,value}，解包层级不一致",
+      "server": "github",
+      "tool": "execute_read",
+      "category": "boundary",
+      "prompt": "With a fake upstream, issue one concurrent batch whose slots return three shapes in one batch: a bare value, {ok:true,value}, and a gateway envelope. Assert tool-level truth: after the unified unwrap/safeAll helper every successful slot resolves at the SAME depth to the same final value shape, a failing slot is consistently {ok:false,value} at the same depth, and the caller never branches on wrapper kind. dryRun=true, forRealWrite=false, no network.",
+      "source": "docs/eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md F3/OF-10; matrix FB4; complements J3",
+      "authority": "schema-reverse",
+      "expectedTools": ["search", "execute_read"],
+      "expectedOps": ["safeAll", "unwrap", "assertUniformUnwrapDepth", "assertFailureSlotShape"],
+      "toolLevelTruth": {
+        "call": "single batch of 3 concurrent fake reads",
+        "result": "all success slots resolve to identical final value; failure slot = {ok:false,value}",
+        "invariants": ["uniform unwrap depth", "consistent failure slot", "no caller branching"]
+      },
+      "fixture": {
+        "name": "mixed-wrapper-batch",
+        "shape": "[bareValue, {ok:true,value}, {envelope:{value}}] plus one failing slot",
+        "requestIds": "unknown"
+      },
+      "assertionPoints": [
+        "wrapperUnwrapDepthConsistent === true",
+        "failureSlotShapeOk === true",
+        "final values byte/struct equal across success slots"
+      ],
+      "gapCodes": ["G3", "G6"],
+      "coverageAxis": "batch-wrapper-contract",
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": ["fake mixed-wrapper batch", "needs-repro: record exact fixture if inconsistent; no assumption of fixed", "no real token, no network"]
+    },
+    {
+      "id": "FB5",
+      "name": "ts-presubmit-check",
+      "feedbackTheme": "多文件改写无 TS/正则转义预检，push 后 tsc 报错",
+      "server": "github",
+      "tool": "push_files",
+      "category": "write",
+      "prompt": "With a fake upstream, prepare a multi-file edit where one TSX file contains an invalid TypeScript construct (unbalanced brace) and another contains an unescaped regex. Assert tool-level truth: a TS/TSX syntax precheck runs BEFORE the push, returns a structured error naming path+line for the invalid file, and the push is aborted with zero bytes written. A clean edit passes precheck and commits atomically. dryRun=true, forRealWrite=false.",
+      "source": "docs/eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md OF-4; matrix FB5",
+      "authority": "schema-reverse",
+      "expectedTools": ["github__get_file_contents", "github__push_files"],
+      "expectedOps": ["precheckTsSyntax", "precheckRegexEscape", "assertPushAbortedOnPrecheckFail", "assertZeroBytesWritten"],
+      "toolLevelTruth": {
+        "call": "precheck then conditional push_files",
+        "result": "invalid edit -> {ok:false, error:{path,line,kind}} with no push; valid edit -> single atomic push",
+        "invariants": ["syntax/precheck before write", "failure blocks push", "error is structured and actionable"]
+      },
+      "fixture": {
+        "name": "tsx-invalid-brace-and-regex",
+        "shape": "two-file edit: file A unbalanced brace, file B unescaped regex in a string literal",
+        "requestIds": "unknown"
+      },
+      "assertionPoints": [
+        "precheckError.path and .line identify the invalid file",
+        "pushCallCount === 0 on precheck failure",
+        "writtenBytes === 0 on failure",
+        "clean edit commits in one push_files call"
+      ],
+      "gapCodes": ["G1", "G3", "G6"],
+      "coverageAxis": "ts-presubmit-precheck",
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": ["fake TSX/regex fixtures", "no real token, no network, no real write", "requestIds unknown"]
+    },
+    {
+      "id": "FB6",
+      "name": "patch-edit-first-class",
+      "feedbackTheme": "缺补丁式局部修改，只能整文件 replace",
+      "server": "github",
+      "tool": "create_or_update_file",
+      "category": "write",
+      "prompt": "With a fake upstream, apply a patch-style edit {path, edits:[{oldText,newText}]} to a file. Assert tool-level truth: each oldText matches EXACTLY one location (unique-hit validation), the patch applies only the intended lines, and the result commits atomically with a readback that equals the intended body byte-for-byte. A multi-match or zero-match oldText must be rejected with a structured error before any write. dryRun=true, forRealWrite=false.",
+      "source": "docs/eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md OF-6; matrix FB6; complements N1/N9",
+      "authority": "schema-reverse",
+      "expectedTools": ["github__get_file_contents", "github__create_or_update_file"],
+      "expectedOps": ["applyFilePatch", "assertUniqueHit", "assertAtomicCommit", "assertPostConditionByteEq"],
+      "toolLevelTruth": {
+        "call": "get_file_contents then create_or_update_file with patch edits",
+        "result": "readback === intendedBody; non-unique hit -> structured rejection, zero writes",
+        "invariants": ["unique hit required", "patch applies only intended lines", "atomic commit + readback"]
+      },
+      "fixture": {
+        "name": "patch-unique-hit",
+        "shape": "body with one occurrence of oldText; plus a negative fixture with two/zero occurrences",
+        "requestIds": "unknown"
+      },
+      "assertionPoints": [
+        "each edit oldText hitCount === 1",
+        "readback === intendedBody byte-for-byte",
+        "multi/zero-match -> {ok:false, reason:'non-unique-hit'}, writtenBytes === 0"
+      ],
+      "gapCodes": ["G1", "G3", "G6"],
+      "coverageAxis": "patch-edit-contract",
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": ["fake patch fixtures incl. multi/zero-match", "no real token, no network, no real write", "requestIds unknown"]
+    },
+    {
+      "id": "FB7",
+      "name": "truncation-structured-metadata",
+      "feedbackTheme": "大返回整块截断、切掉关键字段（截断嫌疑=advisory）",
+      "server": "github",
+      "tool": "get_file_contents",
+      "category": "boundary",
+      "prompt": "With a fake upstream, read an oversized body whose LAST lines contain a key field. Assert tool-level truth: when truncation occurs it carries explicit metadata {truncated:true, limit, original, tail, next} and the trailing key field is either retained or explicitly reported as omitted — never silently hard-cut. A truncated read is a hard stop: no patch/write is attempted. The passive 'model truncation suspect' signal is advisory-only and is NEVER an input to this task's pass/fail. dryRun=true, forRealWrite=false.",
+      "source": "docs/eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md F4/OF-7; matrix FB7; complements J4",
+      "authority": "schema-reverse",
+      "expectedTools": ["github__get_file_contents"],
+      "expectedOps": ["assertTruncationMetadata", "assertTailKeyFieldAccountedFor", "hardStopBeforeWrite", "ignoreAdvisorySuspectForVerdict"],
+      "toolLevelTruth": {
+        "call": "get_file_contents on oversized fake body",
+        "result": "structured truncation metadata present; tail key field accounted for",
+        "invariants": ["no silent truncation", "no write on truncated read", "advisory suspect excluded from verdict"]
+      },
+      "fixture": {
+        "name": "oversized-body-with-tail-key",
+        "shape": "large fake body ending with 'summary: OK' above response cap",
+        "requestIds": "unknown"
+      },
+      "assertionPoints": [
+        "truncated === true with limit/original/tail/next fields present",
+        "tailKeyFieldAccountedFor === true",
+        "writeCallCount === 0 on truncated read",
+        "advisory model-truncation-suspect count does not change verdict"
+      ],
+      "gapCodes": ["G3", "G5", "G6"],
+      "coverageAxis": "truncation-structured-metadata",
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": ["oversized fake body fixture", "advisory-only suspect policy", "no real token, no network"]
+    },
+    {
+      "id": "FB8",
+      "name": "ci-rerun-and-wait",
+      "feedbackTheme": "等 CI 只能反复轮询；不能 rerun failed jobs",
+      "server": "github",
+      "tool": "pull_request_read",
+      "category": "boundary",
+      "prompt": "With a fake CI status sequence (pending -> ... -> completed) and a failed job, assert tool-level truth: ONE wait call returns the terminal check result (ciWaitRounds === 1), and a rerun-failed-jobs action dispatches exactly one rerun for the failed job id and returns the new run id. A fake 302 log URL must not forward a token and an oversized log must be flagged truncated. If no wait/rerun helper exists in the checkout, record missing-capability as unknown — never a vacuous pass or a gateway failure. dryRun=true, forRealWrite=false, no real CI run.",
+      "source": "docs/eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md OF-5; matrix FB8; complements J6/N5",
+      "authority": "schema-reverse",
+      "expectedTools": ["github__pull_request_read", "github__get_commit"],
+      "expectedOps": ["waitForChecksOrEquivalent", "rerunFailedJobsOrEquivalent", "assertSingleWaitToTerminal", "assertNoTokenForwardedOn302", "recordMissingCapabilityAsUnknown"],
+      "toolLevelTruth": {
+        "call": "one wait + one rerun dispatch on fake CI",
+        "result": "terminal status returned; failed job rerun once with new run id",
+        "invariants": ["single wait to terminal", "one rerun per failed job", "302 no token, oversize flagged"]
+      },
+      "fixture": {
+        "name": "fake-ci-pending-completed-with-failed-job",
+        "shape": "status sequence pending->completed, one failed job id, log with 302 URL + oversized body",
+        "requestIds": "unknown"
+      },
+      "assertionPoints": [
+        "ciWaitRounds === 1 (or unknown with explicit missing-capability reason)",
+        "rerunDispatchCount === 1 for the failed job id",
+        "no token forwarded on 302",
+        "oversized log flagged truncated"
+      ],
+      "gapCodes": ["G3", "G6"],
+      "coverageAxis": "ci-wait-and-rerun",
+      "dryRun": true,
+      "forRealWrite": false,
+      "skipReason": "If no waitForPrChecks/rerunFailedJobs equivalent exists in checkout, record unknown/missing-capability with searched names; not a gateway failure.",
+      "preconditions": ["fake CI status sequence + failed job + log fixture", "no real token, no network, no real CI run", "requestIds unknown"]
+    },
+    {
+      "id": "FB9",
+      "name": "delete-rename-atomic",
+      "feedbackTheme": "重命名要两次 commit（delete+add 非原子）",
+      "server": "github",
+      "tool": "push_files",
+      "category": "write",
+      "prompt": "With a fake upstream, rename a file and delete another in one multi-file operation. Assert tool-level truth: delete+add (rename) and a standalone delete are expressed as operations in a SINGLE atomic push_files commit, producing one commit sha; a mid-operation failure writes zero bytes (no half-rename). On failure the result carries partial/written/remaining/compensation fields. dryRun=true, forRealWrite=false.",
+      "source": "docs/eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md OF-8; matrix FB9",
+      "authority": "schema-reverse",
+      "expectedTools": ["github__push_files"],
+      "expectedOps": ["assertSingleCommitForRename", "assertZeroBytesOnFailure", "assertPartialCompensationFields"],
+      "toolLevelTruth": {
+        "call": "one push_files with delete+add ops",
+        "result": "one commit sha; failure yields no partial rename with compensation metadata",
+        "invariants": ["rename in single commit", "atomic failure", "partial/written/remaining/compensation present on failure"]
+      },
+      "fixture": {
+        "name": "rename-and-delete-ops",
+        "shape": "ops:[{delete:'old.ts'},{add:'new.ts',content}, {delete:'obsolete.ts'}] plus failure-injection variant",
+        "requestIds": "unknown"
+      },
+      "assertionPoints": [
+        "commitCount === 1 for the rename operation",
+        "writtenBytes === 0 on injected failure",
+        "result.partial/written/remaining/compensation present on failure"
+      ],
+      "gapCodes": ["G1", "G3", "G6"],
+      "coverageAxis": "delete-rename-atomic",
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": ["fake delete/add ops + failure injection", "no real token, no network, no real write", "requestIds unknown"]
+    },
+    {
+      "id": "FB10",
+      "name": "branch-cleanup-after-merge",
+      "feedbackTheme": "合并后不自动删源分支（branch cleanup）",
+      "server": "github",
+      "tool": "merge_pull_request",
+      "category": "write",
+      "prompt": "With a fake upstream, merge a PR from a source branch and assert tool-level truth: when cleanup is requested the source branch is deleted exactly once after a successful merge, and the delete targets the URL-derived PR number/head ref (not an internal id). A failed merge must NOT delete the branch. dryRun=true, forRealWrite=false: no real merge/delete.",
+      "source": "docs/eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md OF-9; matrix FB10",
+      "authority": "schema-reverse",
+      "expectedTools": ["github__merge_pull_request", "github__delete_branch"],
+      "expectedOps": ["assertDeleteAfterSuccessfulMerge", "assertDeleteOnce", "assertNoDeleteOnFailedMerge", "assertHeadRefFromUrl"],
+      "toolLevelTruth": {
+        "call": "merge then conditional delete_branch (fake)",
+        "result": "branch deleted once on success; zero deletes on failure",
+        "invariants": ["delete only after success", "exactly one delete", "head ref from canonical PR"]
+      },
+      "fixture": {
+        "name": "merge-with-source-branch",
+        "shape": "fake PR {number:53, head:{ref:'feat/x'}} plus success and failure merge variants",
+        "requestIds": "unknown"
+      },
+      "assertionPoints": [
+        "deleteBranchCallCount === 1 on successful merge",
+        "deleteBranchCallCount === 0 on failed merge",
+        "deleted ref === 'feat/x' from canonical PR, not an internal id"
+      ],
+      "gapCodes": ["G1", "G3", "G6"],
+      "coverageAxis": "branch-cleanup-after-merge",
+      "dryRun": true,
+      "forRealWrite": false,
+      "preconditions": ["fake merge/delete fixtures", "no real token, no network, no real merge/delete", "requestIds unknown"]
+    }
+  ]
+}

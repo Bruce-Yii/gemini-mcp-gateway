@@ -918,6 +918,532 @@ export async function waitForPrChecks({
   }
 }
 
+// ---------------------------------------------------------------------------
+// Batch 17 · PR #80–#101 feedback: Issue creation / CI rerun / branch cleanup
+// / multi-file delete+rename. All helpers are pure orchestration: every side
+// effect goes through an injected callable, nothing here touches the network.
+// ---------------------------------------------------------------------------
+
+/**
+ * Batch 17 · unified batch unwrapping (host twin of codemode.unwrapBatch).
+ *
+ * Every input shape produces the SAME flat array of `{ok,value}` slots:
+ *   - a bare value                  -> [{ok:true, value}]
+ *   - a JSON string of an array     -> slots for each element
+ *   - an array (including nested)   -> flattened slots
+ *   - an `{ok,value}` slot          -> preserved as-is (never double-wrapped)
+ *   - an upstream envelope          -> one slot for its inner value
+ * Never throws, never leaves an extra `{ok,value}` layer for the caller to
+ * peel by hand. This is the single host-side contract; the guest prelude
+ * mirrors it so host and sandbox callers see identical shapes.
+ */
+export function unwrapBatch(input) {
+  let value = input;
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value);
+    } catch (_) {
+      return [{ ok: true, value: input }];
+    }
+  }
+  const out = [];
+  const push = (item) => {
+    if (Array.isArray(item)) {
+      for (const sub of item) push(sub);
+      return;
+    }
+    if (item && typeof item === 'object' && !Array.isArray(item)
+        && typeof item.ok === 'boolean' && 'value' in item) {
+      out.push({ ok: item.ok, value: item.value });
+      return;
+    }
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const keys = Object.keys(item);
+      if (keys.length === 1 && (keys[0] === 'result' || keys[0] === 'value')) {
+        push(item[keys[0]]);
+        return;
+      }
+    }
+    out.push({ ok: true, value: item });
+  };
+  if (value === null || value === undefined) return [];
+  push(value);
+  return out;
+}
+
+/** Stable error code returned when a required upstream tool is not injected. */
+export const UNSUPPORTED_UPSTREAM_TOOL = 'UNSUPPORTED_UPSTREAM_TOOL';
+
+/**
+ * Names of GitHub MCP issue tools, in resolution order. The upstream naming
+ * drifted across versions (create_issue / issues_create / issue_write with an
+ * `action:"create"` argument). We resolve the FIRST callable actually present
+ * on the injected `callables` object instead of hard-coding one spelling.
+ */
+const ISSUE_CREATE_TOOL_NAMES = [
+  'github__create_issue', 'github__issues_create', 'github__issue_write',
+  'create_issue', 'issues_create', 'issue_write',
+];
+const ISSUE_LIST_TOOL_NAMES = [
+  'github__list_issues', 'github__issues_list', 'github__search_issues',
+  'list_issues', 'issues_list', 'search_issues',
+];
+const ISSUE_GET_TOOL_NAMES = [
+  'github__get_issue', 'github__issues_get', 'get_issue', 'issues_get',
+];
+
+/** Resolve a callable by exact tool name, then by bare-name suffix. */
+function resolveCallable(callables, names) {
+  if (!callables || typeof callables !== 'object') return null;
+  for (const name of names) {
+    if (typeof callables[name] === 'function') return { name, fn: callables[name] };
+  }
+  // Fallback: accept any key whose bare tool name matches (server prefix may
+  // differ from `github__`). Keeps actual GitHub naming differences usable.
+  const bare = names.map((n) => n.includes('__') ? n.slice(n.indexOf('__') + 2) : n);
+  for (const [key, fn] of Object.entries(callables)) {
+    if (typeof fn !== 'function') continue;
+    const short = key.includes('__') ? key.slice(key.indexOf('__') + 2) : key;
+    if (bare.includes(short)) return { name: key, fn };
+  }
+  return null;
+}
+
+/** Extract a PR/Issue number from ANY URL found in a value (URL-first rule). */
+function numberFromAnyUrl(value) {
+  if (typeof value === 'string') {
+    const m = /\/pulls?\/(\d+)(?:\/|$|\?|#)|\/issues\/(\d+)(?:\/|$|\?|#)/.exec(value);
+    return m ? Number(m[1] ?? m[2]) : null;
+  }
+  if (!value || typeof value !== 'object') return null;
+  const seen = new Set();
+  const walk = (v, depth) => {
+    if (v === null || typeof v !== 'object' || depth > 4 || seen.has(v)) return null;
+    seen.add(v);
+    if (Array.isArray(v)) {
+      for (const item of v) {
+        const n = walk(item, depth + 1);
+        if (n !== null) return n;
+      }
+      return null;
+    }
+    for (const key of ['html_url', 'url', 'web_url', 'api_url']) {
+      if (typeof v[key] === 'string') {
+        const n = numberFromAnyUrl(v[key]);
+        if (n !== null) return n;
+      }
+    }
+    for (const key of Object.keys(v)) {
+      if (['raw', 'result'].includes(key)) continue;
+      const n = walk(v[key], depth + 1);
+      if (n !== null) return n;
+    }
+    return null;
+  };
+  return walk(value, 0);
+}
+
+/** Canonical `{number,id,url,state,title}` view for create/fetch Issue results. */
+export function canonicalIssue(value) {
+  const v = unwrapResultPayload(value);
+  const root = v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  const urlRaw = firstDefined(root, ['html_url', 'url', 'web_url', 'api_url']);
+  let number = numberFromAnyUrl(v);
+  if (number === null) {
+    number = toFiniteNumber(firstDefined(root, ['number', 'issueNumber', 'issue_number', 'prNumber', 'pr_number']));
+  }
+  // `id` / `node_id` are database identifiers, NEVER a number fallback.
+  const idRaw = firstDefined(root, ['id', 'node_id', 'nodeId']);
+  const stateRaw = firstDefined(root, ['state']);
+  const titleRaw = firstDefined(root, ['title']);
+  const out = {
+    number,
+    id: idRaw !== undefined && idRaw !== null ? String(idRaw) : null,
+    url: urlRaw !== undefined && urlRaw !== null ? String(urlRaw) : null,
+    state: stateRaw !== undefined && stateRaw !== null ? String(stateRaw) : null,
+    title: titleRaw !== undefined && titleRaw !== null ? String(titleRaw) : null,
+    raw: value,
+  };
+  Object.defineProperty(out, 'rawUntrusted', {
+    value: UNTRUSTED_RAW_MARKER, enumerable: false, configurable: true, writable: true,
+  });
+  return out;
+}
+
+/**
+ * Create an Issue idempotently: dedupe by repo+title/body BEFORE creating,
+ * then SHORT-POLL the list/get tool after creation until the number appears
+ * (the list index is eventually consistent — the #90 duplicate root cause).
+ *
+ * - `number` is ALWAYS derived from a URL or an explicit `number` field; an
+ *   internal `id` is exposed only as `id` and NEVER used as `number`.
+ * - Repeat calls with the same repo/title/body reuse the existing issue and
+ *   report `created:false` (idempotent), with no second upstream create.
+ * - All I/O goes through injected callables: `opts.callables` maps tool names
+ *   to functions, and optional `opts.tools` (descriptors) is only used for
+ *   discovery hints. No network, no token, no hard-coded upstream tool name.
+ *
+ * @param {object}   opts
+ * @param {object}   opts.callables         { '<toolName>': fn(args)=>issue }
+ * @param {string}   opts.owner
+ * @param {string}   opts.repo
+ * @param {string}   opts.title
+ * @param {string}   [opts.body]
+ * @param {object}   [opts.tools]           optional descriptors (discovery)
+ * @param {object}   [opts.listArgs]        extra args merged into list calls
+ * @param {object}   [opts.createArgs]      extra args merged into create calls
+ * @param {number}   [opts.maxPolls=5]      short-poll budget after creation
+ * @param {Function} [opts.sleep]           injected timer (fake in tests)
+ * @returns {Promise<{created:boolean,reused:boolean,issue:CanonicalIssue,
+ *   polls:number,foundAfterCreate:boolean,rawUntrusted?:string}>}
+ */
+export async function createIssue({
+  callables,
+  owner,
+  repo,
+  title,
+  body,
+  tools,
+  listArgs,
+  createArgs,
+  maxPolls = 5,
+  sleep,
+} = {}) {
+  if (typeof owner !== 'string' || !owner || typeof repo !== 'string' || !repo) {
+    throw new TypeError('createIssue: owner and repo are required');
+  }
+  if (typeof title !== 'string' || !title) {
+    throw new TypeError('createIssue: title is required');
+  }
+  const createTool = resolveCallable(callables, ISSUE_CREATE_TOOL_NAMES);
+  if (!createTool) {
+    return {
+      ok: false,
+      error: 'createIssue: no issue-create tool available in callables',
+      code: UNSUPPORTED_UPSTREAM_TOOL,
+      created: false,
+      reused: false,
+      polls: 0,
+      foundAfterCreate: false,
+    };
+  }
+  const listTool = resolveCallable(callables, ISSUE_LIST_TOOL_NAMES);
+  const getTool = resolveCallable(callables, ISSUE_GET_TOOL_NAMES);
+  const pollsCap = Math.max(1, Math.min(Math.floor(Number(maxPolls) || 0) || 5, 20));
+  const doSleep = typeof sleep === 'function' ? sleep : (ms) => sleepMs(ms);
+  const baseArgs = { owner, repo, ...(listArgs && typeof listArgs === 'object' ? listArgs : {}) };
+
+  // 1) PRE-CHECK: dedupe before creating. A list tool may be absent; in that
+  // case we cannot dedupe — we still create (never silently pretend to dedupe).
+  const normalizedTitle = String(title).trim().toLowerCase();
+  const normalizedBody = body === undefined || body === null ? '' : String(body).trim().toLowerCase();
+  const matches = (issue) => {
+    const c = canonicalIssue(issue);
+    return c.title !== null && c.title.trim().toLowerCase() === normalizedTitle
+      && (normalizedBody === '' || String(c.raw?.body ?? '').trim().toLowerCase() === normalizedBody);
+  };
+  if (listTool) {
+    let listed = [];
+    try {
+      listed = toArray(await listTool.fn({ ...baseArgs, state: 'all' }));
+    } catch (_) {
+      // A failed pre-check must not become a duplicate create: fail closed
+      // with an explicit error instead of guessing that no issue exists.
+      return {
+        ok: false,
+        error: 'createIssue: issue list (dedupe pre-check) failed; refusing to create blindly',
+        code: 'DEDUPE_PRECHECK_FAILED',
+        created: false,
+        reused: false,
+        polls: 0,
+        foundAfterCreate: false,
+      };
+    }
+    const existing = listed.find(matches);
+    if (existing) {
+      const issue = canonicalIssue(existing);
+      return { ok: true, created: false, reused: true, issue, polls: 0, foundAfterCreate: false };
+    }
+  }
+
+  // 2) CREATE with the resolved tool. issue_write needs an explicit action.
+  const createPayload = {
+    owner,
+    repo,
+    title,
+    ...(body !== undefined && body !== null ? { body } : {}),
+    ...(createTool.name.endsWith('issue_write') ? { action: 'create' } : {}),
+    ...(createArgs && typeof createArgs === 'object' ? createArgs : {}),
+  };
+  const created = await createTool.fn(createPayload);
+  let issue = canonicalIssue(created);
+
+  // 3) SHORT-POLL after create: the list index is eventually consistent, so
+  // the create response may carry only an internal id and no number/URL yet.
+  // Re-read until a real number appears. The create response has no number,
+  // so list-by-title/body is the ONLY reliable lookup — never pass an internal
+  // id as `issue_number` to get_issue (that would 404 and waste the budget).
+  // `getTool` is used only when an explicit number is somehow available.
+  let polls = 0;
+  let foundAfterCreate = false;
+  const hasNumber = (v) => canonicalIssue(v).number !== null;
+  const knownNumber = toFiniteNumber(firstDefined(
+    unwrapResultPayload(created) && typeof unwrapResultPayload(created) === 'object' ? unwrapResultPayload(created) : {},
+    ['number', 'issue_number', 'issueNumber'],
+  ));
+  if (!hasNumber(created) && (getTool || listTool)) {
+    for (let i = 0; i < pollsCap; i += 1) {
+      polls += 1;
+      await doSleep(Math.min(200 * (i + 1), 1000));
+      try {
+        let read;
+        if (listTool) {
+          read = toArray(await listTool.fn({ ...baseArgs, state: 'all' })).find(matches);
+        } else if (getTool && knownNumber !== null) {
+          read = await getTool.fn({ owner, repo, issue_number: knownNumber, ...(baseArgs || {}) });
+        }
+        if (read && hasNumber(read)) {
+          issue = canonicalIssue(read);
+          foundAfterCreate = true;
+          break;
+        }
+      } catch (_) {
+        // Transient read failure: keep polling within the budget, never
+        // fabricate a number from an internal id.
+      }
+    }
+  }
+
+  // 4) Final safety: if a number was found during polling but the create
+  // response had a WRONG explicit number, the polled value wins (URL-first).
+  return {
+    ok: true,
+    created: true,
+    reused: false,
+    issue,
+    polls,
+    foundAfterCreate,
+    ...(issue.number === null ? { numberMissing: true } : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Batch 17 · CI rerun: only call an injected upstream tool; never fake success
+// ---------------------------------------------------------------------------
+
+const RERUN_TOOL_NAMES = [
+  'github__rerun_failed_jobs', 'github__rerun_workflow', 'github__run_workflow',
+  'rerun_failed_jobs', 'rerun_workflow', 'run_workflow',
+];
+
+/**
+ * Rerun failed CI jobs for a workflow run.
+ *
+ * Returns a stable `{ok, ...}` result. When NO rerun tool is injected, the
+ * result is `{ok:false, code:'UNSUPPORTED_UPSTREAM_TOOL'}` — there is NO silent
+ * fake success. We do not assume the gateway has REST/token access here; the
+ * tool must be supplied by the caller.
+ *
+ * @param {object} opts
+ * @param {object} opts.callables       injected tool map
+ * @param {string} opts.owner
+ * @param {string} opts.repo
+ * @param {string|number} opts.runId    workflow run id (or job id with jobId)
+ * @param {object} [opts.extraArgs]     passed through to the upstream tool
+ */
+export async function rerunFailedJobs({ callables, owner, repo, runId, extraArgs } = {}) {
+  const tool = resolveCallable(callables, RERUN_TOOL_NAMES);
+  if (!tool) {
+    return {
+      ok: false,
+      code: UNSUPPORTED_UPSTREAM_TOOL,
+      error: 'rerunFailedJobs: no upstream rerun tool is available in this session (github__rerun_failed_jobs / run_workflow); not performing a fake rerun',
+      rerun: false,
+    };
+  }
+  if (typeof owner !== 'string' || !owner || typeof repo !== 'string' || !repo) {
+    throw new TypeError('rerunFailedJobs: owner and repo are required');
+  }
+  if (runId === undefined || runId === null || runId === '') {
+    throw new TypeError('rerunFailedJobs: runId is required');
+  }
+  const args = {
+    owner,
+    repo,
+    ...(String(tool.name).includes('rerun_failed') ? { run_id: runId } : { run_id: runId, workflow_id: runId }),
+    ...(extraArgs && typeof extraArgs === 'object' ? extraArgs : {}),
+  };
+  const raw = await tool.fn(args);
+  return { ok: true, code: null, rerun: true, tool: tool.name, result: raw, raw };
+}
+
+// ---------------------------------------------------------------------------
+// Batch 17 · merge with optional source-branch deletion (opt-in only)
+// ---------------------------------------------------------------------------
+
+/**
+ * Merge a PR and, ONLY when `deleteBranch:true`, delete the source branch via
+ * an injected delete callback. Deletion is never the default: the feedback
+ * asks for an option, not a behaviour change. A failed delete is reported
+ * honestly (`branchDeleted:false`, `deleteError`), never swallowed.
+ */
+export async function mergePrWithOptionalBranchDelete({
+  merge,
+  deleteBranchTool,
+  owner,
+  repo,
+  pullNumber,
+  head,
+  deleteBranch,
+  mergeArgs,
+  deleteArgs,
+} = {}) {
+  requireFn(merge, 'merge');
+  const number = toFiniteNumber(pullNumber);
+  if (number === null) throw new TypeError('mergePrWithOptionalBranchDelete: pullNumber is required');
+  const merged = await merge({
+    owner, repo, pullNumber: number,
+    ...(mergeArgs && typeof mergeArgs === 'object' ? mergeArgs : {}),
+  });
+  const out = { ok: true, merged, branchDeleted: false, deleteError: null };
+  // `deleteBranch:true` is the explicit opt-in; without it no deletion happens
+  // (deletion must never be a silent default). `deleteBranchTool` is the
+  // injected callback that actually performs the deletion.
+  if (deleteBranch !== true) return out;
+  if (typeof deleteBranchTool !== 'function') {
+    out.deleteError = 'deleteBranch:true requires an injected deleteBranchTool callback (unsupported)';
+    out.code = UNSUPPORTED_UPSTREAM_TOOL;
+    return out;
+  }
+  const source = typeof head === 'string' ? head : (head && (head.ref ?? head.name)) ?? null;
+  if (!source) {
+    out.deleteError = 'deleteBranch:true requires head (source branch name)';
+    return out;
+  }
+  try {
+    await deleteBranchTool({
+      owner, repo, name: source, branch: source,
+      ...(deleteArgs && typeof deleteArgs === 'object' ? deleteArgs : {}),
+    });
+    out.branchDeleted = true;
+  } catch (err) {
+    out.deleteError = err && err.message ? err.message : String(err);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Batch 17 · multi-file delete / rename (two-phase, honestly non-atomic)
+// ---------------------------------------------------------------------------
+//
+// FACT: GitHub's `push_files` schema is {files:[{path,content}]} — it has NO
+// delete/rename field. We therefore CANNOT promise a single atomic commit for
+// deletes/renames via that tool. These helpers do a two-phase sequence:
+//   rename: read source -> write destination -> delete source
+//   delete: delete paths one by one
+// and report `atomic:false`, `partial:true` plus `written`/`failed` honestly.
+// Only an INJECTED git-data-API callback (`gitData`) may make it atomic; if
+// supplied, it is called once with both operations and `atomic:true` is set.
+
+/**
+ * Delete multiple files. Two-phase/per-file unless a git-data callback is
+ * injected. Never claims atomicity it cannot prove.
+ */
+export async function deleteFiles({
+  deleteFile,
+  gitData,
+  owner,
+  repo,
+  branch,
+  paths,
+  message = 'delete files via codemode',
+} = {}) {
+  const list = Array.isArray(paths) ? paths.filter((p) => typeof p === 'string' && p) : [];
+  if (!list.length) throw new TypeError('deleteFiles: paths must be a non-empty string array');
+  if (typeof gitData === 'function') {
+    const raw = await gitData({ owner, repo, branch, operation: 'delete', paths: list, message });
+    return { ok: true, atomic: true, partial: false, deleted: list.slice(), failed: [], raw };
+  }
+  requireFn(deleteFile, 'deleteFile');
+  const deleted = [];
+  const failed = [];
+  for (const path of list) {
+    try {
+      const raw = await deleteFile({ owner, repo, branch, path, message });
+      deleted.push({ path, raw });
+    } catch (err) {
+      failed.push({ path, error: err && err.message ? err.message : String(err) });
+    }
+  }
+  return {
+    ok: failed.length === 0,
+    atomic: false,
+    partial: failed.length > 0 || deleted.length > 0,
+    deleted,
+    failed,
+    remaining: failed.map((f) => f.path),
+    reason: 'push_files schema only supports {path,content}; deletes require separate commits (injected gitData callback required for atomicity)',
+  };
+}
+
+/**
+ * Rename files: read source -> write destination -> delete source, per file.
+ * Two separate commits are REQUIRED with the GitHub MCP push_files tool;
+ * `atomic:false` is reported unless a `gitData` callback is injected.
+ */
+export async function renameFiles({
+  readFile,
+  writeFile,
+  deleteFile,
+  gitData,
+  owner,
+  repo,
+  branch,
+  renames,
+  message = 'rename files via codemode',
+} = {}) {
+  const list = Array.isArray(renames)
+    ? renames.filter((r) => r && typeof r.from === 'string' && r.from && typeof r.to === 'string' && r.to)
+    : [];
+  if (!list.length) throw new TypeError('renameFiles: renames must be a non-empty [{from,to}] array');
+  if (typeof gitData === 'function') {
+    const raw = await gitData({ owner, repo, branch, operation: 'rename', renames: list, message });
+    return { ok: true, atomic: true, partial: false, renamed: list.slice(), failed: [], raw };
+  }
+  requireFn(readFile, 'readFile');
+  requireFn(writeFile, 'writeFile');
+  requireFn(deleteFile, 'deleteFile');
+  const renamed = [];
+  const failed = [];
+  for (const { from, to } of list) {
+    try {
+      const read = await readFile({ owner, repo, path: from, ref: branch, branch });
+      const v = unwrapResultPayload(read);
+      const root = v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+      let content = firstDefined(root, ['content', 'text', 'data']);
+      if (Array.isArray(content)) {
+        content = content.map((part) => (part && typeof part.text === 'string' ? part.text : '')).join('\n');
+      }
+      if (content === undefined || content === null) throw new Error(`renameFiles: no content for ${from}`);
+      await writeFile({ owner, repo, branch, path: to, content: String(content), message });
+      await deleteFile({ owner, repo, branch, path: from, message });
+      renamed.push({ from, to });
+    } catch (err) {
+      failed.push({ from, to, error: err && err.message ? err.message : String(err) });
+    }
+  }
+  return {
+    ok: failed.length === 0,
+    atomic: false,
+    partial: true, // two commits per rename (write + delete) even on full success
+    commitsRequired: 2,
+    renamed,
+    failed,
+    remaining: failed.map((f) => f.from),
+    reason: 'push_files supports {path,content} only; rename needs a write commit + a delete commit (injected gitData callback required for atomicity)',
+  };
+}
+
 export default {
   ensureBranch,
   createBranchIfMissing,
@@ -934,5 +1460,14 @@ export default {
   githubActionsListWorkflowJobs,
   githubActionsGetJobLogs,
   waitForPrChecks,
+  // Batch 17 · PR #80–#101 feedback helpers
+  UNSUPPORTED_UPSTREAM_TOOL,
+  unwrapBatch,
+  canonicalIssue,
+  createIssue,
+  rerunFailedJobs,
+  mergePrWithOptionalBranchDelete,
+  deleteFiles,
+  renameFiles,
   UNTRUSTED_RAW_MARKER,
 };
