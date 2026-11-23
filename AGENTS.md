@@ -99,8 +99,7 @@ online-feedback.v1 记录
   顺序/名称/schema 不得在会话中途改变。
 - `execute_read` 是只读通道；`execute` 是读写通道。写操作必须有
   dryRun / host approve；guest 不能靠 per-step approve 自授权。
-- Gemini 不消费 
-notifications/tools/list_changed`；改 schema 必须换版本路径
+- Gemini 不消费 `notifications/tools/list_changed`；改 schema 必须换版本路径
   （例如 `/mcp/v2`），不能原地改。
 - `ENABLE_MCP_V2=1` 才启用 `/mcp/v2`；默认关闭；v1 逐字不变。
 - `/mcp/v2` 仍是同名同序三工具；`plan` 是入参，不是第四个工具。
@@ -125,8 +124,7 @@ notifications/tools/list_changed`；改 schema 必须换版本路径
 - 写多文件默认优先 `writeFiles` / `push_files` 原子入口；
   失败保留 `partial:true` / `written` / `remaining` / `compensation`。
 - PR 
-umber` 必须 URL 优先 `/pull/(\d+)`；`id`/
-odeId` 只作独立字段，
+umber` 必须 URL 优先 `/pull/(\d+)`；`id`/`nodeId` 只作独立字段，
   **永不**用 id 兜底 number。
 - raw upstream envelope 与 canonical output 必须区分；raw 不得无标记泄漏到
   capture/模型可见输出（capture 仍按 full-fidelity 保存，见 §6）。
