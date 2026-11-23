@@ -143,7 +143,7 @@ online-feedback.v1 记录
 - 安全审计发现（`docs/eval/CODEMODE-SECURITY-AUDIT.md`）中：
   - 已修：typed-plan 截断写、per-step approve、模型错误脱敏、截断审计误判、
     预算绕过、`__proto__` 原型污染、fallback `truncated` 语义；
-  - 仍待验/待修：审计报告 F-08/F-09 的边界项，以报告为准；
+  - F-08/F-09 已修（residual-security-fix）；仅真实上游 401、Docker build、npm audit 未验证；
   - 不要把“capture 原样保存”误认为“可以回显给模型”。
 - 不碰真实凭据：`config.example.json` 只能占位；真实 token 不进仓库/日志。
   本地凭据从 vault 读；只有当 refresh token 真正失效且 AUTH-READY 全绿时，
