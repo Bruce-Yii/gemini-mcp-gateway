@@ -25,6 +25,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { sanitizeTool } from './sanitize.js';
+import { resolveClientProfile, encodeToolResult, applyProfileToTools } from './client-profile.js';
 import { searchEntries } from './catalog.js';
 import { UpstreamManager } from './upstreams.js';
 import { createCodeModeTools } from './codemode.js';
@@ -277,6 +278,12 @@ function buildToolRegistry(upstreamManager, options = {}) {
  * @returns {McpServer}
  */
 export function createGatewayServer(upstreamManager, options = {}) {
+  // Thin encoding adapter: resolve once per server instance (one HTTP request
+  // in stateless mode). No tool name/schema/semantics changes.
+  const profile = options.profile ?? resolveClientProfile({
+    headers: options.headers,
+    body: options.body,
+  });
   let tools;
   let instructions = INSTRUCTIONS;
   if (options.mode === 'codemode') {
@@ -310,8 +317,12 @@ export function createGatewayServer(upstreamManager, options = {}) {
   const server = mcpServer.server;
   server.registerCapabilities({ tools: { listChanged: false } });
 
+  // Profile may adjust annotation defaults, but never tool names/count/schema.
+  // applyProfileToTools returns a new array; the underlying `tools`/`byName`
+  // registry is untouched.
+  const listedTools = applyProfileToTools(tools, profile);
   server.setRequestHandler(ListToolsRequestSchema, () => ({
-    tools: tools.map(({ name, description, inputSchema, annotations }) => ({
+    tools: listedTools.map(({ name, description, inputSchema, annotations }) => ({
       name,
       description,
       inputSchema,
@@ -324,7 +335,11 @@ export function createGatewayServer(upstreamManager, options = {}) {
     const tool = byName.get(name);
     if (!tool) return errorResult(new Error(`unknown tool: ${name}`));
     try {
-      return textResult(await tool.handler(request.params?.arguments ?? {}));
+      const encoded = encodeToolResult(textResult(await tool.handler(request.params?.arguments ?? {})), profile);
+      // ByName handlers already produced a text-JSON result; encodeToolResult
+      // only strips/adds structuredContent per profile. The default gemini
+      // path returns the identical shape to the pre-adapter code.
+      return encoded;
     } catch (error) {
       return errorResult(error);
     }
@@ -451,7 +466,13 @@ export function createMcpRequestHandler(upstreamManager, options = {}) {
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: undefined, // stateless: no sticky session required
         });
-        gatewayServer = createGatewayServer(upstreamManager, options);
+        gatewayServer = createGatewayServer(upstreamManager, {
+          ...options,
+          // Explicit per-request client resolution. The adapter only reads
+          // declared headers/body; unknown input resolves to gemini, the
+          // existing legacy behaviour.
+          profile: resolveClientProfile({ headers: req.headers, body }),
+        });
         await gatewayServer.connect(transport);
         await transport.handleRequest(req, res, body);
         // Close after the single request is answered.

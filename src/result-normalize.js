@@ -316,7 +316,7 @@ export function normalizeFileResult(value) {
 /** 从 URL 里兜底提取 PR/Issue 编号。 */
 function numberFromUrl(value) {
   try {
-    const match = /\/pull\/(\d+)(?:\/|$|\?)|\/issues\/(\d+)(?:\/|$|\?)/.exec(String(value ?? ''));
+    const match = /\/pulls?\/(\d+)(?:\/|$|\?)|\/issues\/(\d+)(?:\/|$|\?)/.exec(String(value ?? ''));
     if (!match) return null;
     const raw = match[1] ?? match[2];
     return raw !== undefined ? Number(raw) : null;
@@ -345,9 +345,14 @@ export function normalizePrResult(value) {
   try {
     const { value: v } = unwrap(value);
     const root = isObj(v) ? v : {};
-    const number = toNumber(pick(root, ['number', 'prNumber', 'pr_number', 'id']));
+    // `id` is GitHub's internal database id, NOT the PR number. A real
+    // create_pull_request returns {id:5444514334, url:'.../pull/53'}; treating
+    // id as number made the subsequent merge call 404. Never fall back to id.
     const urlRaw = pick(root, ['html_url', 'url', 'web_url']);
     const url = urlRaw !== undefined && urlRaw !== null ? String(urlRaw) : null;
+    // URL wins over explicit fields: it is the most reliable source of the
+    // user-visible PR number when both are present but disagree.
+    const number = numberFromUrl(url) ?? toNumber(pick(root, ['number', 'prNumber', 'pr_number']));
     const head = isObj(get(root, 'head')) ? get(root, 'head') : {};
     const base = isObj(get(root, 'base')) ? get(root, 'base') : {};
     const shaRaw = pick(root, ['sha', 'head_sha', 'headSha']) ?? pick(head, ['sha']);
@@ -358,7 +363,7 @@ export function normalizePrResult(value) {
     const idRaw = pick(root, ['id', 'node_id']);
 
     return {
-      number: number ?? numberFromUrl(url),
+      number,
       title: titleRaw !== undefined && titleRaw !== null ? String(titleRaw) : null,
       url,
       state: stateRaw !== undefined && stateRaw !== null ? String(stateRaw) : null,
@@ -401,15 +406,16 @@ export function normalizeIssueResult(value) {
   try {
     const { value: v } = unwrap(value);
     const root = isObj(v) ? v : {};
-    const number = toNumber(pick(root, ['number', 'issueNumber', 'issue_number', 'id']));
+    // Same rule as PRs: `id` is a database id, never an issue number.
     const urlRaw = pick(root, ['html_url', 'url', 'web_url']);
     const url = urlRaw !== undefined && urlRaw !== null ? String(urlRaw) : null;
+    const number = numberFromUrl(url) ?? toNumber(pick(root, ['number', 'issueNumber', 'issue_number']));
     const titleRaw = pick(root, ['title']);
     const stateRaw = pick(root, ['state']);
     const idRaw = pick(root, ['id', 'node_id']);
 
     return {
-      number: number ?? numberFromUrl(url),
+      number,
       id: idRaw !== undefined && idRaw !== null ? String(idRaw) : null,
       url,
       state: stateRaw !== undefined && stateRaw !== null ? String(stateRaw) : null,

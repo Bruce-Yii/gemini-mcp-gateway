@@ -54,7 +54,9 @@ function requireFn(fn, name) {
  * @param {Function} opts.listBranches  () => branches (array or wrapped)
  * @param {Function} opts.createBranch  ({name, fromSha}) => branch
  * @param {Function} [opts.deleteBranch] ({name}) => void — required for reset
- * @param {string}   opts.name          branch name
+ * @param {string}   [opts.name]        branch name (alias: `branch`, `branchName`)
+ * @param {string}   [opts.branch]      branch name alias used by GitHub tools
+ * @param {string}   [opts.branchName]  branch name alias
  * @param {string}   opts.fromSha       base commit sha for creation/reset
  * @param {'reuse'|'reset'} [opts.ifExists='reuse']
  * @returns {Promise<{created:boolean,reused:boolean,reset:boolean,branch:any}>}
@@ -64,38 +66,46 @@ export async function ensureBranch({
   createBranch,
   deleteBranch,
   name,
+  branch,
+  branchName,
   fromSha,
   ifExists = 'reuse',
 } = {}) {
   requireFn(listBranches, 'listBranches');
   requireFn(createBranch, 'createBranch');
-  if (!name || typeof name !== 'string') throw new TypeError('name must be a non-empty string');
+  // Real GitHub tools use `branch`; older callers used `name`/`branchName`.
+  // Normalize all aliases to one canonical name before any work, so the error
+  // message stays actionable whichever spelling the caller used.
+  const resolvedName = name ?? branch ?? branchName;
+  if (!resolvedName || typeof resolvedName !== 'string') {
+    throw new TypeError('ensureBranch: branch name is required (pass name, branch or branchName)');
+  }
   if (ifExists !== 'reuse' && ifExists !== 'reset') {
     throw new TypeError("ifExists must be 'reuse' or 'reset'");
   }
 
   const branches = toArray(await listBranches());
-  const branch = branches.find((b) => {
-    if (typeof b === 'string') return b === name;
+  const found = branches.find((b) => {
+    if (typeof b === 'string') return b === resolvedName;
     if (!b || typeof b !== 'object') return false;
-    return b.name === name || b.ref === name || (typeof b.ref === 'string' && b.ref.endsWith(`/${name}`));
+    return b.name === resolvedName || b.ref === resolvedName || (typeof b.ref === 'string' && b.ref.endsWith(`/${resolvedName}`));
   });
 
-  if (branch !== undefined) {
+  if (found !== undefined) {
     if (ifExists === 'reuse') {
-      return { created: false, reused: true, reset: false, branch };
+      return { created: false, reused: true, reset: false, branch: found };
     }
     // reset: delete then recreate. Deletion is optional by design — without
     // a deleteBranch callback we must fail loudly rather than silently reuse.
     if (typeof deleteBranch !== 'function') {
       throw new Error('ensureBranch: ifExists="reset" requires a deleteBranch callback (unsupported)');
     }
-    await deleteBranch({ name, branch });
-    const created = await createBranch({ name, fromSha });
-    return { created: true, reused: false, reset: true, branch: created ?? branch };
+    await deleteBranch({ name: resolvedName, branch: found });
+    const created = await createBranch({ name: resolvedName, fromSha });
+    return { created: true, reused: false, reset: true, branch: created ?? found };
   }
 
-  const created = await createBranch({ name, fromSha });
+  const created = await createBranch({ name: resolvedName, fromSha });
   return { created: true, reused: false, reset: false, branch: created };
 }
 
@@ -153,7 +163,7 @@ export async function upsertPr({
   if (existing) {
     if (typeof updatePr === 'function') {
       const updated = await updatePr({
-        number: existing.number ?? existing.id,
+        number: existing.number,
         head: headRef,
         base: baseRef,
         title,
@@ -315,17 +325,21 @@ export async function repoGrep({ readFile, listFiles, pattern, flags = 'i', limi
  * @param {Function} opts.listBranches
  * @param {Function} opts.createBranch
  * @param {Function} [opts.deleteBranch] required only for reset
- * @param {string}   opts.name            branch to ensure
+ * @param {string}   [opts.name]          branch to ensure
+ * @param {string}   [opts.branch]        branch to ensure (GitHub tool spelling)
+ * @param {string}   [opts.branchName]    branch to ensure (alias)
  * @param {string}   opts.base            base ref / commit sha to create from
  * @param {'reuse'|'reset'} [opts.ifExists='reuse']
  * @returns {Promise<{created:boolean,reused:boolean,reset:boolean,branch:any}>}
  */
-export async function createBranchIfMissing({ listBranches, createBranch, deleteBranch, name, base, ifExists = 'reuse' } = {}) {
+export async function createBranchIfMissing({ listBranches, createBranch, deleteBranch, name, branch, branchName, base, ifExists = 'reuse' } = {}) {
   return ensureBranch({
     listBranches,
     createBranch,
     deleteBranch,
     name,
+    branch,
+    branchName,
     // ensureBranch calls its callback with {name, fromSha}; callers that use
     // this helper directly see `base` mapped to `fromSha` for compatibility.
     fromSha: base,
@@ -413,20 +427,24 @@ export function canonicalResult(value) {
     // head/commit for a sha, mirroring result-normalize's normalizePrResult.
     const head = safeGet(root, 'head');
     const commit = safeGet(root, 'commit');
-    const number = toFiniteNumber(
-      firstDefined(root, ['number', 'prNumber', 'pr_number', 'issueNumber', 'issue_number', 'pullNumber', 'pull_number', 'id']),
-    );
+    // `id` is a database identifier and must NEVER be used as a PR/issue
+    // number (real create_pull_request returns {id:5444514334, url:.../pull/53}).
+    // URL is authoritative when present; explicit number fields are next.
     const urlRaw = firstDefined(root, ['html_url', 'url', 'web_url']);
-    const shaRaw = firstDefined(root, ['sha', 'commitSha', 'commit_sha', 'head_sha', 'headSha'])
-      ?? firstDefined(head && typeof head === 'object' ? head : {}, ['sha'])
-      ?? firstDefined(commit && typeof commit === 'object' ? commit : {}, ['sha']);
-    let numberOut = number;
-    if (numberOut === null && typeof urlRaw === 'string') {
-      // Only fallback when no explicit number field exists at all.
-      const m = /\/pull\/(\d+)(?:\/|$|\?)|\/issues\/(\d+)(?:\/|$|\?)/.exec(urlRaw);
+    let numberOut = null;
+    if (typeof urlRaw === 'string') {
+      const m = /\/pulls?\/(\d+)(?:\/|$|\?)|\/issues\/(\d+)(?:\/|$|\?)/.exec(urlRaw);
       const raw = m && (m[1] ?? m[2]);
       if (raw) numberOut = Number(raw);
     }
+    if (numberOut === null) {
+      numberOut = toFiniteNumber(
+        firstDefined(root, ['number', 'prNumber', 'pr_number', 'issueNumber', 'issue_number', 'pullNumber', 'pull_number']),
+      );
+    }
+    const shaRaw = firstDefined(root, ['sha', 'commitSha', 'commit_sha', 'head_sha', 'headSha'])
+      ?? firstDefined(head && typeof head === 'object' ? head : {}, ['sha'])
+      ?? firstDefined(commit && typeof commit === 'object' ? commit : {}, ['sha']);
     return {
       number: numberOut,
       url: urlRaw !== undefined ? String(urlRaw) : null,
@@ -488,6 +506,216 @@ export function buildPushFilesArgs({ owner, repo, branch, message, files, extraA
   };
 }
 
+// ---------------------------------------------------------------------------
+// Batch 11 · GitHub Actions read-only REST helpers (gateway-side, not MCP tools)
+// ---------------------------------------------------------------------------
+//
+// These are HOST-SIDE helpers that call the GitHub REST API directly with
+// `GITHUB_TOKEN`. They are NOT new upstream MCP tools: they are exposed only
+// through the Code Mode sandbox prelude/bridge, so the public tool count stays
+// at three (search / execute_read / execute). All network I/O is injected via
+// `fetch` so tests can supply a fake; no token is ever logged or returned.
+
+const GITHUB_API_BASE = 'https://api.github.com';
+const DEFAULT_ACTIONS_TIMEOUT_MS = 15000;
+const DEFAULT_ACTIONS_MAX_BYTES = 2 * 1024 * 1024; // 2 MiB of log text by default
+
+/** Build a stable error/result shape without leaking the token. */
+function actionsOutcome(ok, status, extra) {
+  return { ok, status, ...extra };
+}
+
+/** Read the token from an injected env object (defaults to process.env). */
+function resolveToken(env) {
+  const source = env && typeof env === 'object' ? env : (typeof process !== 'undefined' ? process.env : {});
+  const token = source.GITHUB_TOKEN;
+  return typeof token === 'string' && token.length > 0 ? token : null;
+}
+
+/** Build the auth + accept headers. Token never appears in returned data. */
+function actionsHeaders(token, accept) {
+  return {
+    Accept: accept || 'application/vnd.github+json',
+    Authorization: `Bearer ${token}`,
+    'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'gemini-mcp-gateway-actions-helper',
+  };
+}
+
+/**
+ * Perform one bounded GitHub REST GET.
+ *
+ * @param {object}   opts
+ * @param {Function} opts.fetch        injected fetch(url, init) -> Response-like
+ * @param {string}   opts.url
+ * @param {string}   opts.token
+ * @param {string}   [opts.accept]
+ * @param {number}   [opts.timeoutMs]
+ * @param {number}   [opts.maxBytes]   max response body bytes before truncation
+ * @returns {Promise<{ok:boolean,status:number,text:string|null,truncated:boolean,error?:string}>}
+ */
+async function githubRestGet({ fetch: doFetch, url, token, accept, timeoutMs = DEFAULT_ACTIONS_TIMEOUT_MS, maxBytes = DEFAULT_ACTIONS_MAX_BYTES } = {}) {
+  if (typeof doFetch !== 'function') {
+    return actionsOutcome(false, 0, { text: null, truncated: false, error: 'github actions helper: fetch is unavailable' });
+  }
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    let res = await doFetch(url, {
+      method: 'GET',
+      headers: actionsHeaders(token, accept),
+      ...(controller ? { signal: controller.signal } : {}),
+      redirect: 'follow', // job logs commonly 302 to a signed storage URL
+    });
+    let status = res && typeof res.status === 'number' ? res.status : 0;
+    // Fakes (and some runtimes) do not honor redirect:'follow'. Follow a 3xx
+    // Location once ourselves; the signed log URL must not carry our token.
+    if (status >= 300 && status < 400) {
+      const location = res && typeof res.headers?.get === 'function' ? res.headers.get('location') : (res?.headers?.location ?? null);
+      if (location && /^https?:\/\//i.test(location)) {
+        res = await doFetch(location, {
+          method: 'GET',
+          headers: { Accept: accept || 'application/octet-stream', 'User-Agent': 'gemini-mcp-gateway-actions-helper' },
+          ...(controller ? { signal: controller.signal } : {}),
+          redirect: 'follow',
+        });
+        status = res && typeof res.status === 'number' ? res.status : 0;
+      }
+    }
+    // Read as text so JSON and logs share one path; bound the bytes consumed.
+    let text = res && typeof res.text === 'function' ? await res.text() : '';
+    if (typeof text !== 'string') text = String(text ?? '');
+    let truncated = false;
+    if (maxBytes !== null && maxBytes !== undefined && text.length > maxBytes) {
+      text = text.slice(0, maxBytes);
+      truncated = true;
+    }
+    if (!res || !res.ok || status < 200 || status >= 300) {
+      // Do not include response body verbatim (may contain sensitive URLs).
+      return actionsOutcome(false, status, {
+        text: null,
+        truncated,
+        error: `GitHub REST returned HTTP ${status || 'unknown'}${truncated ? ' (response truncated)' : ''}`,
+      });
+    }
+    return actionsOutcome(true, status, { text, truncated });
+  } catch (err) {
+    const message = err && err.name === 'AbortError'
+      ? `GitHub REST request timed out after ${timeoutMs}ms`
+      : `GitHub REST request failed: ${err && err.message ? err.message : String(err)}`;
+    return actionsOutcome(false, 0, { text: null, truncated: false, error: message });
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/** Parse a bounded JSON text body, returning a stable error shape on failure. */
+function parseActionsJson(text, truncated) {
+  try {
+    return { ok: true, data: JSON.parse(text), truncated };
+  } catch (_) {
+    return { ok: false, status: 200, data: null, truncated, error: 'GitHub REST returned invalid JSON' };
+  }
+}
+
+/** Validate an owner/repo pair (GH rejects path injection). */
+function validRepo(owner, repo) {
+  return typeof owner === 'string' && /^[A-Za-z0-9_.-]+$/.test(owner)
+    && typeof repo === 'string' && /^[A-Za-z0-9_.-]+$/.test(repo);
+}
+
+function noTokenOutcome() {
+  return {
+    ok: false,
+    status: 0,
+    data: null,
+    text: null,
+    truncated: false,
+    error: 'GITHUB_TOKEN is not configured; GitHub Actions helpers are read-only and require a token',
+  };
+}
+
+/**
+ * GET /repos/{owner}/{repo}/actions/runs — list workflow runs (read-only).
+ */
+export async function githubActionsListWorkflowRuns(opts = {}) {
+  const {
+    fetch: doFetch,
+    env,
+    owner,
+    repo,
+    status,
+    branch,
+  } = opts;
+  // Accept both snake_case (GitHub REST spelling) and camelCase aliases.
+  const workflow = pickAlias(opts, 'workflow_id', 'workflowId');
+  const size = pickAlias(opts, 'per_page', 'perPage');
+  if (!resolveToken(env)) return noTokenOutcome();
+  if (!validRepo(owner, repo)) {
+    return actionsOutcome(false, 0, { data: null, truncated: false, error: 'owner and repo must be non-empty GitHub identifiers' });
+  }
+  const params = new URLSearchParams();
+  if (workflow !== undefined && workflow !== null) params.set('workflow_id', String(workflow));
+  if (status !== undefined && status !== null) params.set('status', String(status));
+  if (branch !== undefined && branch !== null) params.set('branch', String(branch));
+  if (size !== undefined && size !== null) params.set('per_page', String(size));
+  const qs = params.toString();
+  const url = `${GITHUB_API_BASE}/repos/${owner}/${repo}/actions/runs${qs ? `?${qs}` : ''}`;
+  const res = await githubRestGet({ fetch: doFetch, url, token: resolveToken(env), timeoutMs: opts.timeoutMs, maxBytes: opts.maxBytes });
+  if (!res.ok) return actionsOutcome(res.ok, res.status, { data: null, text: res.text, truncated: res.truncated, error: res.error });
+  const parsed = parseActionsJson(res.text, res.truncated);
+  return { ok: parsed.ok, status: res.status, data: parsed.data, text: null, truncated: parsed.truncated, ...(parsed.error ? { error: parsed.error } : {}) };
+}
+
+/** Return the first defined alias from an options object. */
+function pickAlias(opts, ...keys) {
+  for (const key of keys) {
+    if (opts[key] !== undefined && opts[key] !== null) return opts[key];
+  }
+  return undefined;
+}
+
+/**
+ * GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs — list jobs for a run.
+ */
+export async function githubActionsListWorkflowJobs(opts = {}) {
+  const { fetch: doFetch, env, owner, repo } = opts;
+  const id = pickAlias(opts, 'run_id', 'runId');
+  if (!resolveToken(env)) return noTokenOutcome();
+  if (!validRepo(owner, repo)) {
+    return actionsOutcome(false, 0, { data: null, truncated: false, error: 'owner and repo must be non-empty GitHub identifiers' });
+  }
+  if (id === undefined || id === null || id === '') {
+    return actionsOutcome(false, 0, { data: null, truncated: false, error: 'run_id is required' });
+  }
+  const url = `${GITHUB_API_BASE}/repos/${owner}/${repo}/actions/runs/${encodeURIComponent(String(id))}/jobs`;
+  const res = await githubRestGet({ fetch: doFetch, url, token: resolveToken(env), timeoutMs: opts.timeoutMs, maxBytes: opts.maxBytes });
+  if (!res.ok) return actionsOutcome(res.ok, res.status, { data: null, text: res.text, truncated: res.truncated, error: res.error });
+  const parsed = parseActionsJson(res.text, res.truncated);
+  return { ok: parsed.ok, status: res.status, data: parsed.data, text: null, truncated: parsed.truncated, ...(parsed.error ? { error: parsed.error } : {}) };
+}
+
+/**
+ * GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs — job log text.
+ * GitHub returns 302 to a signed URL; `redirect:'follow'` handles that in a
+ * real fetch, and fakes can supply a 302 response carrying a `Location` header.
+ */
+export async function githubActionsGetJobLogs(opts = {}) {
+  const { fetch: doFetch, env, owner, repo } = opts;
+  const id = pickAlias(opts, 'job_id', 'jobId');
+  if (!resolveToken(env)) return noTokenOutcome();
+  if (!validRepo(owner, repo)) {
+    return actionsOutcome(false, 0, { text: null, truncated: false, error: 'owner and repo must be non-empty GitHub identifiers' });
+  }
+  if (id === undefined || id === null || id === '') {
+    return actionsOutcome(false, 0, { text: null, truncated: false, error: 'job_id is required' });
+  }
+  const url = `${GITHUB_API_BASE}/repos/${owner}/${repo}/actions/jobs/${encodeURIComponent(String(id))}/logs`;
+  const res = await githubRestGet({ fetch: doFetch, url, token: resolveToken(env), accept: 'application/octet-stream', timeoutMs: opts.timeoutMs, maxBytes: opts.maxBytes });
+  if (!res.ok) return actionsOutcome(res.ok, res.status, { text: null, truncated: res.truncated, error: res.error });
+  return actionsOutcome(true, res.status, { text: res.text, truncated: res.truncated });
+}
+
 export default {
   ensureBranch,
   createBranchIfMissing,
@@ -500,4 +728,7 @@ export default {
   PUSH_FILES_TOOL,
   detectPushFiles,
   buildPushFilesArgs,
+  githubActionsListWorkflowRuns,
+  githubActionsListWorkflowJobs,
+  githubActionsGetJobLogs,
 };

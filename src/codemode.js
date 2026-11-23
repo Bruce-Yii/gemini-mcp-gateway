@@ -22,13 +22,20 @@ import { normalizeCode, sanitizeToolName } from './codemode-util.js';
 import { normalizeToolArguments } from './sanitize.js';
 import { captureEvent } from './capture.js';
 import { searchEntries } from './catalog.js';
+import { encodeModelOutput, resolveClientProfile } from './client-profile.js';
 // B10 integration: canonical adapters are exposed into the sandbox through the
 // existing host bridge (values serialize; guest functions cannot cross it).
 // The existing fileResult/prResult helpers stay byte-for-byte unchanged.
 import { normalizeResult as hostNormalizeResult } from './result-normalize.js';
 // B10 follow-up (PR #41–#48): unified write semantics. These are pure host
 // modules; only data crosses the bridge, so the guest helpers below stay thin.
-import { canonicalResult, createBranchIfMissing } from './github-helpers.js';
+import {
+  canonicalResult,
+  createBranchIfMissing,
+  githubActionsListWorkflowRuns,
+  githubActionsListWorkflowJobs,
+  githubActionsGetJobLogs,
+} from './github-helpers.js';
 import { applyFilePatches, precheckText, normalizeWriteResult } from './file-write.js';
 import {
   unwrapResult,
@@ -61,6 +68,11 @@ const CALLNAME_GUIDANCE = ' Each result carries "callName": pass that exact iden
 // now; spell out which helpers stay synchronous so models neither await a plain
 // object nor chain on one.
 const ASYNC_GUIDANCE = ' Tool calls return Promises (await / .then / .catch work); codemode.search, listTools, remainingCalls and services are synchronous helpers.';
+
+// Batch 11 · GitHub Actions failure logs. These are gateway-side GitHub REST
+// helpers (host fetch + GITHUB_TOKEN), NOT new upstream MCP tools; the public
+// tool set stays at three. Available in both execute_read and execute.
+const ACTIONS_GUIDANCE = ' GitHub Actions read-only helpers (gateway-side REST, not upstream tools): codemode.github_actions_list_workflow_runs({owner,repo,workflow_id?,status?,branch?,per_page?}), codemode.github_actions_list_workflow_jobs({owner,repo,run_id}), codemode.github_actions_get_job_logs({owner,repo,job_id}). Each returns {ok,status,data|text,truncated} or {ok:false,status,error}; log text may be truncated — check the flag. Requires GITHUB_TOKEN.';
 
 // Gemini new feedback #3: a read-only, in-sandbox service status helper. Kept
 // out of the MCP tool schemas on purpose — changing those requires the client
@@ -220,7 +232,7 @@ const GUEST_PRELUDE = [
   // fields they cannot find (callers can still inspect the original value).
   'const __dshFileResult = (value) => { const pick = (o, keys) => { if (!o || typeof o !== "object") return undefined; for (const k of keys) if (o[k] !== undefined && o[k] !== null) return o[k]; return undefined; }; let v; try { v = __dshUnwrap(value); } catch (_) { v = value; } if (typeof v === "string") return { content: v, size: v.length, sha: null, path: null, encoding: null, truncated: /--- TRUNCATED ---/.test(v) }; const root = v && typeof v === "object" ? v : {}; const nested = root.result && typeof root.result === "object" ? root.result : root; let content = pick(nested, ["content", "text", "data"]); if (typeof content !== "string") { const resources = Array.isArray(nested.resources) ? nested.resources : []; const fromResources = resources.map((r) => r && typeof r.text === "string" ? r.text : "").filter(Boolean).join("\\n"); if (fromResources) content = fromResources; } const sha = pick(nested, ["sha", "sha256", "content_sha", "commit_sha"]); const path = pick(nested, ["path", "name", "uri"]); const encoding = pick(nested, ["encoding"]); const rawSize = pick(nested, ["size", "bytes"]); return { content: typeof content === "string" ? content : null, sha: sha ?? null, size: Number(rawSize ?? (typeof content === "string" ? content.length : 0)) || 0, path: path ?? null, encoding: encoding ?? null, truncated: Boolean(nested.truncated) || /--- TRUNCATED ---/.test(String(content ?? "")) }; };',
   'const fileResult = __dshHide((v) => { try { return __dshFileResult(v); } catch (_) { return { content: null, sha: null, size: 0, path: null, encoding: null, truncated: false }; } }); codemode.fileResult = fileResult;',
-  'const __dshPrResult = (value) => { const pick = (o, keys) => { if (!o || typeof o !== "object") return undefined; for (const k of keys) if (o[k] !== undefined && o[k] !== null) return o[k]; return undefined; }; let v; try { v = __dshUnwrap(value); } catch (_) { v = value; } const root = v && typeof v === "object" ? v : {}; const nested = root.result && typeof root.result === "object" ? root.result : root; const url = pick(nested, ["html_url", "url", "web_url"]); const numberRaw = pick(nested, ["number", "prNumber", "pr_number", "id"]); const number = numberRaw !== undefined && Number.isFinite(Number(numberRaw)) ? Number(numberRaw) : (() => { const m = /\\/pull\\/(\\d+)/.exec(String(url ?? "")); return m ? Number(m[1]) : null; })(); const sha = pick(nested, ["sha", "head_sha", "headSha"]); return { number: number, url: url ?? null, sha: sha ?? null, id: pick(nested, ["id", "node_id"]) ?? null }; };',
+  'const __dshPrResult = (value) => { const pick = (o, keys) => { if (!o || typeof o !== "object") return undefined; for (const k of keys) if (o[k] !== undefined && o[k] !== null) return o[k]; return undefined; }; let v; try { v = __dshUnwrap(value); } catch (_) { v = value; } const root = v && typeof v === "object" ? v : {}; const nested = root.result && typeof root.result === "object" ? root.result : root; const url = pick(nested, ["html_url", "url", "web_url"]); const fromUrl = (() => { const m = /\\/pulls?\\/(\\d+)(?:\\/|$|\\?)/.exec(String(url ?? "")); return m ? Number(m[1]) : null; })(); const numberRaw = pick(nested, ["number", "prNumber", "pr_number"]); const numFromField = numberRaw !== undefined && Number.isFinite(Number(numberRaw)) ? Number(numberRaw) : null; const number = fromUrl !== null ? fromUrl : numFromField; const sha = pick(nested, ["sha", "head_sha", "headSha"]); return { number: number, url: url ?? null, sha: sha ?? null, id: pick(nested, ["id", "node_id"]) ?? null }; };',
   'const prResult = __dshHide((v) => { try { return __dshPrResult(v); } catch (_) { return { number: null, url: null, sha: null, id: null }; } }); codemode.prResult = prResult;',
   // Advanced file editing: line-range replace, unified diff apply, diff summary.
   // These are sandbox-local string helpers; failures return {ok:false,error}
@@ -356,7 +368,7 @@ const GUEST_PRELUDE = [
   'codemode.applyFilePatch = __dshHide(__dshB10ApplyFilePatch);',
   'codemode.writeFiles = codemode.applyFilePatch;',
   // ---- ensureBranch: idempotent branch creation via list/create tools ----
-  'const __dshB10EnsureBranch = async (opts) => { const o = opts && typeof opts === "object" ? opts : {}; const names = __dshB10Cfg(o.tools, { listTool: "github__list_branches", createTool: "github__create_branch", deleteTool: "github__delete_branch" }); if (!o.name) throw new Error("ensureBranch: name is required"); const ifExists = o.ifExists === "reset" ? "reset" : "reuse"; const listArgs = Object.assign({}, o.listArgs || {}, { owner: o.owner, repo: o.repo }); const branches = __dshB10ToArray(await __dshCallTool(names.listTool, listArgs)); const found = branches.find((b) => { if (typeof b === "string") return b === o.name; if (!b || typeof b !== "object") return false; return b.name === o.name || b.ref === o.name || (typeof b.ref === "string" && b.ref.indexOf("/" + o.name) >= 0); }); if (found !== undefined) { if (ifExists === "reuse") return { created: false, reused: true, reset: false, branch: found }; if (!names.deleteTool) throw new Error("ensureBranch: ifExists=\\"reset\\" requires a deleteTool (unsupported)"); await __dshCallTool(names.deleteTool, Object.assign({}, o.deleteArgs || {}, { owner: o.owner, repo: o.repo, name: o.name, branch: found })); const reset = await __dshCallTool(names.createTool, Object.assign({}, o.createArgs || {}, { owner: o.owner, repo: o.repo, branch: o.name, from_branch: o.fromBranch || o.fromSha })); return { created: true, reused: false, reset: true, branch: reset }; } const created = await __dshCallTool(names.createTool, Object.assign({}, o.createArgs || {}, { owner: o.owner, repo: o.repo, branch: o.name, from_branch: o.fromBranch || o.fromSha })); return { created: true, reused: false, reset: false, branch: created }; };',
+  'const __dshB10EnsureBranch = async (opts) => { const o = opts && typeof opts === "object" ? opts : {}; const names = __dshB10Cfg(o.tools, { listTool: "github__list_branches", createTool: "github__create_branch", deleteTool: "github__delete_branch" }); const branchName = o.name !== undefined && o.name !== null && o.name !== "" ? o.name : (o.branch !== undefined && o.branch !== null && o.branch !== "" ? o.branch : o.branchName); if (typeof branchName !== "string" || branchName.length === 0) throw new Error("ensureBranch: branch name is required (pass name, branch or branchName)"); const ifExists = o.ifExists === "reset" ? "reset" : "reuse"; const listArgs = Object.assign({}, o.listArgs || {}, { owner: o.owner, repo: o.repo }); const branches = __dshB10ToArray(await __dshCallTool(names.listTool, listArgs)); const found = branches.find((b) => { if (typeof b === "string") return b === branchName; if (!b || typeof b !== "object") return false; return b.name === branchName || b.ref === branchName || (typeof b.ref === "string" && b.ref.indexOf("/" + branchName) >= 0); }); if (found !== undefined) { if (ifExists === "reuse") return { created: false, reused: true, reset: false, branch: found }; if (!names.deleteTool) throw new Error("ensureBranch: ifExists=\\"reset\\" requires a deleteTool (unsupported)"); await __dshCallTool(names.deleteTool, Object.assign({}, o.deleteArgs || {}, { owner: o.owner, repo: o.repo, name: branchName, branch: found })); const reset = await __dshCallTool(names.createTool, Object.assign({}, o.createArgs || {}, { owner: o.owner, repo: o.repo, branch: branchName, from_branch: o.fromBranch || o.fromSha })); return { created: true, reused: false, reset: true, branch: reset }; } const created = await __dshCallTool(names.createTool, Object.assign({}, o.createArgs || {}, { owner: o.owner, repo: o.repo, branch: branchName, from_branch: o.fromBranch || o.fromSha })); return { created: true, reused: false, reset: false, branch: created }; };',
   'codemode.ensureBranch = __dshHide(__dshB10EnsureBranch);',
   // PR #41–#48: idempotent branch option at the push/commit entry. Missing
   // branch is created from `base`; existing branch is reused unless reset is
@@ -364,7 +376,7 @@ const GUEST_PRELUDE = [
   'codemode.createBranchIfMissing = __dshHide(async (opts) => { const o = opts && typeof opts === "object" ? Object.assign({}, opts) : {}; o.fromSha = (o.base !== undefined ? o.base : (o.fromSha !== undefined ? o.fromSha : o.fromBranch)); delete o.base; return __dshB10EnsureBranch(o); });',
   'codemode.create_branch_if_missing = codemode.createBranchIfMissing;',
   // ---- upsertPr: find matching open PR then update or create ----
-  'const __dshB10UpsertPr = async (opts) => { const o = opts && typeof opts === "object" ? opts : {}; const names = __dshB10Cfg(o.tools, { listTool: "github__list_pull_requests", createTool: "github__create_pull_request", updateTool: "github__update_pull_request" }); if (!o.head || !o.base) throw new Error("upsertPr: head and base are required"); const state = o.state || "open"; const listArgs = Object.assign({}, o.listArgs || {}, { owner: o.owner, repo: o.repo, head: typeof o.head === "object" ? (o.head.ref || o.head.sha) : o.head, base: typeof o.base === "object" ? (o.base.ref || o.base.sha) : o.base, state: state }); const prs = __dshB10ToArray(await __dshCallTool(names.listTool, listArgs)); const headRef = typeof o.head === "object" ? (o.head.ref || o.head.sha) : o.head; const baseRef = typeof o.base === "object" ? (o.base.ref || o.base.sha) : o.base; const existing = prs.find((pr) => { if (!pr || typeof pr !== "object") return false; const st = __dshB10Str(pr.state || "open").toLowerCase(); const h = pr.head && typeof pr.head === "object" ? (pr.head.ref || pr.head.sha) : pr.head; const b = pr.base && typeof pr.base === "object" ? (pr.base.ref || pr.base.sha) : pr.base; return st === "open" && h === headRef && b === baseRef; }); if (existing) { if (names.updateTool) { const updated = await __dshCallTool(names.updateTool, Object.assign({}, o.updateArgs || {}, { owner: o.owner, repo: o.repo, pullNumber: existing.number || existing.id, title: o.title, body: o.body, head: headRef, base: baseRef })); return { created: false, updated: true, reused: false, pr: updated }; } return { created: false, updated: false, reused: true, pr: existing }; } const created = await __dshCallTool(names.createTool, Object.assign({}, o.createArgs || {}, { owner: o.owner, repo: o.repo, head: headRef, base: baseRef, title: o.title, body: o.body })); return { created: true, updated: false, reused: false, pr: created }; };',
+  'const __dshB10UpsertPr = async (opts) => { const o = opts && typeof opts === "object" ? opts : {}; const names = __dshB10Cfg(o.tools, { listTool: "github__list_pull_requests", createTool: "github__create_pull_request", updateTool: "github__update_pull_request" }); if (!o.head || !o.base) throw new Error("upsertPr: head and base are required"); const state = o.state || "open"; const listArgs = Object.assign({}, o.listArgs || {}, { owner: o.owner, repo: o.repo, head: typeof o.head === "object" ? (o.head.ref || o.head.sha) : o.head, base: typeof o.base === "object" ? (o.base.ref || o.base.sha) : o.base, state: state }); const prs = __dshB10ToArray(await __dshCallTool(names.listTool, listArgs)); const headRef = typeof o.head === "object" ? (o.head.ref || o.head.sha) : o.head; const baseRef = typeof o.base === "object" ? (o.base.ref || o.base.sha) : o.base; const existing = prs.find((pr) => { if (!pr || typeof pr !== "object") return false; const st = __dshB10Str(pr.state || "open").toLowerCase(); const h = pr.head && typeof pr.head === "object" ? (pr.head.ref || pr.head.sha) : pr.head; const b = pr.base && typeof pr.base === "object" ? (pr.base.ref || pr.base.sha) : pr.base; return st === "open" && h === headRef && b === baseRef; }); if (existing) { if (names.updateTool) { const updated = await __dshCallTool(names.updateTool, Object.assign({}, o.updateArgs || {}, { owner: o.owner, repo: o.repo, pullNumber: existing.number !== undefined && existing.number !== null ? existing.number : undefined, title: o.title, body: o.body, head: headRef, base: baseRef })); return { created: false, updated: true, reused: false, pr: updated }; } return { created: false, updated: false, reused: true, pr: existing }; } const created = await __dshCallTool(names.createTool, Object.assign({}, o.createArgs || {}, { owner: o.owner, repo: o.repo, head: headRef, base: baseRef, title: o.title, body: o.body })); return { created: true, updated: false, reused: false, pr: created }; };',
   'codemode.upsertPr = __dshHide(__dshB10UpsertPr);',
   // ---- fetchAllPages: cursor/page pagination with de-dup ----
   'const __dshB10FetchAllPages = async (opts) => { const o = opts && typeof opts === "object" ? opts : {}; const names = __dshB10Cfg(o.tools, { pageTool: o.pageTool || "" }); if (!names.pageTool) throw new Error("fetchAllPages: tools.pageTool (or opts.pageTool) is required"); const maxPages = Number.isFinite(o.maxPages) && o.maxPages > 0 ? Math.floor(o.maxPages) : 20; const cursorKey = o.cursorKey || "cursor"; const items = []; const seen = {}; let cursor; let pages = 0; while (pages < maxPages) { const args = Object.assign({}, o.pageArgs || {}, {}, cursor === undefined ? {} : (o.pageBased ? { page: cursor } : { [cursorKey]: cursor })); const page = await __dshCallTool(names.pageTool, args); pages += 1; if (page === null || page === undefined) return { items, pages, nextCursor: null, truncated: false }; const raw = Array.isArray(page) ? page : (page.items !== undefined ? page.items : (page.data !== undefined ? page.data : __dshB10ToArray(page))); const list = Array.isArray(raw) ? raw : []; if (list.length === 0) return { items, pages, nextCursor: null, truncated: false }; for (const item of list) { let key; try { key = JSON.stringify(item); } catch (_) { key = __dshB10Str(item); } if (!Object.prototype.hasOwnProperty.call(seen, key)) { seen[key] = true; items.push(item); } } const next = page.nextCursor !== undefined ? page.nextCursor : (page.next !== undefined ? page.next : (page.pageInfo ? page.pageInfo.endCursor : undefined)); if (next === undefined || next === null || next === "") return { items, pages, nextCursor: null, truncated: false }; if (next === cursor) return { items, pages, nextCursor: next, truncated: false }; cursor = next; } return { items, pages, nextCursor: cursor === undefined ? null : cursor, truncated: true }; };',
@@ -372,6 +384,12 @@ const GUEST_PRELUDE = [
   // ---- repoGrep: list files then read each, regex search with line/column ----
   'const __dshB10RepoGrep = async (opts) => { const o = opts && typeof opts === "object" ? opts : {}; const names = __dshB10Cfg(o.tools, { listTool: o.listTool || "", readTool: o.readTool || "github__get_file_contents" }); if (!names.listTool) throw new Error("repoGrep: tools.listTool (or opts.listTool) is required"); if (!o.pattern) throw new Error("repoGrep: pattern is required"); const flags = o.flags === undefined ? "i" : o.flags; let re; try { re = o.pattern instanceof RegExp ? o.pattern : new RegExp(o.pattern, flags); } catch (e) { throw new Error("repoGrep: invalid pattern: " + __dshB10Str(e && e.message ? e.message : e)); } const global = re.global ? re : new RegExp(re.source, re.flags.indexOf("g") >= 0 ? re.flags : re.flags + "g"); const files = __dshB10ToArray(await __dshCallTool(names.listTool, Object.assign({}, o.listArgs || {}, { owner: o.owner, repo: o.repo }))).map((f) => (typeof f === "string" ? f : (f && typeof f === "object" ? (f.path || f.name) : null))).filter((f) => typeof f === "string" && f.length > 0); const limit = Number.isFinite(o.limit) && o.limit > 0 ? o.limit : 50; const matches = []; const errors = []; let truncated = false; for (const file of files) { if (matches.length >= limit) { truncated = true; break; } let raw; try { raw = await __dshCallTool(names.readTool, Object.assign({}, o.readArgs || {}, { owner: o.owner, repo: o.repo, path: file })); } catch (e) { errors.push({ file, error: __dshB10Str(e && e.message ? e.message : e) }); continue; } let text = raw; if (raw && typeof raw === "object") text = raw.text !== undefined ? raw.text : (raw.content !== undefined ? raw.content : (raw.result && raw.result.text !== undefined ? raw.result.text : "")); if (typeof text !== "string") { const nf = codemode.normalizeFile(raw, names.readTool); text = nf.content || ""; } const lines = text.split(/\\r?\\n/); for (let i = 0; i < lines.length; i += 1) { global.lastIndex = 0; let m; while ((m = global.exec(lines[i])) !== null) { matches.push({ file, line: i + 1, column: m.index + 1, text: lines[i] }); if (m[0] === "") global.lastIndex += 1; if (matches.length >= limit) { truncated = true; break; } } if (matches.length >= limit) break; } } return { matches, errors, scanned: files.length - errors.length, truncated }; };',
   'codemode.repoGrep = __dshHide(__dshB10RepoGrep);',
+  // Batch 11 · GitHub Actions read-only REST helpers. Gateway-side only: the
+  // host performs the fetch with GITHUB_TOKEN; no new MCP tool is registered.
+  // Stable shape: {ok,status,data|text,truncated[,error]}.
+  'codemode.github_actions_list_workflow_runs = __dshHide((opts) => __dshInvoke("github_actions_list_workflow_runs", [opts]));',
+  'codemode.github_actions_list_workflow_jobs = __dshHide((opts) => __dshInvoke("github_actions_list_workflow_jobs", [opts]));',
+  'codemode.github_actions_get_job_logs = __dshHide((opts) => __dshInvoke("github_actions_get_job_logs", [opts]));',
 ].join('\n');
 const GUEST_PREFIX_LINES = GUEST_PRELUDE.split('\n').length;
 
@@ -521,7 +539,7 @@ function makeOutput({ legacyResult, structuredResult, logs, toolCalls, isError =
  * runInSandbox() has produced its full internal result. Direct callers of
  * runInSandbox() still see `toolCalls`/`logs` for audit and diagnostics.
  */
-export function toModelOutput(output) {
+export function toModelOutput(output, profile) {
   if (output === null || typeof output !== 'object' || Array.isArray(output)) {
     return { result: toJsonSafe(output) };
   }
@@ -531,7 +549,11 @@ export function toModelOutput(output) {
   // keeps fields added by other fixes (status/error) intact.
   const { toolCalls, calls, logs, toJSON, ...rest } = output;
   void toolCalls; void calls; void logs; void toJSON;
-  return toJsonSafe(rest); // cycles / BigInt → {error}, never throws
+  const projected = toJsonSafe(rest); // cycles / BigInt → {error}, never throws
+  // Thin encoding adapter: gemini (default) keeps the exact projected shape;
+  // chatgpt additionally gets structuredContent derived from `result`.
+  // No execution semantics change; profile is optional for backward callers.
+  return profile === undefined ? projected : encodeModelOutput(projected, profile);
 }
 
 /** JSON-only copy of a wire value; mirrors Cloudflare's `toJSONValue` helper. */
@@ -799,7 +821,7 @@ export function searchWithFallback(tools, query, limit = 8) {
  * bridge; all counting/validation/audit stays on the host side.
  * @returns { result, logs, toolCalls } with the unchanged legacy output shape.
  */
-export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CALLS, maxResultChars = DEFAULT_MAX_RESULT_CHARS, timeout = EXEC_TIMEOUT_MS, totalTimeout, unavailableTools = [], servicesInfo = { services: [] } }) {
+export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CALLS, maxResultChars = DEFAULT_MAX_RESULT_CHARS, timeout = EXEC_TIMEOUT_MS, totalTimeout, unavailableTools = [], servicesInfo = { services: [] }, fetch: hostFetch, env }) {
   const normalized = normalizeCode(code);
   const instrumented = instrumentLineMarkers(normalized);
   const logs = [];
@@ -891,6 +913,24 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
     normalizeWriteResult: (value, sha) => normalizeWriteResult(value, { sha }),
     // Batch 11: exact tool availability check (no tool-call budget consumed).
     hasTool: (name) => byIdent.has(String(name)),
+    // Batch 11 · GitHub Actions read-only REST helpers. Gateway-side fetch is
+    // injected (tests pass a fake); token comes from GITHUB_TOKEN and is never
+    // logged or echoed. These do NOT consume the upstream tool-call budget.
+    github_actions_list_workflow_runs: (opts) => githubActionsListWorkflowRuns({
+      fetch: hostFetch ?? (typeof fetch === 'function' ? fetch : undefined),
+      env,
+      ...(opts && typeof opts === 'object' ? opts : {}),
+    }),
+    github_actions_list_workflow_jobs: (opts) => githubActionsListWorkflowJobs({
+      fetch: hostFetch ?? (typeof fetch === 'function' ? fetch : undefined),
+      env,
+      ...(opts && typeof opts === 'object' ? opts : {}),
+    }),
+    github_actions_get_job_logs: (opts) => githubActionsGetJobLogs({
+      fetch: hostFetch ?? (typeof fetch === 'function' ? fetch : undefined),
+      env,
+      ...(opts && typeof opts === 'object' ? opts : {}),
+    }),
     stub: (name) => {
       throw new Error(`${name} is a write tool and unavailable in execute_read; use execute() instead`);
     },
@@ -1252,6 +1292,10 @@ export function servicesSnapshot(upstreamManager) {
  * Build the two Code Mode MCP tools bound to an UpstreamManager.
  */
 export function createCodeModeTools(upstreamManager, options = {}) {
+  // Thin client profile: options.profile is resolved per HTTP request by
+  // server.js; direct callers get the default gemini profile. No execution
+  // semantics change.
+  const profile = options.profile ?? resolveClientProfile({ headers: options.headers, body: options.body });
   const tools = upstreamManager.getEntries?.() ?? [];
   const sanitized = tools.map((t) => ({ ...t, ident: sanitizeToolName(t.name) }));
   const servicesSuffix = connectedServicesSuffix(tools);
@@ -1288,7 +1332,7 @@ export function createCodeModeTools(upstreamManager, options = {}) {
     name,
     description: (readOnly
       ? 'Write JavaScript to call READ-ONLY upstream tools (get/list/search/query) via codemode.<tool>(args). This tool is annotated read-only so the client may prompt less; it runs the same sandbox as execute(). Only your return value enters the conversation. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'
-      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + ASYNC_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
+      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + ASYNC_GUIDANCE + ACTIONS_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
     inputSchema: {
       type: 'object',
       properties: { code: { type: 'string', description: 'An async arrow function that calls codemode tools and returns a result.' } },
@@ -1309,6 +1353,8 @@ export function createCodeModeTools(upstreamManager, options = {}) {
         maxCalls: options.maxCalls,
         maxResultChars: options.maxResultChars,
         servicesInfo: getServices,
+        fetch: options.fetch,
+        env: options.env,
       });
       // MakeOutput() attaches a toJSON() that emits the full audit payload;
       // unwrap it first so the projection below is what server.js serializes.
@@ -1318,7 +1364,7 @@ export function createCodeModeTools(upstreamManager, options = {}) {
         code,
         output: wire,
       });
-      return toModelOutput(wire); // toolCalls + logs never enter model context
+      return toModelOutput(wire, profile); // toolCalls + logs never enter model context
     },
   });
 
