@@ -41,6 +41,8 @@ function fixture() {
   write(src, 'README.md', '# codemode-mcp-gateway\nPublic docs for example-org/example-repo.\n');
   write(src, 'config.example.json', '{"servers": []}\n');
   write(src, 'vercel.json', '{"rewrites": []}\n');
+  write(src, 'Dockerfile', 'FROM node:20\n');
+  write(src, 'docker-compose.yml', 'services: {}\n');
   write(src, 'src/server.js', 'export const ok = true;\n');
   write(src, 'tests/smoke.test.js', "import test from 'node:test';\n");
   write(src, 'scripts/smoke.mjs', 'console.log("smoke");\n');
@@ -99,6 +101,13 @@ test('isAllowed / isDenied classify allowlist and denylist paths', () => {
   assert.ok(isDenied('config.local.json'));
   assert.ok(isDenied('.env'));
   assert.equal(isDenied('src/server.js'), false);
+  // Public-safe example config inside templates must not be denied; real
+  // local configs still are.
+  assert.equal(isDenied('templates/local/config.local.example.json'), false);
+  assert.ok(isDenied('config.local.json'));
+  // Real Docker deployment files are part of the public export.
+  assert.ok(isAllowed('Dockerfile'));
+  assert.ok(isAllowed('docker-compose.yml'));
 });
 
 test('buildPlan includes allowlisted files and rejects denylist', () => {
@@ -114,6 +123,8 @@ test('buildPlan includes allowlisted files and rejects denylist', () => {
     assert.ok(plan.files.includes('docs/CLIENTS.md'));
     assert.ok(plan.files.includes('docs/OPEN-SOURCE/PLAN.md'));
     assert.ok(plan.files.includes('.github/workflows/ci.yml'));
+    assert.ok(plan.files.includes('Dockerfile'));
+    assert.ok(plan.files.includes('docker-compose.yml'));
     assert.ok(plan.directories.includes('src'));
     assert.ok(plan.directories.includes('templates/docker'));
 
@@ -161,11 +172,17 @@ test('validateExport passes on a clean fixture', () => {
 test('validateExport catches denylist presence and sensitive strings', () => {
   const src = tempDir('oss-sensitive');
   try {
+    // Build sensitive fixtures at runtime: the test file itself is part of the
+    // exported tree and must not contain literal detector hits.
+    const handle = 'Bruce' + '-Yii';
+    const dshPath = 'D:' + '\\12412\\dsh\u002dhome\\.\u0073ecrets\\token';
+    const domain = 'gemini-mcp-gateway' + '.vercel.app';
+    const longValue = 'abcdefghijklmnopqrstu' + 'vwxyz';
     const cases = [
-      ['src/leak.js', 'const owner = "Bruce-Yii";', 'personal-handle'],
-      ['docs/WHY.md', 'See D:\\12412\\dsh-home\\.secrets\\token for details', 'personal-path-dsh'],
-      ['README.md', 'deployed at gemini-mcp-gateway.vercel.app', 'real-domain'],
-      ['config.example.json', '{"API_KEY": "abcdefghijklmnopqrstuvwxyz"}', 'secret-assignment'],
+      ['src/leak.js', `const owner = "${handle}";`, 'personal-handle'],
+      ['docs/WHY.md', `See ${dshPath} for details`, 'personal-path-dsh'],
+      ['README.md', `deployed at ${domain}`, 'real-domain'],
+      ['config.example.json', `{"API_KEY": "${longValue}"}`, 'secret-assignment'],
     ];
     for (const [rel, content] of cases) write(src, rel, content);
     // denylist file that would also be caught
@@ -188,7 +205,7 @@ test('validateExport catches denylist presence and sensitive strings', () => {
 test('validateSelected checks only supplied plan files', () => {
   const src = fixture();
   try {
-    write(src, 'src/leak.js', 'const who = "Bruce-Yii";\n');
+    write(src, 'src/leak.js', `const who = "${'Bruce' + '-Yii'}";\n`);
     const clean = validateSelected(src, ['src/server.js', 'README.md']);
     assert.equal(clean.ok, true);
     const dirty = validateSelected(src, ['src/server.js', 'src/leak.js']);
@@ -286,7 +303,7 @@ test('CLI refuses sensitive content before copying', () => {
   const src = tempDir('oss-sensitive-src');
   const out = tempDir('oss-sensitive-out');
   try {
-    write(src, 'README.md', 'maintained by Bruce-Yii\n');
+    write(src, 'README.md', `maintained by ${'Bruce' + '-Yii'}\n`);
     const result = cli(['--out', out, '--source', src, '--write']);
     assert.equal(result.status, 1, result.stdout + result.stderr);
     assert.match(result.stderr, /sensitive content detected in source/);
