@@ -1,0 +1,44 @@
+{
+  "generatedAt": "2026-11-23T18:40:38.058Z",
+  "results": [
+    {
+      "server": "github",
+      "ok": true,
+      "ms": 2205,
+      "tools": 28,
+      "url": "https://api.githubcopilot.com/mcp/readonly"
+    },
+    {
+      "server": "notion",
+      "ok": false,
+      "ms": 504,
+      "tools": 0,
+      "url": "https://mcp.notion.com/mcp",
+      "errorClass": "ERROR",
+      "error": "Streamable HTTP error: Error POSTing to endpoint: "
+    },
+    {
+      "server": "linear",
+      "ok": true,
+      "ms": 3272,
+      "tools": 60,
+      "url": "https://mcp.linear.app/mcp"
+    },
+    {
+      "server": "vercel",
+      "ok": false,
+      "ms": 549,
+      "tools": 0,
+      "url": "https://mcp.vercel.com/",
+      "errorClass": "HTTP_401_UNAUTHORIZED",
+      "error": "Streamable HTTP error: Error POSTing to endpoint: {\"error\":\"invalid_token\",\"error_description\":\"The access token is invalid or expired. Sign in again.\"}"
+    },
+    {
+      "server": "figma",
+      "ok": true,
+      "ms": 1916,
+      "tools": 51,
+      "url": "https://mcp.figma.com/mcp"
+    }
+  ]
+}

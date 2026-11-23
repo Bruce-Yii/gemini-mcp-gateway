@@ -1,0 +1,116 @@
+{
+  "startedAt": "2026-11-23T18:38:11.267Z",
+  "branch": "acceptance/read-patch-20261123183811",
+  "steps": [
+    {
+      "name": "connect",
+      "at": "2026-11-23T18:38:13.706Z",
+      "tools": [
+        "github__create_branch",
+        "github__create_or_update_file",
+        "github__create_pull_request",
+        "github__get_commit",
+        "github__get_file_contents",
+        "github__list_branches",
+        "github__list_pull_requests"
+      ]
+    },
+    {
+      "name": "read-main",
+      "at": "2026-11-23T18:38:15.270Z",
+      "ok": true
+    },
+    {
+      "name": "create-branch",
+      "at": "2026-11-23T18:38:17.150Z",
+      "ok": true,
+      "branch": "acceptance/read-patch-20261123183811"
+    },
+    {
+      "name": "dry-run-patch",
+      "at": "2026-11-23T18:38:19.050Z",
+      "ok": true
+    },
+    {
+      "name": "real-write",
+      "at": "2026-11-23T18:38:23.032Z",
+      "ok": true
+    },
+    {
+      "name": "verify-bytes",
+      "at": "2026-11-23T18:38:23.896Z",
+      "ok": true
+    },
+    {
+      "name": "failure-no-write",
+      "at": "2026-11-23T18:38:26.576Z",
+      "ok": true
+    },
+    {
+      "name": "add-ci-workflow",
+      "at": "2026-11-23T18:38:27.800Z",
+      "ok": true
+    },
+    {
+      "name": "create-pr",
+      "at": "2026-11-23T18:38:29.636Z",
+      "ok": true
+    }
+  ],
+  "actual": {
+    "mainHeadBefore": "b8dd7b1bd9e6c7e9f19d669a43d667fb9e691b4c",
+    "readShape": {
+      "firstLine": "line1",
+      "bytes": 19,
+      "sha": "be4bc32165619bd932e9b7d9cfa6c371c67d2daf",
+      "path": "src/sample.txt",
+      "noticeShaInMetadata": "be4bc32165619bd932e9b7d9cfa6c371c67d2daf",
+      "hasNoticeInContent": false,
+      "truncated": false
+    },
+    "dryRun": {
+      "ok": true,
+      "error": null,
+      "patchMatched": true,
+      "remoteUnchanged": true,
+      "previewBytes": 52,
+      "previewFirstLine": "line1",
+      "previewContainsPatchLine": true,
+      "diffSummary": "--- a/src/sample.txt\n+++ b/src/sample.txt\n@@ -1,5 +1,6 @@\n+acceptance-patch: 20261123183811\n… 4 more changed lines omitted from preview"
+    },
+    "write": {
+      "ok": true,
+      "error": null,
+      "commitSha": "14c4c3c3f70e2cded89f5b62243a4735ea1f2eed"
+    },
+    "verify": {
+      "expectedBytes": 52,
+      "actualBytes": 52,
+      "exactMatch": true,
+      "firstLine": "line1",
+      "lastLine": "acceptance-patch: 20261123183811",
+      "hasNotice": false,
+      "containsPatchLine": true
+    },
+    "failureCase": {
+      "ok": false,
+      "error": "context mismatch at line 1: expected \"this-line-does-not-exist\", got \"line1\"",
+      "headUnchanged": true,
+      "remoteUnchanged": true,
+      "noHalfWritten": true
+    },
+    "pullRequest": {
+      "url": "https://github.com/Bruce-Yii/gateway-acceptance-test/pull/1",
+      "number": null,
+      "urlNumber": 1,
+      "numberFromUrl": true,
+      "matches": false,
+      "head": null,
+      "base": null
+    }
+  },
+  "pass": false,
+  "notes": [],
+  "error": "REST /repos/Bruce-Yii/gateway-acceptance-test/pulls/undefined -> 404: {\"message\":\"Not Found\",\"documentation_url\":\"https://docs.github.com/rest/pulls/pulls#get-a-pull-request\",\"status\":\"404\"}",
+  "finishedAt": "2026-11-23T18:38:29.948Z"
+}

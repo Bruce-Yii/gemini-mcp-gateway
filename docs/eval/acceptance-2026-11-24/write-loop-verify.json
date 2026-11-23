@@ -1,0 +1,114 @@
+{
+  "generatedAt": "2026-11-23T18:39:59.474Z",
+  "run": {
+    "mainHeadBefore": "b8dd7b1bd9e6c7e9f19d669a43d667fb9e691b4c",
+    "readShape": {
+      "firstLine": "line1",
+      "bytes": 19,
+      "sha": "be4bc32165619bd932e9b7d9cfa6c371c67d2daf",
+      "path": "src/sample.txt",
+      "noticeShaInMetadata": "be4bc32165619bd932e9b7d9cfa6c371c67d2daf",
+      "hasNoticeInContent": false,
+      "truncated": false
+    },
+    "dryRun": {
+      "ok": true,
+      "error": null,
+      "patchMatched": true,
+      "remoteUnchanged": true,
+      "previewBytes": 52,
+      "previewFirstLine": "line1",
+      "previewContainsPatchLine": true,
+      "diffSummary": "--- a/src/sample.txt\n+++ b/src/sample.txt\n@@ -1,5 +1,6 @@\n+acceptance-patch: 20261123183811\n… 4 more changed lines omitted from preview"
+    },
+    "write": {
+      "ok": true,
+      "error": null,
+      "commitSha": "14c4c3c3f70e2cded89f5b62243a4735ea1f2eed"
+    },
+    "verify": {
+      "expectedBytes": 52,
+      "actualBytes": 52,
+      "exactMatch": true,
+      "firstLine": "line1",
+      "lastLine": "acceptance-patch: 20261123183811",
+      "hasNotice": false,
+      "containsPatchLine": true
+    },
+    "failureCase": {
+      "ok": false,
+      "error": "context mismatch at line 1: expected \"this-line-does-not-exist\", got \"line1\"",
+      "headUnchanged": true,
+      "remoteUnchanged": true,
+      "noHalfWritten": true
+    },
+    "pullRequest": {
+      "url": "https://github.com/Bruce-Yii/gateway-acceptance-test/pull/1",
+      "number": null,
+      "urlNumber": 1,
+      "numberFromUrl": true,
+      "matches": false,
+      "head": null,
+      "base": null
+    }
+  },
+  "checks": {
+    "mainHeadUnchanged": true,
+    "branches": [
+      "acceptance/read-patch-20261123183811",
+      "main"
+    ],
+    "openPrs": [
+      {
+        "number": 1,
+        "head": "acceptance/read-patch-20261123183811",
+        "base": "main"
+      }
+    ],
+    "prFound": true,
+    "prNumberFromUrl": true,
+    "prHeadSha": "dca59a5d516a7ba9a7f145df3117a7945495cd79",
+    "prFiles": [
+      {
+        "filename": ".github/workflows/ci.yml",
+        "status": "added",
+        "additions": 15,
+        "deletions": 0
+      },
+      {
+        "filename": "src/sample.txt",
+        "status": "modified",
+        "additions": 1,
+        "deletions": 0
+      }
+    ],
+    "writtenFile": {
+      "bytes": 52,
+      "firstLine": "line1",
+      "lastLine": "acceptance-patch: 20261123183811",
+      "matchesDryRunBytes": true,
+      "containsPatchLine": true,
+      "containsNotice": false
+    },
+    "ci": {
+      "total": 1,
+      "runs": [
+        {
+          "name": "verify",
+          "status": "completed",
+          "conclusion": "failure",
+          "id": 137923357413
+        }
+      ],
+      "annotations": [
+        {
+          "level": "failure",
+          "message": "The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the 'Billing & plans' section in your settings"
+        }
+      ],
+      "billingBlocked": true
+    }
+  },
+  "pass": true,
+  "ciVerdict": "BLOCKED_BY_GITHUB_BILLING"
+}

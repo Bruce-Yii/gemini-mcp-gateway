@@ -1,0 +1,53 @@
+{
+  "ok": false,
+  "violations": [
+    {
+      "key": "PUBLIC_BASE_URL",
+      "kind": "shared-record",
+      "detail": "one env record targets production AND preview → same credential in both environments",
+      "target": [
+        "development",
+        "preview",
+        "production"
+      ],
+      "severity": "P0"
+    },
+    {
+      "key": "UPSTASH_REDIS_REST_TOKEN",
+      "kind": "shared-record",
+      "detail": "one env record targets production AND preview → same credential in both environments",
+      "target": [
+        "preview",
+        "production"
+      ],
+      "severity": "P0"
+    },
+    {
+      "key": "UPSTASH_REDIS_REST_URL",
+      "kind": "shared-record",
+      "detail": "one env record targets production AND preview → same credential in both environments",
+      "target": [
+        "preview",
+        "production"
+      ],
+      "severity": "P0"
+    },
+    {
+      "key": "REDIS_URL",
+      "kind": "shared-record",
+      "detail": "one env record targets production AND preview → same credential in both environments",
+      "target": [
+        "preview",
+        "production"
+      ],
+      "severity": "P0"
+    }
+  ],
+  "warnings": [],
+  "checkedKeys": [
+    "PUBLIC_BASE_URL",
+    "REDIS_URL",
+    "UPSTASH_REDIS_REST_TOKEN",
+    "UPSTASH_REDIS_REST_URL"
+  ]
+}
