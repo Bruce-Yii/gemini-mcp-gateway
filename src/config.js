@@ -7,7 +7,7 @@
  * `validateConfig()` fails fast with actionable messages and collects warnings
  * for things that do not block startup.
  */
-import { defaultProvider } from './upstream-auth.js';
+import { defaultProvider, GRANT_OWNERS } from './upstream-auth.js';
 
 export const MODES = ['codemode', 'whitelist'];
 
@@ -38,6 +38,11 @@ const SERVER_KEYS = new Set([
   // metadata-document URL (client_id == HTTPS URL) instead of an env var name.
   // `resource` is the RFC 8707 target sent on authorize/token requests.
   'dcr', 'registrationEndpoint', 'clientId', 'resource',
+  // Grant ownership marking (AGENTS.md §2). An env-seeded rotating grant is
+  // either DSH-exported (`dsh`, read-only, NEVER refreshed by the gateway) or
+  // explicitly gateway-owned (`gateway`). Unset means unmarked → treated as
+  // shared → never auto-refreshed (fail-safe; see upstream-auth._grantOwner).
+  'grantOwner', 'grantOwnerEnv', 'grantSource', 'grantSourceEnv',
 ]);
 
 export class ConfigError extends Error {
@@ -174,6 +179,34 @@ export function validateConfig(value, { env = process.env } = {}) {
             issues.push(`${at}: ${key} is not allowed with authMode "static_bearer" (static tokens are not refreshed)`);
           }
         }
+      }
+
+      // ── Grant ownership marking ─────────────────────────────────────────
+      // Explicit attribution is required before a rotating grant may ever be
+      // refreshed: `gateway` (gateway-owned OAuth), `dsh` (DSH-exported,
+      // read-only) or `manual` (owner-provisioned static token). An unmarked
+      // env seed is treated as shared and is NEVER auto-refreshed.
+      if (server.grantOwner !== undefined
+          && !GRANT_OWNERS.includes(String(server.grantOwner).toLowerCase())) {
+        issues.push(`${at}.grantOwner must be one of ${GRANT_OWNERS.join(', ')} (got ${JSON.stringify(server.grantOwner)})`);
+      }
+      for (const key of ['grantOwnerEnv', 'grantSourceEnv']) {
+        if (server[key] !== undefined && (typeof server[key] !== 'string' || !ENV_RE.test(server[key]))) {
+          issues.push(`${at}.${key} must be an env var name`);
+        }
+      }
+      if (server.grantSource !== undefined
+          && (typeof server.grantSource !== 'string' || !server.grantSource.trim())) {
+        issues.push(`${at}.grantSource must be a non-empty string`);
+      }
+      if (isStatic && server.grantOwner !== undefined
+          && String(server.grantOwner).toLowerCase() !== 'manual') {
+        warnings.push(`${at}: authMode "static_bearer" always persists owner=manual; grantOwner is ignored`);
+      }
+      if (!isStatic && server.refreshEnv !== undefined
+          && server.grantOwner === undefined && server.grantOwnerEnv === undefined
+          && server.grantSource === undefined && server.grantSourceEnv === undefined) {
+        warnings.push(`${at}: env-seeded rotating grant has no grantOwner; it is treated as shared and will NEVER auto-refresh (mark "dsh" or "gateway" explicitly)`);
       }
 
       for (const key of ['tokenEnv', 'refreshEnv', 'clientIdEnv', 'clientSecretEnv', 'expiresInEnv', 'obtainedAtEnv']) {

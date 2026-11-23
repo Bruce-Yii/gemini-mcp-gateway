@@ -209,15 +209,16 @@ export class UpstreamAuth {
    * SECURITY (R1): an UNMARKED grant is untrusted — it is `shared`, and a
    * shared grant must NEVER be auto-refreshed by this gateway. Only an
    * explicit `owner=gateway` (or `source=gateway-*`) grants refresh rights.
-   * The single exception is the legacy migration window: an unmarked record
-   * living in a v1 key (the only place such records exist) is treated as
-   * gateway so an existing deployment can rotate once before re-authorizing.
-   * See design doc §4.1 / §6.
+   *
+   * The former "legacy v1 key" exception is GONE (2026-11-24 owner-marking
+   * policy): a v1 record with no owner/source is also `shared` and stays
+   * read-only. Copy it forward with an explicit owner via
+   * `scripts/auth-migrate-owners.mjs` before expecting refreshes.
    */
   _grantOwner(rec, options = {}) {
     const explicit = String(options.grantOwner ?? options.source ?? rec?.owner ?? rec?.source ?? '').toLowerCase();
     if (!explicit) {
-      return options.legacy ? 'gateway' : 'shared';
+      return 'shared';
     }
     if (explicit.includes('dsh') || explicit === DSH_GRANT_SOURCE) return 'dsh';
     if (explicit === 'gateway' || explicit.includes('gateway')) return 'gateway';
@@ -255,9 +256,10 @@ export class UpstreamAuth {
           const rawLegacy = await this.store._command('get', legacy);
           if (rawLegacy && typeof rawLegacy === 'string') {
             const rec = JSON.parse(rawLegacy);
-            // Preserve legacy unmarked grants as gateway for the migration
-            // window only (R1 exception, design doc §4.1).
-            if (rec && !rec.owner && !rec.source) rec.owner = 'gateway';
+            // Legacy records are READ-ONLY aliases: never rewrite them and
+            // never invent an owner. Unmarked stays unmarked → `shared` → no
+            // refresh, until `scripts/auth-migrate-owners.mjs` copies it
+            // forward under an explicit owner key.
             if (rec) rec[UpstreamAuth.LEGACY_MARK] = true;
             return rec;
           }
