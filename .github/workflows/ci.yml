@@ -25,7 +25,9 @@ jobs:
       - run: npm ci
       - name: Unit + integration tests
         run: npm test
-      - name: Audit module boundaries\n        run: node scripts/check-module-boundaries.mjs\n      - name: Audit silent truncation (P0 blocks, P1 warns)
+      - name: Audit module boundaries
+        run: node scripts/check-module-boundaries.mjs
+      - name: Audit silent truncation (P0 blocks, P1 warns)
         run: node scripts/audit-truncation.mjs --ci
       - name: Audit committed tool snapshots
         run: node scripts/audit-tools.mjs --server figma
