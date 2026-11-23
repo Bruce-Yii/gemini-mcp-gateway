@@ -32,6 +32,12 @@ const SERVER_KEYS = new Set([
   'refreshUrl', 'authorizeUrl', 'oauthScopes', 'oauthRedirectUri', 'allowTools', 'denyTools',
   // Explicit auth mode for gateway-owned credentials (see AUTH_MODES above).
   'authMode', 'staticBearer',
+  // Gateway-owned DCR / CIMD client registration (batch 15 provider paths).
+  // `dcr:true` asks upstream-oauth to POST registrationEndpoint at start and
+  // persist the client in the v2 client namespace. `clientId` carries a CIMD
+  // metadata-document URL (client_id == HTTPS URL) instead of an env var name.
+  // `resource` is the RFC 8707 target sent on authorize/token requests.
+  'dcr', 'registrationEndpoint', 'clientId', 'resource',
 ]);
 
 export class ConfigError extends Error {
@@ -163,7 +169,7 @@ export function validateConfig(value, { env = process.env } = {}) {
         // A static token has no rotating grant. Refusing refresh fields here
         // prevents a silent misconfiguration where the gateway would look for
         // a refresh token that can never exist.
-        for (const key of ['refreshEnv', 'refreshUrl', 'authorizeUrl', 'clientIdEnv', 'clientSecretEnv', 'expiresInEnv', 'obtainedAtEnv']) {
+        for (const key of ['refreshEnv', 'refreshUrl', 'authorizeUrl', 'clientIdEnv', 'clientSecretEnv', 'expiresInEnv', 'obtainedAtEnv', 'dcr', 'registrationEndpoint', 'clientId']) {
           if (server[key] !== undefined) {
             issues.push(`${at}: ${key} is not allowed with authMode "static_bearer" (static tokens are not refreshed)`);
           }
@@ -191,11 +197,42 @@ export function validateConfig(value, { env = process.env } = {}) {
         if (!isHttpUrl(server.authorizeUrl)) {
           issues.push(`${at}.authorizeUrl must be an absolute http(s) URL`);
         }
-        if (!server.clientIdEnv) issues.push(`${at}.authorizeUrl requires clientIdEnv`);
+        // A client_id can come from an env var (static client), an inline CIMD
+        // metadata-document URL, or gateway-driven DCR. Require at least one.
+        if (!server.clientIdEnv && !server.clientId && server.dcr !== true) {
+          issues.push(`${at}.authorizeUrl requires clientIdEnv, clientId (CIMD URL) or dcr:true`);
+        }
         if (!server.refreshUrl) issues.push(`${at}.authorizeUrl requires refreshUrl (the token endpoint)`);
       }
       if (server.oauthRedirectUri !== undefined && !isHttpUrl(server.oauthRedirectUri)) {
         issues.push(`${at}.oauthRedirectUri must be an absolute http(s) URL`);
+      }
+
+      // ── Gateway-owned DCR / CIMD client identity ────────────────────────
+      if (server.dcr !== undefined && typeof server.dcr !== 'boolean') {
+        issues.push(`${at}.dcr must be a boolean`);
+      }
+      if (server.registrationEndpoint !== undefined && !isHttpUrl(server.registrationEndpoint)) {
+        issues.push(`${at}.registrationEndpoint must be an absolute http(s) URL`);
+      }
+      if (server.dcr === true && !server.registrationEndpoint) {
+        issues.push(`${at}: dcr:true requires registrationEndpoint (the AS /register URL)`);
+      }
+      if (server.dcr === true && server.clientIdEnv) {
+        issues.push(`${at}: dcr:true must not be combined with clientIdEnv (DCR owns the client id)`);
+      }
+      // A CIMD client_id is a public HTTPS URL that serves the metadata
+      // document; a bare opaque string is NOT a CIMD client_id.
+      if (server.clientId !== undefined) {
+        if (typeof server.clientId !== 'string' || !isHttpUrl(server.clientId) || !server.clientId.startsWith('https://')) {
+          issues.push(`${at}.clientId must be an absolute https URL (CIMD metadata document)`);
+        }
+        if (server.clientIdEnv) {
+          issues.push(`${at}: clientId and clientIdEnv are mutually exclusive`);
+        }
+      }
+      if (server.resource !== undefined && !isHttpUrl(server.resource)) {
+        issues.push(`${at}.resource must be an absolute http(s) URL (RFC 8707 target)`);
       }
       if (server.oauthScopes !== undefined
           && (!Array.isArray(server.oauthScopes) || server.oauthScopes.some((scope) => typeof scope !== 'string' || !scope))) {

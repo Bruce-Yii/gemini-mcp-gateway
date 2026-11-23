@@ -21,6 +21,48 @@ import { validateConfig } from './config.js';
 
 const DEFAULT_CONFIG_PATH = fileURLToPath(new URL('../config.example.json', import.meta.url));
 
+/**
+ * CIMD (Client ID Metadata Document) for the Vercel MCP upstream.
+ * The AS fetches this public HTTPS URL and treats the document URL itself as
+ * `client_id` — the no-review path for mcp.vercel.com (docs/eval/AUTH-PROVIDERS.md
+ * §2.3). No secret is ever placed in the document: this is a public client with
+ * PKCE S256 and `token_endpoint_auth_method: none`.
+ *
+ * The path is fixed so operators can set `clientId` to
+ * `https://<gateway-domain>/.well-known/mcp-client.json` in config without
+ * coordination. Override the document origin with `options.cimdBaseUrl` or
+ * `PUBLIC_BASE_URL` / `VERCEL_URL` (same resolution as the OAuth metadata).
+ */
+export const CIMD_PATH = '/.well-known/mcp-client.json';
+
+export function cimdClientId(options = {}, req) {
+  const origin = options.cimdBaseUrl ? String(options.cimdBaseUrl).replace(/\/+$/, '')
+    : resolveBaseUrl(options, req);
+  return `${origin}${CIMD_PATH}`;
+}
+
+/** Build the public CIMD document. `client_id` MUST equal the fetch URL. */
+export function buildCimdDocument({ clientId, redirectUri }) {
+  if (!clientId || !clientId.startsWith('https://')) {
+    throw new Error('CIMD client_id must be an absolute https URL');
+  }
+  if (!redirectUri || !redirectUri.startsWith('https://')) {
+    throw new Error('CIMD redirect_uris must be absolute https URLs');
+  }
+  return {
+    client_id: clientId,
+    client_name: 'Gemini MCP Gateway (Vercel)',
+    client_uri: clientId.replace(CIMD_PATH, '/'),
+    redirect_uris: [redirectUri],
+    grant_types: ['authorization_code', 'refresh_token'],
+    response_types: ['code'],
+    token_endpoint_auth_method: 'none',
+    code_challenge_methods_supported: ['S256'],
+    //RFC 8707 / SEP-2207: a gateway-owned grant needs a refresh token.
+    scope: 'openid offline_access',
+  };
+}
+
 function sendJson(res, status, payload, extraHeaders = {}) {
   if (res?.headersSent || res?.writableEnded || res?.ended) return;
   const headers = {
@@ -304,6 +346,15 @@ export function createAppHandler(options = {}) {
       }
       if (method === 'GET' && pathname === '/.well-known/oauth-authorization-server') {
         return oauth.metadata(req, res);
+      }
+      // Vercel MCP CIMD: public client metadata document. It MUST be fetchable
+      // without auth, and `client_id` in the document is this exact URL.
+      if (method === 'GET' && pathname === CIMD_PATH) {
+        const clientId = cimdClientId(options, req);
+        const redirectUri = `${resolveBaseUrl(options, req)}/upstream/oauth/callback`;
+        return sendJson(res, 200, buildCimdDocument({ clientId, redirectUri }), {
+          'cache-control': 'public, max-age=3600',
+        });
       }
       if (
         method === 'GET' &&

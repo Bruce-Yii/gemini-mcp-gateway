@@ -3,6 +3,7 @@
 > 状态：**NOT READY**。当前不能找用户授权。本文是"授权前必须全绿"的唯一清单。
 > 用户明确要求"完全做好再找我要授权，不能再反复试"——所以任何一行不是绿，都不发授权请求、不说"请授权"。
 > 证据与命令均可本地复现。本文只描述门槛，不替代真实 provider 验证。
+> 本批新增：Notion DCR 与 Vercel CIMD 的**代码与确定性测试已就绪**，但真实部署/授权/KV 验证未做，见 §1.3 / §2；不要把"代码就绪"误读为"可以授权"。
 
 ---
 
@@ -33,8 +34,7 @@
   同上 `provision stdout/stderr contain no token value` + `formatPlan redacts...` —
   stdout 不含 token 明文；即使调用方误注入 token 也被 `[REDACTED]`。
 - [x] **全量 npm test 绿** —
-  `npm test` —
-  `1010 tests, 1004 pass, 0 fail, 6 todo`（含本批 22 项；并发 agent 的失败只报告、不归入本清单；见 ledger）。
+  `npm test` — `1087 tests, 1081 pass, 0 fail, 6 todo`（含本批 13 项 `tests/provider-dcr-cimd.test.js`；本批相关子集 `node --test tests/provider-dcr-cimd.test.js tests/auth-arch-fix.test.js tests/upstream-oauth.test.js` 为 35/35 绿）。并发 agent 新增测试会改变总数，以 ledger §5 当次记录为准。
 - [x] **静态扫描无 P0** —
   `node scripts/audit-truncation.mjs --ci` — `P0=0 PASS`（仅 P1 warning）。
 
@@ -56,17 +56,17 @@
   证据：vault 文件存在且 `tools/list --verify` 真实成功（见 1.7）。
   通过标准：不是用户临时从聊天窗口贴 token。
 - [x] **Notion 分支诚实** —
-  证据：测试 `Notion: interactive OAuth is explicitly BLOCKED because upstream-oauth has no DCR` + `Notion: static MCP token path is ready...`。
-  通过标准：文档明确"static token 需 Business/Enterprise；REST integration token 无效；DCR OAuth 未实现"，不承诺未实现能力。
-- [ ] **Notion 静态 MCP token 存在** 或 **DCR 已实现** —
-  证据：owner 创建的 static MCP token 在 vault（优先），或 `src/upstream-oauth.js` 已支持 DCR/CIMD 并有测试。
-  通过标准：二者至少其一；否则 Notion 保持 BLOCKED。
+  证据：测试 `Notion: static MCP token path is ready...` + `tests/provider-dcr-cimd.test.js`（DCR 注册/复用/回调/刷新）。
+  通过标准：文档明确"static token 需 Business/Enterprise；REST integration token 无效；DCR 已实现但尚未真实授权"。注意：`scripts/auth-provision.mjs` 的 blocker 文案仍是旧版（脚本不在本批改动范围），因此 `auth-provision.test.js` 中 `Notion: interactive OAuth is explicitly BLOCKED...` 一项仍绿但**文案已过时**——以本节为准。
+- [x] **Notion DCR 代码已实现（但真实授权未做）** —
+  证据：`src/upstream-oauth.js` 对 `dcr:true` 在 start 时 POST `registration_endpoint`，持久化 `gmcgw:v2:client:<env>:<server>`，client_id 写入 OAuth state；callback/refresh 使用 state/record 的 client_id；测试覆盖注册成功/失败/重复 start 不重复注册/竞态复用/回调/刷新。
+  通过标准：确定性测试全绿；**真实 DCR 授权、KV 落地与部署后验证未完成，见 §2，Notion 交互授权对外仍 BLOCKED**。static MCP token 路线仍需 owner 在 vault 创建。
 - [x] **Vercel OAuth-only 配置带 offline_access** —
-  证据：`requiredScopes('vercel')` 含 `offline_access` + `upstream-oauth.js` 在 authorize URL 补齐 scope、回调无 refresh_token 直接 400 + 测试 `Vercel: requiredScopes includes offline_access...`。
-  通过标准：scope 配置正确；CIMD client 已配置（见下一项）。
-- [ ] **Vercel CIMD / 预审批 client 已配置** —
-  证据：`VERCEL_OAUTH_CLIENT_ID` 为稳定 HTTPS CIMD URL 或 Vercel 审批过的 client id + 回调 URI 注册记录。
-  通过标准：`auth-provision.mjs --provider vercel` 的 CIMD blocker 消除。
+  证据：`src/upstream-oauth.js` authorize URL 显式添加 `openid offline_access`（Vercel PR metadata 只广告 `openid`，不足）+ `resource=https://mcp.vercel.com/`；回调无 refresh_token 直接 400；测试 `Vercel CIMD: authorize URL carries openid + offline_access...`。
+  通过标准：scope/resource 代码与测试就绪；CIMD client 配置见下一项。
+- [x] **Vercel CIMD 代码已实现（但真实部署/授权未做）** —
+  证据：`src/vercel-app.js` 新增公开路由 `GET /.well-known/mcp-client.json`（`client_id` = 文档 URL、`token_endpoint_auth_method: none`、S256、`scope: openid offline_access`）；`config.example.json` 中 `clientId` 为占位 HTTPS URL；测试覆盖文档形状与路由。
+  通过标准：确定性测试全绿；**真实 CIMD 文档必须部署在稳定 HTTPS 域名并把该 URL 写入 `clientId`，再做一次真实授权确认 refresh_token 非空——未完成前 Vercel 授权对外仍 BLOCKED**。`auth-provision.mjs` 的 CIMD blocker 文案同样过时（脚本不在本批范围）。
 
 ### 1.4 Env namespace
 
@@ -129,8 +129,8 @@
 1. **没有真实 provider 授权**：Linear PAT / Notion static MCP token尚未由 owner 创建并验证；Vercel 没有 CIMD client_id。
 2. **没有真实 KV 写入**：`--apply` 从未在目标环境跑过；v2 grant 记录没有被真实创建/读取。
 3. **没有部署验证**：本批代码尚未部署；部署后 `tools/list` 与 `getAuthStatus()` 未验证。
-4. **Notion DCR 未实现**：`src/upstream-oauth.js` 只支持静态 `authorizeUrl`/`clientIdEnv`，不会动态注册；交互授权现在不可行。必须用户有 static token，或后续补 DCR。
-5. **Vercel CIMD 未配置**：OAuth start URL 无法生成；即使生成，也需真实 `offline_access` + 回调 `refresh_token` 验证。
+4. **Notion DCR 代码已就绪，但真实授权未做**：`src/upstream-oauth.js` 已支持 DCR 注册/复用/state client/KV 客户端记录并有确定性测试；但尚未在目标环境真实完成一次 DCR 授权，`gmcgw:v2:client:<env>:notion` 未被真实写入，部署后 tools/list 未验证。交互授权对外仍 BLOCKED（或用户已有 static MCP token）。
+5. **Vercel CIMD 代码已就绪，但真实部署/授权未做**：CIMD 文档路由 + `clientId` 配置 + `offline_access`/`resource` + 回调无 refresh_token 失败都有测试；但 CIMD 文档尚未部署到稳定 HTTPS 域名、`clientId` 仍是占位 URL，也未真实授权确认 `refresh_token` 非空。对外仍 BLOCKED。
 6. **回滚未演练**：§1.8 没有任何一项有真实证据。
 
 → 因此 **NOT READY**。在 1.1–1.8 全绿、§2 全部消除前，不要向用户发出任何授权请求。
@@ -142,10 +142,12 @@
 一旦 §1 全绿：
 
 1. 每个环境各做一次，**不跨环境复用授权**。
-2. Linear / Notion：owner 在 vault 放好 static token → operator 跑
+2. Linear / Notion static 路线：owner 在 vault 放好 static token → operator 跑
    `node scripts/auth-provision.mjs --provider <p> --token-env <ENV> --environment <env> --verify --apply`
    → 确认 `result: READY ... wrote=true`。
-3. Vercel：配好 CIMD client → 走一次 `/upstream/oauth/start?server=vercel&env=<env>&key=<ADMIN_KEY>`
+   Notion 交互路线（无需 static token）：确认 `config` 中 `dcr:true` + `registrationEndpoint`，走一次
+   `/upstream/oauth/start?server=notion&env=<env>&key=<ADMIN_KEY>` → 确认 KV `gmcgw:v2:client:<env>:notion` 被写入一次且不重复注册 → 回调后 `getAuthStatus()` ACTIVE。
+3. Vercel：把 CIMD 文档部署到稳定 HTTPS 域名，确认 `GET /.well-known/mcp-client.json` 可被 AS 抓取且 `client_id` 等于该 URL → 把该 URL 写入 `config.clientId` → 走一次 `/upstream/oauth/start?server=vercel&env=<env>&key=<ADMIN_KEY>`
    → 回调确认 `refresh_token` 非空 → `getAuthStatus()` ACTIVE。
 4. 重连 MCP client（工具 schema 未变，通常不需要改 Gemini 侧）。
 5. 观察一个真实 token 生命周期（Linear PAT 无刷新；Vercel ~1h 刷新一次），确认无 `invalid_grant`。
@@ -156,12 +158,19 @@
 
 ## 4. 变更范围与不变量
 
-本批只写（未 commit/push/deploy）：
+上一批（auth-provisioning，未 commit/push/deploy）：
+`src/upstream-oauth.js`、`src/upstream-auth.js`、`src/config.js`、`config.example.json`（仅占位字段）、`scripts/auth-provision.mjs`（新增）、`tests/auth-provision.test.js`（新增）、`docs/AUTH-READY.md`、`docs/ledger/batch-15-auth-provisioning.md`。
 
-- `src/upstream-oauth.js`、`src/upstream-auth.js`、`src/config.js`
-- `config.example.json`（仅占位字段）
-- `scripts/auth-provision.mjs`（新增）
-- `tests/auth-provision.test.js`（新增）
-- `docs/AUTH-READY.md`、`docs/ledger/batch-15-auth-provisioning.md`（新增）
+本批（provider DCR / CIMD，未 commit/push/deploy）只写：
 
-不变量：static token 永不 refresh；token 永不进 stdout/日志；v2 key 的 environment + owner 永远显式；未标记/dsh grant 永不自动刷新（这条不回滚）。
+- `src/upstream-oauth.js`（Notion DCR 注册/复用、state client、RFC 8707 resource、Vercel scope 补齐）
+- `src/config.js`（`dcr` / `registrationEndpoint` / `clientId` / `resource` 校验）
+- `config.example.json`（仅占位字段：Notion DCR 与 Vercel CIMD 的 URL 都是占位示例）
+- `src/vercel-app.js`（仅新增 `GET /.well-known/mcp-client.json` CIMD 路由与构造函数）
+- `tests/provider-dcr-cimd.test.js`（新增，13 项，零联网 fake fetch/store）
+- `docs/AUTH-READY.md`（本节）、`docs/ledger/batch-15-provider-dcr-cimd.md`（新增）
+
+未改：`src/upstream-auth.js`、`src/capture.js`、`scripts/`、`tests/`（其他）、README、workflows。
+注意：`scripts/auth-provision.mjs` 的 Notion「DCR 未实现」与 Vercel「无 CIMD client_id」 blocker 文案因脚本不在本批范围而未更新，属**已知过时文案**，不代表代码能力；真实授权门槛仍以本文为准。
+
+不变量：static token 永不 refresh；token / client_secret 永不进 stdout/日志；v2 key 的 environment + owner 永远显式；未标记/dsh grant 永不自动刷新（这条不回滚）；DCR 客户端只写 `gmcgw:v2:client:<env>:<server>`，绝不污染 legacy v1 key；重复 start 绝不重复注册（避免 orphans grant）。

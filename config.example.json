@@ -13,13 +13,20 @@
       "preferredMode": "static_bearer",
       "tokenEnv": "NOTION_MCP_STATIC_TOKEN",
       "grantOwner": "manual",
-      "status": "placeholder - needs Business/Enterprise static MCP token; DCR OAuth not implemented in upstream-oauth.js"
+      "dcrPlaceholder": {
+        "dcr": true,
+        "registrationEndpoint": "https://mcp.notion.com/register",
+        "resource": "https://mcp.notion.com/mcp",
+        "clientKvKey": "gmcgw:v2:client:<env>:notion"
+      },
+      "status": "placeholder - static MCP token needs Business/Enterprise; DCR path implemented in upstream-oauth.js (dcr:true), still needs real authorization"
     },
     "vercel": {
       "preferredMode": "oauth",
-      "clientIdEnv": "VERCEL_OAUTH_CLIENT_ID",
+      "clientId": "https://your-domain.example/.well-known/mcp-client.json",
       "requiredScopes": ["openid", "offline_access"],
-      "status": "placeholder - OAuth-only, CIMD/pre-approved client required; no static token"
+      "resource": "https://mcp.vercel.com/",
+      "status": "placeholder - OAuth-only, CIMD client_id must be the public HTTPS metadata URL served by the gateway; no static token"
     }
   },
   "servers": [
@@ -40,10 +47,14 @@
       "name": "notion",
       "transport": "http",
       "url": "https://mcp.notion.com/mcp",
+      "authorizeUrl": "https://mcp.notion.com/authorize",
       "refreshUrl": "https://mcp.notion.com/token",
+      "dcr": true,
+      "registrationEndpoint": "https://mcp.notion.com/register",
+      "resource": "https://mcp.notion.com/mcp",
+      "oauthScopes": ["default"],
       "tokenEnv": "NOTION_TOKEN",
       "refreshEnv": "NOTION_REFRESH_TOKEN",
-      "clientIdEnv": "NOTION_CLIENT_ID",
       "expiresInEnv": "NOTION_EXPIRES_IN",
       "obtainedAtEnv": "NOTION_OBTAINED_AT",
       "allowTools": [],
@@ -116,6 +127,11 @@
       "name": "vercel",
       "transport": "http",
       "url": "https://mcp.vercel.com/",
+      "authorizeUrl": "https://vercel.com/oauth/authorize",
+      "refreshUrl": "https://api.vercel.com/login/oauth/token",
+      "clientId": "https://your-domain.example/.well-known/mcp-client.json",
+      "resource": "https://mcp.vercel.com/",
+      "oauthScopes": ["openid", "offline_access"],
       "tokenEnv": "VERCEL_TOKEN",
       "allowTools": [],
       "denyTools": [
