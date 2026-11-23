@@ -179,4 +179,4 @@ online-feedback.v1 记录
 3. `docs/ledger/README.md`
 4. `docs/AUTH-READY.md`
 5. `docs/OPEN-SOURCE/RELEASE-LOCAL.md`
-6. `docs/HANDOFF-2026-11-23.md`
+6. `docs/HANDOFF-2026-11-23.md`\n7. `docs/ACCEPTANCE.md`（V0 真实验收门；测试绿 ≠ 验收）
