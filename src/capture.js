@@ -27,6 +27,7 @@ import { gzipSync } from 'node:zlib';
 import { waitUntil } from '@vercel/functions';
 import { BUILD } from './build-info.js';
 import { extractProjects } from './project-tag.js';
+import { detectClientPlatform } from './client-platform.js';
 
 const MAX_BODY_BYTES = 32 * 1024 * 1024;
 // Fallback POST timeout — keep it short so a dead endpoint never holds the
@@ -70,6 +71,67 @@ function captureMcpInfo(req) {
   } catch (_) {
     return { mcpMethod: null, mcpTool: null, mcpId: null };
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * Client platform label (B13, layer 1 — observability only)
+ *
+ * Derives `clientPlatform` / `clientProfile` / `oauthClientId` from explicit
+ * request signals. This is ADDITIVE: it never changes capture eligibility,
+ * raw bytes, headers, events, or any existing envelope field. The label is
+ * never consulted by write/idempotency/permission paths.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Read an OAuth client id if the route attached one to `req`. Several common
+ * attachment names are accepted; nothing is inferred from auth headers (a
+ * bearer token is NOT a client id). Absent -> null.
+ */
+export function captureOAuthClientId(req) {
+  if (!req || typeof req !== 'object') return null;
+  for (const key of ['oauthClientId', '__gatewayOAuthClientId', '__gatewayOauthClientId']) {
+    const value = req[key];
+    if (typeof value === 'string' && value) return value;
+  }
+  return null;
+}
+
+/** Parse just enough of the raw body for an initialize clientInfo.name. */
+function platformBodyFromReq(req) {
+  const raw = req?.__gatewayRawBody;
+  if (typeof raw !== 'string' || !raw || raw.length > 1_000_000) return undefined;
+  try {
+    const body = JSON.parse(raw);
+    return body !== null && typeof body === 'object' ? body : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Compute the additive platform block for a capture envelope. Always returns
+ * an object; callers must only write it into an envelope that is actually
+ * being persisted (never into a skipped/disabled capture).
+ */
+function buildClientPlatformBlock(req, options = {}) {
+  const oauthClientId = captureOAuthClientId(req);
+  let result;
+  try {
+    result = detectClientPlatform({
+      headers: req?.headers,
+      body: platformBodyFromReq(req),
+      oauthClientId,
+      oauthClientMap: options.oauthClientMap,
+      env: options.env ?? process.env,
+    });
+  } catch {
+    result = { platform: 'unknown', profile: 'gemini-text-json', source: 'default', confidence: 'low' };
+  }
+  return {
+    clientPlatform: result.platform,
+    clientProfile: result.profile,
+    oauthClientId,
+  };
 }
 
 /* ------------------------------------------------------------------ *
@@ -458,6 +520,9 @@ export function startCapture(req, res, options = {}) {
       requestId,
       sessionId: req.__gatewaySessionId ?? req.headers?.['mcp-session-id'] ?? null,
       clientInfo: req.__gatewayClientInfo ?? null,
+      // Additive B13 platform label. Observation/encoding only; no write-path
+      // or idempotency semantics depend on these values.
+      ...buildClientPlatformBlock(req, options),
       mode: cfg.mode,
       deployment: BUILD,
       request: {
