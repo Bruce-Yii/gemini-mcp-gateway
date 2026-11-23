@@ -1,3 +1,5 @@
+- 总纲/用户原文：[FRAMEWORK.md](FRAMEWORK.md)
+
 - 渐进式披露版本：[ARCHITECTURE-PROGRESSIVE.md](ARCHITECTURE-PROGRESSIVE.md)
 
 # Architecture breakdown — gemini-mcp-gateway

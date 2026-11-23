@@ -1,5 +1,8 @@
 # AGENTS.md — gemini-mcp-gateway
 
+> **框架/架构入口（最高优先级）**：先读 `docs/FRAMEWORK.md`。
+> 用户原文、六个模块、主动/被动线上评测、客户端/上游 SOP、部署/开源架构都以它为准；以后框架性/架构性沉淀只写该文件。
+
 本文件只写本项目特有、且与工作区根 `AGENTS.md` 不同的规则；通用规则以根文件为准。
 
 最后更新：2026-11-23（Asia/Singapore）
@@ -182,7 +185,8 @@ online-feedback.v1 记录
 
 ## 10. 恢复时先读
 
-1. `docs/ARCHITECTURE.md`
+1. `docs/FRAMEWORK.md`
+2. `docs/ARCHITECTURE.md`
 2. `docs/HANDOFF-NEXT-WINDOW.md`（新窗口接手必读）
 2. `docs/EVALUATION.md`
 3. `docs/EXECUTION-PLAN.md`
