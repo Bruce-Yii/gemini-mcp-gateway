@@ -23,7 +23,7 @@
 - [ ] 部署记录可查；
 - [ ] 不是旧构建、不是本地 loopback。
 
-**当前：PARTIAL（生产 `758a232`；healthz 匹配，但验收 commit 已失效、push 自动部署 40 次、部署记录不全）**
+**当前：PARTIAL（生产 `9ab0e57`；healthz 匹配，但验收 commit 已失效、push 自动部署 40 次、部署记录不全）**
 
 ### B. 真实客户端任务
 

@@ -5,7 +5,7 @@
 > 你的任务不是“接着跑测试”，而是独立判断：这个网关到底能不能在真实客户端、真实仓库、真实授权下可靠工作。
 >
 > 当前日期锚点：2026-11-24（Asia/Singapore）。
-> 当前生产：`758a232`。当前验收：**V0 只过了 A（部署可追溯）**，整体 **NOT ACCEPTED**。
+> 当前生产：`9ab0e57`。当前验收：**V0 只过了 A（部署可追溯）**，整体 **NOT ACCEPTED**。
 > 当前全量回归基线：1381 tests / 1375 pass / 0 fail / 6 todo（接手后请自己重跑）。
 
 ---
@@ -57,7 +57,7 @@
 ### 已确认
 
 - 生产：`https://gemini-mcp-gateway.vercel.app`
-  - `/healthz` 返回 `commit=758a2320caf84f1bc2f5ed1fff3ba20bbe234472`
+  - `/healthz` 返回 `commit=9ab0e570caf84f1bc2f5ed1fff3ba20bbe234472`
   - `buildHash=02c96881...`
   - 验收门 A：PASS（仅“部署可追溯”）。
 - 回归：1381 tests / 1375 pass / 0 fail / 6 todo（自己重跑确认）。
