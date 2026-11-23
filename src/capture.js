@@ -28,6 +28,7 @@ import { waitUntil } from '@vercel/functions';
 import { BUILD } from './build-info.js';
 import { extractProjects } from './project-tag.js';
 import { detectClientPlatform } from './client-platform.js';
+import { CaptureQueue } from './capture-queue.js';
 
 const MAX_BODY_BYTES = 32 * 1024 * 1024;
 // Fallback POST timeout — keep it short so a dead endpoint never holds the
@@ -280,7 +281,23 @@ function configFromOptions(options = {}, env = process.env) {
     r2Prefix: options.r2Prefix ?? env.R2_PREFIX ?? 'capture',
     fallbackHttpUrl: options.fallbackHttpUrl ?? env.CAPTURE_FALLBACK_HTTP_URL ?? '',
     fallbackHttpToken: options.fallbackHttpToken ?? env.CAPTURE_FALLBACK_HTTP_TOKEN ?? '',
-    sync: options.sync ?? env.CAPTURE_SYNC === '1',
+    // Optional async queue (B15 integration). Default OFF: `CAPTURE_ASYNC_QUEUE=1`
+    // is the only env switch that turns it on. When enabled it takes priority
+    // over CAPTURE_SYNC (mutually exclusive) so a sync write can never be
+    // duplicated. With the flag off every value below is inert and the legacy
+    // sync / waitUntil branches in `res.end` behave byte-for-byte as before.
+    asyncQueue: options.asyncQueue ?? env.CAPTURE_ASYNC_QUEUE === '1',
+    syncRequested: options.sync ?? env.CAPTURE_SYNC === '1',
+    sync: (options.asyncQueue ?? env.CAPTURE_ASYNC_QUEUE === '1')
+      ? false
+      : (options.sync ?? env.CAPTURE_SYNC === '1'),
+    queueMaxItems: Number(options.queueMaxItems ?? env.CAPTURE_QUEUE_MAX_ITEMS ?? 256),
+    queueMaxBytes: Number(options.queueMaxBytes ?? env.CAPTURE_QUEUE_MAX_BYTES ?? 4 * 1024 * 1024),
+    queueBatchSize: Number(options.queueBatchSize ?? env.CAPTURE_QUEUE_BATCH_SIZE ?? 32),
+    queueFlushIntervalMs: Number(options.queueFlushIntervalMs ?? env.CAPTURE_QUEUE_FLUSH_MS ?? 250),
+    queueMaxAttempts: Number(options.queueMaxAttempts ?? env.CAPTURE_QUEUE_MAX_ATTEMPTS ?? 4),
+    queueBackoffBaseMs: Number(options.queueBackoffBaseMs ?? env.CAPTURE_QUEUE_BACKOFF_MS ?? 50),
+    queueBackoffMaxMs: Number(options.queueBackoffMaxMs ?? env.CAPTURE_QUEUE_BACKOFF_MAX_MS ?? 2000),
     fetchImpl: options.fetchImpl ?? fetch,
   };
 }
@@ -427,6 +444,165 @@ async function postFallback(cfg, record) {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * Optional async capture queue (B15 integration, default OFF)
+ *
+ * This layer is activated ONLY by `CAPTURE_ASYNC_QUEUE=1` (or the equivalent
+ * `options.asyncQueue` for tests). Critical audit rows (ack / done /
+ * dropped / meta) keep using the existing synchronous log path; only the
+ * envelope body is handed to `CaptureQueue` for batched async flush. The
+ * queue reuses `writeSink` so the R2 key, gzip encoding and envelope schema
+ * are byte-compatible with the legacy path. Sink failures are retried by the
+ * queue and exhausted items go to a DLQ callback that emits capture_dropped
+ * (and, for R2, writes `dlq/<day>/<requestId>.json.gz`).
+ * ------------------------------------------------------------------ */
+
+/** Structured capture_dropped record — same schema as the legacy path. */
+function makeDroppedRecord(requestId, cfg, droppedCount, error, extra = {}) {
+  return {
+    schema: 'gmg.capture_dropped.v1',
+    ts: new Date().toISOString(),
+    requestId,
+    sink: cfg.sink,
+    dropped: droppedCount,
+    error,
+    ...extra,
+  };
+}
+
+/**
+ * Best-effort DLQ persistence. Never throws into the queue or the response
+ * path. R2 keeps the same bucket and day layout with a `dlq` prefix; other
+ * sinks fall back to the configured fallback POST (when any).
+ */
+async function persistQueueDlq(cfg, envelope, record) {
+  if (!envelope) return;
+  try {
+    if (cfg.sink === 'r2') {
+      await writeR2Sink({ ...cfg, r2Prefix: 'dlq' }, envelope);
+    } else if (cfg.fallbackHttpUrl) {
+      await postFallback(cfg, { ...record, envelope });
+    }
+  } catch {
+    // DLQ persistence is best-effort; the [capture_dropped] log above is the
+    // authoritative reconciliation record.
+  }
+}
+
+/**
+ * Build the batch sink used by CaptureQueue. It writes each envelope through
+ * the SAME `writeSink` function as the legacy path (file/http/console/r2),
+ * preserving the `capture/<day>/<requestId>.json.gz` key and gzipped bytes.
+ * A throw/rejection is what drives the queue's retry + DLQ behaviour.
+ */
+function makeQueueBatchSink(cfg) {
+  return async function queueBatchSink(batch) {
+    for (const item of batch) {
+      const envelope = item?.envelope;
+      if (envelope) await writeSink(cfg, envelope);
+    }
+  };
+}
+
+/** capture.js-owned handlers: every drop/DLQ emits capture_dropped. */
+function makeQueueHandlers(cfg) {
+  return {
+    onDrop: (item, reason) => {
+      const envelope = item?.envelope;
+      const requestId = item?.requestId ?? envelope?.requestId ?? 'unknown';
+      droppedCount += 1;
+      const record = makeDroppedRecord(requestId, cfg, droppedCount, `queue_drop:${reason}`);
+      console.error('[capture_dropped]', JSON.stringify(record));
+      void persistQueueDlq(cfg, envelope, record);
+    },
+    onDlq: (item, meta) => {
+      const envelope = item?.envelope;
+      const requestId = item?.requestId ?? envelope?.requestId ?? meta?.requestId ?? 'unknown';
+      droppedCount += 1;
+      const record = makeDroppedRecord(requestId, cfg, droppedCount, 'queue_dlq', {
+        attempt: meta?.attempt,
+        status: meta?.status,
+      });
+      console.error('[capture_dropped]', JSON.stringify(record));
+      return persistQueueDlq(cfg, envelope, record);
+    },
+    onEvent: (event) => {
+      // Body-free structured observability; no envelope/token/error text.
+      logQueueEvent(event);
+    },
+  };
+}
+
+/** Find the singleton queue for a config (so batches actually coalesce). */
+function resolveCaptureQueue(options, cfg) {
+  // A fully injected queue (tests) gets capture.js's reconciliation handlers
+  // attached, so `capture_dropped` can never be bypassed by an injected sink.
+  if (options.captureQueue) {
+    const q = options.captureQueue;
+    if (!q.__captureHandlersAttached) {
+      const handlers = makeQueueHandlers(cfg);
+      const chain = (name) => (...args) => {
+        handlers[name](...args);
+        try { q[`__captureOriginal${name}`]?.(...args); } catch { /* best-effort */ }
+      };
+      q.__captureOriginalOnDrop = q.onDrop;
+      q.__captureOriginalOnDlq = q.onDlq;
+      q.__captureOriginalOnEvent = q.onEvent;
+      q.onDrop = chain('OnDrop');
+      q.onDlq = chain('OnDlq');
+      q.onEvent = chain('OnEvent');
+      q.__captureHandlersAttached = true;
+    }
+    return q;
+  }
+  const injected = Boolean(options.queueSink || options.queueScheduler);
+  const key = injected ? null : JSON.stringify([
+    cfg.mode, cfg.sink, cfg.fileDir, cfg.httpUrl, cfg.httpToken, cfg.r2AccountId,
+    cfg.r2Bucket, cfg.r2ApiToken, cfg.r2AuthEmail, cfg.r2AuthKey, cfg.r2Prefix,
+    cfg.queueMaxItems, cfg.queueMaxBytes, cfg.queueBatchSize, cfg.queueFlushIntervalMs,
+    cfg.queueMaxAttempts, cfg.queueBackoffBaseMs, cfg.queueBackoffMaxMs,
+  ]);
+  let queue = key ? captureQueues.get(key) : null;
+  if (queue?.closed) {
+    captureQueues.delete(key);
+    queue = null;
+  }
+  if (!queue) {
+    queue = new CaptureQueue({
+      sink: options.queueSink ?? makeQueueBatchSink(cfg),
+      ...(options.queueScheduler ? { scheduler: options.queueScheduler } : {}),
+      maxItems: cfg.queueMaxItems,
+      maxBytes: cfg.queueMaxBytes,
+      batchSize: cfg.queueBatchSize,
+      flushIntervalMs: cfg.queueFlushIntervalMs,
+      maxAttempts: cfg.queueMaxAttempts,
+      backoffBaseMs: cfg.queueBackoffBaseMs,
+      backoffMaxMs: cfg.queueBackoffMaxMs,
+      ...makeQueueHandlers(cfg),
+    });
+    if (key) captureQueues.set(key, queue);
+  }
+  return queue;
+}
+
+const captureQueues = new Map();
+
+/** Body-free queue observability line. Never logs an envelope or token. */
+function logQueueEvent(event) {
+  const { type, requestId, lane, attempt, status, size, depth, retryable, errorKind } = event ?? {};
+  console.log('[capture_queue]', JSON.stringify({
+    type,
+    ...(requestId ? { requestId } : {}),
+    ...(lane ? { lane } : {}),
+    ...(attempt !== undefined ? { attempt } : {}),
+    ...(status !== undefined ? { status } : {}),
+    ...(size !== undefined ? { size } : {}),
+    ...(depth !== undefined ? { depth } : {}),
+    ...(retryable !== undefined ? { retryable } : {}),
+    ...(errorKind ? { errorKind } : {}),
+  }));
+}
+
 /**
  * Start capture for one /mcp POST. Returns null when disabled.
  * The returned object has no protocol surface; it only carries the requestId
@@ -500,11 +676,24 @@ export function startCapture(req, res, options = {}) {
     build: BUILD,
   });
 
+  // Additive mode line, emitted only when the opt-in flag is on. It makes the
+  // CAPTURE_SYNC override explicit in logs (async queue wins, no double write).
+  if (cfg.asyncQueue) {
+    log('capture_queue_mode', {
+      requestId,
+      asyncQueue: true,
+      syncRequested: Boolean(cfg.syncRequested),
+      syncEffective: false,
+      sink: cfg.sink,
+    });
+  }
+
   const originalWrite = res.write.bind(res);
   const originalEnd = res.end.bind(res);
   let finished = false;
   let sinkQueued = false;
   let sinkError = null;
+  let queueHandle = null;
 
   res.write = function captureWrite(chunk, encoding, callback) {
     if (chunk && !overflow) {
@@ -576,6 +765,51 @@ export function startCapture(req, res, options = {}) {
         }
       })(),
     };
+
+    // ---- Opt-in async queue path (CAPTURE_ASYNC_QUEUE=1) --------------------
+    // Critical audit rows stay on the existing synchronous log path (ack was
+    // emitted at request start, done is emitted below); only the envelope body
+    // is enqueued. No legacy `task` is created in this branch, so CAPTURE_SYNC
+    // cannot cause a duplicate write even when it is also set.
+    if (cfg.asyncQueue) {
+      const queue = resolveCaptureQueue(options, cfg);
+      queueHandle = queue;
+      const result = queue.pushEnvelope(requestId, envelope);
+      sinkQueued = Boolean(result.accepted);
+
+      log('capture_done', {
+        requestId, path, method, status: res.statusCode, duration,
+        sink: cfg.sink, sinkQueued, asyncQueue: true, sync: false,
+        ...(cfg.syncRequested ? { syncOverride: true } : {}),
+      });
+
+      // Keep the runtime alive for the queue flush where supported. Never
+      // awaited here: a slow/failing sink must not delay the MCP response.
+      try {
+        waitUntil(queue.drain().catch(() => {}));
+      } catch { /* best-effort local runtime */ }
+
+      const endAt = Date.now();
+      try {
+        return originalEnd(chunk, encoding, callback);
+      } finally {
+        log('capture_flush_end', {
+          requestId,
+          path,
+          method,
+          status: res.statusCode,
+          mode: cfg.mode,
+          sink: cfg.sink,
+          sync: false,
+          asyncQueue: true,
+          duration,
+          waitedMs: endAt - endEnteredAt,
+          mcp_latency_ms: endAt - started,
+          endAt: new Date(endAt).toISOString(),
+        });
+      }
+    }
+    // ------------------------------------------------------------------------
 
     // Record the drop in Vercel logs unconditionally, even when `waitUntil`
     // is unavailable or throws. The Promise chain owns its own .catch, so the
@@ -699,6 +933,12 @@ export function startCapture(req, res, options = {}) {
       bodyBuffered: Boolean(options.bodyBuffered ?? req?.__gatewayRawBody !== undefined),
     },
   };
+  // Async-queue handle, exposed only in opt-in mode for tests/diagnostics.
+  // Defined with Object.defineProperty (not object spread) so it stays a live
+  // getter — the queue is created lazily inside res.end.
+  if (cfg.asyncQueue) {
+    Object.defineProperty(capture, 'queue', { get: () => queueHandle, enumerable: true });
+  }
   if (req) req.__gatewayCapture = capture;
   return capture;
 }
