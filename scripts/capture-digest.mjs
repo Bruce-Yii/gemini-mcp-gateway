@@ -16,6 +16,151 @@
 import { readdir, readFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
+import { createRequire } from 'node:module';
+
+/* ------------------------------------------------------------------ *
+ * Project tags (batch 11, project rollup)
+ *
+ * `src/capture.js` stamps two additive fields on every envelope:
+ *   - `projects`:     Array<{server, owner, repo, key, confidence, source}>
+ *   - `primaryProject`: the same shape, or null when no repo could be tagged.
+ * These are DERIVED labels computed by a deterministic extractor at capture
+ * time (`src/project-tag.js`). They are never a client-provided fact and must
+ * not be treated as a verified repository identity.
+ *
+ * Old envelopes (no fields) are backfilled here by calling the SAME extractor
+ * on `{ __gatewayRawBody: envelope.request.raw }`. We load it lazily with
+ * createRequire so this script still works while the capture-side file is
+ * being landed concurrently; a tiny deterministic fallback keeps the rollup
+ * honest if the module is genuinely unavailable. No model is ever consulted.
+ * ------------------------------------------------------------------ */
+const requireModule = createRequire(import.meta.url);
+let extractProjectsImpl = null;
+let extractProjectsResolved = false;
+
+/** Resolve the canonical deterministic extractor from src/project-tag.js. */
+function canonicalExtractor() {
+  if (extractProjectsResolved) return extractProjectsImpl;
+  extractProjectsResolved = true;
+  try {
+    const mod = requireModule('../src/project-tag.js');
+    if (typeof mod?.extractProjects === 'function') extractProjectsImpl = mod.extractProjects;
+  } catch {
+    // Not landed yet (concurrent work) — use the embedded fallback below.
+  }
+  return extractProjectsImpl;
+}
+
+/**
+ * Deterministic fallback, mirroring the documented rules of
+ * src/project-tag.js: only explicit owner+repo pairs (adjacent in args or in
+ * one code literal) and PR/branch URLs count. Natural-language repo names do
+ * NOT. Used only when the canonical module is unavailable.
+ */
+function fallbackExtractProjects(rawBody) {
+  let body = rawBody;
+  if (body && typeof body === 'object' && !Array.isArray(body)) body = body.__gatewayRawBody ?? body.request?.raw ?? null;
+  let text = typeof body === 'string' ? body : '';
+  try { if (!text) text = JSON.stringify(body ?? ''); } catch { /* ignore */ }
+  if (!text) return { projects: [], primaryProject: null };
+
+  const seen = new Map();
+  const add = (server, owner, repo, source, confidence) => {
+    if (!owner || !repo || !/^[A-Za-z0-9._-]+$/.test(owner) || !/^[A-Za-z0-9._-]+$/.test(repo)) return;
+    const key = `${server ?? 'github'}:${owner}/${repo}`;
+    if (!seen.has(key)) {
+      seen.set(key, { server: server ?? 'github', owner, repo, key, confidence, source, _count: 1 });
+    } else {
+      seen.get(key)._count += 1;
+    }
+  };
+  // Explicit JSON-RPC tool arguments: owner + repo keys in the same object.
+  try {
+    const json = JSON.parse(text);
+    const args = json?.params?.arguments ?? json?.params?.args ?? null;
+    if (args && typeof args === 'object') {
+      const server = serverFromTool(String(json?.params?.name ?? ''));
+      if (typeof args.owner === 'string' && typeof args.repo === 'string') {
+        add(server, args.owner, args.repo, 'tool-args', 'high');
+      } else if (typeof args.repo === 'string') {
+        const m = args.repo.match(/^([\w.-]+)\/([\w.-]+)$/);
+        if (m) add(server, m[1], m[2], 'tool-args', 'high');
+      }
+      // code / script strings: owner:'x' and repo:'y' must be in one literal.
+      for (const value of Object.values(args)) {
+        if (typeof value !== 'string' || value.length > 20000) continue;
+        extractFromCode(value, server, add);
+      }
+    }
+  } catch { /* not JSON: still scan as text for URLs */ }
+  // PR / tree / blob URLs carry an unambiguous owner/repo pair.
+  const urlRe = /https?:\/\/(?:www\.)?github\.com\/([\w.-]+)\/([\w.-]+)(?:[\/#?]|$)/g;
+  let match;
+  while ((match = urlRe.exec(text)) !== null) add('github', match[1], match[2], 'pr-url', 'medium');
+
+  const projects = [...seen.values()].map(({ _count, ...rest }) => rest);
+  const primary = projects.length
+    ? [...projects].sort((a, b) => b._count - a._count)[0]
+    : null;
+  return { projects, primaryProject: primary ? { ...primary } : null };
+}
+
+function serverFromTool(name) {
+  const idx = String(name).indexOf('__');
+  return idx > 0 ? String(name).slice(0, idx) : 'github';
+}
+
+function extractFromCode(code, server, add) {
+  // Only adjacent-ish explicit pairs inside one code literal. No NLP.
+  const ownerRe = /\bowner\s*[:=]\s*['"]([\w.-]+)['"]/g;
+  const repoRe = /\brepo(?:sitory)?\s*[:=]\s*['"]([\w.-]+)['"]/g;
+  const owners = [...code.matchAll(ownerRe)].map((m) => m[1]);
+  const repos = [...code.matchAll(repoRe)].map((m) => m[1]);
+  if (owners.length && repos.length) add(server, owners[0], repos[0], 'code-literal', 'medium');
+}
+
+/**
+ * Project tags for one envelope. Prefers envelope fields when present,
+ * otherwise deterministically backfills from request.raw via the canonical
+ * extractor (no model, no heuristics on prose).
+ */
+export function projectTagsOf(envelope) {
+  const hasProjectsField = Array.isArray(envelope?.projects);
+  const explicitProjects = hasProjectsField ? envelope.projects : null;
+  const explicitPrimary = envelope?.primaryProject ?? null;
+
+  // When the envelope carries the field at all, trust it — including the
+  // explicit-empty case (`projects: []` means "no tag found at capture time").
+  if (hasProjectsField) {
+    const projects = explicitProjects;
+    const primary = explicitPrimary ?? projects[0] ?? null;
+    return { projects, primaryProject: primary, source: 'envelope' };
+  }
+
+  // Old envelope: deterministically backfill from request.raw.
+  const extractor = canonicalExtractor();
+  const extracted = extractor
+    ? (() => { try { return extractor({ __gatewayRawBody: envelope?.request?.raw ?? null }); } catch { return null; } })()
+    : null;
+  const result = extracted ?? fallbackExtractProjects(envelope?.request?.raw ?? null);
+  const primary = explicitPrimary ?? result.primaryProject ?? result.projects[0] ?? null;
+  return {
+    projects: result.projects,
+    primaryProject: primary && result.projects.some((p) => p?.key === primary?.key) ? primary : (result.projects[0] ?? null),
+    source: 'derived',
+  };
+}
+
+/** Project keys attached to one envelope (deduped, stable order). */
+export function projectKeysOf(envelope) {
+  const { projects } = projectTagsOf(envelope);
+  return [...new Set(projects.map((p) => String(p?.key ?? '')).filter(Boolean))];
+}
+
+/** Primary project key of one envelope, or null. */
+export function primaryProjectKeyOf(envelope) {
+  return projectTagsOf(envelope).primaryProject?.key ?? null;
+}
 
 function env(name) {
   return process.env[name] ?? '';
@@ -160,6 +305,139 @@ function bumpHistogram(hist, key) {
   hist[key] = (hist[key] ?? 0) + 1;
 }
 
+/* ------------------------------------------------------------------ *
+ * Project-level rollup (batch 11, project rollup)
+ *
+ * Projects are ORTHOGONAL to sessions: one session can touch many projects,
+ * and one project can span many sessions (a handoff). `byProject` therefore
+ * aggregates across all sessions; `projectTimelines` keeps the per-project,
+ * per-session ordering so the handoff is visible instead of flattened.
+ * ------------------------------------------------------------------ */
+
+function blankProjectRow(key) {
+  return {
+    key,
+    requests: 0,
+    mcpRequests: 0,
+    errors: 0,
+    toolCalls: 0,
+    truncationSuspects: 0,
+    firstTs: null,
+    lastTs: null,
+    firstTsRaw: null,
+    lastTsRaw: null,
+    sessionIds: [],
+    requestIdSamples: [],
+  };
+}
+
+function addProjectSample(row, id, max) {
+  if (row.requestIdSamples.length < max) row.requestIdSamples.push(id);
+}
+
+function addProjectSession(row, id) {
+  if (id && !row.sessionIds.includes(id)) row.sessionIds.push(id);
+}
+
+/**
+ * Aggregate envelopes by project key. Each envelope contributes to EVERY tag
+ * it carries (multi-project request), and exactly one primaryProject key is
+ * also recorded in `primaryProjectRequests` for attribution clarity.
+ *
+ * `projectTimelines` groups (projectKey -> sessionId) so the same project
+ * across several sessions appears as an ordered handoff timeline.
+ */
+export function digestProjects(envelopes, { maxRequestIdSamples = 5 } = {}) {
+  const byProject = new Map();
+  const timelineGroups = new Map();
+
+  for (const envelope of envelopes) {
+    const { projects, primaryProject } = projectTagsOf(envelope);
+    const keys = [...new Set(projects.map((p) => String(p?.key ?? '')).filter(Boolean))];
+    const primaryKey = primaryProject?.key ?? null;
+    const ts = requestTimeOf(envelope);
+    const rawTs = envelope?.ts ?? envelope?.timestamp ?? envelope?.request?.ts ?? null;
+    const session = sessionIdOf(envelope);
+    const id = String(envelope?.requestId ?? envelope?.request?.id ?? envelope?.id ?? 'unknown');
+    let method = null;
+    try {
+      const json = JSON.parse(String(envelope?.request?.raw ?? ''));
+      method = typeof json?.method === 'string' ? json.method : null;
+    } catch { /* not JSON */ }
+    const status = Number(envelope?.response?.status ?? 0);
+    const raw = String(envelope?.response?.raw ?? '');
+    const isError = status >= 400 || /isError":true|execute error/i.test(raw);
+    const suspect = isTruncated(envelope) || isModelTruncationSuspect(envelope);
+
+    for (const key of keys) {
+      const row = byProject.get(key) ?? blankProjectRow(key);
+      row.requests += 1;
+      if (method) row.mcpRequests += 1;
+      if (method === 'tools/call') row.toolCalls += 1;
+      if (isError) row.errors += 1;
+      if (suspect) row.truncationSuspects += 1;
+      if (ts !== null) {
+        if (row.firstTs === null || ts < row.firstTs) { row.firstTs = ts; row.firstTsRaw = rawTs; }
+        if (row.lastTs === null || ts > row.lastTs) { row.lastTs = ts; row.lastTsRaw = rawTs; }
+      }
+      addProjectSession(row, session);
+      addProjectSample(row, id, maxRequestIdSamples);
+      byProject.set(key, row);
+
+      const timelineKey = `${key}\u0000${session ?? 'unknown'}`;
+      const timeline = timelineGroups.get(timelineKey) ?? {
+        projectKey: key,
+        sessionId: session,
+        requests: 0,
+        mcpRequests: 0,
+        errors: 0,
+        toolCalls: 0,
+        truncationSuspects: 0,
+        firstTs: null,
+        lastTs: null,
+        firstTsRaw: null,
+        lastTsRaw: null,
+        requestIdSamples: [],
+        primaryProjectRequests: 0,
+      };
+      timeline.requests += 1;
+      if (method) timeline.mcpRequests += 1;
+      if (method === 'tools/call') timeline.toolCalls += 1;
+      if (isError) timeline.errors += 1;
+      if (suspect) timeline.truncationSuspects += 1;
+      if (primaryKey === key) timeline.primaryProjectRequests += 1;
+      if (ts !== null) {
+        if (timeline.firstTs === null || ts < timeline.firstTs) { timeline.firstTs = ts; timeline.firstTsRaw = rawTs; }
+        if (timeline.lastTs === null || ts > timeline.lastTs) { timeline.lastTs = ts; timeline.lastTsRaw = rawTs; }
+      }
+      addProjectSample(timeline, id, maxRequestIdSamples);
+      timelineGroups.set(timelineKey, timeline);
+    }
+  }
+
+  const finalizeTimes = (row) => {
+    row.firstTs = row.firstTs === null ? null : new Date(row.firstTs).toISOString();
+    row.lastTs = row.lastTs === null ? null : new Date(row.lastTs).toISOString();
+    return row;
+  };
+  const byProjectRows = [...byProject.values()].map(finalizeTimes).sort((a, b) => {
+    const n = b.requests - a.requests;
+    return n !== 0 ? n : a.key.localeCompare(b.key);
+  });
+  const projectTimelines = [...timelineGroups.values()].map(finalizeTimes).sort((a, b) => {
+    const ka = a.firstTs ?? 0;
+    const kb = b.firstTs ?? 0;
+    if (ka !== kb) return ka - kb;
+    return a.projectKey.localeCompare(b.projectKey) || String(a.sessionId ?? '').localeCompare(String(b.sessionId ?? ''));
+  });
+  return { byProject: byProjectRows, projectTimelines };
+}
+
+/** Convert the byProject array into the stable keyed object used in metrics. */
+function projectRowsToObject(rows) {
+  return Object.fromEntries(rows.map((row) => [row.key, row]));
+}
+
 export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
   const result = {
     requests: envelopes.length,
@@ -193,6 +471,9 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     modelTruncationByServer: {},
     modelTruncationByTool: {},
     modelTruncationBySession: {},
+    // Additive fields (batch 11, project rollup) — filled below.
+    byProject: {},
+    projectTimelines: [],
   };
   const upstreamGroups = new Map();
   const toolGroups = new Map();
@@ -294,6 +575,10 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
   for (const [name, group] of toolGroups) result.toolStats[name] = finishGroup(group);
   for (const [name, group] of routeGroups) result.byRoute[name] = finishGroup(group);
 
+  const projectRollup = digestProjects(envelopes);
+  result.byProject = projectRowsToObject(projectRollup.byProject);
+  result.projectTimelines = projectRollup.projectTimelines;
+
   // Keep a stable, human-friendly order in JSON output.
   for (const key of ['byDay', 'byDayHour', 'byHour', 'statuses', 'errorClasses', 'routeErrors', 'upstreamStats', 'toolStats', 'byRoute', 'modelTruncationByServer', 'modelTruncationByTool', 'modelTruncationBySession']) {
     result[key] = Object.fromEntries(Object.entries(result[key]).sort(([a], [b]) => a.localeCompare(b)));
@@ -324,6 +609,13 @@ export function renderScorecard(date, metrics) {
     .map(([day, count]) => `| ${day} | ${count} |`).join('\n') || '| — | 0 |';
   const hourRows = Object.entries(metrics.byHour ?? {}).sort(([a], [b]) => a.localeCompare(b))
     .map(([hour, count]) => `| ${hour}:00 | ${count} |`).join('\n') || '| — | 0 |';
+  const projectRows = Object.entries(metrics.byProject ?? {})
+    .sort((a, b) => b[1].requests - a[1].requests || a[0].localeCompare(b[0]))
+    .map(([key, p]) => {
+      const sessions = (p.sessionIds ?? []).map((id) => `\`${id}\``).join(', ') || '—';
+      const ids = (p.requestIdSamples ?? []).map((id) => `\`${id}\``).join(', ') || '—';
+      return `| ${key} | ${p.requests} | ${p.mcpRequests} | ${p.errors} | ${p.toolCalls} | ${p.truncationSuspects} | ${p.firstTs ?? '—'} | ${p.lastTs ?? '—'} | ${sessions} | ${ids} |`;
+    }).join('\n') || '| — | 0 | 0 | 0 | 0 | 0 | — | — | — | — |';
   return `# Capture Scorecard — ${date}
 
 | Metric | Value |
@@ -384,6 +676,17 @@ ${Object.entries(metrics.modelTruncationByTool ?? {}).sort((a, b) => b[1] - a[1]
 | Session | Suspects |
 |---|---:|
 ${Object.entries(metrics.modelTruncationBySession ?? {}).sort((a, b) => b[1] - a[1]).map(([name, count]) => `| ${name} | ${count} |`).join('\n') || '| — | 0 |'}
+
+## Projects (derived labels, batch 11)
+> \`projects[]\` / \`primaryProject\` are deterministic tags derived at capture time
+> from explicit owner/repo pairs, never client-declared identities. One request
+> may carry several tags; each tag is counted independently. Projects are
+> ORTHOGONAL to sessions — see \`projectTimelines\` in the JSON scorecard for
+> the same project spanning multiple sessions (handoff).
+
+| Project | Requests | MCP requests | Errors | Tool calls | Trunc suspects | First ts | Last ts | SessionIds | RequestId samples |
+|---|---:|---:|---:|---:|---:|---|---|---|---|
+${projectRows}
 
 ## Requests by day
 | Day | Requests |
@@ -595,6 +898,9 @@ export function digestSessions(envelopes, { idleMs = DEFAULT_IDLE_MS, maxRequest
       clientInfo: null,
       requestIdSamples: [],
       methods: {},
+      // Additive: project tags seen in this window (orthogonal to sessions).
+      projects: [],
+      primaryProjects: [],
     };
     row.requests += 1;
     const rowTaskId = envelope?.taskId ?? envelope?.meta?.taskId ?? envelope?.request?.taskId ?? null;
@@ -623,6 +929,19 @@ export function digestSessions(envelopes, { idleMs = DEFAULT_IDLE_MS, maxRequest
 
     const id = requestIdOf(envelope, envelope._windowSortIndex);
     if (row.requestIdSamples.length < maxRequestIdSamples) row.requestIdSamples.push(id);
+
+    // Project rollup per session: every tag on every envelope in this window.
+    const tags = projectTagsOf(envelope);
+    for (const project of tags.projects) {
+      const key = String(project?.key ?? '');
+      if (!key) continue;
+      if (!row.projects.some((p) => p.key === key)) {
+        row.projects.push({ ...project, requests: 0 });
+      }
+      row.projects.find((p) => p.key === key).requests += 1;
+    }
+    const primaryKey = tags.primaryProject?.key ?? null;
+    if (primaryKey && !row.primaryProjects.includes(primaryKey)) row.primaryProjects.push(primaryKey);
     groups.set(key, row);
   }
   const rows = [...groups.values()].sort((a, b) => {
@@ -645,17 +964,38 @@ export function renderSessionDigest(rows) {
   const tableRows = rows.map((row) => {
     const client = row.clientInfo ? JSON.stringify(row.clientInfo) : '—';
     const ids = row.requestIdSamples.map((id) => `\`${id}\``).join(', ') || '—';
-    return `| ${row.windowId} | ${row.strategy} | ${row.sessionId ?? '—'} | ${row.requests} | ${row.mcpErrors} | ${row.toolCalls} | ${row.truncationSuspects} | ${row.firstTs ?? '—'} | ${row.lastTs ?? '—'} | ${client} | ${ids} |`;
-  }).join('\n') || '| — | — | — | 0 | 0 | 0 | 0 | — | — | — | — |';
+    const projects = (row.projects ?? []).map((p) => `\`${p.key}\``).join(', ') || '—';
+    return `| ${row.windowId} | ${row.strategy} | ${row.sessionId ?? '—'} | ${row.requests} | ${row.mcpErrors} | ${row.toolCalls} | ${row.truncationSuspects} | ${row.firstTs ?? '—'} | ${row.lastTs ?? '—'} | ${projects} | ${client} | ${ids} |`;
+  }).join('\n') || '| — | — | — | 0 | 0 | 0 | 0 | — | — | — | — | — |';
   return `## Sessions / windows (batch 11)
 
 > Analysis-only grouping of online capture envelopes. \`windowId\` is synthetic
 > when no \`sessionId\` exists; original \`requestId\`/\`sessionId\` are untouched.
 > Truncation suspects include gateway wire truncation and advisory model-side
-> silent truncation; neither is a verdict.
+> silent truncation; neither is a verdict. \`projects\` are derived labels and
+> are ORTHOGONAL to these windows: one window may touch several projects, and
+> one project may span several windows.
 
-| Window | Strategy | SessionId | Requests | MCP errors | Tool calls | Trunc suspects | First ts | Last ts | Client info | RequestId samples |
-|---|---|---|---:|---:|---:|---:|---|---|---|---|
+| Window | Strategy | SessionId | Requests | MCP errors | Tool calls | Trunc suspects | First ts | Last ts | Projects | Client info | RequestId samples |
+|---|---|---|---:|---:|---:|---:|---|---|---|---|---|
+${tableRows}
+`;
+}
+
+/** Render the cross-session project timeline section (handoff visibility). */
+export function renderProjectTimelines(rows) {
+  const tableRows = rows.map((row) => {
+    const ids = (row.requestIdSamples ?? []).map((id) => `\`${id}\``).join(', ') || '—';
+    return `| ${row.projectKey} | ${row.sessionId ?? '—'} | ${row.primaryProjectRequests} | ${row.requests} | ${row.mcpRequests} | ${row.errors} | ${row.toolCalls} | ${row.truncationSuspects} | ${row.firstTs ?? '—'} | ${row.lastTs ?? '—'} | ${ids} |`;
+  }).join('\n') || '| — | — | 0 | 0 | 0 | 0 | 0 | 0 | — | — | — |';
+  return `## Project timelines (batch 11, cross-session handoff)
+
+> One project key can appear in multiple independent sessions/windows. Rows are
+> ordered by first timestamp so a handoff is visible. Project tags are derived
+> labels; a shared key does NOT prove the same client or the same task.
+
+| Project | SessionId | Primary requests | Requests | MCP requests | Errors | Tool calls | Trunc suspects | First ts | Last ts | RequestId samples |
+|---|---|---:|---:|---:|---:|---:|---:|---|---|---|
 ${tableRows}
 `;
 }
@@ -697,6 +1037,7 @@ async function main() {
   // already fetched them; keep a local cache by reusing range payload keys when
   // present to avoid a second network round-trip where possible.
   let digestRows = [];
+  let projectTimelines = [];
   try {
     let allEnvelopes = [];
     if (dir) {
@@ -713,13 +1054,18 @@ async function main() {
       allEnvelopes = await Promise.all((await listR2Keys(`capture/${date}/`)).map(readR2Envelope));
     }
     digestRows = digestSessions(allEnvelopes);
+    projectTimelines = metrics.projectTimelines ?? [];
   } catch (error) {
     console.error(`[digest] session aggregation skipped: ${error?.message ?? String(error)}`);
   }
   await mkdir(out, { recursive: true });
-  await writeFile(join(out, `scorecard-${label}.md`), renderScorecard(label, metrics) + '\n' + renderSessionDigest(digestRows), 'utf8');
-  await writeFile(join(out, `scorecard-${label}.json`), JSON.stringify({ date: label, ...payload, sessions: digestRows }, null, 2), 'utf8');
-  console.log(`[digest] ${label}: ${metrics.requests} requests, ${metrics.errors} errors, ${digestRows.length} sessions/windows -> ${out}`);
+  await writeFile(join(out, `scorecard-${label}.md`), renderScorecard(label, metrics) + '\n' + renderSessionDigest(digestRows) + '\n' + renderProjectTimelines(projectTimelines), 'utf8');
+  await writeFile(join(out, `scorecard-${label}.json`), JSON.stringify({
+    date: label, ...payload, sessions: digestRows,
+    byProject: metrics.byProject ?? {},
+    projectTimelines,
+  }, null, 2), 'utf8');
+  console.log(`[digest] ${label}: ${metrics.requests} requests, ${metrics.errors} errors, ${digestRows.length} sessions/windows, ${Object.keys(metrics.byProject ?? {}).length} projects -> ${out}`);
 }
 
 if (process.argv[1] && process.argv[1].endsWith('capture-digest.mjs')) {

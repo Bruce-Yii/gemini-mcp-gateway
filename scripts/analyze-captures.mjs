@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
   listR2Keys, readR2Envelope, readDirEnvelopes, aggregateEnvelopes, classifyError,
-  isTruncated, isModelTruncationSuspect, upstreamOf, digestSessions,
+  isTruncated, isModelTruncationSuspect, upstreamOf, digestSessions, digestProjects,
 } from './capture-digest.mjs';
 
 const MAX_CODE = 2000;
@@ -191,11 +191,30 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
   // free model can cite raw envelopes for human replay.
   const sessionWindows = digestSessions(envelopes);
 
+  // Additive (batch 11, project rollup): project tags are DERIVED labels
+  // computed deterministically at capture time from explicit owner/repo pairs,
+  // never client-declared repository identities. They are orthogonal to
+  // sessions: one project may span several sessions (handoff) and one session
+  // may touch several projects. Kept advisory-only; no validator change.
+  const projectRollup = digestProjects(envelopes);
+  const projectSummary = {
+    projects: projectRollup.byProject.length,
+    requestsWithProjects: projectRollup.byProject.reduce((sum, row) => sum + row.requests, 0),
+    multiProjectSessions: sessionWindows.filter((row) => (row.projects ?? []).length > 1).length,
+    handoffProjects: new Set(projectRollup.projectTimelines
+      .map((row) => row.projectKey)
+      .filter((key) => projectRollup.projectTimelines.filter((r) => r.projectKey === key).length > 1)).size,
+  };
+
   return {
     schema: 'analyzer-input.v1',
     date,
     sessionWindows,
     sessionWindowsNote: 'Advisory clustering: sessionId when present, otherwise initialize / 15-min idle windows. windowId is analysis-only; cite requestId samples for replay. Do not treat cluster boundaries as verified client sessions.',
+    // Project-level views (additive, advisory-only).
+    projectWindows: projectRollup.projectTimelines,
+    projectSummary,
+    projectNote: 'Projects are DERIVED labels from deterministic capture-time extraction of explicit owner/repo pairs (envelope.projects / primaryProject), not client-declared identities. One request may carry several tags and one project may span several sessions. Treat shared project keys as a grouping hint only — never as proof of the same client or task. Cite requestId samples for replay.',
     metrics: {
       requests: metrics.requests,
       errors: metrics.errors,
@@ -319,6 +338,9 @@ function analyzerPrompt(input) {
   const sessionHint = Array.isArray(input.sessionWindows) && input.sessionWindows.length
     ? 'sessionWindows are deterministic clustering of online captures for offline join only. windowId is synthetic when sessionId is absent; do not claim two windows are the same client session, and do not use cluster boundaries as evidence of a bug.'
     : '';
+  const projectHint = input.projectSummary && input.projectSummary.projects > 0
+    ? 'projectWindows / projectSummary group captures by project key, which is a DERIVED label extracted deterministically from explicit owner/repo arguments or code literals at capture time — NOT a client-declared or verified repository identity. Projects are orthogonal to sessions: the same project key may appear in several sessions (handoff), and one session may touch several projects. Do not claim a shared project key proves the same client, task, or root cause; cite requestId samples for replay.'
+    : '';
   return [
     {
       role: 'system',
@@ -329,6 +351,7 @@ function analyzerPrompt(input) {
         trendHint,
         truncationHint,
         sessionHint,
+        projectHint,
         'Return ONLY strict JSON matching analyzer-output.v1:',
         '{"schema":"analyzer-output.v1","summary":"...","issues":[{"id":"issue-1","severity":"P0|P1|P2|P3","category":"gateway|upstream|model|data|unknown","title":"...","evidenceEventIds":["..."],"likelyCause":"...","suggestedFix":"...","confidence":0.0,"regressionTask":{"prompt":"...","expectedTool":"...","assertions":["..."]}}],"ignored":[{"clusterId":"c1","reason":"..."}]}',
         'Each issue MUST cite at least one evidenceEventIds from the input. If unsure, use ignored.',
