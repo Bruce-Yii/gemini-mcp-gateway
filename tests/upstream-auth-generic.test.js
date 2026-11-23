@@ -46,12 +46,13 @@ test('a custom provider refreshes at its configured refreshUrl', async () => {
     envClientSecret: 'CSEC',
     tokenUrl: 'https://auth.example/token',
     mcpUrl: 'https://mcp.example/mcp',
+    grantOwner: 'gateway', source: 'gateway-oauth',
   });
 
   assert.equal(token, 'NEW_AT');
   assert.equal(calls[0].url, 'https://auth.example/token');
   assert.match(calls[0].body, /client_secret=CSEC/);
-  assert.equal(JSON.parse(store.data.get('gmcgw:v1:upstream:acme')).refresh_token, 'NEW_RT');
+  assert.equal(JSON.parse(store.data.get('gmcgw:v2:grant:local:gateway:acme')).refresh_token, 'NEW_RT');
 });
 
 test('built-in providers keep their default token endpoint', () => {

@@ -24,7 +24,9 @@ import {
 import { TokenStore } from '../src/store.js';
 import { UpstreamManager } from '../src/upstreams.js';
 
-const KEY = 'gmcgw:v1:upstream:notion';
+const KEY = 'gmcgw:v2:grant:local:gateway:notion';
+const KEY_PREVIEW = 'gmcgw:v2:grant:preview:gateway:notion';
+const KEY_PROD = 'gmcgw:v2:grant:production:gateway:notion';
 
 /** Fake Upstash-compatible KV with real NX / owner-aware Lua semantics. */
 function fakeStore() {
@@ -80,6 +82,8 @@ function record(overrides = {}) {
   return {
     access_token: 'AT_0', refresh_token: 'RT_0', client_id: 'CID',
     expires_at: Date.now() + 60 * 60 * 1000, envSeed: 'ENV_AT_0',
+    // R1: a grant that may be refreshed must be EXPLICITLY gateway-owned.
+    owner: 'gateway', source: 'gateway-oauth', environment: 'local',
     bootstrapped: false, ...overrides,
   };
 }
@@ -99,6 +103,7 @@ function tokenFetch(handler) {
 const ENV = {
   envToken: 'ENV_AT_0', envRefresh: 'ENV_RT_0', envClientId: 'CID',
   envExpiresIn: 3600, envObtainedAt: Date.now(),
+  grantOwner: 'gateway', source: 'gateway-oauth',
 };
 
 // ── A. env seed is one-shot; bootstrapped attempt is consumed ──────────────
@@ -344,29 +349,32 @@ test('D3: REAUTH_REQUIRED clears only when a genuinely NEW env grant is seeded',
 
 // ── E. environment namespaces ──────────────────────────────────────────────
 
-test('E1: resolveEnvironment maps VERCEL_ENV and explicit override', () => {
+test('E1: resolveEnvironment maps VERCEL_ENV and explicit override (R2: local default)', () => {
   assert.equal(resolveEnvironment({ VERCEL_ENV: 'production' }), 'production');
   assert.equal(resolveEnvironment({ VERCEL_ENV: 'preview' }), 'preview');
   assert.equal(resolveEnvironment({ VERCEL_ENV: 'development' }), 'development');
   assert.equal(resolveEnvironment({ GMCGW_ENVIRONMENT: 'preview', VERCEL_ENV: 'production' }), 'preview');
-  assert.equal(resolveEnvironment({}), 'production'); // legacy default
+  assert.equal(resolveEnvironment({}), 'local'); // R2: local cold start must NEVER read production
+  assert.equal(resolveEnvironment({ VERCEL: '1' }), 'preview'); // Vercel without VERCEL_ENV: safe fallback
+  assert.equal(resolveEnvironment({ GMCGW_ENVIRONMENT: 'local', VERCEL_ENV: 'production' }), 'local');
 });
 
 test('E2: preview and production cannot see or burn each other\'s grant', async () => {
   const store = fakeStore();
   const prod = new UpstreamAuth({ store, environment: 'production' });
   const preview = new UpstreamAuth({ store, environment: 'preview' });
-  await prod.seed('notion', { accessToken: 'PROD_AT', refreshToken: 'PROD_RT', clientId: 'CID' });
-  assert.equal(store._data.has('gmcgw:v1:upstream:notion'), true);
-  assert.equal(store._data.has('gmcgw:v1:upstream:notion:preview'), false);
+  await prod.seed('notion', { accessToken: 'PROD_AT', refreshToken: 'PROD_RT', clientId: 'CID', grantOwner: 'gateway' });
+  assert.equal(store._data.has(KEY_PROD), true);
+  assert.equal(store._data.has(KEY_PREVIEW), false);
 
   // A preview cold start seeds its own record — production untouched.
   await preview.getAccessToken('notion', {
     envToken: 'PREVIEW_AT', envRefresh: 'PREVIEW_RT', envClientId: 'CID',
     envExpiresIn: 3600, envObtainedAt: Date.now(),
+    grantOwner: 'gateway', source: 'gateway-oauth',
   });
-  assert.equal(JSON.parse(store._data.get(KEY)).refresh_token, 'PROD_RT');
-  assert.equal(JSON.parse(store._data.get(`${KEY}:preview`)).refresh_token, 'PREVIEW_RT');
+  assert.equal(JSON.parse(store._data.get(KEY_PROD)).refresh_token, 'PROD_RT');
+  assert.equal(JSON.parse(store._data.get(KEY_PREVIEW)).refresh_token, 'PREVIEW_RT');
 
   // Even a REAUTH_REQUIRED in preview is invisible to production.
   await preview._markReauth('notion', await preview._load('notion'), REAUTH_REQUIRED);
@@ -377,20 +385,21 @@ test('E2: preview and production cannot see or burn each other\'s grant', async 
 test('E3: preview invalid_grant does not mark production terminal', async () => {
   const store = fakeStore();
   const prod = new UpstreamAuth({ store, environment: 'production' });
-  await prod.seed('notion', { accessToken: 'PROD_AT', refreshToken: 'PROD_RT', clientId: 'CID' });
+  await prod.seed('notion', { accessToken: 'PROD_AT', refreshToken: 'PROD_RT', clientId: 'CID', grantOwner: 'gateway' });
   const preview = new UpstreamAuth({
     store,
     environment: 'preview',
     fetch: tokenFetch(() => ({ ok: false, json: async () => ({ error: 'invalid_grant' }) })),
   });
-  seedStore(store, record({ expires_at: Date.now() - 1000 }), `${KEY}:preview`);
+  seedStore(store, record({ expires_at: Date.now() - 1000, environment: 'preview' }), KEY_PREVIEW);
   await preview.getAccessToken('notion', {
     envToken: 'PREVIEW_AT', envRefresh: 'PREVIEW_RT', envClientId: 'CID',
     envExpiresIn: 3600, envObtainedAt: Date.now(),
+    grantOwner: 'gateway', source: 'gateway-oauth',
   });
   assert.equal((await preview.getAuthStatus('notion')).status, REAUTH_REQUIRED);
   assert.equal((await prod.getAuthStatus('notion')).status, 'ACTIVE');
-  assert.equal(JSON.parse(store._data.get(KEY)).needsReauth, undefined);
+  assert.equal(JSON.parse(store._data.get(KEY_PROD)).needsReauth, undefined);
 });
 
 // ── F. static token (Vercel) has no fake auto-refresh ───────────────────────
@@ -443,12 +452,13 @@ test('G1: a DSH-sourced env grant is tagged and NEVER auto-refreshed', async () 
     fetch: tokenFetch(() => { providerCalls++; throw new Error('must not be called'); }),
   });
   const tok = await auth.getAccessToken('notion', {
-    ...ENV, envExpiresIn: 0, envObtainedAt: 0, // expired/unknown -> would refresh if owned
+    ...ENV, grantOwner: undefined, // DSH source must win over the default ENV owner
+    envExpiresIn: 0, envObtainedAt: 0, // expired/unknown -> would refresh if owned
     source: DSH_GRANT_SOURCE,
   });
   assert.equal(tok, ENV.envToken, 'access token is still usable while alive');
   assert.equal(providerCalls, 0, 'gateway must not spend a DSH-owned rotating grant');
-  const rec = JSON.parse(store._data.get(KEY));
+  const rec = JSON.parse(store._data.get('gmcgw:v2:grant:local:dsh:notion'));
   assert.equal(rec.owner, 'dsh');
   assert.equal(rec.source, DSH_GRANT_SOURCE);
   assert.equal(rec.bootstrapped, false);
@@ -459,28 +469,33 @@ test('G1: a DSH-sourced env grant is tagged and NEVER auto-refreshed', async () 
 
 test('G2: even a provider 401 cannot force a refresh of a shared grant', async () => {
   const store = fakeStore();
-  seedStore(store, record({
-    owner: 'dsh', source: DSH_GRANT_SOURCE, expires_at: Date.now() - 1000,
-  }));
+  const shared = new UpstreamAuth({ store, environment: 'local', grantOwner: 'dsh' });
+  await shared.seed('notion', {
+    accessToken: 'AT_0', refreshToken: 'RT_0', clientId: 'CID',
+    expiresAt: Date.now() - 1000, source: DSH_GRANT_SOURCE, grantOwner: 'dsh',
+  });
   let providerCalls = 0;
   const auth = new UpstreamAuth({
-    store,
+    store, grantOwner: 'dsh',
     fetch: tokenFetch(() => { providerCalls++; throw new Error('must not be called'); }),
   });
-  await auth.getAccessToken('notion', ENV, { force: true });
+  await auth.getAccessToken('notion', { ...ENV, grantOwner: undefined, source: DSH_GRANT_SOURCE }, { force: true });
   assert.equal(providerCalls, 0);
   assert.equal((await auth.getAuthStatus('notion')).reason, SHARED_GRANT_REFRESH_FORBIDDEN);
 });
 
-test('G3: shared grant records live in their own KV namespace', () => {
+test('G3: grant records always live in explicit v2 env+owner namespaces', () => {
   const gateway = new UpstreamAuth({ store: fakeStore(), environment: 'production' });
   const shared = new UpstreamAuth({ store: fakeStore(), environment: 'production', grantOwner: 'dsh' });
-  assert.equal(gateway._key('notion'), 'gmcgw:v1:upstream:notion');
-  assert.equal(shared._key('notion'), 'gmcgw:v1:upstream:notion:owner-dsh');
+  assert.equal(gateway._key('notion'), 'gmcgw:v2:grant:production:gateway:notion');
+  assert.equal(shared._key('notion'), 'gmcgw:v2:grant:production:dsh:notion');
   const previewShared = new UpstreamAuth({
     store: fakeStore(), environment: 'preview', grantOwner: 'dsh',
   });
-  assert.equal(previewShared._key('notion'), 'gmcgw:v1:upstream:notion:preview:owner-dsh');
+  assert.equal(previewShared._key('notion'), 'gmcgw:v2:grant:preview:dsh:notion');
+  // R4: legacy v1 keys are read-only aliases, never a write target.
+  assert.equal(gateway._legacyKey('notion'), 'gmcgw:v1:upstream:notion');
+  assert.equal(previewShared._legacyKey('notion'), null);
 });
 
 test('G4: explicit long-lived access token path works without any refresh grant', async () => {

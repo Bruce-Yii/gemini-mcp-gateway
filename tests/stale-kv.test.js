@@ -14,8 +14,9 @@ test('stale KV record is replaced by fresh env token', async () => {
     },
   };
   // Pre-seed a STALE record with a revoked refresh token
-  mem.set('gmcgw:v1:upstream:notion', JSON.stringify({
+  mem.set('gmcgw:v2:grant:local:gateway:notion', JSON.stringify({
     access_token: 'OLD_EXPIRED', refresh_token: 'OLD_REVOKED', client_id: 'old', expires_at: 0,
+    owner: 'gateway', source: 'gateway-oauth', environment: 'local',
   }));
   let refreshedWith = null;
   const auth = new UpstreamAuth({
@@ -27,6 +28,7 @@ test('stale KV record is replaced by fresh env token', async () => {
   });
   const tok = await auth.getAccessToken('notion', {
     envToken: 'NEW_ENV_TOKEN', envRefresh: 'NEW_ENV_REFRESH', envClientId: 'NEW_CID', envExpiresIn: 28800,
+    grantOwner: 'gateway', source: 'gateway-oauth',
   });
   assert.equal(refreshedWith, 'NEW_ENV_REFRESH', 'must refresh with the env refresh token, not stale KV');
   assert.equal(tok, 'FRESH');

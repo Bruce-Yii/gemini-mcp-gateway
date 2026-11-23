@@ -23,7 +23,11 @@ test('refresh happens once after bootstrap, not on every call (rotating token sa
       return { ok: true, json: async () => ({ access_token: 'ACCESS_' + refreshCount, refresh_token: currentRefresh, expires_in: 28800 }) };
     },
   });
-  const env = { envToken: 'ENV_TOKEN', envRefresh: 'ENV_REFRESH', envClientId: 'CID', envExpiresIn: 28800, envObtainedAt: Date.now() };
+  const env = {
+    envToken: 'ENV_TOKEN', envRefresh: 'ENV_REFRESH', envClientId: 'CID',
+    envExpiresIn: 28800, envObtainedAt: Date.now(),
+    grantOwner: 'gateway', source: 'gateway-oauth',
+  };
 
   // first call: bootstrap + forced refresh once
   await auth.getAccessToken('notion', env);

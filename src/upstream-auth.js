@@ -43,7 +43,15 @@ import { randomUUID } from 'node:crypto';
 import { captureEvent } from './capture.js';
 import { TokenStore } from './store.js';
 
-const KEY_PREFIX = 'gmcgw:v1:upstream';
+/** v2 namespace: environment + owner are ALWAYS explicit in the key. */
+const KEY_PREFIX_V2 = 'gmcgw:v2:grant';
+/** v1 keys are read-only legacy aliases (migration window, design doc §6). */
+const KEY_PREFIX_V1 = 'gmcgw:v1:upstream';
+
+export const ENVIRONMENTS = Object.freeze(['production', 'preview', 'development', 'local']);
+export const LEGACY_KEY_PREFIX = KEY_PREFIX_V1;
+export const V2_KEY_PREFIX = KEY_PREFIX_V2;
+
 const REFRESH_SKEW_MS = 5 * 60 * 1000; // refresh 5 min before expiry
 const LEASE_TTL_MS = 60 * 1000;   // long enough for a slow provider call
 const LEASE_RENEW_MS = 20 * 1000; // renew every 20s so the lease cannot expire mid-refresh
@@ -119,17 +127,22 @@ export function defaultProvider(server) {
 /**
  * Resolve the deployment environment used to namespace upstream token keys.
  *
- * Vercel sets VERCEL_ENV=production|preview|development. GMCGW_ENVIRONMENT is
- * an explicit override for local/dev/test use. Production intentionally keeps
- * the legacy un-suffixed key so an existing deployment does not lose its
- * rotated pair on upgrade; preview/development get their own namespaces.
+ * SECURITY (batch-15-auth-architecture R2): NEVER default to production.
+ *  - GMCGW_ENVIRONMENT is the explicit override (all four environments).
+ *  - VERCEL_ENV is the platform signal on Vercel (production/preview/development).
+ *  - VERCEL === '1' with no VERCEL_ENV is a Vercel runtime we cannot classify —
+ *    fall back to `preview` (a safe, isolated namespace), never production.
+ *  - Everything else (a plain local shell, a test runner, an unidentified
+ *    container) defaults to `local`. A local cold start can no longer read or
+ *    refresh a production grant.
  */
 export function resolveEnvironment(env = process.env) {
   const explicit = String(env.GMCGW_ENVIRONMENT ?? '').trim().toLowerCase();
-  if (explicit) return ['production', 'preview', 'development'].includes(explicit) ? explicit : 'production';
+  if (ENVIRONMENTS.includes(explicit)) return explicit;
   const vercel = String(env.VERCEL_ENV ?? '').trim().toLowerCase();
   if (['production', 'preview', 'development'].includes(vercel)) return vercel;
-  return 'production'; // legacy default: backward-compatible key + local dev
+  if (String(env.VERCEL ?? '').trim() === '1') return 'preview';
+  return 'local';
 }
 
 function isInvalidGrant(error) {
@@ -150,34 +163,57 @@ export class UpstreamAuth {
     this.grantOwner = options.grantOwner ?? 'gateway';
     /** @type {Map<string, {status:string, reason?:string, at:number}>} */
     this._status = new Map();
+    /**
+     * R6: same-instance refresh coalescing. Concurrent getAccessToken() calls
+     * on THIS UpstreamAuth instance share one in-flight refresh promise, so a
+     * single serverless instance never spends the rotating grant more than
+     * once. Cross-instance safety still relies on the Redis lease + CAS.
+     * @type {Map<string, Promise<string>>}
+     */
+    this._refreshPromises = new Map();
   }
 
-  /** Base KV key for a server, namespaced by environment AND grant owner.
-   *  `gateway` + `production` keeps the legacy key so existing deployments do
-   *  not lose their rotated pair on upgrade. Every other combination is
-   *  isolated — a DSH-shared grant can never be mistaken for gateway state. */
+  /** Base KV key for a server. ALWAYS the explicit v2 namespace
+   *  `gmcgw:v2:grant:<environment>:<owner>:<server>` (design doc §1.2, R4).
+   *  No combination — including production+gateway — writes to a legacy
+   *  un-suffixed key. Legacy keys are READ-ONLY aliases (see _legacyKey). */
   _key(server, owner) {
-    const base = `${KEY_PREFIX}:${server}`;
-    const ns = [];
-    if (this.environment !== 'production') ns.push(this.environment);
     const effectiveOwner = owner ?? this.grantOwner;
-    if (effectiveOwner !== 'gateway') ns.push(`owner-${effectiveOwner}`);
-    return ns.length ? `${base}:${ns.join(':')}` : base;
+    return `${KEY_PREFIX_V2}:${this.environment}:${effectiveOwner}:${server}`;
+  }
+
+  /** Legacy v1 key for the SAME logical grant. Used ONLY as a read-only
+   *  migration alias (design doc §6): a rotated v1 record can still be read,
+   *  but is never written back to. Returns null for environments that never
+   *  had a v1 key (local) or non-gateway owners. */
+  _legacyKey(server, owner) {
+    const effectiveOwner = owner ?? this.grantOwner;
+    if (effectiveOwner !== 'gateway' || this.environment === 'local') return null;
+    if (this.environment === 'production') return `${KEY_PREFIX_V1}:${server}`;
+    return `${KEY_PREFIX_V1}:${this.environment}:${server}`;
   }
 
   _lockKey(server) { return `${this._key(server)}:lock`; }
 
   /**
    * Determine ownership of a grant from explicit options or the seed record.
-   * DSH-exported grants carry `source=dsh-mcp-connector-oauth-grant`; anything
-   * not explicitly gateway-owned is treated as shared (refresh forbidden).
+   *
+   * SECURITY (R1): an UNMARKED grant is untrusted — it is `shared`, and a
+   * shared grant must NEVER be auto-refreshed by this gateway. Only an
+   * explicit `owner=gateway` (or `source=gateway-*`) grants refresh rights.
+   * The single exception is the legacy migration window: an unmarked record
+   * living in a v1 key (the only place such records exist) is treated as
+   * gateway so an existing deployment can rotate once before re-authorizing.
+   * See design doc §4.1 / §6.
    */
   _grantOwner(rec, options = {}) {
     const explicit = String(options.grantOwner ?? options.source ?? rec?.owner ?? rec?.source ?? '').toLowerCase();
-    if (!explicit) return 'gateway'; // legacy records: assume gateway (backward compatible)
+    if (!explicit) {
+      return options.legacy ? 'gateway' : 'shared';
+    }
     if (explicit.includes('dsh') || explicit === DSH_GRANT_SOURCE) return 'dsh';
     if (explicit === 'gateway' || explicit.includes('gateway')) return 'gateway';
-    if (explicit === 'manual') return 'manual';
+    if (explicit === 'manual' || explicit.includes('static_bearer') || explicit.includes('pat')) return 'manual';
     return 'shared';
   }
 
@@ -186,20 +222,59 @@ export class UpstreamAuth {
     return this._grantOwner(rec, options) === 'gateway';
   }
 
-  async _load(server) {
+  /** Marker set on records loaded from a read-only legacy alias. */
+  static get LEGACY_MARK() { return '__fromLegacyKey'; }
+
+  async _load(server, { includeLegacy = true, owner } = {}) {
     if (!this.store.isConfigured()) return null;
-    try {
-      const raw = await this.store._command('get', this._key(server));
-      if (!raw || typeof raw !== 'string') return null;
-      return JSON.parse(raw);
-    } catch { return null; }
+    const keys = owner
+      ? [this._key(server, owner)]
+      : [this._key(server), ...['gateway', 'dsh', 'manual', 'shared']
+        .filter((o) => o !== this.grantOwner)
+        .map((o) => this._key(server, o))];
+    for (const key of keys) {
+      try {
+        const raw = await this.store._command('get', key);
+        if (raw && typeof raw === 'string') return JSON.parse(raw);
+      } catch { /* keep looking */ }
+    }
+    // R4: legacy keys are READ-ONLY aliases. We may read a rotated pair from
+    // them during migration, but every write (_save / casToken) targets v2.
+    if (includeLegacy) {
+      const legacy = this._legacyKey(server, owner);
+      if (legacy) {
+        try {
+          const rawLegacy = await this.store._command('get', legacy);
+          if (rawLegacy && typeof rawLegacy === 'string') {
+            const rec = JSON.parse(rawLegacy);
+            // Preserve legacy unmarked grants as gateway for the migration
+            // window only (R1 exception, design doc §4.1).
+            if (rec && !rec.owner && !rec.source) rec.owner = 'gateway';
+            if (rec) rec[UpstreamAuth.LEGACY_MARK] = true;
+            return rec;
+          }
+        } catch { /* ignore */ }
+      }
+    }
+    return null;
   }
 
-  /** Write a full record. Used for seeding ONLY — never for a refresh result. */
+  /** Write a full record. Used for seeding ONLY — never for a refresh result.
+   *  Writes ALWAYS go to the v2 key; the legacy alias is never touched. */
   async _save(server, record) {
     if (!this.store.isConfigured()) return;
+    const clean = { ...record };
+    delete clean[UpstreamAuth.LEGACY_MARK];
+    // Every v2 record carries its own environment + stable grantId so a
+    // record found under the wrong key can be detected as polluted.
+    if (!clean.environment) clean.environment = this.environment;
+    if (!clean.owner) clean.owner = this.grantOwner;
+    if (!clean.grantId) clean.grantId = `${clean.owner}:${clean.environment}:${server}`;
+    if (!clean.source) clean.source = clean.owner === 'gateway' ? 'gateway-oauth' : clean.owner;
     try {
-      await this.store._command('set', this._key(server), JSON.stringify(record));
+      // Key owner follows the RECORD, never the process default — a shared
+      // grant seeded via options must never land in the gateway namespace.
+      await this.store._command('set', this._key(server, clean.owner), JSON.stringify(clean));
     } catch (e) {
       console.error(`[upstream-auth] failed to persist ${server} token: ${e.message}`);
     }
@@ -402,10 +477,13 @@ export class UpstreamAuth {
       client_secret: rec.client_secret,
       expires_at: expiresIn > 0 ? now + expiresIn * 1000 : 0,
       envSeed: rec.envSeed, // keep the seed marker so cold starts don't rebuild
-      // Preserve grant ownership across rotation. A gateway-owned grant stays
-      // gateway-owned; a shared grant is never refreshed in the first place.
+      // Preserve grant ownership/metadata across rotation. A gateway-owned
+      // grant stays gateway-owned; a shared grant is never refreshed at all.
       owner: rec.owner ?? 'gateway',
       source: rec.source ?? 'gateway-oauth',
+      environment: rec.environment ?? this.environment,
+      grantId: rec.grantId ?? `${rec.owner ?? 'gateway'}:${rec.environment ?? this.environment}:${server}`,
+      updatedAt: now,
       // The bootstrap "verify once" attempt is CONSUMED by this refresh,
       // success or failure. Leaving it set was the original "刷太多" bug.
       bootstrapped: false,
@@ -449,7 +527,13 @@ export class UpstreamAuth {
       return envToken;
     }
 
-    let rec = await this._load(server);
+    // The effective owner comes from EXPLICIT options before any read: a
+    // DSH-sourced env seed must be stored in (and read from) the dsh namespace.
+    // With no explicit owner hint, search all owner namespaces (the record's
+    // own `owner` is authoritative) instead of assuming the process default.
+    const hasOwnerHint = grantOwner != null || source != null;
+    const seedOwnerHint = hasOwnerHint ? this._grantOwner(null, { grantOwner, source }) : undefined;
+    let rec = await this._load(server, { owner: seedOwnerHint });
 
     // ── STEP 1: env seed. KV is authoritative; env only seeds a MISSING record
     // or an explicitly different grant. A rotated record keeps its envSeed, so
@@ -469,6 +553,8 @@ export class UpstreamAuth {
         envSeed: envToken,
         owner: seededOwner,
         source: source ?? (seededOwner === 'gateway' ? 'gateway-oauth' : seededOwner),
+        environment: this.environment,
+        grantId: `${seededOwner}:${this.environment}:${server}`,
         // A shared grant is NEVER auto-refreshed by this gateway. Mark the
         // one-shot bootstrap attempt as already consumed so we don't even try.
         bootstrapped: seededOwner === 'gateway',
@@ -526,20 +612,32 @@ export class UpstreamAuth {
     // the gateway cannot see the other process. Therefore we DO NOT spend a
     // foreign/shared grant at all — we use its access token while it lives and
     // report SHARED_GRANT_REFRESH_FORBIDDEN when it dies.
-    const grantIsForeign = !this._mayRefresh(rec, { grantOwner, source });
+    const ownerOpts = {
+      grantOwner, source,
+      legacy: Boolean(rec[UpstreamAuth.LEGACY_MARK]),
+    };
+    // R1 + environment-pollution guard (design doc §1.1): a record whose
+    // `environment` does not match its key, or whose owner is not explicitly
+    // gateway, is NEVER refreshed. It may still be used as an access token.
+    const environmentMismatch = Boolean(rec.environment) && rec.environment !== this.environment;
+    const grantIsForeign = environmentMismatch || !this._mayRefresh(rec, ownerOpts);
     if (grantIsForeign) {
-      const owner = this._grantOwner(rec, { grantOwner, source });
+      const owner = this._grantOwner(rec, ownerOpts);
+      const reason = environmentMismatch
+        ? `environment_mismatch:${rec.environment}!=${this.environment}`
+        : SHARED_GRANT_REFRESH_FORBIDDEN;
       this._status.set(server, {
         status: REAUTH_REQUIRED,
-        reason: SHARED_GRANT_REFRESH_FORBIDDEN,
+        reason,
         at: Date.now(),
       });
       if (shouldRefresh) {
         captureEvent('upstream_auth', {
-          server, phase: 'shared_grant_refresh_refused', environment: this.environment,
+          server, phase: environmentMismatch ? 'environment_mismatch_refused' : 'shared_grant_refresh_refused',
+          environment: this.environment, recordEnvironment: rec.environment ?? null,
           owner, source: rec.source ?? source ?? null,
         });
-        console.error(`[upstream-auth] ${server} ${SHARED_GRANT_REFRESH_FORBIDDEN}: grant owner=${owner}; ` +
+        console.error(`[upstream-auth] ${server} ${reason}: grant owner=${owner}; ` +
           'DSH 与网关不能共用同一个 rotating refresh token —— 使用长期 access token 或让网关独立 OAuth 授权');
       }
       return rec.access_token;
@@ -565,6 +663,33 @@ export class UpstreamAuth {
       return rec.access_token;
     }
 
+    // ── STEP 3: refresh (coalesced within this instance, leased across
+    // instances). R6: concurrent callers on the SAME UpstreamAuth share one
+    // in-flight promise; cross-instance safety still uses the lease + CAS.
+    return this._coalescedRefresh(server, () => this._refreshWithLease(server, {
+      rec, provider, force, envToken, envRefresh, envClientId, envClientSecret,
+      envExpiresIn, envObtainedAt,
+    }));
+  }
+
+  /** R6: share one in-flight refresh per (environment, owner, server) key. */
+  _coalescedRefresh(server, run) {
+    const key = this._key(server);
+    const existing = this._refreshPromises.get(key);
+    if (existing) return existing;
+    const promise = (async () => {
+      try { return await run(); }
+      finally { this._refreshPromises.delete(key); }
+    })();
+    this._refreshPromises.set(key, promise);
+    return promise;
+  }
+
+  /** Distributed-lease refresh with all the existing safety guards. */
+  async _refreshWithLease(server, {
+    rec, provider, force, envToken, envRefresh, envClientId, envClientSecret,
+    envExpiresIn, envObtainedAt,
+  }) {
     // ── STEP 3: distributed lease with OWNER token. Backend failure FAILS
     // CLOSED — an unlocked refresh would consume a rotating grant twice.
     const owner = await this._acquireLock(server);
@@ -682,7 +807,7 @@ export class UpstreamAuth {
    */
   async seed(server, {
     accessToken, refreshToken, clientId, clientSecret, expiresIn, expiresAt, obtainedAt,
-    grantOwner, source, force = false,
+    grantOwner, source, grantId, environment, force = false,
   }) {
     const obtained = Number(obtainedAt ?? 0);
     const expires = Number(expiresIn ?? 0);
@@ -709,6 +834,9 @@ export class UpstreamAuth {
       envSeed: accessToken,
       owner,
       source: source ?? (owner === 'gateway' ? 'gateway-oauth' : owner),
+      // R3: gateway-owned callback seeds carry the full grant identity.
+      grantId: grantId ?? `${owner}:${environment ?? this.environment}:${server}`,
+      environment: environment ?? this.environment,
       bootstrapped: false,
     });
     this._status.delete(server);

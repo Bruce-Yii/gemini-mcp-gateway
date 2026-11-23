@@ -218,6 +218,29 @@ export class UpstreamManager {
   async _resolveToken(config, { force = false } = {}) {
     if (!config.tokenEnv) return undefined;
     const envToken = process.env[config.tokenEnv];
+    // static_bearer: an EXPLICIT config opt-in for an owner-created static
+    // credential (Notion MCP token / Linear PAT / Vercel REST token). It is
+    // long-lived, non-rotating and must NEVER enter the OAuth refresh path.
+    // Never infer this from envToken alone — only config.authMode opts in.
+    const staticBearer = config.authMode === 'static_bearer' || config.staticBearer === true;
+    if (staticBearer) {
+      if (!envToken) throw new Error(`http 上游环境变量 ${config.tokenEnv} 未设置`);
+      // Persist an owner=manual marker (R3/static path) so getAuthStatus()
+      // reports a static credential and no code can mistake it for a
+      // gateway-owned rotating grant. Best-effort: KV absence must not break
+      // a static-token connection.
+      if (typeof this._auth?.seed === 'function') {
+        try {
+          await this._auth.seed(config.name, {
+            accessToken: envToken,
+            grantOwner: 'manual',
+            source: config.grantSource ?? 'manual',
+            force: true,
+          });
+        } catch { /* static token works even without KV */ }
+      }
+      return envToken;
+    }
     const provider = providerFor(config);
     if (!provider?.tokenUrl) return envToken; // long-lived token (GitHub/Vercel/custom)
     // OAuth-refresh upstream: go through the refresh-aware lifecycle. `force` is
@@ -325,6 +348,19 @@ export class UpstreamManager {
           // guards) and reconnect exactly once. invalid_grant / other errors
           // never take this path, so a dead grant cannot be burned by retries.
           if (!isAuthError(err)) throw err;
+          // A static bearer credential has no refresh path: a 401 means the
+          // owner-created token is revoked/expired and must be replaced by the
+          // owner. Never retry it as if an OAuth refresh could help.
+          if (config.authMode === 'static_bearer' || config.staticBearer === true) {
+            const noRefresh = new ReauthRequiredError(name, STATIC_TOKEN_NO_REFRESH);
+            captureEvent('upstream_auth', {
+              server: name, phase: 'static_bearer_expired', environment: this.environment,
+              status: REAUTH_REQUIRED, reason: STATIC_TOKEN_NO_REFRESH,
+              grantOwner: 'manual',
+            });
+            console.error(`[upstreams] ${noRefresh.message}（static_bearer: owner 需轮换静态 token）`);
+            throw noRefresh;
+          }
           if (!providerFor(config)?.tokenUrl) {
             // Static bearer upstream (Vercel/GitHub/custom): there is NO
             // refresh endpoint and no rotating grant to recover. Retrying the

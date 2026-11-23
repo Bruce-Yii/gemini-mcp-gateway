@@ -8,7 +8,7 @@ always the same three tools: `search`, `execute_read`, `execute`.
 |---|---|---|
 | Gemini web custom apps | **Tested** | Google currently limits custom apps to personal accounts, 18+, US, English UI. Locked-client mode requires entering the client id/secret in the advanced settings. |
 | MCP Inspector (local) | Works for tool listing | Point it at `http://localhost:3000/mcp`; OAuth on localhost is untested. |
-| Claude Desktop / Claude Code | Untested | Needs Streamable HTTP support. OAuth handling and custom-header support vary by client/version. |
+| Claude Desktop / Claude Code / Claude.ai web connector | OAuth callback allowed; real connector unverified | `https://claude.ai/api/mcp/auth_callback` is on the shared OAuth redirect allowlist (DCR / authorize / token). Locked-client mode still disables DCR unless `ALLOW_DCR_FOR_CLAUDE=1` is set. No live Claude connector session was exercised; Streamable HTTP, custom headers and 401 metadata handling still need real-client verification. |
 | ChatGPT connectors | Untested | Custom MCP connector support and OAuth requirements vary by plan/region; do not assume it works without testing. |
 | Cursor / Cline / other IDE agents | Untested | Static `/mcp` with OAuth may require manual client registration; some clients only support stdio. |
 | OpenCode / DSH / similar agent runtimes | Untested with this repo | They can usually call Streamable HTTP MCP directly; OAuth support differs. |

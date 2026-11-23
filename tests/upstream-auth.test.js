@@ -27,9 +27,10 @@ test('notion first run bootstraps from env and returns env token', async () => {
   const auth = new UpstreamAuth({ store });
   const tok = await auth.getAccessToken('notion', {
     envToken: 'access-1', envRefresh: 'refresh-1', envClientId: 'cid-1',
+    grantOwner: 'gateway', source: 'gateway-oauth',
   });
   assert.equal(tok, 'access-1');
-  const rec = JSON.parse(store._data.get('gmcgw:v1:upstream:notion'));
+  const rec = JSON.parse(store._data.get('gmcgw:v2:grant:local:gateway:notion'));
   assert.equal(rec.refresh_token, 'refresh-1');
   assert.equal(rec.client_id, 'cid-1');
 });
@@ -46,11 +47,14 @@ test('notion expired token triggers refresh and persists rotated pair', async ()
   };
   const auth = new UpstreamAuth({ store, fetch: mockFetch });
   // Seed an expired record
-  await auth.seed('notion', { accessToken: 'old', refreshToken: 'refresh-1', clientId: 'cid-1', expiresAt: Date.now() - 10000 });
-  const tok = await auth.getAccessToken('notion', { envToken: 'x' });
+  await auth.seed('notion', {
+    accessToken: 'old', refreshToken: 'refresh-1', clientId: 'cid-1',
+    expiresAt: Date.now() - 10000, grantOwner: 'gateway', source: 'gateway-oauth',
+  });
+  const tok = await auth.getAccessToken('notion', { envToken: 'x', grantOwner: 'gateway', source: 'gateway-oauth' });
   assert.equal(tok, 'access-2');
   assert.equal(calls.length, 1);
-  const rec = JSON.parse(store._data.get('gmcgw:v1:upstream:notion'));
+  const rec = JSON.parse(store._data.get('gmcgw:v2:grant:local:gateway:notion'));
   assert.equal(rec.access_token, 'access-2');
   assert.equal(rec.refresh_token, 'refresh-2'); // rotated value persisted
   assert.ok(rec.expires_at > Date.now());

@@ -278,14 +278,34 @@ export class TokenStore {
 
   // ---- upstream OAuth state (short-lived, single use) --------------------
 
-  /** Persist the PKCE verifier + server for an upstream OAuth redirect. */
-  async saveOAuthState(state, record) {
-    await this._put('oauthstate', state, record, 10 * 60);
+  /**
+   * Build the OAuth-state namespace. R5: state keys are scoped by environment
+   * and grant owner so a callback started in one environment cannot complete
+   * in another (cross-environment callback crossover). The hash is still of
+   * the raw `state` — no secret is written into the key.
+   */
+  _oauthStateKey(state, { environment, grantOwner } = {}) {
+    const env = String(environment ?? '').toLowerCase();
+    const owner = String(grantOwner ?? '').toLowerCase();
+    if (!env && !owner) return this._key('oauthstate', state);
+    const scope = [env || 'local', owner || 'gateway', hashSecret(state)].join(':');
+    return `${KEY_PREFIX}:oauthstate:${scope}`;
   }
 
-  /** Atomic get-and-delete for the upstream OAuth callback. */
-  async takeOAuthState(state) {
-    const raw = await this._command('getdel', this._key('oauthstate', state));
+  /** Persist the PKCE verifier + server for an upstream OAuth redirect.
+   *  Pass `{ environment, grantOwner }` (from the start handler) to bind the
+   *  state to an environment/owner namespace (R5). */
+  async saveOAuthState(state, record, scope = {}) {
+    const payload = { ...record, environment: record.environment ?? scope.environment, grantOwner: record.grantOwner ?? scope.grantOwner };
+    const key = this._oauthStateKey(state, scope);
+    const value = JSON.stringify(this._prepare('oauthstate', state, payload));
+    await this._command('set', key, value, 'EX', String(10 * 60));
+  }
+
+  /** Atomic get-and-delete for the upstream OAuth callback. `scope` must match
+   *  the one used at start time, otherwise the state is not found. */
+  async takeOAuthState(state, scope = {}) {
+    const raw = await this._command('getdel', this._oauthStateKey(state, scope));
     if (raw === null || raw === undefined || raw === '') return null;
     if (typeof raw !== 'string') return raw;
     try {

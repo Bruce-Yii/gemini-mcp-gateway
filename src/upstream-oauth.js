@@ -14,7 +14,7 @@
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
-import { UpstreamAuth } from './upstream-auth.js';
+import { UpstreamAuth, resolveEnvironment, ENVIRONMENTS, requiredScopes } from './upstream-auth.js';
 import { resolveBaseUrl } from './oauth.js';
 
 const STATE_TTL_HINT = 'OAuth state expires after 10 minutes and can be used once.';
@@ -47,6 +47,14 @@ function absoluteUrl(value) {
   }
 }
 
+/** The callback carries the environment chosen at start time so the state can
+ *  be read from its environment-scoped key (R5). Never trust it blindly: the
+ *  state record itself is validated against it in the callback. */
+function savedEnvironmentHint(url) {
+  const value = String(url.searchParams.get('env') ?? '').trim().toLowerCase();
+  return ENVIRONMENTS.includes(value) ? value : undefined;
+}
+
 /**
  * @param {{
  *   store: import('./store.js').TokenStore,
@@ -68,6 +76,18 @@ export function createUpstreamOAuthHandlers({ store, getConfig, options = {}, fe
     }
 
     const serverName = url.searchParams.get('server') ?? '';
+    // R2/R3: authorization is bound to an explicit environment. Admin callers
+    // pass `env=`; the fallback is resolveEnvironment() (local by default),
+    // never an implicit production.
+    const requestedEnv = String(url.searchParams.get('env') ?? '').trim().toLowerCase();
+    const environment = requestedEnv
+      ? (ENVIRONMENTS.includes(requestedEnv) ? requestedEnv : null)
+      : resolveEnvironment();
+    if (!environment || !ENVIRONMENTS.includes(environment)) {
+      sendHtml(res, 400, 'Invalid environment', `env must be one of ${ENVIRONMENTS.join(', ')}.`);
+      return;
+    }
+    const grantOwner = 'gateway';
     const config = await getConfig();
     const server = (config?.servers ?? []).find((item) => item?.name === serverName);
     if (!server) {
@@ -85,19 +105,42 @@ export function createUpstreamOAuthHandlers({ store, getConfig, options = {}, fe
       return;
     }
 
-    const redirectUri = absoluteUrl(server.oauthRedirectUri)
+    const baseRedirectUri = absoluteUrl(server.oauthRedirectUri)
       ? server.oauthRedirectUri
       : `${resolveBaseUrl(options, req)}/upstream/oauth/callback`;
+    // R5: carry the environment in the redirect so the callback can select
+    // the matching state namespace. Providers preserve extra query params.
+    const redirectUrl = new URL(baseRedirectUri);
+    redirectUrl.searchParams.set('env', environment);
+    const redirectUri = redirectUrl.toString();
     const state = randomBytes(24).toString('base64url');
     const verifier = randomBytes(48).toString('base64url');
     const challenge = createHash('sha256').update(verifier).digest('base64url');
 
-    await store.saveOAuthState(state, {
+    // grantId: one authorization -> one stable gateway grant identity.
+    // Use the FULL hash: no fixed-cap cut anywhere in the OAuth path, and the
+    // id stays stable across DCR client reuse / grant rotation.
+    const grantId = `gw:${environment}:${serverName}:${createHash('sha256')
+      .update(`${clientId}|${server.refreshUrl}`)
+      .digest('hex')}`;
+    const stateScope = { environment, grantOwner };
+    const stateRecord = {
       server: serverName,
       verifier,
       redirectUri,
       createdAt: Date.now(),
-    });
+      environment,
+      grantOwner,
+      grantId,
+    };
+    // R5: scope the state key by environment + owner when the store supports
+    // it; the same fields are also stored inside the record so a fake store
+    // that ignores the scope still cannot complete a cross-environment flow.
+    if (typeof store._oauthStateKey === 'function') {
+      await store.saveOAuthState(state, stateRecord, stateScope);
+    } else {
+      await store.saveOAuthState(state, stateRecord);
+    }
 
     const authUrl = new URL(server.authorizeUrl);
     authUrl.searchParams.set('response_type', 'code');
@@ -106,7 +149,13 @@ export function createUpstreamOAuthHandlers({ store, getConfig, options = {}, fe
     authUrl.searchParams.set('state', state);
     authUrl.searchParams.set('code_challenge', challenge);
     authUrl.searchParams.set('code_challenge_method', 'S256');
-    const scopes = Array.isArray(server.oauthScopes) ? server.oauthScopes : [];
+    // Vercel (and any rotating OAuth provider) MUST request offline_access or
+    // no refresh token is issued. Augment explicitly-configured scopes with
+    // the provider facts; never rely on the protected-resource metadata alone.
+    const scopes = Array.isArray(server.oauthScopes) ? [...server.oauthScopes] : [];
+    for (const required of requiredScopes(serverName)) {
+      if (!scopes.includes(required)) scopes.push(required);
+    }
     if (scopes.length > 0) authUrl.searchParams.set('scope', scopes.join(' '));
 
     if (typeof res?.writeHead === 'function') {
@@ -133,11 +182,32 @@ export function createUpstreamOAuthHandlers({ store, getConfig, options = {}, fe
       sendHtml(res, 400, 'Bad callback', `Missing state or code. ${STATE_TTL_HINT}`);
       return;
     }
-    const saved = await store.takeOAuthState(state);
+    // R5: read the state from the environment-scoped key when the store
+    // supports it. The record's own `environment` is the cross-env guard for
+    // test doubles that ignore the scope argument.
+    const saved = typeof store._oauthStateKey === 'function'
+      ? await store.takeOAuthState(state, {
+        environment: savedEnvironmentHint(url), grantOwner: 'gateway',
+      })
+      : await store.takeOAuthState(state);
     if (!saved) {
       sendHtml(res, 400, 'Invalid state', `Unknown, expired or already used state. ${STATE_TTL_HINT}`);
       return;
     }
+    if (saved.environment && !ENVIRONMENTS.includes(saved.environment)) {
+      sendHtml(res, 400, 'Invalid state environment', `State was created with an unknown environment. ${STATE_TTL_HINT}`);
+      return;
+    }
+    const hint = savedEnvironmentHint(url);
+    if (hint && saved.environment && hint !== saved.environment) {
+      sendHtml(res, 400, 'Environment mismatch',
+        `State was created for ${saved.environment}, not ${hint}. ${STATE_TTL_HINT}`);
+      return;
+    }
+    // R3: the callback must NEVER land on a legacy production key. The grant
+    // identity comes from the state created at start, not from process.env.
+    const environment = saved.environment ?? hint ?? resolveEnvironment();
+    const source = saved.grantId?.includes(':dcr:') ? 'gateway-dcr' : 'gateway-oauth';
 
     const config = await getConfig();
     const server = (config?.servers ?? []).find((item) => item?.name === saved.server);
@@ -196,14 +266,30 @@ export function createUpstreamOAuthHandlers({ store, getConfig, options = {}, fe
       sendHtml(res, 502, 'Token exchange failed', 'The provider response did not contain an access_token.');
       return;
     }
+    // Vercel-only: offline_access is required for a refresh token. Fail loudly
+    // instead of silently accepting a 1-hour token that will expire hourly.
+    if (saved.server === 'vercel' && !token.refresh_token) {
+      console.error('[upstream-oauth] vercel callback returned no refresh_token; offline_access was not honored');
+      sendHtml(res, 400, 'Missing refresh token',
+        'Vercel returned no refresh_token. Confirm the authorization request included offline_access and the AS issued it, then retry.');
+      return;
+    }
 
-    await new UpstreamAuth({ store, fetch: fetchImpl }).seed(saved.server, {
+    // R3: seed under the environment + gateway-owner v2 key with the full
+    // grant identity. Never construct UpstreamAuth from process.env here —
+    // that was the old bug that dropped callbacks into legacy production.
+    await new UpstreamAuth({ store, fetch: fetchImpl, environment, grantOwner: 'gateway' }).seed(saved.server, {
       accessToken: token.access_token,
       refreshToken: token.refresh_token,
       clientId,
       clientSecret,
       expiresIn: Number(token.expires_in ?? 0),
       obtainedAt: Date.now(),
+      grantOwner: 'gateway',
+      source,
+      grantId: saved.grantId ?? `gw:${environment}:${saved.server}:oauth`,
+      environment,
+      force: true,
     });
 
     console.log(`[upstream-oauth] ${saved.server} authorization stored (refresh: ${token.refresh_token ? 'yes' : 'no'})`);

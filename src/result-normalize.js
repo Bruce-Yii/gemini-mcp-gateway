@@ -173,6 +173,80 @@ function contentToString(value) {
   return null;
 }
 
+/**
+ * Batch 15 GPT online fix · parse a file path out of a GitHub MCP resource URI.
+ *
+ * The online raw shape was `repo://Bruce-Yii/<repo>/contents/<path>` and the
+ * old code put that full URI into `path` via the generic `pick(...,['uri'])`,
+ * or returned null when no explicit `path` key existed. We parse the well-known
+ * `contents/` marker and return ONLY the path portion. Unknown URI schemes or
+ * URIs without the marker yield null — never guess a path from arbitrary text.
+ */
+function pathFromUri(uri) {
+  if (typeof uri !== 'string' || uri.length === 0) return null;
+  const marker = '/contents/';
+  const idx = uri.indexOf(marker);
+  if (idx >= 0) {
+    const path = uri.slice(idx + marker.length).split(/[?#]/)[0];
+    return path.length > 0 ? decodeURIComponentSafe(path) : null;
+  }
+  // Also accept a bare `repo://owner/repo/.../<path>` without the marker only
+  // when the URI has a decoded path segment after the repo host. This is kept
+  // conservative: require at least two segments after `repo://`.
+  if (/^repo:\/\//i.test(uri)) {
+    const rest = uri.slice(7).split(/[?#]/)[0];
+    const parts = rest.split('/').filter(Boolean);
+    if (parts.length >= 3) return decodeURIComponentSafe(parts.slice(2).join('/'));
+  }
+  return null;
+}
+
+function decodeURIComponentSafe(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch (_) {
+    return value;
+  }
+}
+
+/** Walk root and resources[] to find the first URI that yields a file path. */
+function resolveFilePath(root, v) {
+  const candidates = [];
+  const take = (obj) => {
+    if (!isObj(obj)) return;
+    for (const key of ['path', 'file_path', 'filePath']) {
+      const value = get(obj, key);
+      if (typeof value === 'string' && value.length > 0) candidates.push({ value, fromUri: false });
+    }
+    const uri = pick(obj, ['uri']);
+    if (typeof uri === 'string') candidates.push({ value: uri, fromUri: true });
+  };
+  take(root);
+  const resources = get(root, 'resources');
+  if (Array.isArray(resources)) {
+    for (const r of resources) {
+      take(r);
+      const nested = isObj(r) ? get(r, 'resource') : null;
+      if (isObj(nested)) take(nested);
+    }
+  }
+  const content = get(root, 'content');
+  if (Array.isArray(content)) {
+    for (const item of content) {
+      const nested = isObj(item) ? get(item, 'resource') : null;
+      if (isObj(nested)) take(nested);
+      else take(item);
+    }
+  }
+  if (v !== root) take(v);
+  for (const c of candidates) {
+    if (!c.fromUri) return c.value;
+    const parsed = pathFromUri(c.value);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
 /** 合并 resources[].text（去重，避免同一段文本重复进入上下文；顺序保持首次出现）。 */
 function resourcesToText(resources) {
   if (!Array.isArray(resources)) return null;
@@ -307,7 +381,10 @@ export function normalizeFileResult(value) {
       ?? nestedShaFromNotice
       ?? (/SHA:\s*([0-9a-f]{7,})/i.exec(String(topText ?? ''))?.[1] ?? null);
     const sha = pick(root, ['sha', 'sha256', 'content_sha', 'commit_sha']) ?? shaFromNotice;
-    const path = pick(root, ['path', 'name', 'uri', 'file_path']);
+    // Batch 15 GPT online fix: derive `path` from root/resources URIs. Never
+    // return the raw `repo://.../contents/...` URI as a path; parse it, and
+    // return null when no usable URI exists (don't guess).
+    const path = resolveFilePath(root, v);
     const encoding = pick(root, ['encoding']);
     const sizeRaw = pick(root, ['size', 'bytes']);
     const sizeNum = Number(sizeRaw);
@@ -386,9 +463,13 @@ export function normalizePrResult(value) {
     const titleRaw = pick(root, ['title']);
     const stateRaw = pick(root, ['state']);
     const mergeableRaw = pick(root, ['mergeable', 'mergeable_state']);
-    const idRaw = pick(root, ['id', 'node_id']);
+    // Keep `id` as the DB id when present; fall back to node_id only for this
+    // legacy field so existing callers keep working. `nodeId` is the additive,
+    // unambiguous GraphQL id exposed by the batch-15 GPT online fix.
+    const idRaw = pick(root, ['id']) ?? pick(root, ['node_id']);
+    const nodeIdRaw = pick(root, ['node_id', 'nodeId']);
 
-    return {
+    const result = {
       number,
       title: titleRaw !== undefined && titleRaw !== null ? String(titleRaw) : null,
       url,
@@ -404,11 +485,24 @@ export function normalizePrResult(value) {
               ? false
               : null,
       sha: shaRaw !== undefined && shaRaw !== null ? String(shaRaw) : null,
+      // DB id, always a string, never a number fallback.
       id: idRaw !== undefined && idRaw !== null ? String(idRaw) : null,
       raw: value,
     };
+    // `nodeId` is additive but deliberately NON-ENUMERABLE: the stable field
+    // set (PR_KEYS in existing tests / downstream consumers) must not change.
+    // It is still readable as `result.nodeId` and JSON.stringify(... ) keeps
+    // the original stable shape. Number remains URL-first; id/nodeId never
+    // masquerade as a PR number.
+    Object.defineProperty(result, 'nodeId', {
+      value: nodeIdRaw !== undefined && nodeIdRaw !== null ? String(nodeIdRaw) : null,
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+    return result;
   } catch (_) {
-    return {
+    const result = {
       number: null,
       title: null,
       url: null,
@@ -420,6 +514,13 @@ export function normalizePrResult(value) {
       id: null,
       raw: value,
     };
+    Object.defineProperty(result, 'nodeId', {
+      value: null,
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
+    return result;
   }
 }
 

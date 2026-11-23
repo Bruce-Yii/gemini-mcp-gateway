@@ -9,6 +9,13 @@
  * allowlist includes OpenAI's documented callbacks, RFC 9207 `iss` is sent on
  * every authorization response, and `ALLOW_DCR_FOR_CHATGPT=1` carves out a
  * ChatGPT-only DCR path that never reuses the Gemini locked client.
+ *
+ * Claude.ai web connector support is equally narrow: the shared redirect
+ * allowlist accepts Anthropic's single documented callback
+ * `https://claude.ai/api/mcp/auth_callback` and nothing else on claude.ai.
+ * Claude callbacks use their own client platform and never attach to the
+ * Gemini locked client. In LOCKED mode DCR stays disabled unless
+ * `ALLOW_DCR_FOR_CLAUDE=1` is explicitly set; the Gemini default is unchanged.
  */
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
@@ -35,7 +42,13 @@ const CHATGPT_STABLE_REDIRECT = 'https://chatgpt.com/connector_platform_oauth_re
 const CHATGPT_REDIRECT_PREFIX = 'https://chatgpt.com/connector/oauth/';
 const CHATGPT_CALLBACK_ID = /^[A-Za-z0-9_-]+$/;
 
-/** True when the URI is a Google relay or a documented ChatGPT callback. */
+// Claude.ai's web connector publishes exactly one OAuth callback. Host and path
+// are matched strictly: no other Claude host, path, port, userinfo or query
+// (including `?`/`#`) is accepted anywhere in the OAuth flow.
+const CLAUDE_REDIRECT_HOST = 'claude.ai';
+const CLAUDE_REDIRECT_PATH = '/api/mcp/auth_callback';
+
+/** True when the URI is a Google relay, a documented ChatGPT callback, or Claude's callback. */
 export function isAllowedRedirectUri(value) {
   if (typeof value !== 'string' || value.length === 0 || value.length > 2048) return false;
   let url;
@@ -56,6 +69,10 @@ export function isAllowedRedirectUri(value) {
     const callbackId = value.slice(CHATGPT_REDIRECT_PREFIX.length);
     return Boolean(callbackId) && CHATGPT_CALLBACK_ID.test(callbackId);
   }
+  if (host === CLAUDE_REDIRECT_HOST) {
+    return url.pathname === CLAUDE_REDIRECT_PATH &&
+      url.port === '' && url.search === '' && url.hash === '';
+  }
   return false;
 }
 
@@ -66,6 +83,12 @@ export const isValidGoogleRedirectUri = isAllowedRedirectUri;
 export function isChatgptRedirectUri(value) {
   return typeof value === 'string' && isAllowedRedirectUri(value) &&
     new URL(value).hostname.toLowerCase() === 'chatgpt.com';
+}
+
+/** True when the URI is Claude.ai's single documented OAuth callback. */
+export function isClaudeRedirectUri(value) {
+  return typeof value === 'string' && isAllowedRedirectUri(value) &&
+    new URL(value).hostname.toLowerCase() === CLAUDE_REDIRECT_HOST;
 }
 
 // ---------------------------------------------------------------------------
@@ -247,6 +270,21 @@ function isChatgptClientRegistration(params, redirects) {
     str(params.token_endpoint_auth_method) === 'private_key_jwt';
 }
 
+/**
+ * Claude's DCR path is deliberately as narrow as ChatGPT's: every redirect must
+ * be the single documented Claude callback, and the declared metadata must
+ * identify an Anthropic/Claude client. It never enables arbitrary redirects.
+ */
+function isClaudeClientRegistration(params, redirects) {
+  if (redirects.length === 0 || !redirects.every(isClaudeRedirectUri)) return false;
+  const name = str(params.client_name).toLowerCase();
+  const metadataUrl = str(params.client_uri).toLowerCase();
+  if (name.includes('claude') || name.includes('anthropic')) return true;
+  if (metadataUrl.includes('claude.ai') || metadataUrl.includes('anthropic.com')) return true;
+  return str(params.token_endpoint_auth_method) === 'none' ||
+    str(params.token_endpoint_auth_method) === 'private_key_jwt';
+}
+
 function consentPage({ clientName, clientId, redirectUri, state, codeChallenge, scope, resource }) {
   return [
     '<!doctype html>',
@@ -305,6 +343,11 @@ export function createOAuthHandlers(store, options = {}) {
   const ALLOW_DCR_FOR_CHATGPT = options.allowDcrForChatgpt ?? ['1', 'true', 'yes'].includes(
     String(process.env.ALLOW_DCR_FOR_CHATGPT ?? '').toLowerCase(),
   );
+  // Same explicit opt-in discipline for Claude. LOCKED mode (the production
+  // default) still rejects ALL DCR without the matching flag.
+  const ALLOW_DCR_FOR_CLAUDE = options.allowDcrForClaude ?? ['1', 'true', 'yes'].includes(
+    String(process.env.ALLOW_DCR_FOR_CLAUDE ?? '').toLowerCase(),
+  );
 
   function clientAllowed(clientId, clientSecret, checkSecret = false) {
     if (!LOCKED) return true;
@@ -320,6 +363,13 @@ export function createOAuthHandlers(store, options = {}) {
     if (!LOCKED || !ALLOW_DCR_FOR_CHATGPT || !clientId) return false;
     const client = await store.getClient(str(clientId));
     return client?.chatgptDcr === true;
+  }
+
+  /** A DCR-registered Claude public client, only when explicitly enabled. */
+  async function isClaudeDcrClient(clientId) {
+    if (!LOCKED || !ALLOW_DCR_FOR_CLAUDE || !clientId) return false;
+    const client = await store.getClient(str(clientId));
+    return client?.claudeDcr === true;
   }
 
   async function metadata(req, res) {
@@ -365,38 +415,53 @@ export function createOAuthHandlers(store, options = {}) {
     // opt-in, DCR is rejected with 403 *before* any redirect validation.
     const redirects = normalizeRedirects(params);
     const chatgptDcr = isChatgptClientRegistration(params, redirects);
-    if (LOCKED && !(ALLOW_DCR_FOR_CHATGPT && chatgptDcr)) {
+    const claudeDcr = isClaudeClientRegistration(params, redirects);
+    if (LOCKED && !(ALLOW_DCR_FOR_CHATGPT && chatgptDcr) && !(ALLOW_DCR_FOR_CLAUDE && claudeDcr)) {
       return oauthError(res, 403, 'invalid_request', 'dynamic client registration is disabled');
     }
     if (redirects.length === 0) {
       return oauthError(res, 400, 'invalid_redirect_uri', 'at least one redirect_uri is required');
     }
-    // Single shared validator for DCR, authorize and token: Google relays and
-    // documented ChatGPT callbacks only, never an arbitrary host.
+    // Single shared validator for DCR, authorize and token: Google relays,
+    // documented ChatGPT callbacks and Claude's callback only — never an
+    // arbitrary host.
     const invalid = redirects.find((uri) => !isAllowedRedirectUri(uri));
     if (invalid) {
       return oauthError(res, 400, 'invalid_redirect_uri', 'redirect_uri host or path is not allowed');
     }
+    // Never mix platforms in one registration: a ChatGPT client must not carry
+    // a Claude callback (or vice versa), and neither may carry a Google relay.
+    const hasChatgpt = redirects.some(isChatgptRedirectUri);
+    const hasClaude = redirects.some(isClaudeRedirectUri);
+    const hasGoogle = redirects.some((uri) => !isChatgptRedirectUri(uri) && !isClaudeRedirectUri(uri));
+    if ((Number(hasChatgpt) + Number(hasClaude) + Number(hasGoogle)) > 1) {
+      return oauthError(res, 400, 'invalid_redirect_uri', 'redirect_uris must belong to one platform');
+    }
     if (!LOCKED && !chatgptDcr && redirects.some(isChatgptRedirectUri)) {
       return oauthError(res, 400, 'invalid_redirect_uri', 'ChatGPT clients must be identified explicitly');
+    }
+    if (!LOCKED && !claudeDcr && redirects.some(isClaudeRedirectUri)) {
+      return oauthError(res, 400, 'invalid_redirect_uri', 'Claude clients must be identified explicitly');
     }
 
     // Deterministic client id: same redirect set always maps to the same client.
     const canonical = [...redirects].sort().join('\n');
     const clientId = `gmc_${createHash('sha256').update(canonical).digest('hex').slice(0, 32)}`;
+    const publicClient = chatgptDcr || claudeDcr;
     const authMethod = str(params.token_endpoint_auth_method) ||
-      (chatgptDcr ? 'none' : 'client_secret_post');
+      (publicClient ? 'none' : 'client_secret_post');
     const providedSecret = str(params.client_secret);
     const record = {
       clientId,
-      clientName: str(params.client_name) || (chatgptDcr ? 'ChatGPT' : 'Google'),
+      clientName: str(params.client_name) || (chatgptDcr ? 'ChatGPT' : claudeDcr ? 'Claude' : 'Google'),
       redirectUris: redirects,
       responseTypes: [...RESPONSE_TYPES],
       grantTypes: [...GRANT_TYPES],
       tokenEndpointAuthMethod: authMethod,
       chatgptDcr,
+      claudeDcr,
       // Platform isolation: never reuse/overwrite the Gemini locked client.
-      platform: chatgptDcr ? 'chatgpt' : 'gemini',
+      platform: chatgptDcr ? 'chatgpt' : claudeDcr ? 'claude' : 'gemini',
       createdAt: Date.now(),
     };
     if (providedSecret) record.client_secret = providedSecret;
@@ -459,16 +524,20 @@ export function createOAuthHandlers(store, options = {}) {
     };
 
     // In locked mode, Gemini credentials come from env; build a synthetic
-    // client on the fly so no KV write is needed. ChatGPT uses its OWN registered
-    // client (platform=chatgpt) via the explicit DCR carve-out — never the
-    // Gemini ALLOWED_CLIENT_ID, whose redirect stays Google-only.
+    // client on the fly so no KV write is needed. ChatGPT/Claude use their OWN
+    // registered clients via explicit DCR carve-outs — never the Gemini
+    // ALLOWED_CLIENT_ID, whose redirect stays Google-only.
     let client = await store.getClient(clientId);
     const chatgptClient = client?.platform === 'chatgpt' || Boolean(await isChatgptDcrClient(clientId));
+    const claudeClient = client?.platform === 'claude' || Boolean(await isClaudeDcrClient(clientId));
     if (LOCKED && clientAllowed(clientId)) {
-      // Gemini's locked client is Google-relay-only: ChatGPT callbacks must
+      // Gemini's locked client is Google-relay-only: connector callbacks must
       // never be attached to it, even when the global allowlist includes them.
       if (redirectUri.startsWith('https://chatgpt.com/')) {
         return oauthError(res, 400, 'invalid_request', 'Gemini client cannot use a ChatGPT redirect');
+      }
+      if (isClaudeRedirectUri(redirectUri)) {
+        return oauthError(res, 400, 'invalid_request', 'Gemini client cannot use a Claude redirect');
       }
       client = client ?? { clientId, clientName: 'Gemini', platform: 'gemini', redirectUris: [] };
       if (!client.redirectUris?.includes(redirectUri)) client.redirectUris = [...clientRedirects(client), redirectUri];
@@ -476,7 +545,7 @@ export function createOAuthHandlers(store, options = {}) {
     if (!client) {
       return oauthError(res, 400, 'invalid_client', 'unknown client_id');
     }
-    if (!clientAllowed(clientId) && !chatgptClient) {
+    if (!clientAllowed(clientId) && !chatgptClient && !claudeClient) {
       return oauthError(res, 401, 'invalid_client', 'client not allowed');
     }
     // Shared check for every platform: no arbitrary host, and the exact URI must
@@ -484,18 +553,25 @@ export function createOAuthHandlers(store, options = {}) {
     if (!isAllowedRedirectUri(redirectUri)) {
       return oauthError(res, 400, 'invalid_request', 'redirect_uri host or path is not allowed');
     }
-    // A ChatGPT client may ONLY use ChatGPT callbacks; Gemini's locked client
+    // Connector clients may ONLY use their own callbacks; Gemini's locked client
     // may only use Google relay callbacks. Never mix platforms.
     if (chatgptClient && !isChatgptRedirectUri(redirectUri)) {
       return redirectError('invalid_request', 'ChatGPT clients must use a ChatGPT redirect_uri');
     }
-    if (!chatgptClient && client.platform === 'chatgpt') {
+    if (claudeClient && !isClaudeRedirectUri(redirectUri)) {
+      return redirectError('invalid_request', 'Claude clients must use a Claude redirect_uri');
+    }
+    if (client.platform === 'chatgpt' && !chatgptClient) {
+      return oauthError(res, 401, 'invalid_client', 'client not allowed');
+    }
+    if (client.platform === 'claude' && !claudeClient) {
       return oauthError(res, 401, 'invalid_client', 'client not allowed');
     }
     if (!isRegisteredRedirect(client, redirectUri)) {
-      if (LOCKED && clientAllowed(clientId) && client.platform !== 'chatgpt' && isAllowedRedirectUri(redirectUri)) {
+      if (LOCKED && clientAllowed(clientId) && client.platform === 'gemini' &&
+          !isChatgptRedirectUri(redirectUri) && !isClaudeRedirectUri(redirectUri)) {
         // Legacy Gemini behaviour: the single allowed client accepts any
-        // allowlisted redirect without a prior DCR record.
+        // Google-relay redirect without a prior DCR record — connectors excluded.
         client.redirectUris = [...clientRedirects(client), redirectUri];
       } else {
         return redirectError('invalid_request', 'redirect_uri is not registered for this client');
@@ -536,7 +612,7 @@ export function createOAuthHandlers(store, options = {}) {
       state,
       scope,
       resource: resourceParam,
-      platform: chatgptClient ? 'chatgpt' : 'gemini',
+      platform: chatgptClient ? 'chatgpt' : claudeClient ? 'claude' : 'gemini',
       codeChallenge,
       codeChallengeMethod: 'S256',
       createdAt: now,
@@ -595,15 +671,24 @@ export function createOAuthHandlers(store, options = {}) {
     if (params.redirect_uri && !isAllowedRedirectUri(str(params.redirect_uri))) {
       return oauthError(res, 400, 'invalid_grant', 'redirect_uri host or path is not allowed');
     }
-    // Platform isolation: a ChatGPT code must not be redeemed by a Gemini
-    // client id (and vice versa).
+    // Platform isolation: connector codes must not be redeemed by a Gemini
+    // client id (and vice versa). Existing ChatGPT messages are unchanged.
     const chatgptCode = record.platform === 'chatgpt' || isChatgptRedirectUri(record.redirectUri);
+    const claudeCode = record.platform === 'claude' || isClaudeRedirectUri(record.redirectUri);
+    const connectorCode = chatgptCode || claudeCode;
     const redeemingClient = await store.getClient(str(params.client_id));
     if (chatgptCode && (redeemingClient?.platform === 'gemini' ||
         (LOCKED && str(params.client_id) === ALLOWED_CLIENT_ID))) {
       return oauthError(res, 401, 'invalid_client', 'platform mismatch: ChatGPT code');
     }
     if (!chatgptCode && redeemingClient?.platform === 'chatgpt') {
+      return oauthError(res, 401, 'invalid_client', 'platform mismatch: Gemini code');
+    }
+    if (claudeCode && (redeemingClient?.platform !== 'claude' ||
+        (LOCKED && str(params.client_id) === ALLOWED_CLIENT_ID))) {
+      return oauthError(res, 401, 'invalid_client', 'platform mismatch: Claude code');
+    }
+    if (!connectorCode && redeemingClient?.platform === 'claude') {
       return oauthError(res, 401, 'invalid_client', 'platform mismatch: Gemini code');
     }
 
@@ -614,11 +699,11 @@ export function createOAuthHandlers(store, options = {}) {
     }
 
     // Locked mode: the pre-registered Gemini client's secret must match the env
-    // value. ChatGPT DCR clients are public PKCE clients with no secret.
-    if (LOCKED && !chatgptCode && !clientAllowed(str(params.client_id), str(params.client_secret), true)) {
+    // value. DCR connector clients are public PKCE clients with no secret.
+    if (LOCKED && !connectorCode && !clientAllowed(str(params.client_id), str(params.client_secret), true)) {
       return oauthError(res, 401, 'invalid_client', 'client credentials are invalid');
     }
-    if (record.clientId && !chatgptCode) {
+    if (record.clientId && !connectorCode) {
       const client = await store.getClient(record.clientId);
       if (client?.clientSecretHash) {
         if (!safeEqual(hashSecret(str(params.client_secret)), client.clientSecretHash)) {
@@ -668,7 +753,9 @@ export function createOAuthHandlers(store, options = {}) {
     const clientId = str(params.client_id);
     const chatgptRefresh = (await isChatgptDcrClient(clientId)) ||
       (LOCKED && clientId && clientId === ALLOWED_CLIENT_ID && str(record.platform) === 'chatgpt');
-    if (LOCKED && !chatgptRefresh && !clientAllowed(clientId, str(params.client_secret), true)) {
+    const claudeRefresh = (await isClaudeDcrClient(clientId)) ||
+      (LOCKED && clientId && clientId === ALLOWED_CLIENT_ID && str(record.platform) === 'claude');
+    if (LOCKED && !chatgptRefresh && !claudeRefresh && !clientAllowed(clientId, str(params.client_secret), true)) {
       return oauthError(res, 401, 'invalid_client', 'client credentials are invalid');
     }
     if (clientId && record.clientId && clientId !== record.clientId) {

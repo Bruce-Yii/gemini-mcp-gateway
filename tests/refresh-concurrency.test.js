@@ -24,7 +24,11 @@ test('concurrent getAccessToken across instances refreshes only once (rotation-s
     await new Promise(r => setTimeout(r, 100)); // simulate latency
     return { ok: true, json: async () => ({ access_token: 'ACCESS_' + refreshCount, refresh_token: 'REF_' + refreshCount, expires_in: 28800 }) };
   };
-  const env = { envToken: 'ENV', envRefresh: 'ENV_REF', envClientId: 'CID', envExpiresIn: 28800, envObtainedAt: Date.now() - 9 * 3600 * 1000 }; // near expiry -> needs refresh
+  const env = {
+    envToken: 'ENV', envRefresh: 'ENV_REF', envClientId: 'CID',
+    envExpiresIn: 28800, envObtainedAt: Date.now() - 9 * 3600 * 1000,
+    grantOwner: 'gateway', source: 'gateway-oauth',
+  }; // near expiry -> needs refresh
   const a1 = new UpstreamAuth({ store, fetch: mkFetch() });
   const a2 = new UpstreamAuth({ store, fetch: mkFetch() });
 

@@ -19,7 +19,7 @@ const ENV = {
   expiresInEnv: 'TL_LINEAR_EXPIRES_IN',
   obtainedAtEnv: 'TL_LINEAR_OBTAINED_AT',
 };
-const KEY = 'gmcgw:v1:upstream:linear';
+const KEY = 'gmcgw:v2:grant:local:gateway:linear';
 
 function setEnv(token = 'STALE_AT', refresh = 'RT_0') {
   process.env[ENV.tokenEnv] = token;
@@ -43,6 +43,8 @@ function linearConfig() {
     obtainedAtEnv: ENV.obtainedAtEnv,
     allowTools: [],
     denyTools: [],
+    grantOwner: 'gateway',
+    grantSource: 'gateway-oauth',
   };
 }
 
@@ -82,6 +84,7 @@ function seedStaleButFresh(store) {
     expires_at: Date.now() + 60 * 60 * 1000, // fabricated future deadline
     envSeed: 'STALE_AT',                     // stops env bootstrap from rebuilding
     bootstrapped: false,
+    owner: 'gateway', source: 'gateway-oauth', environment: 'local',
   }));
 }
 
@@ -261,6 +264,7 @@ test('expires_at uses real obtained_at, never Date.now()+expiresIn', async () =>
   await auth.getAccessToken('linear', {
     envToken: 'AT', envRefresh: 'RT', envClientId: 'CID',
     envExpiresIn: 3600, envObtainedAt: obtainedAt,
+    grantOwner: 'gateway', source: 'gateway-oauth',
   });
   let rec = JSON.parse(store._data.get(KEY));
   assert.equal(rec.expires_at, obtainedAt + 3600 * 1000, 'must be derived from the real issuance time');
@@ -274,6 +278,7 @@ test('missing obtained_at stores expires_at=0 instead of a fabricated future dea
 
   await auth.getAccessToken('linear', {
     envToken: 'AT', envRefresh: 'RT', envClientId: 'CID', envExpiresIn: 3600,
+    grantOwner: 'gateway', source: 'gateway-oauth',
   });
   const rec = JSON.parse(store._data.get(KEY));
   assert.equal(rec.expires_at, 0, 'unknown issuance time must not become now+expiresIn');
@@ -287,12 +292,13 @@ test('seed() honours obtainedAt and never fabricates a future expiry', async () 
 
   await auth.seed('linear', {
     accessToken: 'a', refreshToken: 'r', clientId: 'c',
-    expiresIn: 86400, obtainedAt,
+    expiresIn: 86400, obtainedAt, grantOwner: 'gateway', source: 'gateway-oauth',
   });
   assert.equal(JSON.parse(store._data.get(KEY)).expires_at, obtainedAt + 86400 * 1000);
 
   await auth.seed('linear', {
     accessToken: 'a', refreshToken: 'r', clientId: 'c', expiresIn: 86400,
+    grantOwner: 'gateway', source: 'gateway-oauth',
   });
   assert.equal(JSON.parse(store._data.get(KEY)).expires_at, 0, 'no obtainedAt -> unknown, not now+expiresIn');
 });

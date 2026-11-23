@@ -77,7 +77,11 @@ test('upstream OAuth: start redirects with PKCE and stores single-use state', as
   const location = new URL(res.state.headers.location);
   assert.equal(location.origin + location.pathname, 'https://www.figma.com/oauth/mcp');
   assert.equal(location.searchParams.get('client_id'), 'figma-client');
-  assert.equal(location.searchParams.get('redirect_uri'), 'https://gw.example/upstream/oauth/callback');
+  // R5: redirect carries the environment so the callback can use the
+  // environment-scoped state key (local by default per R2).
+  const redirectUri = new URL(location.searchParams.get('redirect_uri'));
+  assert.equal(redirectUri.origin + redirectUri.pathname, 'https://gw.example/upstream/oauth/callback');
+  assert.equal(redirectUri.searchParams.get('env'), 'local');
   assert.equal(location.searchParams.get('scope'), 'mcp:connect');
   assert.equal(location.searchParams.get('code_challenge_method'), 'S256');
   assert.ok(location.searchParams.get('code_challenge'));
@@ -107,21 +111,26 @@ test('upstream OAuth: callback exchanges the code and seeds the upstream token',
   const state = new URL(startRes.state.headers.location).searchParams.get('state');
 
   const callbackRes = mockRes();
-  await api.callback(req, callbackRes, new URL(`https://gw.example/upstream/oauth/callback?state=${state}&code=AUTH_CODE`));
+  await api.callback(req, callbackRes, new URL(`https://gw.example/upstream/oauth/callback?state=${state}&code=AUTH_CODE&env=local`));
   assert.equal(callbackRes.state.status, 200);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, 'https://api.figma.com/v1/oauth/token');
   assert.match(String(calls[0].init.body), /code=AUTH_CODE/);
   assert.match(String(calls[0].init.headers.authorization), /^Basic /);
-  const stored = JSON.parse(store.values.get('gmcgw:v1:upstream:figma'));
+  // R3/R4: callback lands in the v2 env+owner namespace with full grant identity.
+  const stored = JSON.parse(store.values.get('gmcgw:v2:grant:local:gateway:figma'));
   assert.equal(stored.access_token, 'AT');
   assert.equal(stored.refresh_token, 'RT');
   assert.equal(stored.client_id, 'figma-client');
   assert.equal(stored.client_secret, 'figma-secret');
+  assert.equal(stored.environment, 'local');
+  assert.equal(stored.owner, 'gateway');
+  assert.equal(stored.source, 'gateway-oauth');
+  assert.match(stored.grantId, /^gw:local:figma:/);
 
   // State is single use.
   const replayRes = mockRes();
-  await api.callback(req, replayRes, new URL(`https://gw.example/upstream/oauth/callback?state=${state}&code=AUTH_CODE`));
+  await api.callback(req, replayRes, new URL(`https://gw.example/upstream/oauth/callback?state=${state}&code=AUTH_CODE&env=local`));
   assert.equal(replayRes.state.status, 400);
   delete process.env.UPSTREAM_OAUTH_ADMIN_KEY;
 });

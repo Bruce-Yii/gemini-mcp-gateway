@@ -36,19 +36,21 @@ test('CAS fencing: stale refresh result does not overwrite winner token', async 
     },
   });
   // Seed an expired-but-needs-refresh record
-  mem.set('gmcgw:v1:upstream:notion', JSON.stringify({
+  const V2_KEY = 'gmcgw:v2:grant:local:gateway:notion';
+  mem.set(V2_KEY, JSON.stringify({
     access_token: 'AT_old', refresh_token: 'RT_old', client_id: 'CID',
     expires_at: Date.now() - 1000, bootstrapped: false, envSeed: 'ENV',
+    owner: 'gateway', source: 'gateway-oauth', environment: 'local',
   }));
 
   // Worker A refreshes -> wins CAS (writes AT_1/RT_1)
-  const a = await auth._refresh('notion', { refresh_token: 'RT_old', client_id: 'CID', envSeed: 'ENV' });
+  const a = await auth._refresh('notion', { refresh_token: 'RT_old', client_id: 'CID', envSeed: 'ENV', owner: 'gateway', environment: 'local' });
   assert.equal(a.access_token, 'AT_1');
 
   // Worker B's stale refresh result (based on RT_old) must LOSE the CAS because
   // KV now holds RT_1. It should be handed winner's token instead.
-  const b = await auth._refresh('notion', { refresh_token: 'RT_old', client_id: 'CID', envSeed: 'ENV' });
+  const b = await auth._refresh('notion', { refresh_token: 'RT_old', client_id: 'CID', envSeed: 'ENV', owner: 'gateway', environment: 'local' });
   assert.equal(b.access_token, 'AT_1', 'stale worker must get winner token, not its own AT_2');
-  const final = JSON.parse(mem.get('gmcgw:v1:upstream:notion'));
+  const final = JSON.parse(mem.get(V2_KEY));
   assert.equal(final.refresh_token, 'RT_1', 'KV must still hold winner refresh token');
 });

@@ -417,7 +417,12 @@ export function unwrapResultPayload(value) {
  * last-resort fallback so a number is never guessed when a field is present.
  * Never throws; unknown fields stay available through `raw`.
  *
- * @returns {{number:number|null,url:string|null,sha:string|null,raw:*}}
+ * Batch 15 GPT online fix · `id` / `nodeId` are additive fields kept distinct
+ * from `number`: GitHub exposes both a database `id` and a GraphQL `node_id`,
+ * and callers need them to disambiguate a PR/issue from its user-visible
+ * number. They are NEVER used as a fallback for `number`.
+ *
+ * @returns {{number:number|null,url:string|null,sha:string|null,id:string|null,nodeId:string|null,raw:*}}
  */
 export function canonicalResult(value) {
   try {
@@ -445,12 +450,20 @@ export function canonicalResult(value) {
     const shaRaw = firstDefined(root, ['sha', 'commitSha', 'commit_sha', 'head_sha', 'headSha'])
       ?? firstDefined(head && typeof head === 'object' ? head : {}, ['sha'])
       ?? firstDefined(commit && typeof commit === 'object' ? commit : {}, ['sha']);
-    return {
+    const idRaw = firstDefined(root, ['id']);
+    const nodeIdRaw = firstDefined(root, ['node_id', 'nodeId']);
+    const result = {
       number: numberOut,
       url: urlRaw !== undefined ? String(urlRaw) : null,
       sha: shaRaw !== undefined && shaRaw !== null ? String(shaRaw) : null,
       raw: value,
     };
+    // Additive and only present when the upstream actually carries an id:
+    // this keeps the historical 4-key shape byte-stable for id-less inputs.
+    // Values are strings; they are NEVER a fallback for `number` (URL-first).
+    if (idRaw !== undefined && idRaw !== null) result.id = String(idRaw);
+    if (nodeIdRaw !== undefined && nodeIdRaw !== null) result.nodeId = String(nodeIdRaw);
+    return result;
   } catch (_) {
     return { number: null, url: null, sha: null, raw: value };
   }
@@ -550,11 +563,16 @@ function actionsHeaders(token, accept) {
  * @param {string}   opts.url
  * @param {string}   opts.token
  * @param {string}   [opts.accept]
+ * @param {string}   [opts.followAccept] Accept header for the 302 signed-URL
+ *   follow-up. GitHub's signed Blob URL is not a REST endpoint: asking it for
+ *   `application/vnd.github+json` is unnecessary, and the old code sent
+ *   `application/octet-stream` to the REST endpoint which GitHub rejects with
+ *   415. Defaults to `accept`.
  * @param {number}   [opts.timeoutMs]
  * @param {number}   [opts.maxBytes]   max response body bytes before truncation
  * @returns {Promise<{ok:boolean,status:number,text:string|null,truncated:boolean,error?:string}>}
  */
-async function githubRestGet({ fetch: doFetch, url, token, accept, timeoutMs = DEFAULT_ACTIONS_TIMEOUT_MS, maxBytes = DEFAULT_ACTIONS_MAX_BYTES } = {}) {
+async function githubRestGet({ fetch: doFetch, url, token, accept, followAccept, timeoutMs = DEFAULT_ACTIONS_TIMEOUT_MS, maxBytes = DEFAULT_ACTIONS_MAX_BYTES } = {}) {
   if (typeof doFetch !== 'function') {
     return actionsOutcome(false, 0, { text: null, truncated: false, error: 'github actions helper: fetch is unavailable' });
   }
@@ -573,9 +591,12 @@ async function githubRestGet({ fetch: doFetch, url, token, accept, timeoutMs = D
     if (status >= 300 && status < 400) {
       const location = res && typeof res.headers?.get === 'function' ? res.headers.get('location') : (res?.headers?.location ?? null);
       if (location && /^https?:\/\//i.test(location)) {
+        // The signed Blob URL is NOT a GitHub REST endpoint and must NOT carry
+        // our Authorization header. Use a plain Accept (`*/*` by default for
+        // log text); never reuse the API-specific media type here.
         res = await doFetch(location, {
           method: 'GET',
-          headers: { Accept: accept || 'application/octet-stream', 'User-Agent': 'gemini-mcp-gateway-actions-helper' },
+          headers: { Accept: followAccept || accept || '*/*', 'User-Agent': 'gemini-mcp-gateway-actions-helper' },
           ...(controller ? { signal: controller.signal } : {}),
           redirect: 'follow',
         });
@@ -697,8 +718,14 @@ export async function githubActionsListWorkflowJobs(opts = {}) {
 
 /**
  * GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs — job log text.
- * GitHub returns 302 to a signed URL; `redirect:'follow'` handles that in a
- * real fetch, and fakes can supply a 302 response carrying a `Location` header.
+ *
+ * Online evidence (2026-11-23 ChatGPT read-only test): this endpoint returns
+ * HTTP 415 when the request asks for `Accept: application/octet-stream`. The
+ * REST endpoint must be called with `Accept: application/vnd.github+json`;
+ * GitHub then replies 302 to a signed Blob URL, which is followed WITHOUT the
+ * Authorization header and with a generic `Accept: * / *` (spelling without the
+ * space in code). `redirect:'follow'` handles that in a real fetch, and fakes
+ * can supply a 302 response carrying a `Location` header.
  */
 export async function githubActionsGetJobLogs(opts = {}) {
   const { fetch: doFetch, env, owner, repo } = opts;
@@ -711,7 +738,18 @@ export async function githubActionsGetJobLogs(opts = {}) {
     return actionsOutcome(false, 0, { text: null, truncated: false, error: 'job_id is required' });
   }
   const url = `${GITHUB_API_BASE}/repos/${owner}/${repo}/actions/jobs/${encodeURIComponent(String(id))}/logs`;
-  const res = await githubRestGet({ fetch: doFetch, url, token: resolveToken(env), accept: 'application/octet-stream', timeoutMs: opts.timeoutMs, maxBytes: opts.maxBytes });
+  // REST endpoint requires the JSON media type. octet-stream gets HTTP 415.
+  // The 302 target is a signed storage URL, followed with a plain Accept and
+  // no token (see githubRestGet / followAccept).
+  const res = await githubRestGet({
+    fetch: doFetch,
+    url,
+    token: resolveToken(env),
+    accept: 'application/vnd.github+json',
+    followAccept: opts.followAccept || '*/*',
+    timeoutMs: opts.timeoutMs,
+    maxBytes: opts.maxBytes,
+  });
   if (!res.ok) return actionsOutcome(res.ok, res.status, { text: null, truncated: res.truncated, error: res.error });
   return actionsOutcome(true, res.status, { text: res.text, truncated: res.truncated });
 }

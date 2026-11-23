@@ -29,11 +29,15 @@ test('invalid_grant stops refreshing (no rebootstrap loop) and marks needsReauth
       return { ok: false }; // env token also invalid -> must NOT rebootstrap
     },
   });
-  const env = { envToken: 'ENV_TOKEN', envRefresh: 'ENV_REF', envClientId: 'CID', envExpiresIn: 28800, envObtainedAt: Date.now() - 9 * 3600 * 1000 };
+  const env = {
+    envToken: 'ENV_TOKEN', envRefresh: 'ENV_REF', envClientId: 'CID',
+    envExpiresIn: 28800, envObtainedAt: Date.now() - 9 * 3600 * 1000,
+    grantOwner: 'gateway', source: 'gateway-oauth',
+  };
 
   await auth.getAccessToken('notion', env);
   assert.equal(refreshCalls, 1, 'one refresh attempt');
-  const rec1 = JSON.parse(mem.get('gmcgw:v1:upstream:notion'));
+  const rec1 = JSON.parse(mem.get('gmcgw:v2:grant:local:gateway:notion'));
   assert.equal(rec1.needsReauth, true, 'grant marked needsReauth');
 
   // second call: same env token -> must NOT refresh again (backoff)
