@@ -237,11 +237,18 @@ function buildDiffSummary(path, first, second, added, removed, hunks) {
  * @param {string} args.path logical file path (passed through to read/write)
  * @param {string} args.patch unified diff
  * @param {boolean} [args.dryRun=true] when true, never call write
- * @returns {Promise<{ok:boolean, diff?:object, commitSha?:string, content?:string, error?:string}>}
+ * @returns {Promise<{ok:boolean, diff?:object, commitSha?:string, sha?:string,
+ *                    blobSha?:string, content?:string, error?:string}>}
  *
  * On any failure (read error, patch mismatch, write error) the returned object
  * has `{ ok:false, error }` and NO write is attempted for read/patch failures.
  * A write error is reported as-is (never faked as success).
+ *
+ * G-05 return contract: `commitSha` is the commit-creation identity
+ * (`commitSha` / `commit.sha` from the write result); `sha` and `blobSha` are
+ * the file/blob identity (`sha` / `content.sha`). Both may be present at once;
+ * neither overwrites the other. These fields are only present when the
+ * upstream actually returned the corresponding identity.
  */
 export async function applyFilePatch({ read, write, path, patch, dryRun = true, includeContent = false, precheck = true } = {}) {
   // Validate I/O injection before doing any work.
@@ -316,10 +323,23 @@ export async function applyFilePatch({ read, write, path, patch, dryRun = true, 
   if (writeResult && typeof writeResult === 'object') {
     const nestedContent = writeResult.content && typeof writeResult.content === 'object' ? writeResult.content : null;
     const nestedCommit = writeResult.commit && typeof writeResult.commit === 'object' ? writeResult.commit : null;
+    // G-05: commitSha and blobSha are DISTINCT identities from DISTINCT
+    // upstream results and must never overwrite each other:
+    //   - commitSha comes ONLY from the commit-creation result
+    //     (`commitSha` / `commit.sha`).
+    //   - blobSha comes ONLY from the file-write result
+    //     (`sha` / `content.sha`), and is exposed as both `sha` (legacy blob
+    //     field name kept for API compatibility) and the explicit `blobSha`.
+    // Previously `blobSha` was assigned to `out.commitSha`, so whenever both
+    // were present the commit identity was silently replaced by the blob
+    // identity. Keep the fields separate instead.
     const blobSha = writeResult.sha ?? nestedContent?.sha;
     const commitSha = writeResult.commitSha ?? nestedCommit?.sha;
     if (commitSha !== undefined) out.commitSha = commitSha;
-    if (blobSha !== undefined) out.commitSha = blobSha;
+    if (blobSha !== undefined) {
+      out.sha = blobSha;
+      out.blobSha = blobSha;
+    }
     if (writeResult.content !== undefined) out.content = writeResult.content;
   }
   return out;

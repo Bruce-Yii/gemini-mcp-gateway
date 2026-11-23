@@ -210,6 +210,24 @@ function aggregate(errors) {
   return new AggregateError(errors, errors.map((error) => error.message).join('; '));
 }
 
+/**
+ * G-04: stable, model-visible errors for the callTool policy gate.
+ * Both carry a machine-readable `code` and a deterministic `message` so callers
+ * (and tests) can assert a fixed shape. No upstream request is made when these
+ * are thrown, and the messages contain no secrets.
+ */
+function policyDeniedError(server, tool) {
+  const error = new Error(`[upstream:${server}/${tool}] 工具被 allow/deny 策略拒绝调用`);
+  error.code = 'TOOL_POLICY_DENIED';
+  return error;
+}
+
+function unknownToolError(server, tool) {
+  const error = new Error(`[upstream:${server}/${tool}] 上游未暴露该工具`);
+  error.code = 'UNKNOWN_UPSTREAM_TOOL';
+  return error;
+}
+
 export class UpstreamManager {
   constructor(configs = [], options = {}) {
     this.configs = Array.isArray(configs) ? configs : [];
@@ -413,7 +431,12 @@ export class UpstreamManager {
           tools = await establish(freshToken); // second (and final) attempt
         }
 
-        this._clients.set(name, { client, transport, config });
+        // G-04: keep the FULL tool list on the record, not just the filtered
+        // catalog entries. callTool() needs the raw metadata to re-check the
+        // allow/deny policy on every call — connect()'s filter alone is not a
+        // security boundary because gateway_call/codemode can pass any tool
+        // name on a connected server.
+        this._clients.set(name, { client, transport, config, tools });
 
         for (const tool of tools) {
           // Some upstreams already prefix their tool names with the server name
@@ -473,11 +496,41 @@ export class UpstreamManager {
     if (!record) {
       throw new Error(`[upstream:${server}] 未连接或未配置的上游`);
     }
+    // G-04: re-check allow/deny on EVERY call, before argument normalization,
+    // the Figma guard/cache, and any upstream request. connect() only filtered
+    // the public `entries` catalog; gateway_call / codemode bridges can still
+    // name any tool on a connected server. The stored full tool list is the
+    // authoritative source for both existence and policy evaluation.
+    const tools = Array.isArray(record.tools) ? record.tools : [];
+    // Backward compatibility: some callers/tests inject a client record by hand
+    // without a full tool list. When no authoritative list is stored, fall back
+    // to the catalog entries (and finally to the requested name) so existing
+    // behavior is preserved; policy is still evaluated below.
+    const hasToolList = tools.length > 0;
+    const rawTool = hasToolList ? tools.find((t) => t?.name === tool) : undefined;
+    if (hasToolList && !rawTool) {
+      // Unknown tool: fail closed. Never let an unverified name reach the SDK.
+      throw unknownToolError(server, tool);
+    }
+    const catalogEntry = this.entries.find((e) => e.server === server && e.tool === tool);
+    const policyEntry = {
+      server,
+      tool,
+      name: tool.startsWith(`${server}__`) ? tool : `${server}__${tool}`,
+      description: rawTool?.description ?? catalogEntry?.description,
+      inputSchema: rawTool?.inputSchema ?? catalogEntry?.inputSchema,
+      annotations: rawTool?.annotations ?? catalogEntry?.annotations,
+    };
+    if (!isAllowed(record.config, policyEntry)) {
+      throw policyDeniedError(server, tool);
+    }
     // Normalize camelCase aliases against the upstream's ORIGINAL inputSchema
     // (never the Gemini-sanitized one). Every call path funnels through here:
     // Code Mode's codemode.<tool> (codemode.js) AND the direct whitelist /
     // gateway_call handlers (server.js) both call UpstreamManager.callTool.
-    const entry = this.entries.find((e) => e.server === server && e.tool === tool);
+    // Prefer the catalog entry when present (backward compatible), else the
+    // raw tool metadata we just validated.
+    const entry = catalogEntry ?? policyEntry;
     const finalArgs = normalizeToolArguments(args, entry?.inputSchema) ?? {};
     const guard = server === 'figma' ? this.figmaGuard : null;
     // Cooldown takes precedence over the cache: once quota is exhausted we do

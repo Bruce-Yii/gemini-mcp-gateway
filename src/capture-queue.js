@@ -72,6 +72,13 @@ function byteLengthOf(value) {
  *                   — structured, body-free observability hook.
  *   scheduler       `{ now, setTimeout, clearTimeout, sleep }` for determinism.
  *   idempotent      dedupe by requestId while queued/in-flight (default true).
+ *   seenMaxEntries  end-to-end dedupe window capacity (default 4096). 0 or
+ *                   Infinity disables the cap (legacy unbounded behaviour);
+ *                   `idempotent:false` disables all dedupe.
+ *   seenTtlMs       dedupe entries expire after this long (default 24h).
+ *                   0 or Infinity disables TTL expiry. Eviction is LRU+TTL and
+ *                   never evicts a requestId that is still inFlight, so an
+ *                   eviction can never cause an immediate duplicate write.
  */
 export class CaptureQueue {
   constructor(options = {}) {
@@ -89,6 +96,8 @@ export class CaptureQueue {
       onEvent,
       scheduler,
       idempotent = true,
+      seenMaxEntries = 4096,
+      seenTtlMs = 24 * 60 * 60 * 1000,
     } = options;
 
     if (typeof sink !== 'function') {
@@ -109,6 +118,17 @@ export class CaptureQueue {
     this.scheduler = scheduler ?? defaultScheduler();
     this.idempotent = idempotent !== false;
 
+    // G-13: the end-to-end dedupe window used to be a Set that grew forever.
+    // Keep it as an insertion-ordered Map so it doubles as an LRU queue:
+    //   key = requestId, value = timestamp (from the injectable scheduler).
+    // Capacity and TTL are both configurable; 0/Infinity means "no limit" for
+    // backwards compatibility. `this.seen` remains a Set-like surface for the
+    // dedupe check (`has`) so existing code/tests keep working.
+    const cap = Number(seenMaxEntries);
+    this.seenMaxEntries = Number.isFinite(cap) && cap > 0 ? Math.floor(cap) : 0; // 0 = unbounded
+    const ttl = Number(seenTtlMs);
+    this.seenTtlMs = Number.isFinite(ttl) && ttl > 0 ? ttl : 0; // 0 = no expiry
+
     /** @type {Array<{ lane:'critical'|'envelope', item:any, bytes:number, attempt:number, requestId:string|null, enqueuedAt:number }>} */
     this.ring = [];
     this.bytes = 0;
@@ -117,7 +137,7 @@ export class CaptureQueue {
     this.kickScheduled = false;
     this.closed = false;
     this.inFlight = new Set(); // requestIds currently buffered or being written
-    this.seen = new Set();     // requestIds ever seen (for end-to-end dedupe)
+    this.seen = new Map();     // requestId -> lastSeenAt, insertion order = LRU order
     this.retryTimers = new Set();
     this.inRetry = new Set();  // entries already owned by a retry timer
     this.stats = {
@@ -131,7 +151,67 @@ export class CaptureQueue {
       dlq: 0,
       duplicates: 0,
       overflow: 0,
+      seenEvicted: 0,
     };
+  }
+
+  // -------------------------------------------------------------------------
+  // G-13: bounded end-to-end dedupe window (LRU + TTL).
+  //
+  // `seen` is a Map used as an LRU list: iterating it yields least-recently-
+  // used keys first. `touchSeen` promotes a hit to most-recently-used;
+  // `rememberSeen` inserts a new id and evicts the oldest eligible entries.
+  // An entry is eligible for eviction only when it is NOT in `inFlight` — that
+  // is the requirement that an eviction must never cause an immediate duplicate
+  // write (a still-queued/retrying requestId must keep its dedupe shield).
+  // -------------------------------------------------------------------------
+
+  /** True if the requestId is inside the current dedupe window. */
+  _hasSeen(requestId) {
+    if (!this.seen.has(requestId)) return false;
+    let at = this.seen.get(requestId);
+    if (this.seenTtlMs > 0 && this.scheduler.now() - at >= this.seenTtlMs) {
+      if (!this.inFlight.has(requestId)) {
+        this.seen.delete(requestId);
+        this.stats.seenEvicted += 1;
+        return false;
+      }
+      // Still inFlight: refresh so the shield survives until release.
+      at = this.scheduler.now();
+    }
+    // LRU promotion: re-inserting a key moves it to the end of the Map.
+    this.seen.delete(requestId);
+    this.seen.set(requestId, at);
+    return true;
+  }
+
+  /** Register a newly accepted requestId and enforce the capacity bound. */
+  _rememberSeen(requestId) {
+    this.seen.set(requestId, this.scheduler.now());
+    if (this.seenMaxEntries === 0) return; // unbounded by explicit configuration
+    // Bound the loop by the number of scanned keys, not by the cap: a window
+    // that overshot while many ids were live must be trimmable in one insert
+    // once those ids settle.
+    let guard = this.seen.size + 1;
+    while (this.seen.size > this.seenMaxEntries && guard-- > 0) {
+      // Oldest-first scan; skip the newcomer itself (it is added to inFlight
+      // immediately after this call) and ids still buffered/in-flight.
+      let victim = null;
+      for (const id of this.seen.keys()) {
+        if (id === requestId) continue;
+        if (!this.inFlight.has(id)) { victim = id; break; }
+      }
+      if (victim === null) {
+        // Every id is still active: allow a temporary overshoot rather than
+        // dropping the dedupe shield for a live request (same policy as ring
+        // critical overflow). Emit a body-free warning for the operator.
+        this._emit('seen_overflow', { size: this.seen.size, cap: this.seenMaxEntries });
+        break;
+      }
+      this.seen.delete(victim);
+      this.stats.seenEvicted += 1;
+      this._emit('seen_evicted', { reason: 'lru', size: this.seen.size });
+    }
   }
 
   /** Emit a body-free structured event. */
@@ -175,12 +255,12 @@ export class CaptureQueue {
     // P0 critical items are always accepted, even on duplicate requestIds:
     // ack/done/dropped/meta are distinct audit rows, not idempotent writes.
     if (this.idempotent && !critical && requestId) {
-      if (this.seen.has(requestId) || this.inFlight.has(requestId)) {
+      if (this._hasSeen(requestId) || this.inFlight.has(requestId)) {
         this.stats.duplicates += 1;
         this._emit('duplicate', { requestId, lane: 'envelope' });
         return { accepted: false, critical, reason: 'duplicate' };
       }
-      this.seen.add(requestId);
+      this._rememberSeen(requestId);
       this.inFlight.add(requestId);
     }
 
@@ -464,6 +544,11 @@ export class CaptureQueue {
       flushing: this.flushing,
       retryTimers: this.retryTimers.size,
       closed: this.closed,
+      // G-13: dedupe-window size is observable so long-process memory growth
+      // can be asserted in tests and monitored in production. Counts only.
+      seenSize: this.seen.size,
+      seenCap: this.seenMaxEntries, // 0 = unbounded (explicitly configured)
+      seenTtlMs: this.seenTtlMs,
     };
   }
 }

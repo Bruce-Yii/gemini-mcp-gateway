@@ -329,7 +329,18 @@ export function createAppHandler(options = {}) {
         bodyBufferFailed = true;
         bodyBuffered = false;
       }
-      const capture = startCapture(req, res, { path: pathname, bodyBuffered, requestBytes });
+      // G-07: pass the app-level options through so capture injection seams
+      // (oauthClientMap / sink / asyncQueue / log / fileDir / httpUrl / queue
+      // limits / fetchImpl / ...) actually take effect. Explicit per-request
+      // route fields still win; with no injected options this is byte-for-byte
+      // the previous { path, bodyBuffered, requestBytes } call (env/defaults
+      // unchanged).
+      const capture = startCapture(req, res, {
+        ...options,
+        path: pathname,
+        bodyBuffered,
+        requestBytes,
+      });
       if (bodyBufferFailed && capture?.skip) capture.skip('body_buffer_failed');
       if (pathname === MCP_V2_PATH && capture && !capture.skip) {
         // Additive capture tag so A/B can split by (clientPlatform, protocolVersion).

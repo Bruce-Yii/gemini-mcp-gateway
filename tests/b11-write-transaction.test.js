@@ -215,9 +215,11 @@ test('single-file applyFilePatch: unchanged dryRun/write/precheck behavior', asy
   assert.equal(written.ok, true);
   assert.equal(io.calls.write.length, 1);
   assert.equal(io.calls.write[0].text, '{"a":2}\n');
-  // Pre-existing applyFilePatch behavior: the blob sha overrides commitSha
-  // in the single-file path; the B10 test asserts this exact historical shape.
-  assert.equal(written.commitSha, 'b-a.json');
+  // G-05: commitSha comes only from the commit-creation result; the blob sha
+  // from the file-write result is exposed separately as `sha` / `blobSha`.
+  assert.equal(written.commitSha, 'c-a.json');
+  assert.equal(written.sha, 'b-a.json');
+  assert.equal(written.blobSha, 'b-a.json');
 
   const io2 = hostIO({ 'bad.json': { content: '{"a":1}\n', sha: 's' } });
   const bad = await applyFilePatch({

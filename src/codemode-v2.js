@@ -20,13 +20,14 @@
  * closed with a stable validation error and zero side effects.
  */
 
-import { createCodeModeTools, toModelOutput } from './codemode.js';
+import { createCodeModeTools, toModelOutput, fileTextFromRaw } from './codemode.js';
 import { sanitizeTool } from './sanitize.js';
 import {
   executeTypedPlan,
   PLAN_VERSION,
   OP_EFFECTS,
 } from './typed-plan.js';
+import { unwrapResult } from './tool-format.js';
 import { captureEvent } from './capture.js';
 
 /** Protocol/plan labels added additively to every v2 plan result. */
@@ -188,6 +189,152 @@ function budgetIO(io, budget) {
   return wrapped;
 }
 
+/* -------------------------------------------------------------------------- *
+ * G-03 · real default I/O adapter for /mcp/v2 plans
+ *
+ * Root cause: the original v2 `makePlanHandler` only passed `io` when the caller
+ * injected `options.typedPlanIO`; otherwise it called `executeTypedPlan` with no
+ * adapter and the engine's intentional fail-closed branch returned
+ * "io adapter is required". That made every /mcp/v2 plan — even pure reads —
+ * unusable on the real gateway, unlike v1 `codemode.runTypedPlan`, which builds
+ * a REAL adapter from the upstream tool bridge when no adapter is injected
+ * (`createDefaultTypedPlanIO` in src/codemode.js).
+ *
+ * Fix: use the SAME injection seam as v1. When `typedPlanIO` is supplied we wrap
+ * it with the per-plan budget (as before); when it is not, we build a default
+ * adapter from the SAME two dependencies v1 uses — `upstreamManager.getEntries()`
+ * and `upstreamManager.callTool()` — charging each upstream invocation against
+ * the same budget. `src/codemode.js` and the three v1 tools/schemas are NOT
+ * touched. With a real manager present the v2 plan path is now executable;
+ * only when no usable upstream adapter can be constructed (e.g. a manager with
+ * no tool bridge) do we leave `io` absent and let the engine fail closed with
+ * its explicit error — zero side effects, never a silent fallback.
+ * -------------------------------------------------------------------------- */
+
+function resolveTypedPlanTool(tools, candidates) {
+  const list = Array.isArray(tools) ? tools : [];
+  for (const wanted of candidates) {
+    const hit = list.find((t) => {
+      const name = String(t?.name ?? t?.tool ?? '');
+      return name === wanted || name.endsWith(`__${wanted}`);
+    });
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/**
+ * Build the default REAL io adapter from the upstream tool bridge. This mirrors
+ * v1's `createDefaultTypedPlanIO`: read ops reuse the upstream get/list tools,
+ * write ops go through the file/branch/PR tools, and every upstream invocation
+ * consumes `charge` (the same per-plan budget). Returns null when the manager
+ * exposes no usable tool bridge, so the caller can fail closed explicitly.
+ */
+function createDefaultV2TypedPlanIO({ tools, callTool, charge }) {
+  if (typeof callTool !== 'function') return null;
+  const toolName = (t) => String(t?.name ?? t?.tool ?? '');
+  const readTool = resolveTypedPlanTool(tools, ['get_file_contents']);
+  const listTool = resolveTypedPlanTool(tools, ['list_repo_contents', 'list_directory_contents', 'list_repository_content', 'list_files']);
+  const writeTool = resolveTypedPlanTool(tools, ['create_or_update_file', 'push_files']);
+  const branchListTool = resolveTypedPlanTool(tools, ['list_branches']);
+  const branchCreateTool = resolveTypedPlanTool(tools, ['create_branch']);
+  const prListTool = resolveTypedPlanTool(tools, ['list_pull_requests']);
+  const prCreateTool = resolveTypedPlanTool(tools, ['create_pull_request']);
+  const prUpdateTool = resolveTypedPlanTool(tools, ['update_pull_request']);
+
+  // A manager without any recognised upstream tool cannot execute a plan.
+  if (!readTool && !listTool && !writeTool) return null;
+
+  const invoke = async (tool, args) => {
+    if (!tool) throw new Error('typed-plan io: required upstream tool is unavailable');
+    if (charge) charge();
+    return unwrapResult(await callTool(tool.server, tool.tool, args ?? {}));
+  };
+  const fileText = (raw) => fileTextFromRaw(raw, { normalizeName: toolName(readTool) || 'get_file_contents' });
+
+  return {
+    readFileRange: async (args) => {
+      const raw = await invoke(readTool, {
+        owner: args.owner, repo: args.repo, path: args.path,
+        ...(args.ref !== undefined ? { ref: args.ref } : {}),
+      });
+      const { text, sha, truncated } = fileText(raw);
+      if (text === null) throw new Error(`readFileRange: no file text for ${args.path}`);
+      const allLines = text.replace(/\r\n?/g, '\n').split('\n');
+      const totalLines = allLines.length;
+      const start = Number.isFinite(args.startLine) ? Math.max(1, Math.floor(args.startLine)) : 1;
+      const end = Number.isFinite(args.endLine)
+        ? Math.max(start - 1, Math.min(totalLines, Math.floor(args.endLine)))
+        : totalLines;
+      return {
+        path: args.path,
+        text,
+        sha,
+        lines: allLines.slice(start - 1, end),
+        totalLines,
+        truncated: truncated === true || start > 1 || end < totalLines ? true : truncated ?? null,
+      };
+    },
+    repoGrep: async (args) => {
+      if (!listTool) throw new Error('repoGrep: no repository list tool is available in this session');
+      const listed = await invoke(listTool, { owner: args.owner, repo: args.repo, path: args.pathPrefix });
+      const entries = Array.isArray(listed) ? listed : (listed?.items ?? listed?.data ?? []);
+      const files = entries.map((e) => (typeof e === 'string' ? e : e?.path ?? e?.name)).filter((p) => typeof p === 'string' && p.length);
+      const limit = Number.isFinite(args.limit) && args.limit > 0 ? args.limit : 50;
+      let re;
+      try { re = new RegExp(args.pattern, 'i'); } catch (e) { throw new Error(`repoGrep: invalid pattern: ${e.message}`); }
+      const matches = [];
+      let truncated = false;
+      for (const file of files) {
+        if (matches.length >= limit) { truncated = true; break; }
+        const raw = await invoke(readTool, { owner: args.owner, repo: args.repo, path: file });
+        const { text, truncated: fileTruncated } = fileText(raw);
+        if (text === null) continue;
+        if (fileTruncated === true) truncated = true;
+        text.replace(/\r\n?/g, '\n').split('\n').forEach((line, i) => {
+          if (matches.length < limit && re.test(line)) matches.push({ path: file, line: i + 1, text: line });
+        });
+      }
+      return { pattern: args.pattern, matches, truncated };
+    },
+    ensureBranch: async (args) => {
+      const branches = branchListTool ? await invoke(branchListTool, { owner: args.owner, repo: args.repo }) : [];
+      const names = (Array.isArray(branches) ? branches : (branches?.branches ?? [])).map((b) => (typeof b === 'string' ? b : b?.name));
+      if (names.includes(args.branch)) return { branch: args.branch, created: false, reused: true };
+      const created = await invoke(branchCreateTool, { owner: args.owner, repo: args.repo, branch: args.branch });
+      return { branch: args.branch, created: true, reused: false, result: created };
+    },
+    writeFile: async (args) => {
+      const written = await invoke(writeTool, {
+        owner: args.owner, repo: args.repo, path: args.path,
+        content: args.content, message: args.message ?? 'typed-plan write',
+        ...(args.branch !== undefined ? { branch: args.branch } : {}),
+        ...(args.sha !== undefined ? { sha: args.sha } : {}),
+      });
+      return { path: args.path, written: true, result: written };
+    },
+    openPr: async (args) => {
+      if (prListTool) {
+        const prs = await invoke(prListTool, { owner: args.owner, repo: args.repo, head: args.head, base: args.base, state: 'open' });
+        const found = (Array.isArray(prs) ? prs : (prs?.items ?? [])).find(
+          (pr) => pr?.head?.ref === args.head && pr?.base?.ref === args.base && String(pr?.state ?? 'open').toLowerCase() === 'open',
+        );
+        if (found) {
+          const updated = prUpdateTool
+            ? await invoke(prUpdateTool, { owner: args.owner, repo: args.repo, pullNumber: found.number, title: args.title })
+            : found;
+          return { number: found.number, created: false, updated: true, result: updated };
+        }
+      }
+      const created = await invoke(prCreateTool, {
+        owner: args.owner, repo: args.repo, head: args.head, base: args.base, title: args.title,
+      });
+      return { number: created?.number ?? null, created: true, updated: false, result: created };
+    },
+    runChecks: async (args) => ({ command: args.command, ok: true, skipped: true, reason: 'no host check runner is wired for typed plans' }),
+  };
+}
+
 /** Descriptive, model-correctable validation error (E-VAL-*). */
 function validationFailure(code, message) {
   return {
@@ -228,7 +375,7 @@ function tagPlanResult(result, { dryRun }) {
  * @param {boolean} readOnly read-only endpoint rejects write-effect ops even if
  *        a client bypasses the schema enum (server-side safety boundary).
  */
-function makePlanHandler({ readOnly, options }) {
+function makePlanHandler({ readOnly, options, upstreamManager }) {
   return async (args) => {
     const a = args && typeof args === 'object' && !Array.isArray(args) ? args : {};
     if (!hasOwn(a, 'plan')) {
@@ -247,8 +394,23 @@ function makePlanHandler({ readOnly, options }) {
     try {
       const rawIO = options.typedPlanIO && typeof options.typedPlanIO === 'object'
         ? options.typedPlanIO : null;
+      // G-03: same injection seam as v1. A caller-supplied adapter is wrapped
+      // with the budget; otherwise build a REAL adapter from the same upstream
+      // tool bridge v1 uses. If neither exists, leave `io` absent and let the
+      // engine fail closed with its explicit error (zero side effects).
+      let io;
+      if (rawIO) {
+        io = budgetIO(rawIO, budget);
+      } else {
+        const tools = upstreamManager?.getEntries?.() ?? [];
+        io = createDefaultV2TypedPlanIO({
+          tools,
+          callTool: (server, tool, callArgs) => upstreamManager?.callTool?.(server, tool, callArgs),
+          charge: () => budget.charge('typedPlanV2'),
+        });
+      }
       const result = await executeTypedPlan(a.plan, {
-        ...(rawIO ? { io: budgetIO(rawIO, budget) } : {}),
+        ...(io ? { io } : {}),
         ...(options.typedPlanOps && typeof options.typedPlanOps === 'object'
           ? { ops: options.typedPlanOps } : {}),
         dryRun,
@@ -286,8 +448,8 @@ export function createCodeModeToolsV2(upstreamManager, options = {}) {
   // two execute slots below.
   const [searchTool, v1Read, v1Exec] = createCodeModeTools(upstreamManager, options);
 
-  const readOnlyHandler = makePlanHandler({ readOnly: true, options });
-  const writeHandler = makePlanHandler({ readOnly: false, options });
+  const readOnlyHandler = makePlanHandler({ readOnly: true, options, upstreamManager });
+  const writeHandler = makePlanHandler({ readOnly: false, options, upstreamManager });
   const v1WriteHandler = v1Exec.handler;
   const profile = options.profile;
 
