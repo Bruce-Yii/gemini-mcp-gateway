@@ -29,10 +29,27 @@ import { resolveClientProfile, encodeToolResult, applyProfileToTools } from './c
 import { searchEntries } from './catalog.js';
 import { UpstreamManager } from './upstreams.js';
 import { createCodeModeTools } from './codemode.js';
+import {
+  createCodeModeToolsV2,
+  PROTOCOL_VERSION,
+  V2_PROFILE,
+} from './codemode-v2.js';
+import { PLAN_VERSION } from './typed-plan.js';
 import { validateConfig } from './config.js';
 import { captureEvent, startCapture, captureSkip } from './capture.js';
 
 const SERVER_INFO = { name: 'gemini-mcp-gateway', version: '0.1.0' };
+export const MCP_V1_PATH = '/mcp';
+export const MCP_V2_PATH = '/mcp/v2';
+
+/**
+ * Pure flag check: /mcp/v2 exists only when ENABLE_MCP_V2=1. Any other value
+ * (including unset, "0", "true", "1 ") leaves the v2 route absent (404) and
+ * the v1 byte-for-byte unchanged. `env` is injectable for offline tests.
+ */
+export function isMcpV2Enabled(env = process.env) {
+  return env?.ENABLE_MCP_V2 === '1';
+}
 
 const INSTRUCTIONS = [
   'A consolidated gateway over several upstream MCP servers.',
@@ -284,15 +301,26 @@ export function createGatewayServer(upstreamManager, options = {}) {
     headers: options.headers,
     body: options.body,
   });
+  const isV2 = options.protocolVersion === PROTOCOL_VERSION;
   let tools;
   let instructions = INSTRUCTIONS;
   if (options.mode === 'codemode') {
-    tools = createCodeModeTools(upstreamManager, options);
-    instructions = [
-      'This gateway exposes three tools: search() to discover upstream tools; execute_read() to run JavaScript that can only call read-only upstream tools; and execute() to run JavaScript with read-write access.',
-      'Prefer execute_read() or execute(): write code that calls codemode.<tool>(args), process large results inside the code, and return only a concise summary. Only your return value enters the conversation.',
-      'Use search() first if you do not know the exact tool name.',
-    ].join(' ');
+    // v2 swaps only the two execute schemas/handlers; names, order, search and
+    // annotations stay identical to v1. v1 path is completely untouched.
+    tools = isV2
+      ? createCodeModeToolsV2(upstreamManager, options)
+      : createCodeModeTools(upstreamManager, options);
+    instructions = isV2
+      ? [
+        'This gateway exposes three tools: search() to discover upstream tools; execute_read() to run READ-ONLY typed plans; and execute() to run typed plans (or code only as a fallback for logic the op registry cannot express).',
+        'Prefer plan-based execute()/execute_read(): pass an ordered array of typed steps and return only a concise summary. Only your return value enters the conversation.',
+        'Use search() first if you do not know the exact tool name.',
+      ].join(' ')
+      : [
+        'This gateway exposes three tools: search() to discover upstream tools; execute_read() to run JavaScript that can only call read-only upstream tools; and execute() to run JavaScript with read-write access.',
+        'Prefer execute_read() or execute(): write code that calls codemode.<tool>(args), process large results inside the code, and return only a concise summary. Only your return value enters the conversation.',
+        'Use search() first if you do not know the exact tool name.',
+      ].join(' ');
   } else {
     tools = buildToolRegistry(upstreamManager, options);
   }
@@ -313,9 +341,36 @@ export function createGatewayServer(upstreamManager, options = {}) {
     upstreams: [...new Set(upstreamManager.getEntries().map((entry) => entry.server))],
   });
 
-  const mcpServer = new McpServer(SERVER_INFO, { instructions });
+  // Additive v2 discovery labels: v1 serverInfo/capabilities stay byte-identical.
+  // v2 adds only optional extra fields that older clients ignore.
+  const serverInfo = isV2
+    ? {
+      ...SERVER_INFO,
+      version: `${SERVER_INFO.version}+v2`,
+      _meta: {
+        gateway: {
+          protocolVersion: PROTOCOL_VERSION,
+          planVersion: PLAN_VERSION,
+          supportedInputModes: ['plan', 'code'],
+          profile: V2_PROFILE,
+        },
+      },
+    }
+    : SERVER_INFO;
+  const mcpServer = new McpServer(serverInfo, { instructions });
   const server = mcpServer.server;
-  server.registerCapabilities({ tools: { listChanged: false } });
+  server.registerCapabilities({
+    tools: { listChanged: false },
+    ...(isV2 ? {
+      _meta: {
+        gateway: {
+          protocolVersion: PROTOCOL_VERSION,
+          planVersion: PLAN_VERSION,
+          supportedInputModes: ['plan', 'code'],
+        },
+      },
+    } : {}),
+  });
 
   // Profile may adjust annotation defaults, but never tool names/count/schema.
   // applyProfileToTools returns a new array; the underlying `tools`/`byName`
@@ -417,13 +472,19 @@ export function createMcpRequestHandler(upstreamManager, options = {}) {
   return async (req, res) => {
     const pathname = new URL(req.url ?? '/', 'http://localhost').pathname;
     const method = req.method;
+    // v2 is opt-in: ENABLE_MCP_V2=1 is the ONLY way /mcp/v2 exists. The flag is
+    // read per request (serverless-safe) and v1 routing is byte-identical.
+    const v2Enabled = isMcpV2Enabled(options.env ?? process.env);
+    const isV2 = pathname === MCP_V2_PATH && v2Enabled;
+    const isV1 = pathname === MCP_V1_PATH;
+    const eligible = (isV1 || isV2) && method === 'POST';
 
     // P0 capture audit: production already called startCapture at the top of
     // the Vercel app handler. Here we only avoid a double envelope — we read
     // the existing context instead of creating a second one. Standalone use
     // (local startHttpServer / direct handler calls) starts capture itself.
     let capture;
-    if (pathname === '/mcp' && method === 'POST') {
+    if (eligible) {
       if (req.__gatewayCaptureStarted) {
         capture = req.__gatewayCapture ?? null;
       } else {
@@ -433,18 +494,33 @@ export function createMcpRequestHandler(upstreamManager, options = {}) {
           bodyBuffered: req.__gatewayRawBody !== undefined,
         });
       }
+      if (isV2 && capture && !capture.skip && !req.__gatewayProtocolTagged) {
+        // Additive capture tag: a second, orthogonal dimension to clientPlatform
+        // (design §5.3). v1 emits no such event, so its envelope is unchanged.
+        // The Vercel edge may have tagged already; avoid duplicate events.
+        req.__gatewayProtocolTagged = true;
+        captureEvent('protocol_version', {
+          protocolVersion: PROTOCOL_VERSION,
+          planVersion: PLAN_VERSION,
+          profile: V2_PROFILE,
+          path: pathname,
+        });
+      }
     } else if (!req.__gatewayCaptureStarted) {
       // Non-POST /mcp or non-/mcp: explicitly auditable as not eligible.
       // Never carry header/body values into the skip line.
       captureSkip(req, {
         path: pathname,
         reason: 'non_post',
-        detail: pathname === '/mcp' ? 'GET/DELETE/other /mcp method' : 'not /mcp route',
+        // Preserve the exact v1 audit text; v2 gets its own explicit label.
+        detail: pathname === MCP_V1_PATH ? 'GET/DELETE/other /mcp method' : 'not /mcp route',
       });
     }
 
     try {
-      if (pathname !== '/mcp') {
+      // Flag off: /mcp/v2 does not exist. Unknown paths (e.g. /mcp/v3) never
+      // implicitly downgrade to v1 — that would pollute the A/B baseline.
+      if (!isV1 && !isV2) {
         res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
         res.end('Not found. MCP endpoint is /mcp.');
         return;
@@ -484,6 +560,8 @@ export function createMcpRequestHandler(upstreamManager, options = {}) {
           // declared headers/body; unknown input resolves to gemini, the
           // existing legacy behaviour.
           profile: resolveClientProfile({ headers: req.headers, body }),
+          // v2 route selects the versioned tool factory; v1 passes no flag.
+          ...(isV2 ? { protocolVersion: PROTOCOL_VERSION } : {}),
         });
         await gatewayServer.connect(transport);
         await transport.handleRequest(req, res, body);

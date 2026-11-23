@@ -14,8 +14,13 @@ import { TokenStore } from './store.js';
 import { createOAuthHandlers, resolveBaseUrl } from './oauth.js';
 import { UpstreamManager } from './upstreams.js';
 import { createUpstreamOAuthHandlers } from './upstream-oauth.js';
-import { createMcpRequestHandler } from './server.js';
-import { startCapture, captureEnabled, captureSkip } from './capture.js';
+import {
+  createMcpRequestHandler,
+  isMcpV2Enabled,
+  MCP_V1_PATH,
+  MCP_V2_PATH,
+} from './server.js';
+import { startCapture, captureEnabled, captureSkip, captureEvent } from './capture.js';
 import { BUILD } from './build-info.js';
 import { validateConfig } from './config.js';
 
@@ -305,10 +310,15 @@ export function createAppHandler(options = {}) {
     const method = typeof req?.method === 'string' ? req.method.toUpperCase() : 'GET';
     console.log(`[req] ${method} ${pathname}`);
 
+    // v2 is opt-in at the outermost edge too: when the flag is off, /mcp/v2
+    // is not a capture-eligible route and falls through to the 404 response.
+    const v2Enabled = isMcpV2Enabled(options.env ?? process.env);
+    const isMcpRoute = pathname === MCP_V1_PATH || (pathname === MCP_V2_PATH && v2Enabled);
+
     // P0: one capture per request, started at the outermost edge so 401/403,
     // 404, 405, body-read failures and MCP early returns are all covered. Only
-    // POST /mcp produces an envelope; other routes get an explicit skip.
-    if (pathname === '/mcp' && method === 'POST') {
+    // POST /mcp (and POST /mcp/v2 when enabled) produces an envelope.
+    if (isMcpRoute && method === 'POST') {
       let requestBytes = 0;
       let bodyBuffered = false;
       let bodyBufferFailed = false;
@@ -321,9 +331,24 @@ export function createAppHandler(options = {}) {
       }
       const capture = startCapture(req, res, { path: pathname, bodyBuffered, requestBytes });
       if (bodyBufferFailed && capture?.skip) capture.skip('body_buffer_failed');
-    } else if (pathname === '/mcp' && !req.__gatewayCaptureStarted) {
-      // Non-POST /mcp probes (GET/DELETE/405) are not captured but are audited.
-      captureSkip(req, { path: pathname, reason: 'non_post', detail: 'non-POST /mcp method' });
+      if (pathname === MCP_V2_PATH && capture && !capture.skip) {
+        // Additive capture tag so A/B can split by (clientPlatform, protocolVersion).
+        req.__gatewayProtocolTagged = true;
+        captureEvent('protocol_version', {
+          protocolVersion: 'v2',
+          planVersion: 'v2.0.0',
+          profile: 'S',
+          path: pathname,
+        });
+      }
+    } else if (isMcpRoute && !req.__gatewayCaptureStarted) {
+      // Non-POST probes (GET/DELETE/405) are not captured but are audited.
+      // Preserve the exact v1 audit text; only v2 gets a distinct label.
+      captureSkip(req, {
+        path: pathname,
+        reason: 'non_post',
+        detail: pathname === MCP_V1_PATH ? 'non-POST /mcp method' : `non-POST ${pathname} method`,
+      });
     }
     try {
 
@@ -375,7 +400,7 @@ export function createAppHandler(options = {}) {
       if (method === 'POST' && pathname === '/oauth/revoke') {
         return oauth.revoke(req, res);
       }
-      if (pathname === '/mcp') {
+      if (isMcpRoute) {
         return handleMcp(req, res);
       }
 
