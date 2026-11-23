@@ -11,7 +11,9 @@
 | Agent | 板块 | 目标 |
 |---|---|---|
 | `auth-arch-fix` | Auth | 修 R1–R6：空 owner=shared、本地默认 local、OAuth callback 带 env/owner、legacy key、state 隔离、同实例 refreshPromise |
-| `auth-sim-harness` | Auth | 并发刷新模拟：无锁/ownerless/owner-fenced 对比，证明架构 |
+| `claude-connector` | Platform | Claude callback allowlist + docs/tests |
+| `online-gap-tasks` | Eval | N1–N9 在线缺口任务集 |
+| `oss-release-dryrun` | OSS | 实际导出 staging + 发布门禁 |
 
 ## 1. 六个大板块状态
 
