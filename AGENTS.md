@@ -12,7 +12,7 @@
 
 ## 0. 当前真实状态（先读，防止把“代码已修”当“线上已生效”）
 
-- **生产已部署 `d1f36ba`**（2026-11-24 02:57 手动部署）：`https://gemini-mcp-gateway.vercel.app` healthz 已核 `commit=d1f36ba…` / `buildHash=a1002d86…`。
+- **生产已部署 `1481408`**（2026-11-24 02:57 手动部署）：`https://gemini-mcp-gateway.vercel.app` healthz 已核 `commit=1481408…` / `buildHash=c604c31a…`。
   本次部署包含：owner 标记（未标记 grant 永不 refresh、legacy 例外删除）、入站 origin 一致性
   （issuer/resource/401/CIMD 跟随请求 host）、preview/production KV 隔离检查脚本。
   “部署成功”不等于验收通过：真实客户端、真实写回环 CI、授权生命周期、同任务在线复验仍未完成；不能写“线上已验收”。

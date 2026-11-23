@@ -17,6 +17,8 @@
 
 | 2026-11-24 02:57 | `d1f36ba` | CLI（手动） | 合并 #6/#7 后部署：owner 标记 + 入站 origin 一致 | READY | `deploymentId=dpl_7qGruKcZ8ffE7rri6erS6ZaiqiNS`；healthz `commit=d1f36ba…` / `buildHash=a1002d86…`；两域名的 issuer/resource/CIMD/401 各自与请求 host 一致 |
 
+| 2026-11-24 06:40 | `1481408` | P0 fixes deployment (v2 plan IO, capture options, allow/deny, commitSha, queue LRU) | READY | healthz commit=1481408… buildHash=c604c31a…; `/mcp` 401 |
+
 ## 规则
 
 - 每次部署前过 [DEPLOY-POLICY.md](DEPLOY-POLICY.md) 检查；
