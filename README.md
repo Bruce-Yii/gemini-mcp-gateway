@@ -269,7 +269,7 @@ sandbox provides isolation, not authorization.
 - [docs/WHY.md](docs/WHY.md) — problem, measurements, external evidence
 - [docs/OPEN-SOURCE/DIFFERENTIATION.md](docs/OPEN-SOURCE/DIFFERENTIATION.md) — positioning: continuous context/tool-call optimization
 - [docs/OPEN-SOURCE/COMPETITORS.md](docs/OPEN-SOURCE/COMPETITORS.md) — competitor research, §0.2 threat model
-- [docs/OPEN-SOURCE/WEB-CLIENTS.md](docs/OPEN-SOURCE/WEB-CLIENTS.md) — web-client adaptation survey
+- [docs/OPEN-SOURCE/WEB-CLIENTS.md](docs/OPEN-SOURCE/WEB-CLIENTS.md) — web-client adaptation survey\n- [docs/ONLINE-EVAL-GPT-CHARTER.md](docs/ONLINE-EVAL-GPT-CHARTER.md) — durable charter for independent ChatGPT evaluation windows (issue #3)
 - [docs/UPSTREAMS.md](docs/UPSTREAMS.md) — add an upstream (config, auth patterns, verification)
 - [docs/WORKFLOW.md](docs/WORKFLOW.md) — upstream onboarding + quality gates (B1–B4 workflow)
 - [docs/OBSERVABILITY-AND-EVAL.md](docs/OBSERVABILITY-AND-EVAL.md) — zero-impact telemetry + evaluation loop design

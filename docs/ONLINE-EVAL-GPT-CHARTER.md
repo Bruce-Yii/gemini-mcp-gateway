@@ -192,7 +192,11 @@ Pick one per window; comment before starting.
 
 ## 11. Master issue
 
-The master issue is the entry point. Every new ChatGPT window must:
+The master issue is the entry point:
+
+**https://github.com/Bruce-Yii/gemini-mcp-gateway/issues/3**
+
+Every new ChatGPT window must:
 
 1. read the master issue;
 2. read its latest comments;
