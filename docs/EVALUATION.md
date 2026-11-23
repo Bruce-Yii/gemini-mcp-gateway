@@ -102,13 +102,13 @@ L4 人工在线反馈           用户真实窗口，发现新维度
 
 ## 6. 还没落实的（诚实清单）
 
-1. **J1–J6 未接入 L1 runner**：`l1-task-wire` 进行中；
-2. **在线 replay 未完成**：`online-replay-harness` 进行中；
+1. J1–J6 已接 L1 `--profile online-gap`（acba249），但 baseline 尚未冻结；
+2. 在线 replay harness 已完成（1bb8f8a），真实 capture 端到端仍 unknown；
 3. **部署未做**：Vercel 100/day；所以 F1/F2 只能标 `pending-deploy`；
 4. **真实客户端 lane**：只有离线 conformance，没有真实 Gemini/ChatGPT/Claude 连接；
 5. **canary/shadow**：未实现；
 6. **自动 intake**：未实现，当前靠人贴 + lead 记录；
-7. **F3–F5 未复现**：`needs-repro`，不能假设已修。
+7. F3–F5 代码层已修（codemode-ergonomics），但部署后在线复验未做。
 
 ## 7. 新增一条在线反馈时
 

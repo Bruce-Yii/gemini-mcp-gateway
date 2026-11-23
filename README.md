@@ -7,7 +7,7 @@
 **A continuously optimized context & tool-call layer for web-based AI clients.**
 Connecting five upstream MCP servers directly puts **506 tool definitions
 (~245,377 tokens)** into the model context; this gateway exposes **3 stable tools
-(~1,520 tokens)** — a **99.4% reduction** — while the same upstream tools remain
+(~3,564 tokens)** — a **98.5% reduction** — while the same upstream tools remain
 callable inside an isolated sandbox.
 
 This is not just aggregation. The model discovers tools progressively with
@@ -71,7 +71,7 @@ upstream payloads are filtered, normalized and aggregated inside the sandbox.
 
 | Layer | What we do |
 |---|---|
-| **Tool-definition context** | 506 upstream schemas (~245,377 tokens) → 3 stable tools (~1,520 tokens), -99.4%; the surface never changes mid-session (Gemini ignores `notifications/tools/list_changed`). |
+| **Tool-definition context** | 506 upstream schemas (~245,377 tokens) → 3 stable tools (~3,564 tokens), -98.5%; the surface never changes mid-session (Gemini ignores `notifications/tools/list_changed`). |
 | **Progressive discovery** | BM25 + identifier-aware ranking, compact signatures, `select:<name>` for full JSON schemas, a small Chinese-query synonym layer. |
 | **Result context** | Only the sandbox return value enters context; canonical file/PR/Issue shapes, line ranges, structured truncation markers. |
 | **Read/write split** | `execute_read` stubs out write tools in read mode; `execute` allows writes. Per-tool read/write labels and a per-execution call budget. |
@@ -224,7 +224,7 @@ Reproducible offline measurements (no model calls, no credentials):
 | Metric | Result |
 |---|---|
 | Tool-definition context, 5 upstreams directly | 506 tools ≈ 245,377 tokens |
-| Tool-definition context, this gateway | 3 tools ≈ 1,520 tokens (**-99.4%**) |
+| Tool-definition context, this gateway | 3 tools ≈ 3,564 tokens (**-98.5%**) |
 | Offline search recall | top1 **56.5%**, top5 **72.3%** (English, tool-level tasks); Chinese queries improved with a synonym layer |
 | Offline suite | `npm test` — unit + integration tests with a fake-upstream harness; no network or credentials needed |
 
