@@ -156,18 +156,19 @@ Verification actually run:
 | `node scripts/export-oss.mjs --source <temp neutral source> --out work/oss-release-staging --write` | exit 0 — 261 files written, 260 text files checked, post-export check passed, no `.git` created |
 | `node --test tests/oss-staging-curation.test.js` (live repo) | **8 tests / 8 pass / 0 fail / 0 skipped** |
 | `npm test` (staging, curated 261-file snapshot) | **exit 0 — 1075 tests / 973 pass / 0 fail / 96 skipped / 6 todo** (up from 77 skips: +18 from the two newly gated files; curation tests included) |
-| `npm test` (staging, later 263-file re-export including other agents' concurrent `capture`/`typed-plan`/`reconnect` files) | **exit 1 — 1098 tests / 993 pass / 3 fail / 96 skipped / 6 todo**. All 3 failures are in `tests/capture-sink-fix.test.js` (`mcp_latency_ms` sync/async + response bytes), paired with an uncommitted `src/capture.js` change by another agent. Reproduced twice. **None of the 3 is in this task's write scope; all 8 curation tests pass (7 pass + 1 explicit fixture-present skip).** |
+| `npm test` (staging, intermediate 263-file re-export with other agents' in-flight `capture` work) | exit 1 — 1098 / 993 pass / 3 fail / 96 skip / 6 todo. Failures: `tests/capture-sink-fix.test.js` — `sync mode: mcp_latency_ms includes sink wait, legacy duration does not`, `async mode: originalEnd is immediate; mcp_latency_ms excludes sink wait`, `response bytes unchanged with capture on vs off (string + Uint8Array chunks)`. Captured mid-edit; resolved by the capture owner below. |
+| `npm test` (staging, final re-export after capture owner's fix) | **exit 0 — 1098 tests / 996 pass / 0 fail / 96 skipped / 6 todo**. All 3 capture failures disappeared; all 8 curation tests pass (7 pass + 1 explicit fixture-present skip). |
 | `node scripts/measure-context.mjs` (staging) | exit 0 — printed `SKIP: data/tool-dataset.json is a private eval fixture excluded from the OSS export ...`; no artifact written |
 | `node scripts/audit-truncation.mjs --ci` (staging) | exit 0 — `PASS (P1 is warning-only; P2 is informational)`; the former P0 `src/upstream-oauth.js` truncation is gone (auth owner's fix) |
 | `npm test` (live private repo, full suite) | **exit 0 — 1087 tests / 1081 pass / 0 fail / 0 skipped / 6 todo**; all curation and curated tests pass with fixtures present |
 
 One transient `tests/capture.test.js:144` failure (`path.join` with undefined)
 was observed in an intermediate staging run; a clean re-run was 0 fail and it
-is unrelated to the curated files. The later 3 stable failures in
-`tests/capture-sink-fix.test.js` came from other agents' concurrent
-`src/capture.js` work after the last re-export; they are outside this task's
-write scope and were reported, not fixed. **No failures in any file owned by
-this task.**
+is unrelated to the curated files. The 3 later `tests/capture-sink-fix.test.js`
+failures came from other agents' in-flight `src/capture.js` work; after their
+fix landed the final staging re-export was 0 fail (see table above). They were
+reported, not fixed by this task. **No failures in any file owned by this
+task.**
 
 Skips in staging are explicit and carry the fixture reason; nothing is
 reported as a fake pass. No commit was made.
