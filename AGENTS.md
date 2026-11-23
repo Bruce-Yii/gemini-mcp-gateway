@@ -8,8 +8,8 @@
 
 ## 0. 当前真实状态（先读，防止把“代码已修”当“线上已生效”）
 
-- **生产已部署 `87d91af`**：`https://gemini-mcp-gateway.vercel.app` healthz 已核 `commit=87d91af0...` / `buildHash=02c96881...`。
-  “部署成功”不等于验收通过：真实客户端、真实写回环、授权生命周期、同任务在线复验仍未完成；不能写“线上已验收”。
+- **生产已部署 `758a232`**：`https://gemini-mcp-gateway.vercel.app` healthz 已核 `commit=758a2320...` / `buildHash=02c96881...`。
+  “部署成功”不等于验收通过：真实客户端、真实写回环、授权生命周期、同任务在线复验仍未完成；不能写“线上已验收”。\n- **push main 会自动 production 部署**：今晚 8 个 docs 提交也自动上线；A 门已退回 PARTIAL。\n- 独立审查见 `docs/OPEN-SOURCE/INDEPENDENT-REVIEW-2026-11-24.md`。
 - **工作区全量测试以最近一次 lead 跑出的结果为准**；不要用其他 agent 的中间态。
   当前基线：`1381 tests / 1375 pass / 0 fail / 6 todo`（2026-11-23 晚，提交 `7a82c1d` 后）。
 - **不找用户反复要授权**：授权只有在 `docs/AUTH-READY.md` 全绿后才发起；
@@ -162,7 +162,7 @@ online-feedback.v1 记录
 - docs/tests-only、中间态修复、未过全量测试的改动一律不部署。
 - 部署前过 `docs/DEPLOY-POLICY.md`；部署后记录 `docs/DEPLOYMENTS.md`。
 - 能本地/回放验证就不要发 preview。
-- 当前生产：`87d91af`（验收门 A PASS）；下次在有明确实测/进展时部署。
+- 当前生产：`758a232`（验收门 A PASS）；下次在有明确实测/进展时部署。
 
 ## 9. 当前不要做的事
 

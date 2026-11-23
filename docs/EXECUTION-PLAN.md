@@ -8,7 +8,7 @@
 
 - 全量：`1381 tests / 1375 pass / 0 fail / 6 todo`（提交 `7a82c1d` 后；lead 实跑）
 - worktree：干净
-- 生产 Vercel：**已部署 `87d91af`**（healthz commit/buildHash 已核）；真实客户端/授权验收未做
+- 生产 Vercel：**已部署 `758a232`**（healthz commit/buildHash 已核）；真实客户端/授权验收未做
 - Auth：`docs/AUTH-READY.md` = **NOT READY**，不发起授权
 - OSS：**未公开**；只有本地产物 `work/oss-release-staging` / `work/oss-release-repo`
 
@@ -83,7 +83,7 @@
 8. 部署后同任务在线复验 F1–F6 / J1–J6；
 9. 真实客户端 lane / canary。
 
-## 5. 部署纪律\n\n- 见 `docs/DEPLOY-POLICY.md`：不设固定次数；无进展不部署，有明确进展/必须实测就部署；docs/tests-only 不部署。\n- 当前生产 `87d91af`（验收门 A PASS）；下一次等完整批次。\n\n## 6. 硬规则
+## 5. 部署纪律\n\n- 见 `docs/DEPLOY-POLICY.md`：不设固定次数；无进展不部署，有明确进展/必须实测就部署；docs/tests-only 不部署。\n- 当前生产 `758a232`（验收门 A PASS）；下一次等完整批次。\n\n## 6. 硬规则
 
 - 不把“代码已修”当“线上已生效”；
 - 不跨构建硬比；
