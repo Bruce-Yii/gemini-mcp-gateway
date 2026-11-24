@@ -24,7 +24,10 @@
     "vercel": {
       "preferredMode": "oauth",
       "clientId": "https://your-domain.example/.well-known/mcp-client.json",
-      "requiredScopes": ["openid", "offline_access"],
+      "requiredScopes": [
+        "openid",
+        "offline_access"
+      ],
       "resource": "https://mcp.vercel.com/",
       "status": "placeholder - OAuth-only, CIMD client_id must be the public HTTPS metadata URL served by the gateway; no static token"
     }
@@ -47,17 +50,7 @@
       "name": "notion",
       "transport": "http",
       "url": "https://mcp.notion.com/mcp",
-      "authorizeUrl": "https://mcp.notion.com/authorize",
-      "refreshUrl": "https://mcp.notion.com/token",
-      "dcr": true,
-      "registrationEndpoint": "https://mcp.notion.com/register",
-      "resource": "https://mcp.notion.com/mcp",
-      "oauthScopes": ["default"],
-      "grantOwner": "dsh",
-      "tokenEnv": "NOTION_TOKEN",
-      "refreshEnv": "NOTION_REFRESH_TOKEN",
-      "expiresInEnv": "NOTION_EXPIRES_IN",
-      "obtainedAtEnv": "NOTION_OBTAINED_AT",
+      "tokenEnv": "NOTION_MCP_TOKEN",
       "allowTools": [],
       "denyTools": [
         "notion-search-agents",
@@ -84,19 +77,14 @@
         "notion-query-multiple-data-sources",
         "notion-calendar-list-coworkers-events",
         "notion-calendar-list-calendar-resources"
-      ]
+      ],
+      "authMode": "static_bearer"
     },
     {
       "name": "linear",
       "transport": "http",
       "url": "https://mcp.linear.app/mcp",
-      "refreshUrl": "https://mcp.linear.app/token",
-      "grantOwner": "dsh",
-      "tokenEnv": "LINEAR_TOKEN",
-      "refreshEnv": "LINEAR_REFRESH_TOKEN",
-      "clientIdEnv": "LINEAR_CLIENT_ID",
-      "expiresInEnv": "LINEAR_EXPIRES_IN",
-      "obtainedAtEnv": "LINEAR_OBTAINED_AT",
+      "tokenEnv": "LINEAR_PAT_STATIC",
       "allowTools": [],
       "denyTools": [
         "prepare_attachment_upload",
@@ -123,7 +111,8 @@
         "get_triage_responsibility",
         "list_agent_skills",
         "get_agent_skill"
-      ]
+      ],
+      "authMode": "static_bearer"
     },
     {
       "name": "vercel",
@@ -133,7 +122,10 @@
       "refreshUrl": "https://api.vercel.com/login/oauth/token",
       "clientId": "https://your-domain.example/.well-known/mcp-client.json",
       "resource": "https://mcp.vercel.com/",
-      "oauthScopes": ["openid", "offline_access"],
+      "oauthScopes": [
+        "openid",
+        "offline_access"
+      ],
       "tokenEnv": "VERCEL_TOKEN",
       "allowTools": [],
       "denyTools": [
