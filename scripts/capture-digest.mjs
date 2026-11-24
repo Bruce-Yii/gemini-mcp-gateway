@@ -343,8 +343,8 @@ const R2_RETRY_STATUSES = new Set([429, 502, 503, 504]);
 
 function retryDelayMs(response, attempt) {
   const header = Number(response?.headers?.get?.('retry-after'));
-  if (Number.isFinite(header) && header > 0) return Math.min(5000, header * 1000);
-  return Math.min(5000, 250 * (2 ** attempt));
+  if (Number.isFinite(header) && header >= 0) return Math.min(15000, header * 1000);
+  return Math.min(15000, 1000 * (2 ** attempt));
 }
 
 /**
@@ -352,7 +352,7 @@ function retryDelayMs(response, attempt) {
  * 7-day weekly review can trip the R2 API rate limit; a hard failure there made
  * the whole evidence workflow red even after the digest had succeeded.
  */
-async function fetchR2(url, options, { fetchImpl = fetch, maxAttempts = 4 } = {}) {
+async function fetchR2(url, options, { fetchImpl = fetch, maxAttempts = 6 } = {}) {
   let response;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     response = await fetchImpl(url, options);
@@ -364,7 +364,7 @@ async function fetchR2(url, options, { fetchImpl = fetch, maxAttempts = 4 } = {}
 
 export async function listR2Keys(prefix, options = {}) {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const maxAttempts = Number(options.maxAttempts) > 0 ? Math.floor(Number(options.maxAttempts)) : 4;
+  const maxAttempts = Number(options.maxAttempts) > 0 ? Math.floor(Number(options.maxAttempts)) : 6;
   const requestedPages = Number(options.maxPages);
   const maxPages = Number.isFinite(requestedPages) && requestedPages >= 1
     ? Math.floor(requestedPages)
@@ -407,7 +407,7 @@ export async function listR2Keys(prefix, options = {}) {
 
 export async function readR2Envelope(key, options = {}) {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const maxAttempts = Number(options.maxAttempts) > 0 ? Math.floor(Number(options.maxAttempts)) : 4;
+  const maxAttempts = Number(options.maxAttempts) > 0 ? Math.floor(Number(options.maxAttempts)) : 6;
   const response = await fetchR2(r2Endpoint(key), { headers: r2AuthHeaders() }, { fetchImpl, maxAttempts });
   if (!response.ok) throw new Error(`R2 get failed: ${response.status}`);
   const buffer = Buffer.from(await response.arrayBuffer());
