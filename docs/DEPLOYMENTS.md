@@ -32,6 +32,8 @@
 
 | 2026-11-25 01:55 | `f2002d9` | CLI（手动，`vercel --prod`，带 `VERCEL_GIT_COMMIT_SHA`） | 合并 #29：Linear 切 `static_bearer`（`/mcp/readonly` + `LINEAR_API_KEY`），Notion 恢复网关自有 OAuth（owner=gateway）；production 新增 `LINEAR_API_KEY` / `UPSTREAM_OAUTH_ADMIN_KEY` Secret；Notion OAuth 已发起（302 → mcp.notion.com/authorize），待用户 Authorize | READY（AUTH PENDING） | `deploymentId=dpl_6P2Ww8vsTHXbbSF98GTE55HKitB4`；healthz `commit=f2002d9…` / `buildHash=3b1a0772…` / `builtAt=2026-11-24T17:54:55.59Z`；Notion callback 未到，工具可用性未验收 |
 
+> 2026-11-25 01:56 Notion 网关 OAuth callback 已存储：`owner=gateway`、`source=gateway-dcr`、`refresh=yes`；直接对 Notion `tools/list` 返回 200；生产 gateway runtime 请求下工具挂载待复验。Linear `LINEAR_API_KEY` 已配，`/mcp/readonly` 直连 200。
+
 ## 规则
 
 - 每次部署前过 [DEPLOY-POLICY.md](DEPLOY-POLICY.md) 检查；
@@ -57,4 +59,5 @@
 2026-11-23 07:31 — 2026-11-24 01:12 期间共 **40 次**自动 production 部署（Vercel API 实查），
 本表此前只登记了 `87d91af` 一次。历史不可追溯部分按 `INDEPENDENT-REVIEW-2026-11-24.md`
 记为 A 门 PARTIAL 的原因之一；不补造记录。
+
 
