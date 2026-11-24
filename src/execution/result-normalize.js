@@ -13,6 +13,17 @@
  */
 
 const TRUNCATED_MARKER = '--- TRUNCATED ---';
+// A truncation marker is a SUFFIX/metadata signal, not an ordinary word that
+// may appear anywhere in a file body (source files legitimately contain the
+// literal `--- TRUNCATED ---` in tests/helpers). Only look at the tail so a
+// complete 40KB file whose content mentions the marker is not reported as
+// truncated, while a genuine append-at-cut marker is still detected.
+const TRUNCATION_TAIL_WINDOW = 256;
+function truncationMarkerAtTail(text) {
+  if (typeof text !== 'string' || !text) return false;
+  const tail = text.length > TRUNCATION_TAIL_WINDOW ? text.slice(-TRUNCATION_TAIL_WINDOW) : text;
+  return tail.includes(TRUNCATED_MARKER) || /…\s*\[truncated\s*\d*/u.test(tail);
+}
 
 /**
  * Batch 15 codemode ergonomics · security audit addendum.
@@ -395,7 +406,7 @@ export function explainTruncation(root, content) {
       if (inner) return inner;
     }
     const text = String(content ?? '');
-    if (text.includes(TRUNCATED_MARKER)) return `in-band:${TRUNCATED_MARKER}`;
+    if (truncationMarkerAtTail(text)) return `in-band:${TRUNCATED_MARKER}`;
     return null;
   } catch (_) {
     return null;
