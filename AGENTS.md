@@ -189,6 +189,7 @@ online-feedback.v1 记录
 
 1. `docs/FRAMEWORK.md`
 2. `docs/ARCHITECTURE-INDEX.md`（唯一渐进式架构主目录）
+   - 实时项目状态雷达：`docs/STATUS.md`（逐客户端/上游实况、P0 四态与 Top 3 打点）
 3. `docs/HANDOFF-NEXT-WINDOW.md`（新窗口接手必读）
 2. `docs/EVALUATION.md`
 3. `docs/EXECUTION-PLAN.md`
