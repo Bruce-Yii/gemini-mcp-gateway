@@ -825,6 +825,19 @@ export async function applyFilePatches({
   ...rest
 } = {}) {
   if (typeof read !== 'function') return { ok: false, error: 'read must be a function' };
+  // Issue #15 / BC-012: `files:[...]` is the github__push_files shape, NOT a
+  // patch batch. A caller that mixes them up must get an actionable refusal —
+  // never a later "path must be a non-empty string" or a silent no-op.
+  if (patches === undefined && Array.isArray(rest.files) && rest.files.length > 0) {
+    return {
+      ok: false,
+      error: 'writeFiles expects {patches:[{path,patch}]} but received files[] (the github__push_files shape). Rename files->patches and give every item a unified-diff `patch` string; files[i].content is full-file content and is not applied here.',
+      hint: 'writeFiles({ owner, repo, branch, patches: [{ path, patch }], dryRun: false })',
+      partial: false,
+      written: 0,
+      writtenFiles: [],
+    };
+  }
   if (!dryRun && typeof write !== 'function' && typeof commitFiles !== 'function') {
     return { ok: false, error: 'write must be a function when dryRun is false' };
   }
@@ -846,6 +859,9 @@ export async function applyFilePatches({
   const list = patches !== undefined
     ? (Array.isArray(patches) ? patches : null)
     : (path !== undefined ? [{ path, patch, sha: rest.sha }] : null);
+  if (patches !== undefined && !Array.isArray(patches)) {
+    return { ok: false, error: 'patches must be an array of {path,patch} objects', written: 0 };
+  }
   if (!list || list.length === 0) return { ok: false, error: 'patches must be a non-empty array (or provide path+patch)' };
 
   const staged = [];
@@ -879,6 +895,7 @@ export async function applyFilePatches({
   const mode = capability.atomic;
 
   if (dryRun) {
+    // Issue #15 / BC-012: a preview must never look like a completed write.
     return {
       ok: true,
       files,
@@ -886,6 +903,10 @@ export async function applyFilePatches({
       sha: null,
       commitSha: null,
       atomic: mode,
+      dryRun: true,
+      written: 0,
+      writtenFiles: [],
+      warning: 'dryRun is ON (default): NO files were written and no commit was created. Pass dryRun:false to actually commit these patches.',
       ...(capability.reason ? { reason: capability.reason } : {}),
     };
   }

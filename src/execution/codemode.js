@@ -112,17 +112,33 @@ const ACTIONS_GUIDANCE = ' GitHub Actions read-only helpers (gateway-side REST, 
 // get_file_contents (silently ignored -> main). State both up front; `usage`
 // on search results carries the same note so select:<name> is self-documenting.
 const GH_HIGHFREQ_GUIDANCE = ' GitHub high-frequency args: github__pull_request_read is an aggregated tool — pass method:"get" | "get_files" | "get_check_runs" (pick directly, no probing round). github__get_file_contents selects a commit/ref with `ref`; `branch` is accepted as a compatibility alias (mapped to ref when ref is absent).';
+// Gate5 AT-LN-01: keep the default Linear read inside the output budget.
+const LINEAR_CONTEXT_GUIDANCE = ' Linear list_issues is verbose by default: pass a small `limit` (e.g. 10–20) plus a minimal `fields` array like ["id","title","status","url"], add "description" only for the issues you need, and page with `cursor`; a default 10-issue page can exceed the ~26.8KB execute output cap and be truncated.';
 const GH_TOOL_USAGE = {
   pull_request_read: 'method: "get" | "get_files" | "get_check_runs" (aggregated pull_request_read — pick one directly; no probe round).',
   get_file_contents: 'Use `ref` (commit/branch/tag SHA or name) to select a revision; `branch` is accepted as a compatibility alias and mapped to ref when ref is absent.',
 };
 
-/** Extra per-tool usage note for search list + select detail (no schema change). */
-function githubUsageNote(entry) {
+// Gate5 AT-LN-01 (ChatGPT live eval): Linear's default `list_issues` page is the
+// one read that reliably blows the execute output budget — ~10 issues with full
+// descriptions ≈ 26.8KB, past the truncation cap. The upstream schema is NOT
+// changed; this hint only tells the caller to narrow the default request.
+const LINEAR_TOOL_USAGE = {
+  list_issues: 'Linear list_issues is verbose by default: pass a small `limit` (e.g. 10–20; max 250) and a minimal `fields` array such as ["id","title","status","url"], adding "description" only for the issues you actually need. A default 10-issue page can exceed the ~26.8KB execute output cap and be truncated. Page with `cursor` while hasNextPage is true.',
+};
+
+/**
+ * Extra per-tool usage note for search list + select detail (no schema change).
+ * Server-aware so Linear and GitHub can share a tool name (`list_issues`)
+ * without leaking one service's hint onto the other.
+ */
+function toolUsageNote(entry) {
   const full = String(entry?.tool ?? entry?.name ?? '');
   const parts = full.split(/__/);
   const tool = parts.length > 1 ? parts[parts.length - 1] : full;
-  return GH_TOOL_USAGE[tool] ?? null;
+  const server = String(entry?.server ?? (parts.length > 1 ? parts[0] : '')).toLowerCase();
+  const specific = server === 'linear' ? LINEAR_TOOL_USAGE[tool] : null;
+  return specific ?? GH_TOOL_USAGE[tool] ?? null;
 }
 
 // Gemini new feedback #3: a read-only, in-sandbox service status helper. Kept
@@ -154,6 +170,8 @@ const B17_FEEDBACK_GUIDANCE = [
   'CI: codemode.waitForPrChecks({owner,repo,pullNumber,...}) waits up to 30s in one call; codemode.rerunFailedJobs({owner,repo,runId}) calls an injected upstream rerun tool and returns code UNSUPPORTED_UPSTREAM_TOOL when none is mounted (never a fake success).',
   'Branch cleanup: codemode.mergePrWithOptionalBranchDelete({owner,repo,pullNumber,head,deleteBranch:true}) deletes the source branch ONLY with the explicit flag and an injected delete tool; no default deletion.',
   'Multi-file delete/rename: codemode.deleteFiles({paths}) and codemode.renameFiles({renames:[{from,to}]}) are TWO-PHASE because push_files supports only {path,content}; results carry atomic:false and partial:true. Only an injected git-data callback can make them atomic — do not claim otherwise.',
+  'writeFiles contract: call codemode.writeFiles({owner,repo,branch,patches:[{path,patch}],dryRun:false}) — `patches` with unified diffs, NOT the push_files {files:[...]}/{content} shape (it is rejected with an actionable error). Without dryRun:false nothing is committed: the result says dryRun:true, written:0 and carries a warning — never report that as a write.',
+  'Merged PRs: a github__merge_pull_request result only carries {sha,merged,message}. Call codemode.normalizeMerge(result, {owner,repo,pullNumber}) (or a bare pull number) and the returned number/url are filled from that call identity — never from an internal id.',
 ].join(' ');
 
 /**
@@ -379,15 +397,18 @@ const GUEST_PRELUDE = [
   // tools via the existing `__dshInvoke("tool", [ident, args])` path — i.e. the
   // exact same tool bridge as `codemode.<tool>(args)`. No token/private API is
   // embedded; tool names are configurable and default to the public whitelist.
-  'const __dshNormalize = __dshHide((kind, toolName, value) => __dshInvoke("normalizeResult", [kind, toolName, value]));',
+  'const __dshNormalize = __dshHide((kind, toolName, value, context) => __dshInvoke("normalizeResult", [kind, toolName, value, context]));',
   'codemode.normalizeFile = __dshHide((value, toolName) => __dshNormalize("file", toolName === undefined ? "get_file_contents" : toolName, value));',
   'codemode.normalizePr = __dshHide((value, toolName) => __dshNormalize("pr", toolName === undefined ? "get_pull_request" : toolName, value));',
   'codemode.normalizeIssue = __dshHide((value, toolName) => __dshNormalize("issue", toolName === undefined ? "get_issue" : toolName, value));',
   'codemode.normalizeResult = __dshHide((toolName, value) => __dshNormalize("dispatch", toolName, value));',
   // PR #41–#48: canonical {number,url,sha} for PR / Issue / merge / write
   // results, plus a pure write-before precheck (host adapters, data-only bridge).
-  'codemode.canonicalize = __dshHide((value) => __dshInvoke("canonicalize", [value]));',
-  'codemode.normalizeMerge = __dshHide((value) => __dshNormalize("merge", "", value));',
+  'codemode.canonicalize = __dshHide((value, context) => __dshInvoke("canonicalize", [value, context]));',
+  // Issue #15 / BC-011: a merge result only carries {sha,merged,message}. Pass
+  // the identity you already used ({owner,repo,pullNumber} or just the number)
+  // as the second argument and the host fills a non-null number/url from it.
+  'codemode.normalizeMerge = __dshHide((value, context) => __dshNormalize("merge", "", value, context));',
   'codemode.precheckText = __dshHide((text, path) => __dshInvoke("precheckText", [text, path]));',
   // Generic tool caller used by every orchestration helper below. It goes
   // through the SAME bridge as codemode.<tool>(), so tool-call budget, audit
@@ -414,6 +435,10 @@ const GUEST_PRELUDE = [
   // update does not need a separate get_file_contents round trip by the model.
   'const __dshB10ApplyFilePatch = async (opts) => {',
   '  const o = opts && typeof opts === "object" ? opts : {};',
+  // Issue #15 / BC-012: `files:[...]` is the github__push_files shape, not a
+  // patch batch. Rejecting it explicitly beats validating a phantom path and
+  // leaving the caller to believe the write silently succeeded.
+  '  if (!Array.isArray(o.patches) && Array.isArray(o.files) && o.files.length > 0) return { ok: false, error: "writeFiles/applyFilePatch expect {patches:[{path,patch}]} but received files[] (the github__push_files shape). Rename files->patches and give every item a unified-diff `patch` string; files[i].content is full-file content and is not applied here.", hint: "codemode.writeFiles({ owner, repo, branch, patches: [{ path, patch }], dryRun: false })", written: 0, partial: false };',
   '  const names = __dshB10Cfg(o.tools, { readTool: "github__get_file_contents", writeTool: "github__create_or_update_file", pushTool: "github__push_files" });',
   '  const list = Array.isArray(o.patches) ? o.patches : [{ path: o.path, patch: o.patch, sha: o.sha }];',
   '  if (!list.length) return { ok: false, error: "patches must be a non-empty array (or provide path+patch)" };',
@@ -457,9 +482,11 @@ const GUEST_PRELUDE = [
   '  const diff = staged.length === 1 ? diffs[0] : diffs;',
   '  const out = { ok: true, files: files, diff: diff };',
   '  if (dryRun) {',
+  // Issue #15 / BC-012: a preview must never look like a completed write.
+  '    const dryOut = Object.assign({}, out, { dryRun: true, written: 0, writtenFiles: [], warning: "dryRun is ON (default): NO files were written and no commit was created. Pass dryRun:false to actually commit these patches." });',
   // B10 compatibility: preserve the legacy dry-run shape in non-atomic mode.
-  '    if (!atomic) return out;',
-  '    return Object.assign({}, out, { atomic: true });',
+  '    if (!atomic) return dryOut;',
+  '    return Object.assign({}, dryOut, { atomic: true });',
   '  }',
   // ---- atomic path: one push_files call, zero partial writes on failure ----
   '  if (atomic) {',
@@ -1469,16 +1496,18 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
     },
     // B10 integration: the canonical adapter runs in the host realm so its
     // `raw` field keeps the exact adapter semantics. Guest cannot pass functions
-    // across the bridge, so only (kind, toolName, value) are serialized in.
-    normalizeResult: (kind, toolName, value) => {
+    // across the bridge, so only (kind, toolName, value, context) are serialized in.
+    normalizeResult: (kind, toolName, value, context) => {
       // The canonical adapters are tool-name dispatched; when a caller passes
       // an explicit name we honour it, otherwise we use a representative name
       // for the kind so the dispatch always lands on the right adapter.
       // PR #41–#48: explicit canonical / merge kinds return the minimal
       // {number,url,sha,raw} view so callers never have to regex a URL for the
       // id. All other kinds keep the historical adapter behaviour unchanged.
+      // Issue #15 / BC-011: `context` ({owner,repo,pullNumber} or a bare
+      // number) fills number/url when a merge result omits them.
       if (kind === 'canonical' || kind === 'merge') {
-        const canon = canonicalResult(value);
+        const canon = canonicalResult(value, context);
         return { ...canon, rawUntrusted: canon.rawUntrusted ?? RESULT_RAW_MARKER };
       }
       const name = (toolName !== undefined && toolName !== null && toolName !== '')
@@ -1505,7 +1534,7 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
     },
     // Host pure-function bridges for the B10 follow-up write helpers. Safe:
     // only serializable data crosses (no functions).
-    canonicalize: (value) => canonicalResult(value),
+    canonicalize: (value, context) => canonicalResult(value, context),
     precheckText: (text, path) => precheckText(text, path),
     normalizeWriteResult: (value, sha) => normalizeWriteResult(value, { sha }),
     // Batch 11: exact tool availability check (no tool-call budget consumed).
@@ -1852,7 +1881,7 @@ function compactDescription(description) {
  */
 function withCallName(entry, formatter, { compact = false } = {}) {
   const hit = formatter(entry);
-  const usage = githubUsageNote(entry);
+  const usage = toolUsageNote(entry);
   const out = {
     ...hit,
     callName: sanitizeToolName(entry.name),
@@ -2048,7 +2077,7 @@ export function createCodeModeTools(upstreamManager, options = {}) {
     name,
     description: (readOnly
       ? 'Write JavaScript to call READ-ONLY upstream tools (get/list/search/query) via codemode.<tool>(args). This tool is annotated read-only so the client may prompt less; it runs the same sandbox as execute(). Only your return value enters the conversation. Available read-only helpers: safeAll(tasks), unwrapBatch(x), unwrap(x), readFileRange(), waitForPrChecks(), github_actions_*. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'
-      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), unwrapBatch(x), unwrap(x), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + ASYNC_GUIDANCE + ACTIONS_GUIDANCE + GH_HIGHFREQ_GUIDANCE + B15_ERGONOMICS_GUIDANCE + B17_FEEDBACK_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
+      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), unwrapBatch(x), unwrap(x), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + ASYNC_GUIDANCE + ACTIONS_GUIDANCE + GH_HIGHFREQ_GUIDANCE + LINEAR_CONTEXT_GUIDANCE + B15_ERGONOMICS_GUIDANCE + B17_FEEDBACK_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
     inputSchema: {
       type: 'object',
       properties: { code: { type: 'string', description: 'An async arrow function that calls codemode tools and returns a result.' } },

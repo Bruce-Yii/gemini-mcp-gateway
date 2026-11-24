@@ -7,7 +7,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyTextPatch, applyFilePatch, normalizeWriteResult } from '../src/file-write.js';
+import { applyTextPatch, applyFilePatch, applyFilePatches, writeFiles, normalizeWriteResult } from '../src/file-write.js';
 
 // ---------- applyTextPatch (pure) ----------
 
@@ -265,5 +265,69 @@ test('batch11: diff summary explicitly marks omitted preview lines', async () =>
   });
   assert.equal(r.ok, true, r.error);
   assert.match(r.diff.diff, /more changed lines? omitted from preview/);
+});
+
+// ---------------------------------------------------------------------------
+// Issue #15 / BC-012 · writeFiles input contract: no silent misuse, no silent
+// dry-run. Host-side applyFilePatches/writeFiles mirror the sandbox bridge.
+// ---------------------------------------------------------------------------
+
+test('issue15/BC-012: writeFiles rejects the push_files files[] shape with an actionable error', async () => {
+  const io = fakeIo('a\n');
+  const out = await writeFiles({
+    ...io,
+    files: [{ path: 'a.txt', content: 'A\n' }],
+    dryRun: false,
+  });
+  assert.equal(out.ok, false, 'mixing up files[] with patches[] must never succeed');
+  assert.match(out.error, /patches/);
+  assert.match(out.error, /files/);
+  assert.match(out.error, /Rename files->patches/);
+  assert.match(out.hint, /patches/);
+  assert.equal(out.written, 0);
+  assert.equal(out.partial, false);
+  assert.equal(io.calls.read.length, 0, 'rejected before any read');
+  assert.equal(io.calls.write.length, 0, 'rejected before any write');
+});
+
+test('issue15/BC-012: writeFiles rejects a non-array patches value explicitly', async () => {
+  const io = fakeIo('a\n');
+  const out = await writeFiles({ ...io, patches: { path: 'a.txt', patch: '@@ -1,1 +1,1 @@\n-a\n+b\n' } });
+  assert.equal(out.ok, false);
+  assert.match(out.error, /patches must be an array/);
+  assert.equal(io.calls.write.length, 0);
+});
+
+test('issue15/BC-012: default dryRun is explicit — dryRun:true, written:0, warning, zero writes', async () => {
+  const io = fakeIo('a\nb\n');
+  const out = await applyFilePatches({
+    ...io,
+    patches: [{ path: 'x.txt', patch: '@@ -2,1 +2,1 @@\n-b\n+B\n' }],
+  });
+  // A preview is still ok:true (the diff is the answer) — but it must SAY that
+  // nothing was written, instead of looking like a completed commit.
+  assert.equal(out.ok, true, out.error);
+  assert.equal(out.dryRun, true);
+  assert.equal(out.written, 0);
+  assert.deepEqual(out.writtenFiles, []);
+  assert.match(out.warning, /NO files were written/);
+  assert.match(out.warning, /dryRun:false/);
+  assert.equal(io.calls.write.length, 0);
+});
+
+test('issue15/BC-012: correct {patches, dryRun:false} call keeps its documented write behaviour', async () => {
+  const io = fakeIo('a\nb\n', { writeImpl: () => ({ commitSha: 'c1', sha: 'b1' }) });
+  const out = await applyFilePatches({
+    ...io,
+    patches: [{ path: 'x.txt', patch: '@@ -2,1 +2,1 @@\n-b\n+B\n' }],
+    dryRun: false,
+  });
+  assert.equal(out.ok, true, out.error);
+  assert.equal(io.calls.write.length, 1, 'a non-dry-run call still writes');
+  assert.deepEqual(io.calls.write[0], ['x.txt', 'a\nB\n']);
+  assert.equal(out.commitSha, 'c1');
+  assert.equal(out.sha, 'b1');
+  assert.equal(out.dryRun, undefined, 'a real write never claims dryRun:true');
+  assert.equal(out.warning, undefined);
 });
 

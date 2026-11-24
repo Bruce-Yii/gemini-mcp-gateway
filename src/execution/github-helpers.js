@@ -463,9 +463,19 @@ export function unwrapResultPayload(value) {
  * and callers need them to disambiguate a PR/issue from its user-visible
  * number. They are NEVER used as a fallback for `number`.
  *
- * @returns {{number:number|null,url:string|null,sha:string|null,id:string|null,nodeId:string|null,raw:*}}
+ * Issue #15 / BC-011 · merge results only carry `{sha, merged, message}` — no
+ * `number`/`url` at all. An optional `context` lets the CALLER supply the call
+ * identity it already knows: `{owner, repo, pullNumber, url?}` (or just the
+ * pull number). The response still wins when it carries its own URL/number; the
+ * context only fills fields that would otherwise be null, and a PR URL is built
+ * (`https://github.com/<owner>/<repo>/pull/<n>`) only when the context states
+ * the number AND it matches the resolved number. `id` is never used.
+ *
+ * @param {*} value upstream merge/PR/issue/write result (any defensive shape)
+ * @param {object|number|string} [context] `{owner,repo,pullNumber,url?}` or a bare number
+ * @returns {{number:number|null,url:string|null,sha:string|null,id?:string,nodeId?:string,raw:*}}
  */
-export function canonicalResult(value) {
+export function canonicalResult(value, context) {
   try {
     const v = unwrapResultPayload(value);
     const root = v && typeof v === 'object' && !Array.isArray(v) ? v : {};
@@ -473,6 +483,15 @@ export function canonicalResult(value) {
     // head/commit for a sha, mirroring result-normalize's normalizePrResult.
     const head = safeGet(root, 'head');
     const commit = safeGet(root, 'commit');
+    // BC-011 call context: only the fields the caller explicitly states.
+    const ctx = context && typeof context === 'object' && !Array.isArray(context) ? context : {};
+    const bareContext = (typeof context === 'number' || typeof context === 'string') ? context : undefined;
+    const ctxPullNumber = bareContext !== undefined
+      ? toFiniteNumber(bareContext)
+      : toFiniteNumber(firstDefined(ctx, ['pullNumber', 'pull_number', 'prNumber', 'pr_number', 'number']));
+    const ctxUrlRaw = firstDefined(ctx, ['url', 'html_url', 'web_url']);
+    const ctxOwner = typeof ctx.owner === 'string' && ctx.owner ? ctx.owner : null;
+    const ctxRepo = typeof ctx.repo === 'string' && ctx.repo ? ctx.repo : null;
     // `id` is a database identifier and must NEVER be used as a PR/issue
     // number (real create_pull_request returns {id:1000000001, url:.../pull/53}).
     // URL is authoritative when present; explicit number fields are next.
@@ -488,6 +507,19 @@ export function canonicalResult(value) {
         firstDefined(root, ['number', 'prNumber', 'pr_number', 'issueNumber', 'issue_number', 'pullNumber', 'pull_number']),
       );
     }
+    // Response URL wins; then the caller-supplied URL; then a constructed PR URL
+    // only when the context's own pull number agrees with the resolved number.
+    let urlOut = urlRaw !== undefined ? String(urlRaw) : (ctxUrlRaw !== undefined ? String(ctxUrlRaw) : null);
+    if (numberOut === null && typeof urlOut === 'string') {
+      const m = /\/pulls?\/(\d+)(?:\/|$|\?)|\/issues\/(\d+)(?:\/|$|\?)/.exec(urlOut);
+      const raw = m && (m[1] ?? m[2]);
+      if (raw) numberOut = Number(raw);
+    }
+    if (numberOut === null && ctxPullNumber !== null) numberOut = ctxPullNumber;
+    if (urlOut === null && ctxOwner !== null && ctxRepo !== null
+        && ctxPullNumber !== null && numberOut === ctxPullNumber) {
+      urlOut = `https://github.com/${ctxOwner}/${ctxRepo}/pull/${numberOut}`;
+    }
     const shaRaw = firstDefined(root, ['sha', 'commitSha', 'commit_sha', 'head_sha', 'headSha'])
       ?? firstDefined(head && typeof head === 'object' ? head : {}, ['sha'])
       ?? firstDefined(commit && typeof commit === 'object' ? commit : {}, ['sha']);
@@ -495,7 +527,7 @@ export function canonicalResult(value) {
     const nodeIdRaw = firstDefined(root, ['node_id', 'nodeId']);
     const result = {
       number: numberOut,
-      url: urlRaw !== undefined ? String(urlRaw) : null,
+      url: urlOut !== null ? String(urlOut) : null,
       sha: shaRaw !== undefined && shaRaw !== null ? String(shaRaw) : null,
       raw: value,
     };
@@ -841,6 +873,47 @@ function checksCompleted(snapshot) {
 }
 
 /**
+ * Verdict of one check run, normalized to the GitHub conclusion vocabulary.
+ * Returns '' when the run has no settled verdict yet (in_progress/queued) or
+ * when the upstream only says "completed" without a conclusion — an unknown
+ * verdict must never be guessed into success.
+ */
+function checkRunVerdict(run) {
+  if (!run || typeof run !== 'object') return '';
+  const conclusion = String(run.conclusion ?? '').toLowerCase();
+  if (conclusion) return conclusion;
+  const state = String(run.state ?? run.status ?? '').toLowerCase();
+  if (!state || state === 'completed') return '';
+  if (state === 'success' || state === 'skipped' || state === 'neutral') return state;
+  if (state === 'failure' || state === 'failed' || state === 'error') return 'failure';
+  if (state === 'cancelled' || state === 'canceled') return 'cancelled';
+  return '';
+}
+
+/**
+ * Aggregate the top-level conclusion of a settled `check_runs` snapshot.
+ *
+ * GitHub's `pull_request_read` (`method:"get_check_runs"`) returns ONLY
+ * `{total_count, check_runs[]}` — no top-level `status`/`conclusion`. Precedence
+ * per the contract: any failure/timed_out/action_required -> failure, else any
+ * cancelled -> cancelled, else success (all success/skipped/neutral). Returns
+ * null when at least one run has no settled verdict, so an aggregate is never
+ * invented from partial data.
+ */
+function aggregateCheckConclusion(runs) {
+  const list = Array.isArray(runs) ? runs : [];
+  if (list.length === 0) return null;
+  const verdicts = list.map(checkRunVerdict);
+  if (verdicts.some((v) => v === '')) return null;
+  if (verdicts.some((v) => v === 'failure' || v === 'timed_out' || v === 'action_required')) return 'failure';
+  if (verdicts.some((v) => v === 'cancelled')) return 'cancelled';
+  // Only the documented success vocabulary maps to success; an unknown verdict
+  // (e.g. `stale`) stays null rather than being guessed as a pass.
+  if (verdicts.every((v) => v === 'success' || v === 'skipped' || v === 'neutral')) return 'success';
+  return null;
+}
+
+/**
  * Wait at most `timeoutMs` (hard-capped at 30s) for PR checks to settle.
  *
  * Pure orchestration: the actual read is injected via `opts.check`, so the
@@ -886,14 +959,26 @@ export async function waitForPrChecks({
     }
     const runs = normalizeCheckRuns(snapshot);
     const status = String(snapshot?.status ?? snapshot?.state ?? (runs.length ? 'in_progress' : 'pending'));
+    const topStatusRaw = snapshot?.status ?? snapshot?.state;
+    const hasTopStatus = topStatusRaw !== undefined && topStatusRaw !== null && String(topStatusRaw) !== '';
     const done = checksCompleted(snapshot);
     const elapsedMs = started ? Date.now() - started : 0;
     if (done) {
+      // CI-polling contract fix: a `get_check_runs` snapshot carries ONLY
+      // check_runs[]; the old code returned the placeholder status
+      // ("in_progress") and conclusion:null even though every run had settled.
+      // Derive the aggregate from the runs when the upstream did not supply a
+      // top-level field, so callers can tell success from failure in one call.
+      // Upstream-supplied status/conclusion always win (unchanged behaviour).
+      const derivedStatus = hasTopStatus ? null : (runs.length ? 'completed' : null);
+      const topConclusionRaw = snapshot?.conclusion;
+      const hasTopConclusion = topConclusionRaw !== undefined && topConclusionRaw !== null && topConclusionRaw !== '';
+      const derivedConclusion = hasTopConclusion ? null : aggregateCheckConclusion(runs);
       return {
         ok: true,
         pullNumber: number,
-        status,
-        conclusion: snapshot?.conclusion ?? null,
+        status: derivedStatus ?? String(topStatusRaw ?? status),
+        conclusion: hasTopConclusion ? topConclusionRaw : derivedConclusion,
         checkRuns: runs,
         polls,
         elapsedMs,
