@@ -5,6 +5,22 @@ on:
     - cron: '0 2 * * *' # daily digest + analyzer candidate, 10:00 Asia/Singapore
     - cron: '0 3 * * 1' # weekly review, 11:00 Asia/Singapore (previous 7 days)
   workflow_dispatch:
+    inputs:
+      last_minutes:
+        description: 'Fast-window analysis in minutes (e.g. 60; 0 = full day)'
+        required: false
+        default: '0'
+        type: string
+      platform:
+        description: 'Optional clientPlatform filter (gemini | chatgpt | claude)'
+        required: false
+        default: ''
+        type: string
+      commit:
+        description: 'Optional buildCommit prefix filter'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -41,7 +57,23 @@ jobs:
           ANALYZER_BASE_URL: ${{ secrets.ANALYZER_BASE_URL }}
           ANALYZER_MODEL: ${{ secrets.ANALYZER_MODEL }}
           ANALYZER_API_KEY: ${{ secrets.ANALYZER_API_KEY }}
-        run: node scripts/analyze-captures.mjs --date "$(date -u +%F)" --out work/analyzer
+        run: |
+          ARGS=(--out work/analyzer)
+          LAST_MIN="${{ github.event.inputs.last_minutes }}"
+          PLAT="${{ github.event.inputs.platform }}"
+          CMT="${{ github.event.inputs.commit }}"
+          if [ -n "$LAST_MIN" ] && [ "$LAST_MIN" != "0" ]; then
+            ARGS+=(--last-minutes "$LAST_MIN")
+          else
+            ARGS+=(--date "$(date -u +%F)")
+          fi
+          if [ -n "$PLAT" ]; then
+            ARGS+=(--platform "$PLAT")
+          fi
+          if [ -n "$CMT" ]; then
+            ARGS+=(--commit "$CMT")
+          fi
+          node scripts/analyze-captures.mjs "${ARGS[@]}"
       - name: Keep scorecard in the repo
         run: |
           mkdir -p docs/eval
