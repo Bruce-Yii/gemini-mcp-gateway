@@ -91,8 +91,8 @@
     {
       "name": "linear",
       "transport": "http",
-      "url": "https://mcp.linear.app/mcp",
-      "tokenEnv": "LINEAR_PAT_STATIC",
+      "url": "https://mcp.linear.app/mcp/readonly",
+      "tokenEnv": "LINEAR_API_KEY",
       "allowTools": [],
       "denyTools": [
         "prepare_attachment_upload",

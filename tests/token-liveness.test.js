@@ -307,6 +307,6 @@ test('linear config is static_bearer and no longer forwards obtainedAtEnv', asyn
   const config = JSON.parse(readFileSync(new URL('../config.example.json', import.meta.url), 'utf8'));
   const linear = config.servers.find((s) => s.name === 'linear');
   assert.equal(linear.authMode, 'static_bearer');
-  assert.equal(linear.tokenEnv, 'LINEAR_PAT_STATIC');
+  assert.equal(linear.tokenEnv, 'LINEAR_API_KEY');
   assert.equal(linear.obtainedAtEnv, undefined);
 });

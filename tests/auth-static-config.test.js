@@ -18,7 +18,8 @@ const server = (name) => config.servers.find((entry) => entry.name === name);
 test('linear uses an owner-created PAT via static_bearer', () => {
   const linear = server('linear');
   assert.equal(linear.authMode, STATIC_BEARER);
-  assert.equal(linear.tokenEnv, 'LINEAR_PAT_STATIC');
+  assert.equal(linear.tokenEnv, 'LINEAR_API_KEY');
+  assert.equal(linear.url, 'https://mcp.linear.app/mcp/readonly');
   assert.equal(linear.refreshUrl, undefined);
   assert.equal(linear.refreshEnv, undefined);
   assert.equal(linear.clientIdEnv, undefined);
@@ -37,7 +38,7 @@ test('notion uses gateway-owned OAuth/DCR (MCP token only exists on Business/Ent
 
 test('static_bearer config validates with the linear PAT env set', () => {
   const { warnings } = validateConfig(config, {
-    env: { LINEAR_PAT_STATIC: 'lin_pat_dummy' },
+    env: { LINEAR_API_KEY: 'lin_pat_dummy' },
   });
   assert.equal(
     warnings.some((warning) => /LINEAR_PAT_STATIC|NOTION_MCP_TOKEN/.test(warning)),
