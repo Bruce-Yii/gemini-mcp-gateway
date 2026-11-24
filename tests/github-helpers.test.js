@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ensureBranch, upsertPr, fetchAllPages, repoGrep } from '../src/github-helpers.js';
+import { ensureBranch, upsertPr, fetchAllPages, repoGrep, waitForPrChecks, canonicalResult } from '../src/github-helpers.js';
 
 // ---------- ensureBranch ----------
 
@@ -271,4 +271,141 @@ test('repoGrep: handles text/content object shapes and validates input', async (
   assert.equal(out.matches.length, 1);
   assert.equal(out.matches[0].column, 1);
   await assert.rejects(repoGrep({ listFiles: async () => [], readFile: async () => '' }), /pattern is required/);
+});
+
+// ---------- waitForPrChecks: top-level status/conclusion aggregation ----------
+//
+// M2 contract fix: GitHub's `pull_request_read` (`method:"get_check_runs"`)
+// returns ONLY {total_count, check_runs[]} — no top-level status/conclusion.
+// Before the fix a fully settled snapshot came back as
+// status:"in_progress" / conclusion:null, so callers could not tell success
+// from failure in one call. Every fixture here is a fixed local object.
+
+function waitOptions(check, extra = {}) {
+  return { owner: 'o', repo: 'r', pullNumber: 53, timeoutMs: 500, maxPolls: 4, pollIntervalMs: 1, check, ...extra };
+}
+
+test('waitForPrChecks: check_runs-only snapshot aggregates completed + success (no fake in_progress)', async () => {
+  const out = await waitForPrChecks(waitOptions(async () => ({
+    total_count: 2,
+    check_runs: [
+      { name: 'ci', status: 'completed', conclusion: 'success' },
+      { name: 'lint', status: 'completed', conclusion: 'skipped' },
+    ],
+  })));
+  assert.equal(out.ok, true);
+  assert.equal(out.status, 'completed', 'settled runs must not report the in_progress placeholder');
+  assert.equal(out.conclusion, 'success');
+  assert.equal(out.timedOut, false);
+  assert.equal(out.polls, 1);
+  assert.equal(out.checkRuns.length, 2);
+});
+
+test('waitForPrChecks: conclusion precedence is failure > cancelled > success', async () => {
+  const cases = [
+    { name: 'failure', runs: [{ status: 'completed', conclusion: 'failure' }, { status: 'completed', conclusion: 'success' }], expected: 'failure' },
+    { name: 'timed_out', runs: [{ status: 'completed', conclusion: 'timed_out' }], expected: 'failure' },
+    { name: 'action_required', runs: [{ status: 'completed', conclusion: 'action_required' }], expected: 'failure' },
+    { name: 'failure beats cancelled', runs: [{ status: 'completed', conclusion: 'cancelled' }, { status: 'completed', conclusion: 'failure' }], expected: 'failure' },
+    { name: 'cancelled', runs: [{ status: 'completed', conclusion: 'success' }, { status: 'completed', conclusion: 'cancelled' }], expected: 'cancelled' },
+    { name: 'neutral/skipped', runs: [{ status: 'completed', conclusion: 'neutral' }, { status: 'completed', conclusion: 'skipped' }], expected: 'success' },
+  ];
+  for (const item of cases) {
+    const out = await waitForPrChecks(waitOptions(async () => ({ check_runs: item.runs })));
+    assert.equal(out.ok, true, item.name);
+    assert.equal(out.status, 'completed', item.name);
+    assert.equal(out.conclusion, item.expected, `${item.name}: wrong aggregate conclusion`);
+  }
+});
+
+test('waitForPrChecks: an unsettled run still times out honestly (no invented conclusion)', async () => {
+  const out = await waitForPrChecks(waitOptions(async () => ({
+    check_runs: [
+      { name: 'ci', status: 'completed', conclusion: 'success' },
+      { name: 'lint', status: 'in_progress' },
+    ],
+  }), { maxPolls: 2 }));
+  assert.equal(out.ok, false);
+  assert.equal(out.timedOut, true);
+  assert.equal(out.polls, 2);
+  assert.equal(out.status, 'in_progress');
+  assert.equal(out.conclusion, null, 'partial data must never be aggregated into a conclusion');
+});
+
+test('waitForPrChecks: a completed run without a conclusion is never guessed as success', async () => {
+  const out = await waitForPrChecks(waitOptions(async () => ({
+    check_runs: [{ name: 'ci', status: 'completed' }],
+  })));
+  assert.equal(out.ok, true);
+  assert.equal(out.status, 'completed');
+  assert.equal(out.conclusion, null, 'unknown verdict stays null');
+});
+
+test('waitForPrChecks: an unknown conclusion vocabulary is never reported as success', async () => {
+  const out = await waitForPrChecks(waitOptions(async () => ({
+    check_runs: [{ name: 'ci', status: 'completed', conclusion: 'stale' }],
+  })));
+  assert.equal(out.ok, true);
+  assert.equal(out.status, 'completed');
+  assert.equal(out.conclusion, null, 'only success/skipped/neutral aggregate to success');
+});
+
+test('waitForPrChecks: explicit upstream status/conclusion still wins (behaviour preserved)', async () => {
+  const out = await waitForPrChecks(waitOptions(async () => ({
+    status: 'completed',
+    conclusion: 'neutral',
+    check_runs: [{ status: 'completed', conclusion: 'failure' }],
+  })));
+  assert.equal(out.status, 'completed');
+  assert.equal(out.conclusion, 'neutral', 'upstream-supplied conclusion is authoritative');
+});
+
+// ---------- canonicalResult: BC-011 merge context fill ----------
+
+test('canonicalResult: merge context fills number/url when the response only has {sha,merged,message}', () => {
+  const merge = canonicalResult({ sha: 'm1', merged: true, message: 'merged' },
+    { owner: 'o', repo: 'r', pullNumber: 53 });
+  assert.deepEqual([merge.number, merge.url, merge.sha],
+    [53, 'https://github.com/o/r/pull/53', 'm1']);
+
+  // A response URL still wins over the call context (URL-first contract).
+  const withUrl = canonicalResult(
+    { sha: 'm2', html_url: 'https://github.com/o/r/pull/9' },
+    { owner: 'o', repo: 'r', pullNumber: 53 },
+  );
+  assert.deepEqual([withUrl.number, withUrl.url], [9, 'https://github.com/o/r/pull/9']);
+
+  // A bare pull number fills `number` but not a URL (no owner/repo to build it).
+  const bare = canonicalResult({ sha: 'm3', merged: true, message: 'ok' }, 53);
+  assert.deepEqual([bare.number, bare.url], [53, null]);
+
+  // A context URL is used for both fields.
+  const ctxUrl = canonicalResult({ sha: 'm4' }, { url: 'https://github.com/o/r/pull/7' });
+  assert.deepEqual([ctxUrl.number, ctxUrl.url], [7, 'https://github.com/o/r/pull/7']);
+});
+
+test('canonicalResult: internal id is never a number fallback, even with merge context', () => {
+  assert.equal(
+    canonicalResult({ id: 1000000001, sha: 'm', merged: true }).number,
+    null,
+    'id alone never becomes a PR number',
+  );
+  const withContext = canonicalResult(
+    { id: 1000000001, sha: 'm', merged: true },
+    { owner: 'o', repo: 'r', pullNumber: 53 },
+  );
+  assert.equal(withContext.number, 53, 'number comes from the explicit call context');
+  assert.equal(withContext.id, '1000000001', 'id stays a separate field');
+  assert.notEqual(withContext.number, Number(withContext.id));
+
+  // A mismatched context must not fabricate a URL for a different number.
+  const explicit = canonicalResult({ number: 9, sha: 'm' }, { owner: 'o', repo: 'r', pullNumber: 53 });
+  assert.deepEqual([explicit.number, explicit.url], [9, null]);
+});
+
+test('canonicalResult: no context keeps the historical shape/behaviour', () => {
+  const out = canonicalResult({ number: 12, html_url: 'https://github.com/o/r/pull/12', sha: 'h' });
+  assert.deepEqual([out.number, out.url, out.sha], [12, 'https://github.com/o/r/pull/12', 'h']);
+  assert.deepEqual(Object.keys(out).sort(), ['number', 'raw', 'sha', 'url']);
+  assert.equal(canonicalResult(null).number, null);
 });
