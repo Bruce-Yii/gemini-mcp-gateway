@@ -319,12 +319,66 @@ function r2Endpoint(key = '') {
   return key ? `${base}/objects/${encoded}` : `${base}/objects`;
 }
 
-export async function listR2Keys(prefix) {
-  const url = `${r2Endpoint()}?prefix=${encodeURIComponent(prefix)}`;
-  const response = await fetch(url, { headers: r2AuthHeaders() });
-  if (!response.ok) throw new Error(`R2 list failed: ${response.status}`);
-  const body = await response.json();
-  return (body.result ?? []).map((item) => item.key).filter((key) => key.endsWith('.json.gz'));
+/** Cloudflare R2 list default page size is 20 (UUID-ordered), so one unpaged
+ *  request silently hides most of a day's captures. Always ask for the max. */
+const R2_LIST_PER_PAGE = 1000;
+const R2_LIST_MAX_PAGES = 50;
+
+/**
+ * List every `.json.gz` key under `prefix`, following `result_info.cursor`.
+ *
+ * The R2 list API pages (default 20, maximum `per_page=1000`) and returns a
+ * `result_info.cursor` while more pages remain. A single request therefore used
+ * to drop most capture logs silently; this walker keeps all pages, de-dupes
+ * keys and filters to `.json.gz`.
+ *
+ * `options.fetchImpl` overrides `fetch` (tests inject a fake; never hits R2).
+ * `options.maxPages` caps the walk (default 50). If the cap is hit while a
+ * cursor is still present, a one-line warning is logged and the returned array
+ * carries `truncated=true` + `pages` so the loss is explicit, never silent.
+ * Non-2xx responses and unparseable JSON throw, exactly like the previous
+ * single-request implementation.
+ */
+export async function listR2Keys(prefix, options = {}) {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const requestedPages = Number(options.maxPages);
+  const maxPages = Number.isFinite(requestedPages) && requestedPages >= 1
+    ? Math.floor(requestedPages)
+    : R2_LIST_MAX_PAGES;
+
+  const keys = [];
+  const seen = new Set();
+  let cursor = '';
+  let pages = 0;
+
+  while (pages < maxPages) {
+    const params = new URLSearchParams({ prefix, per_page: String(R2_LIST_PER_PAGE) });
+    if (cursor) params.set('cursor', cursor);
+    const response = await fetchImpl(`${r2Endpoint()}?${params.toString()}`, { headers: r2AuthHeaders() });
+    if (!response.ok) throw new Error(`R2 list failed: ${response.status}`);
+    const body = await response.json();
+    pages += 1;
+
+    const rows = Array.isArray(body?.result) ? body.result : [];
+    for (const row of rows) {
+      const key = row?.key;
+      if (typeof key !== 'string' || !key.endsWith('.json.gz') || seen.has(key)) continue;
+      seen.add(key);
+      keys.push(key);
+    }
+
+    const next = body?.result_info?.cursor;
+    cursor = typeof next === 'string' ? next : '';
+    if (!cursor) break;
+  }
+
+  if (cursor) {
+    // Prefix only (a capture path); never the auth headers or full URL.
+    console.warn(`[digest] R2 list prefix="${prefix}" stopped at maxPages=${maxPages} with a cursor still present: ${keys.length} keys fetched, listing is INCOMPLETE (truncated=true)`);
+  }
+  keys.pages = pages;
+  keys.truncated = Boolean(cursor);
+  return keys;
 }
 
 export async function readR2Envelope(key) {
@@ -361,12 +415,35 @@ export function classifyError(envelope) {
   return 'unknown';
 }
 
-/** True when a response was truncated, flagged by capture or by an explicit wire marker. */
+/** A wire marker is only trusted near the end of the payload (a cut tail). */
+const TRUNCATION_TAIL_CHARS = 256;
+/** Fixed in-band markers only: `--- TRUNCATED ---` / `…[truncated]` / `…[truncated N]`. */
+const TRUNCATION_TAIL_MARKER = /--- TRUNCATED ---|…\s*\[truncated/i;
+
+/**
+ * True when a response was truncated, flagged by capture or by an explicit wire
+ * marker.
+ *
+ * Strict on purpose (false-positive fix): plain payload text is never a signal,
+ * so a normal JSON body containing `{"truncated": false}` — or even a literal
+ * `"truncated": true` string in the payload — is NOT counted. Only three things
+ * count:
+ *   1. `response.truncated === true` (boolean stamp, not the string "true");
+ *   2. a present `response.truncation` object (capture/adapters attach it only
+ *      after a real cut; null, arrays and bare strings are not objects);
+ *   3. one of the two fixed in-band markers inside the last 256 chars of
+ *      `response.raw` (`--- TRUNCATED ---`, `…[truncated...]`).
+ * The old broad `truncated:` regex is deleted.
+ */
 export function isTruncated(envelope) {
-  if (envelope?.response?.truncated === true) return true;
-  const raw = `${String(envelope?.response?.raw ?? '')} ${String(envelope?.response?.error ?? '')}`;
-  // Only explicit wire markers count; an ordinary word "truncated" in user code is noise.
-  return /--- TRUNCATED ---|…\[truncated\s*\d*\]|(?:^|["'\s])truncated["'\s]*:/i.test(raw);
+  const response = envelope?.response;
+  if (response?.truncated === true) return true;
+  const truncation = response?.truncation;
+  if (truncation !== null && typeof truncation === 'object' && !Array.isArray(truncation)) return true;
+  const raw = String(response?.raw ?? '');
+  if (!raw) return false;
+  const tail = raw.length > TRUNCATION_TAIL_CHARS ? raw.slice(-TRUNCATION_TAIL_CHARS) : raw;
+  return TRUNCATION_TAIL_MARKER.test(tail);
 }
 
 /**

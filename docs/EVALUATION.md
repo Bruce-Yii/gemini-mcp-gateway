@@ -131,7 +131,9 @@ L4 人工在线反馈           用户真实窗口，发现新维度
 ## 8. 2026-11-24 PR #80–#101 反馈接入（append-only）
 
 > 本批把真实体感反馈转成可重复回归，不只是写报告；不改 src/scripts/tests，不 commit/push/deploy。
-> 更正：`20` 次是**已知每次执行/单轮工具调用上限**（见 `GEMINI-PROBE.md`），不是 R2 分页/capture 分母 bug；
+> 更正（2026-11-24 二次核对，覆盖以上旧误判）：scorecard 只见 20 条不是 Gemini 上限，而是 **Cloudflare R2 list 默认每页 20 条**（UUID 字典序）导致日志缺失；
+> `scripts/capture-digest.mjs` 的 `listR2Keys` 已改为 `per_page=1000` + `result_info.cursor` 全量翻页（触顶时 warning + 返回数组 `truncated=true`，不再静默丢）。
+> Gemini 单轮约 `20` 次工具调用上限仍然存在（见 `GEMINI-PROBE.md`），但**不能**再把 scorecard 的 20 条当全量分母。
 > 样本不足、不能定量的结论保留。9 个 `model truncation suspect` 标 **advisory**，不作事实/判据。
 
 - **F/G/N/J 矩阵**：[eval/FEEDBACK-2026-11-24-MATRIX.md](eval/FEEDBACK-2026-11-24-MATRIX.md)

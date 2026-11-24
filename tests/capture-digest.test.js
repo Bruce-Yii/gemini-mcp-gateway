@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   aggregateEnvelopes, classifyError, renderScorecard, isTruncated,
   protocolVersionOf, executorOf, serversOf, evalModeOf, fourDimensionKeyOf,
+  listR2Keys,
 } from '../scripts/capture-digest.mjs';
 
 const envelope = (status, durationMs, raw = '{}', extra = {}) => ({
@@ -301,5 +302,136 @@ test('eval-closure: digest aggregates upstream_connect failures and services() s
   assert.equal(metrics.serviceState.byServer.notion.latest.status, 'offline');
   assert.equal(metrics.serviceState.currentOfflineServers.includes('notion'), true);
   assert.ok((metrics.helperStats ?? []).some((row) => row.helper === 'services' && row.calls === 1));
+});
+
+// ── R2 list pagination: default 20/page silently dropped capture logs ──
+
+const r2Page = (keys, cursor) => ({
+  result: keys.map((key) => ({ key })),
+  ...(cursor === undefined ? {} : { result_info: { cursor } }),
+});
+
+const jsonResponse = (body, status = 200) => ({
+  ok: status >= 200 && status < 300,
+  status,
+  json: async () => body,
+});
+
+test('listR2Keys: follows result_info.cursor with per_page=1000 (3 pages, 45 keys)', async () => {
+  const page1 = Array.from({ length: 20 }, (_, i) => `capture/2026-11-24/a-${i}.json.gz`);
+  const page2 = Array.from({ length: 20 }, (_, i) => `capture/2026-11-24/b-${i}.json.gz`);
+  const page3 = Array.from({ length: 5 }, (_, i) => `capture/2026-11-24/c-${i}.json.gz`);
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push({ url: String(url), init });
+    const cursor = new URL(String(url)).searchParams.get('cursor');
+    if (cursor === null) return jsonResponse(r2Page(page1, 'cursor-1'));
+    if (cursor === 'cursor-1') return jsonResponse(r2Page(page2, 'cursor-2'));
+    return jsonResponse(r2Page(page3));
+  };
+
+  const keys = await listR2Keys('capture/2026-11-24/', { fetchImpl });
+
+  assert.equal(calls.length, 3);
+  assert.equal(keys.length, 45);
+  assert.equal(keys.pages, 3);
+  assert.equal(keys.truncated, false);
+  assert.deepEqual([...keys], [...page1, ...page2, ...page3], 'all pages stitched in order');
+  for (const call of calls) {
+    const url = new URL(call.url);
+    assert.equal(url.searchParams.get('prefix'), 'capture/2026-11-24/');
+    assert.equal(url.searchParams.get('per_page'), '1000');
+    assert.equal(typeof call.init?.headers, 'object');
+  }
+  assert.equal(new URL(calls[0].url).searchParams.has('cursor'), false, 'first request has no cursor');
+  assert.equal(new URL(calls[1].url).searchParams.get('cursor'), 'cursor-1');
+  assert.equal(new URL(calls[2].url).searchParams.get('cursor'), 'cursor-2');
+});
+
+test('listR2Keys: filters non-.json.gz objects and de-dupes keys across pages', async () => {
+  const fetchImpl = async (url) => {
+    const cursor = new URL(String(url)).searchParams.get('cursor');
+    if (cursor === null) {
+      return jsonResponse(r2Page(['capture/x/a.json.gz', 'capture/x/ignored.txt', 'capture/x/a.json.gz'], 'c1'));
+    }
+    return jsonResponse(r2Page(['capture/x/a.json.gz', 'capture/x/b.json.gz'], ''));
+  };
+  const keys = await listR2Keys('capture/x/', { fetchImpl });
+  assert.deepEqual([...keys], ['capture/x/a.json.gz', 'capture/x/b.json.gz']);
+  assert.equal(keys.pages, 2, 'an empty-string cursor ends the walk');
+  assert.equal(keys.truncated, false);
+});
+
+test('listR2Keys: maxPages cap warns once and flags truncated, never silently drops', async () => {
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args.join(' '));
+  try {
+    let pageNo = 0;
+    const fetchImpl = async () => {
+      pageNo += 1;
+      return jsonResponse(r2Page([`capture/x/page-${pageNo}.json.gz`], `cursor-${pageNo}`));
+    };
+    const keys = await listR2Keys('capture/x/', { fetchImpl, maxPages: 2 });
+    assert.equal(pageNo, 2);
+    assert.equal(keys.length, 2);
+    assert.equal(keys.pages, 2);
+    assert.equal(keys.truncated, true);
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0], /maxPages=2/);
+    assert.match(warnings[0], /cursor still present/);
+    assert.match(warnings[0], /truncated=true/);
+    assert.match(warnings[0], /capture\/x\//);
+    assert.doesNotMatch(warnings[0], /https?:\/\//, 'warning must not leak endpoint/auth context');
+  } finally {
+    console.warn = originalWarn;
+  }
+});
+
+test('listR2Keys: non-2xx and unparseable JSON throw instead of returning a partial listing', async () => {
+  await assert.rejects(
+    () => listR2Keys('capture/x/', { fetchImpl: async () => jsonResponse({}, 500) }),
+    /R2 list failed: 500/,
+  );
+  await assert.rejects(
+    () => listR2Keys('capture/x/', {
+      fetchImpl: async () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError('Unexpected token'); } }),
+    }),
+    /Unexpected token/,
+  );
+});
+
+// ── isTruncated: strict flags only (false-positive fix) ──
+
+test('isTruncated: strict boolean stamp and truncation object only', () => {
+  assert.equal(isTruncated({ response: { truncated: true } }), true);
+  assert.equal(isTruncated({ response: { truncation: { reason: 'maxCharsPerLine', totalChars: 1000 } } }), true);
+  assert.equal(isTruncated({ response: { truncation: {} } }), true, 'a present truncation object is a positive declaration');
+  assert.equal(isTruncated({ response: { truncation: null } }), false);
+  assert.equal(isTruncated({ response: { truncation: ['maxCharsPerLine'] } }), false, 'arrays are not truncation objects');
+  assert.equal(isTruncated({ response: { truncation: 'maxCharsPerLine' } }), false, 'bare reason strings are not objects');
+  assert.equal(isTruncated({ response: { truncated: 'true' } }), false, 'string "true" is not the boolean stamp');
+  assert.equal(isTruncated({}), false);
+});
+
+test('isTruncated: payload text is never a flag, including {"truncated": false}', () => {
+  assert.equal(isTruncated({ response: { raw: '{"truncated": false}' } }), false);
+  assert.equal(isTruncated({ response: { raw: '{"truncated": true}' } }), false, 'a payload string alone is not an explicit marker');
+  assert.equal(isTruncated({ response: { raw: '{"result":{"truncated":false},"ok":true}' } }), false);
+  assert.equal(isTruncated({ response: { raw: 'this code mentions truncated as a normal word' } }), false);
+  assert.equal(isTruncated({ response: { raw: 'truncated:' } }), false, 'the old broad truncated: regex is gone');
+});
+
+test('isTruncated: wire markers count only inside the trailing 256 chars', () => {
+  assert.equal(isTruncated({ response: { raw: '{"result":"… tail --- TRUNCATED ---"}' } }), true);
+  assert.equal(isTruncated({ response: { raw: 'value …[truncated]' } }), true);
+  assert.equal(isTruncated({ response: { raw: 'value …[truncated 12]' } }), true);
+  assert.equal(isTruncated({ response: { raw: `${'x'.repeat(400)}--- TRUNCATED ---` } }), true, 'marker at the tail after a long payload');
+  assert.equal(isTruncated({ response: { raw: `--- TRUNCATED ---${'x'.repeat(300)}` } }), false, 'a marker far from the tail does not prove a cut');
+  assert.equal(isTruncated({ response: { raw: `prefix ${'x'.repeat(400)} …[truncated]` } }), true);
+  assert.equal(isTruncated({ response: { raw: `…[truncated] ${'x'.repeat(300)}` } }), false);
+  // Old envelopes that only carried a marker in `response.error` are no longer
+  // re-classified: only the response body tail is trusted.
+  assert.equal(isTruncated({ response: { error: '--- TRUNCATED ---' } }), false);
 });
 

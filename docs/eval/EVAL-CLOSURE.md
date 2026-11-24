@@ -30,6 +30,7 @@ node scripts/record-active-eval.mjs --input work/active.json --now 2026-11-24T06
 | `observed.requestIds[]` | UUID 或 `unknown`；**不编造**；建议用 `--capture-index` 验证 id 真在 capture 中 |
 | `observed.services[]` | 可选：`{name, status, needsReauth}`，用于和被动 `serviceState` 对照 |
 | `observed.connectFailures[]` | 可选：连不上的上游名，用于和被动 `connectFailures` 对照 |
+| `observed.findings[]` | 可选：主动窗口自己报出的语义问题 `{id, title, keywords}`。`id`/`title` 非空字符串；`keywords` 是字符串数组（可缺失/为空，匹配时用 `title` 兜底）；结构非法直接退出 2 |
 
 `activeEvalId` 由规范化内容哈希派生（`ae_<window日期>_<8位hash>`），同输入同 id，不随机；哈希包含 observed，两次不同观测不会撞 id。
 `--raw` 的逐字文本会写到 `<out>.raw.txt` 并记录 `source.rawTextSha256/rawBytes`；缺原文直接退出 2，防止“摘要当原文”。
@@ -76,13 +77,36 @@ node scripts/compare-active-passive.mjs \
 | `weak` | 只有时间窗 + 平台对齐 |
 | `unmatched` | 空窗口 / build 不匹配 / 无重叠 |
 
-compare 默认把 `unmatched` / `EMPTY_WINDOW` 视为非零退出；只有显式 `--allow-unmatched` 才允许绿色。\n\n输入除 analyzer artifact 外，可用 `--request-index <analyzer-input.json>` 提供**全量** requestId 索引（不受 15/5 采样上限影响）。\n\n输出同时包含：
+compare 默认把 `unmatched` / `EMPTY_WINDOW` 视为非零退出；只有显式 `--allow-unmatched` 才允许绿色。
+
+输入除 analyzer artifact 外，可用 `--request-index <analyzer-input.json>` 提供**全量** requestId 索引（不受 15/5 采样上限影响）。
+
+输出同时包含：
 
 - `checks`（build/platform/window/requestIds）；
 - `coverage[]`：`observed.services` 和 `observed.connectFailures` 是否在被动
   `serviceState`/`connectFailures` 里可见；
-- `missed[]`：漏抓项 + 原因（如 `no-services-snapshot`、`no-connect-failure-or-offline-snapshot`）；
+- `findings`：`{total, detected, missed}`，主动 `observed.findings[]` 的被动命中汇总；
+- `missed[]`：漏抓项 + 原因（如 `no-services-snapshot`、`no-connect-failure-or-offline-snapshot`、`passive-not-detected`）；
 - 跨构建时明确 `build mismatch`，禁止硬比。
+
+### 3.1 `observed.findings` 匹配规则（防止 `missed: []` 假绿）
+
+对主动窗口每条 `observed.findings` 逐条检查被动侧是否看到：
+
+| 项 | 规则 |
+|---|---|
+| 被动来源 | analyzer-output 包装的 `validated.issues`，或裸 `passive.issues` |
+| 匹配文本 | 每条被动 issue 的 `title + likelyCause + suggestedFix`，大小写不敏感子串匹配 |
+| 关键词 | `keywords` 任一命中即 `covered=true`，并记 `passiveIssueId`；`keywords` 为空时用 `title` 兜底 |
+| 未命中 | `covered=false`、`reason=passive-not-detected`，强制进 `missed[]`（`kind=finding`） |
+
+`keywords` 要选能定位该问题的短语：过窄会漏配（保守地判为未命中），过泛（如 `unknown`）会把无关 issue 当成已覆盖；
+命中只表示“被动日志里出现过同义文本”，不等于问题已被修复或已被 analyzer 正确归因。
+
+默认退出码：只要存在未命中的 finding 就非零退出（即使 `match=exact`）——主动报了 3 个语义问题、
+被动 `validated.issues` 0 命中时，`missed: []` 不再可能出现。只有显式 `--allow-missed-findings`
+才放过；原有 `unmatched` / `EMPTY_WINDOW` 非零逻辑不变，active 无 findings 时行为不变。
 
 ## 4. Badcase 与反哺
 
