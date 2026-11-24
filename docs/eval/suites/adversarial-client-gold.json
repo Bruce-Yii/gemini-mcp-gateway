@@ -279,18 +279,18 @@
       "failureModeTarget": [
         "constraint_violations"
       ],
-      "trap": "Gemini 专属审批弹窗消融：精确记录 search / execute_read / execute 各自弹窗次数，为调整 gemini profile annotations 提供量化前后对照",
+      "trap": "Gemini 专属：验证工具层零网关审批原则下的简洁 annotations 与精简描述（descriptionMode）表现，确保不额外人为阻拦且不串伤 ChatGPT",
       "efficiencyBaseline": {
         "maxSearchCalls": 1,
         "maxExecuteReadCalls": 2,
         "maxExecuteCalls": 1
       },
       "coverageThreshold": 0.8,
-      "userPrompt": "请在受控仓 Bruce-Yii/gateway-acceptance-test 依次执行：(1) 1 次 search；(2) 2 次独立 execute_read（读 README.md 与分支列表）；(3) 1 次 execute（建分支 eval/ac-cl-01-popup 写入 popup-probe.txt）。完成后严格回报每个工具各自是否触发了客户端审批弹窗及精确次数（若客户端无 UI 计数，由操作者人工补填，严禁臆断为 0）。",
+      "userPrompt": "请在受控仓 Bruce-Yii/gateway-acceptance-test 依次执行：(1) 1 次 search；(2) 2 次独立 execute_read（读 README.md 与分支列表）；(3) 1 次 execute（建分支 eval/ac-cl-01-profile 写入 profile-probe.txt）。核验网关自身不附加任何额外审批阻拦、读写接口流畅返回，且记录工具描述清晰度与脚本一次通过率。",
       "verifiableClaims": [
         "完整执行 1 次 search + 2 次 execute_read + 1 次 execute",
-        "清晰拆分三种入口工具的弹窗记录与耗时体感",
-        "如实区分可观测数据与需人工确认的 UI 弹窗计数"
+        "网关自身未附加任何人为审批拦截或多余确认门槛",
+        "读写返回体符合 gemini text-JSON profile 且零语法重试"
       ]
     },
     {

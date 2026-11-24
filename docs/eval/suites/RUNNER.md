@@ -27,6 +27,8 @@
    - 若包含写题（`access: write / read-write`），**仅允许写入受控测试仓 `Bruce-Yii/gateway-acceptance-test` 或指定的 Notion 测试父页**，绝对禁止修改 `Bruce-Yii/gemini-mcp-gateway` 主仓或生产配置；
    - 遇到 `rateLimitSensitive: true`（如 Figma 题目）严格控频，遇 429 立即停手并归因上游配额，严禁死循环重试；
    - 严禁打印或回显任何 token / secret / passphrase 明文。
+- **工具层零审批原则**：网关不对任何上游、任何客户端在工具调用层设额外审批或授权拦截（放行/确认由用户在各自客户端的 MCP 管理界面自行配置）；
+- **Notion 教育版 Plus 边界**：常规任务请使用 Plus/Free 原生支持的接口（如 `list-recent-pages`、`list-private-pages`、`notion-search` 基础查询），不依赖 Business 专属的 `filters.edited_by_user_ids` 或 `sort: "last_edited"`。
 4. **先做冷启动基线检查**：首轮顺带调用 `codemode.services()` 记录 5 大上游状态与 `toolCount`。
 5. **逐题实跑并自核 Claims**：严禁凭记忆编造数据、commit SHA 或 `requestId`；遇到截断不得使用 `.slice(0, N)` 静默丢数据。
 
