@@ -25,7 +25,7 @@
  * single `unknown` bucket instead of being silently attributed to Gemini.
  */
 import { readdir, readFile, mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { createRequire } from 'node:module';
 
@@ -1770,6 +1770,43 @@ export async function aggregateR2Range({ since, days = 7 }) {
   return { days, since, keys: keys.length, metrics: aggregateEnvelopes(envelopes, { date: since }) };
 }
 
+/**
+ * Envelope bundle I/O (NDJSON). One R2 read per run: the digest writes the
+ * envelopes it already fetched, and analyze-captures reuses that file instead
+ * of hitting the Cloudflare REST API a second time. NDJSON keeps memory flat
+ * and lets the analyzer stream-read.
+ */
+export function encodeEnvelopeBundle(envelopes) {
+  return arr2(envelopes).map((envelope) => JSON.stringify(envelope)).join('\n') + (arr2(envelopes).length ? '\n' : '');
+}
+
+export async function writeEnvelopeBundle(file, envelopes) {
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, encodeEnvelopeBundle(envelopes), 'utf8');
+  return arr2(envelopes).length;
+}
+
+export async function readEnvelopeBundle(file) {
+  const text = await readFile(file, 'utf8');
+  const rows = [];
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    rows.push(JSON.parse(trimmed));
+  }
+  return rows;
+}
+
+const arr2 = (value) => (Array.isArray(value) ? value : []);
+
+/** Keys for a rolling window (same day math as analyze-captures --last-minutes). */
+function windowKeys(lastMinutes) {
+  const now = new Date();
+  const start = new Date(now.getTime() - lastMinutes * 60 * 1000);
+  const days = new Set([start.toISOString().slice(0, 10), now.toISOString().slice(0, 10)]);
+  return [...days].sort();
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const arg = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : '');
@@ -1778,37 +1815,64 @@ async function main() {
   const out = arg('--out') || join('docs', 'eval');
   const since = arg('--since');
   const days = Number(arg('--days') || 7);
+  const lastMinutes = Number(arg('--last-minutes') || 0);
+  const bundleOut = arg('--bundle-out');
+  const bundleIn = arg('--bundle');
 
   let payload;
   let label = date;
-  if (since) {
+  let envelopes = null;
+
+  if (bundleIn) {
+    // Incremental sync already pulled only the NEW objects; reuse that store so
+    // the digest never issues its own R2 reads.
+    envelopes = await readEnvelopeBundle(bundleIn);
+    label = `store-${envelopes.length}`;
+    payload = { metrics: aggregateEnvelopes(envelopes, { date: label }) };
+  } else if (lastMinutes > 0) {
+    // Rolling window: read ONCE, then aggregate/sessions/bundle from the same
+    // batch. Older code re-listed and re-fetched every envelope a second time.
+    const keys = [];
+    for (const day of windowKeys(lastMinutes)) keys.push(...await listR2Keys(`capture/${day}/`));
+    envelopes = await Promise.all(keys.map(readR2Envelope));
+    label = `last-${lastMinutes}m`;
+    payload = { metrics: aggregateEnvelopes(envelopes, { date: label }) };
+  } else if (since) {
     payload = await aggregateR2Range({ since, days });
     label = `${since}+${days}d`;
+  } else if (dir) {
+    envelopes = await readDirEnvelopes(dir);
+    payload = { metrics: aggregateEnvelopes(envelopes, { date }) };
   } else {
-    const envelopes = dir ? await readDirEnvelopes(dir) : (await listR2Keys(`capture/${date}/`)).map(readR2Envelope);
-    const resolved = dir ? envelopes : await Promise.all(envelopes);
-    payload = { metrics: aggregateEnvelopes(resolved, { date }) };
+    const keys = await listR2Keys(`capture/${date}/`);
+    envelopes = await Promise.all(keys.map(readR2Envelope));
+    payload = { metrics: aggregateEnvelopes(envelopes, { date }) };
   }
+
+  if (bundleOut && envelopes) {
+    const written = await writeEnvelopeBundle(bundleOut, envelopes);
+    console.log(`[digest] bundle -> ${bundleOut} (${written} envelopes)`);
+  }
+
   const metrics = payload.metrics;
-  // Resolve the envelopes once more for session/window aggregation. R2 mode
-  // already fetched them; keep a local cache by reusing range payload keys when
-  // present to avoid a second network round-trip where possible.
+  // Sessions/projects reuse the SAME envelopes when we have them; only the
+  // legacy --since range path still needs its own read.
   let digestRows = [];
   let projectTimelines = [];
   try {
-    let allEnvelopes = [];
-    if (dir) {
-      allEnvelopes = await readDirEnvelopes(dir);
-    } else if (since) {
-      const start = new Date(`${since}T00:00:00.000Z`);
-      const keys = [];
-      for (let offset = 0; offset < days; offset += 1) {
-        const day = new Date(start.getTime() + offset * 86400000).toISOString().slice(0, 10);
-        keys.push(...await listR2Keys(`capture/${day}/`));
+    let allEnvelopes = envelopes;
+    if (!allEnvelopes) {
+      if (since) {
+        const start = new Date(`${since}T00:00:00.000Z`);
+        const keys = [];
+        for (let offset = 0; offset < days; offset += 1) {
+          const day = new Date(start.getTime() + offset * 86400000).toISOString().slice(0, 10);
+          keys.push(...await listR2Keys(`capture/${day}/`));
+        }
+        allEnvelopes = await Promise.all(keys.map(readR2Envelope));
+      } else {
+        allEnvelopes = await Promise.all((await listR2Keys(`capture/${date}/`)).map(readR2Envelope));
       }
-      allEnvelopes = await Promise.all(keys.map(readR2Envelope));
-    } else {
-      allEnvelopes = await Promise.all((await listR2Keys(`capture/${date}/`)).map(readR2Envelope));
     }
     digestRows = digestSessions(allEnvelopes);
     projectTimelines = metrics.projectTimelines ?? [];

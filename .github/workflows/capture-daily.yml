@@ -2,7 +2,11 @@ name: capture-daily
 
 on:
   schedule:
-    - cron: '0 2 * * *' # daily digest + analyzer candidate, 10:00 Asia/Singapore
+    # Hourly incremental pull: each run reads only ~1-1.5h of captures (~30-60
+    # envelopes), so no single 5-minute window can ever approach the Cloudflare
+    # REST limit (1200 req / 5 min). Small and frequent beats one big burst.
+    - cron: '7 * * * *'
+    - cron: '0 2 * * *' # daily full-day scorecard, 10:00 Asia/Singapore
     - cron: '0 3 * * 1' # weekly review, 11:00 Asia/Singapore (previous 7 days)
   workflow_dispatch:
     inputs:
@@ -37,7 +41,7 @@ permissions:
 
 jobs:
   digest:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 2 * * *' || github.event.schedule == '0 3 * * 1'
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '7 * * * *' || github.event.schedule == '0 2 * * *' || github.event.schedule == '0 3 * * 1'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,17 +50,41 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Digest R2 captures
-        id: digest
+      # Incremental pull: restore the local store, fetch ONLY objects we have
+      # never seen, then hand the store to digest/analyzer. Hourly runs fetch a
+      # handful of new envelopes instead of re-reading the whole day.
+      - name: Restore capture store
+        uses: actions/cache/restore@v4
+        with:
+          path: work/capture-store
+          key: capture-store-${{ github.run_id }}
+          restore-keys: |
+            capture-store-
+      - name: Sync captures (incremental)
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_AUTH_EMAIL: ${{ secrets.R2_AUTH_EMAIL }}
           R2_AUTH_KEY: ${{ secrets.R2_AUTH_KEY }}
         run: |
+          RETAIN="${{ github.event.inputs.last_minutes }}"
+          # Retention window for the local store (how far back analysis may go).
+          if [ -z "$RETAIN" ] || [ "$RETAIN" = "0" ]; then RETAIN=1440; fi
+          if [ "${{ github.event.schedule }}" = "7 * * * *" ]; then RETAIN=1440; fi
+          node scripts/sync-captures.mjs --dir work/capture-store --retain-minutes "$RETAIN" --json
+      - name: Save capture store
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: work/capture-store
+          key: capture-store-${{ github.run_id }}
+      - name: Digest R2 captures
+        id: digest
+        run: |
+          # No R2 reads here: the incremental sync already produced the store.
           DAY="$(date -u +%F)"
           echo "day=$DAY" >> "$GITHUB_OUTPUT"
-          node scripts/capture-digest.mjs --date "$DAY" --out work/digest
+          node scripts/capture-digest.mjs --bundle work/capture-store/envelopes.ndjson --out work/digest --bundle-out work/digest/envelopes.ndjson
       - name: Analyze clusters with the free model (advisory only)
         continue-on-error: true
         env:
@@ -68,10 +96,12 @@ jobs:
           ANALYZER_MODEL: ${{ secrets.ANALYZER_MODEL }}
           ANALYZER_API_KEY: ${{ secrets.ANALYZER_API_KEY }}
         run: |
-          ARGS=(--out work/analyzer)
+          ARGS=(--out work/analyzer --bundle work/digest/envelopes.ndjson)
           LAST_MIN="${{ github.event.inputs.last_minutes }}"
           PLAT="${{ github.event.inputs.platform }}"
           CMT="${{ github.event.inputs.commit }}"
+          # Match the digest window on the hourly incremental run.
+          if [ "${{ github.event.schedule }}" = "7 * * * *" ]; then LAST_MIN=90; fi
           if [ -n "$LAST_MIN" ] && [ "$LAST_MIN" != "0" ]; then
             ARGS+=(--last-minutes "$LAST_MIN")
           else

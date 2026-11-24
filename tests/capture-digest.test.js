@@ -1,10 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   aggregateEnvelopes, classifyError, renderScorecard, isTruncated,
   protocolVersionOf, executorOf, serversOf, evalModeOf, fourDimensionKeyOf,
-  listR2Keys, readR2Envelope,
+  listR2Keys, readR2Envelope, encodeEnvelopeBundle, writeEnvelopeBundle, readEnvelopeBundle,
 } from '../scripts/capture-digest.mjs';
+import { planSync, syncCaptures } from '../scripts/sync-captures.mjs';
 
 const envelope = (status, durationMs, raw = '{}', extra = {}) => ({
   ...(extra.requestId ? { requestId: extra.requestId } : {}),
@@ -488,4 +492,93 @@ test('eval-closure: cold-start upstream_connect events become serviceSnapshots',
   assert.equal(metrics.serviceSnapshots.byServer.notion.needsReauth, true);
   assert.deepEqual(metrics.serviceSnapshots.onlineServers, ['github']);
   assert.deepEqual(metrics.serviceSnapshots.currentOfflineServers, ['notion']);
+});
+
+// ── Single-read bundle: digest writes it, analyzer reuses it ─────────────────
+
+test('envelope bundle: NDJSON round-trips and tolerates blank lines', async () => {
+  const store = {};
+  const envelopes = [{ requestId: 'a', ts: '2026-11-24T19:00:00.000Z' }, { requestId: 'b' }];
+  const text = encodeEnvelopeBundle(envelopes);
+  assert.equal(text.trim().split('\n').length, 2);
+  assert.equal(text.endsWith('\n'), true);
+  // Round-trip through the exported writer/reader using a temp file.
+  const dir = mkdtempSync(join(tmpdir(), 'bundle-'));
+  try {
+    const file = join(dir, 'envelopes.ndjson');
+    const written = await writeEnvelopeBundle(file, envelopes);
+    assert.equal(written, 2);
+    assert.deepEqual(await readEnvelopeBundle(file), envelopes);
+    writeFileSync(join(dir, 'blanks.ndjson'), '\n{"requestId":"c"}\n\n', 'utf8');
+    assert.deepEqual(await readEnvelopeBundle(join(dir, 'blanks.ndjson')), [{ requestId: 'c' }]);
+    assert.equal(encodeEnvelopeBundle([]), '');
+    store.ok = true;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  assert.equal(store.ok, true);
+});
+
+// ── Incremental sync: only new keys are fetched, budget is enforced ─────────
+
+test('sync: planSync fetches only unseen keys and prunes vanished ones', () => {
+  const plan = planSync({
+    seen: ['k1', 'k2', 'gone'],
+    present: ['k1', 'k2', 'k3', 'k4'],
+    maxFetch: 10,
+  });
+  assert.deepEqual(plan.newKeys, ['k3', 'k4']);
+  assert.deepEqual(plan.seen.sort(), ['k1', 'k2', 'k3', 'k4']);
+});
+
+test('sync: exceeding the fetch budget fails loudly instead of bursting R2', () => {
+  assert.throws(
+    () => planSync({ seen: [], present: ['a', 'b', 'c'], maxFetch: 2 }),
+    /SYNC_FETCH_BUDGET_EXCEEDED/,
+  );
+});
+
+test('sync: incremental runs fetch nothing when the manifest is up to date', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'capture-sync-'));
+  try {
+    const envelopes = [
+      { requestId: 'r1', ts: '2026-11-24T19:00:00.000Z' },
+      { requestId: 'r2', ts: '2026-11-24T19:10:00.000Z' },
+    ];
+    const present = ['capture/2026-11-24/r1.json.gz', 'capture/2026-11-24/r2.json.gz'];
+    const first = await syncCaptures({
+      dir,
+      now: new Date('2026-11-24T19:15:00.000Z'),
+      retainMinutes: 1440,
+      listKeys: async () => present,
+      readEnvelope: async (key) => envelopes[present.indexOf(key)],
+    });
+    assert.equal(first.newKeys, 2);
+    assert.equal(first.fetchedEnvelopes, 2);
+    assert.equal(first.storedEnvelopes, 2);
+
+    let reads = 0;
+    const second = await syncCaptures({
+      dir,
+      now: new Date('2026-11-24T19:45:00.000Z'),
+      retainMinutes: 1440,
+      listKeys: async () => present,
+      readEnvelope: async () => { reads += 1; return null; },
+    });
+    assert.equal(second.newKeys, 0, 'second run must fetch nothing new');
+    assert.equal(reads, 0, 'no envelope GET on an up-to-date store');
+    assert.equal(second.storedEnvelopes, 2, 'store is reused, not dropped');
+
+    const third = await syncCaptures({
+      dir,
+      now: new Date('2026-11-24T20:00:00.000Z'),
+      retainMinutes: 1440,
+      listKeys: async () => [...present, 'capture/2026-11-24/r3.json.gz'],
+      readEnvelope: async () => ({ requestId: 'r3', ts: '2026-11-24T19:50:00.000Z' }),
+    });
+    assert.equal(third.newKeys, 1);
+    assert.equal(third.storedEnvelopes, 3);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
