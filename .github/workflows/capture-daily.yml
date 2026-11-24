@@ -114,6 +114,20 @@ jobs:
             ARGS+=(--commit "$CMT")
           fi
           node scripts/analyze-captures.mjs "${ARGS[@]}"
+      - name: Distill R2 candidates (local JSON only, 0 R2 GET)
+        run: |
+          # Pure local computation over this run's artifacts: no R2, no network.
+          # The output is uploaded as an artifact for human review; it is NEVER
+          # pushed to main automatically (stage-4 promote gate is manual).
+          IN="$(ls work/analyzer/analyzer-input-*.json 2>/dev/null | tail -n 1 || true)"
+          OUT="$(ls work/analyzer/analyzer-output-*.json 2>/dev/null | tail -n 1 || true)"
+          if [ -z "$IN" ]; then
+            echo "::warning::no analyzer-input produced; skipping distillation"
+            exit 0
+          fi
+          ARGS=(--analyzer-input "$IN" --candidates docs/eval/suites/candidates.json --out work/candidates-updated.json --json)
+          if [ -n "$OUT" ]; then ARGS+=(--analyzer-output "$OUT"); fi
+          node scripts/distill-r2-candidates.mjs "${ARGS[@]}"
       - name: Reject EMPTY_WINDOW (manual runs fail, scheduled runs warn)
         if: always()
         env:
@@ -155,6 +169,7 @@ jobs:
           path: |
             work/digest
             work/analyzer
+            work/candidates-updated.json
           retention-days: 14
 
   weekly-review:
