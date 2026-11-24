@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   buildAnalyzerInput, validateAnalyzerOutput, dailyTrend, renderWeeklyReview, isoWeek, filterEnvelopes,
-  parseCliFilters,
+  parseCliFilters, buildEmptyWindowAnalyzerOutput,
 } from '../scripts/analyze-captures.mjs';
 import { aggregateEnvelopes } from '../scripts/capture-digest.mjs';
 
@@ -377,4 +377,31 @@ test('eval-closure: analyzer input carries connect/service state and EMPTY_WINDO
   assert.equal(empty.connectFailures.failures, 0);
   assert.ok(Array.isArray(empty.serviceState.offlineServers));
   assert.equal(validateAnalyzerOutput({ issues: [] }, empty).dataStatus, 'EMPTY_WINDOW');
+});
+
+
+test('G3/G4: analyzer input has a full unsampled requestIndex and empty-window output is deterministic', () => {
+  const env = {
+    requestId: 'req-index-1',
+    ts: '2026-11-24T06:12:00.000Z',
+    clientPlatform: 'gemini',
+    clientProfile: 'gemini-text-json',
+    deployment: { commit: '3dd206f' },
+    request: { method: 'POST', url: '/mcp', raw: JSON.stringify({ jsonrpc: '2.0', method: 'tools/list' }) },
+    response: { status: 200, raw: '{"result":[]}', bytes: 12, durationMs: 5 },
+    events: [],
+  };
+  const input = buildAnalyzerInput([env], { date: '2026-11-24' });
+  assert.equal(input.requestIndex.length, 1);
+  assert.equal(input.requestIndex[0].id, 'req-index-1');
+  assert.equal(input.requestIndex[0].clientPlatform, 'gemini');
+  assert.equal(input.requestIndex[0].buildCommit, '3dd206f');
+  assert.equal(input.requestIndex[0].method, 'tools/list');
+
+  const empty = buildAnalyzerInput([], { date: '2026-11-24' });
+  const out = buildEmptyWindowAnalyzerOutput(empty);
+  assert.equal(out.dataStatus, 'EMPTY_WINDOW');
+  assert.equal(out.advisoryOnly, true);
+  assert.deepEqual(out.issues, []);
+  assert.match(out.summary, /NOT_ENOUGH/);
 });

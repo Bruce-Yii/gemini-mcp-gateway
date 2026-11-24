@@ -12,7 +12,7 @@
 真实窗口结束后，按 `AGENTS.md` §3.1 第 1 步把**原文**与锚点写成 JSON，再校验落盘：
 
 ```bash
-node scripts/record-active-eval.mjs --input work/active.json \
+node scripts/record-active-eval.mjs --input work/active.json --raw work/active-2026-11-24.txt \
   --out docs/eval/active-eval-2026-11-24.json
 # 确定性测试/固定时间：
 node scripts/record-active-eval.mjs --input work/active.json --now 2026-11-24T06:20:00.000Z --json
@@ -27,12 +27,12 @@ node scripts/record-active-eval.mjs --input work/active.json --now 2026-11-24T06
 | `window.from/to` | ISO-8601；`to >= from` |
 | `anchors.startAction/endAction` | 必填；不知道就写 `unknown`（对应 #20 动作范围锚点） |
 | `prompt` | 原文，非空 |
-| `observed.requestIds[]` | UUID 或 `unknown`；**不编造** |
+| `observed.requestIds[]` | UUID 或 `unknown`；**不编造**；建议用 `--capture-index` 验证 id 真在 capture 中 |
 | `observed.services[]` | 可选：`{name, status, needsReauth}`，用于和被动 `serviceState` 对照 |
 | `observed.connectFailures[]` | 可选：连不上的上游名，用于和被动 `connectFailures` 对照 |
 
-`activeEvalId` 由规范化内容哈希派生（`ae_<window日期>_<8位hash>`），同输入同 id，不随机。
-落盘 JSON 是后续 compare/回归/STATUS 的唯一主动侧锚点。
+`activeEvalId` 由规范化内容哈希派生（`ae_<window日期>_<8位hash>`），同输入同 id，不随机；哈希包含 observed，两次不同观测不会撞 id。
+`--raw` 的逐字文本会写到 `<out>.raw.txt` 并记录 `source.rawTextSha256/rawBytes`；缺原文直接退出 2，防止“摘要当原文”。
 
 ## 2. 同窗被动（R2 / 免费模型）
 
@@ -56,7 +56,7 @@ gh run download <run-id> -n capture-digest -D work/run-<run-id>
 - `input.connectFailures`：`upstream_connect{ok:false}` 的确定性聚合；
 - `input.serviceState`：`codemode.services()` 的 offline/stale/needsReauth 快照。
 
-`EMPTY_WINDOW` **不是通过**，是“过滤窗口内没有数据”，必须写 `NOT_ENOUGH`。
+`EMPTY_WINDOW` **不是通过**，是“过滤窗口内没有数据”，必须写 `NOT_ENOUGH`。workflow 对 `workflow_dispatch` 的空窗口直接失败，scheduled 只告警；analyzer 遇到空窗口不调用模型。
 
 ## 3. 主动 ↔ 被动对照
 
@@ -71,12 +71,12 @@ node scripts/compare-active-passive.mjs \
 
 | match | 条件 |
 |---|---|
-| `exact` | 主动 `requestId` 在被动窗口里命中（且 build/platform 不冲突） |
-| `likely` | 时间窗 + 平台 + build 对齐，但无显式 requestId 命中 |
+| `exact` | 主动 `requestId` 在被动窗口里命中，**且该 id 的时间戳在 active window 内**、build/platform 不冲突；`window` 不匹配时绝不 exact |
+| `likely` | 时间窗 + 平台 + build 对齐，但无“在窗内时间戳已验证”的 requestId |
 | `weak` | 只有时间窗 + 平台对齐 |
 | `unmatched` | 空窗口 / build 不匹配 / 无重叠 |
 
-输出同时包含：
+compare 默认把 `unmatched` / `EMPTY_WINDOW` 视为非零退出；只有显式 `--allow-unmatched` 才允许绿色。\n\n输入除 analyzer artifact 外，可用 `--request-index <analyzer-input.json>` 提供**全量** requestId 索引（不受 15/5 采样上限影响）。\n\n输出同时包含：
 
 - `checks`（build/platform/window/requestIds）；
 - `coverage[]`：`observed.services` 和 `observed.connectFailures` 是否在被动
@@ -87,7 +87,8 @@ node scripts/compare-active-passive.mjs \
 ## 4. Badcase 与反哺
 
 1. `missed` 或用户观察到的真问题 → 按 `客户端 × 上游 × 类别` 写进 BADCASES，
-   带 `activeEvalId`/requestId/build 与回归任务；
+   带 `activeEvalId`/requestId/build 与回归任务；提交前跑
+   `node scripts/check-badcases.mjs --strict`（旧条目 `—` 只告警，新条目必须填）；
 2. 被动不可见的项 → 补采集字段或 analyzer 提示词（例如 `services`/`connectFailures`
    已在本批补入 digest/analyzer input），加确定性测试；
 3. **同窗重跑** compare：修复前 `missed=N` → 修复后 `missed=0` 才算反哺生效；
@@ -113,3 +114,5 @@ node scripts/check-status-drift.mjs --expected <deployed-commit>
 - `active-eval.v1` 只记录“人看到什么 + 原文”，不把模型/分析器输出写成事实。
 - `EMPTY_WINDOW`、`unknown`、`unmatched` 都是合法结果，**不是 pass**。
 - 不跨构建硬比；不同构建的 `build` check 必须是 `mismatch`，只记录原因。
+
+

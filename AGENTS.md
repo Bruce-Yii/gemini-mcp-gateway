@@ -18,7 +18,7 @@
 - **push 自动 production 部署仍关闭**（`git.deploymentEnabled.main=false`，`05f607c` 起已多次复核）；branch push 仍生成 preview。
 - 独立审查见 `docs/OPEN-SOURCE/INDEPENDENT-REVIEW-2026-11-24.md`。
 - **工作区全量测试以最近一次 lead 跑出的结果为准**；不要用其他 agent 的中间态。
-  当前基线：`1518 tests / 1512 pass / 0 fail / 6 todo`（2026-11-24 feedback 修复后，lead 实跑；Node20 为 1511 pass，1 个 TS 用例按能力 skip）。
+  当前基线：`1555 tests / 1549 pass / 0 fail / 6 todo`（2026-11-24 评测闭环工具层修复后，lead 实跑；Node20/22/24 CI 全绿）。
 - **不找用户反复要授权**：授权只有在 `docs/AUTH-READY.md` 全绿后才发起；
   当前明确 **NOT READY**。
 - **OSS 未公开**：只有 `work/oss-release-staging` / `work/oss-release-repo`
@@ -115,7 +115,7 @@ online-feedback.v1 记录
 1. **原文落盘 + 生成 active-eval**：
    - 把原文（不转述、不删减）、`buildCommit`、动作范围锚点、expected/observed 写进
      `work/active-<date>.json`（字段见 [docs/eval/EVAL-CLOSURE.md](docs/eval/EVAL-CLOSURE.md) §1）；
-   - `node scripts/record-active-eval.mjs --input work/active-<date>.json --out docs/eval/active-eval-<date>.json`；
+   - `node scripts/record-active-eval.mjs --input work/active-<date>.json --raw work/active-<date>.txt --out docs/eval/active-eval-<date>.json`；`--raw` 是逐字原文，缺它直接失败（不存摘要）；
    - 校验失败（退出码 2）先补字段，**不得跳过**；`requestId` 没有就写 `unknown`，不编造。
 2. **拉同窗口被动**：
    - 本地有 R2：`node scripts/analyze-captures.mjs --last-minutes 60 --commit <build> [--platform <p>] --dry-run --out work/analyzer`；
@@ -126,7 +126,8 @@ online-feedback.v1 记录
    - 结果必须含 `match`（exact/likely/weak/unmatched）、`missed[]`、`dataStatus`；
    - `EMPTY_WINDOW` 表示“没有数据”，不是通过；`unmatched` 要写原因，不硬配。
 4. **登记与分类**：新真问题按 `客户端 × 上游 × 类别` 写进 [docs/eval/BADCASES.md](docs/eval/BADCASES.md)，
-   带 `activeEvalId`/`requestId`/`buildCommit`/回归任务；`missed` 项必须落到“补采集字段/补提示词/补确定性测试”之一。
+   带 `activeEvalId`/`requestId`/`buildCommit`/回归任务；`node scripts/check-badcases.mjs --strict`
+   要求新条目两个字段非空；`missed` 项必须落到“补采集字段/补提示词/补确定性测试”之一。
 5. **反哺 + 重跑**：改完后用同一条 active 记录重跑第 2/3 步；`missed` 清零才算反哺生效；
    否则写 `NOT_ENOUGH` + 原因，不更新 baseline/不宣称修复。
 
@@ -246,3 +247,5 @@ online-feedback.v1 记录
 8. `docs/ACCEPTANCE.md`（V0 真实验收门；测试绿 ≠ 验收）
 9. `docs/DEPLOY-POLICY.md`（少部署/批量部署）
 10. `docs/DEPLOYMENTS.md`（部署日志）
+
+

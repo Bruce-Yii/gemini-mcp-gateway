@@ -296,5 +296,10 @@ test('eval-closure: digest aggregates upstream_connect failures and services() s
   assert.match(md, /## Upstream connect failures \(eval closure\)/);
   assert.match(md, /## Service state snapshots \(codemode\.services\(\)\)/);
   assert.match(md, /\| notion \| 1 \| auth:1 \| `req-connect-auth` \|/);
-  assert.match(md, /\| notion \| 1 \| 0 \| offline:1 \| yes \| `req-services` \|/);
+  assert.match(md, /\| notion \| 1 \| 0 \| offline:1 \| offline\/needsReauth \| `req-services` \|/);
+  assert.match(md, /## Gateway helper calls \(eval closure\)/);
+  assert.equal(metrics.serviceState.byServer.notion.latest.status, 'offline');
+  assert.equal(metrics.serviceState.currentOfflineServers.includes('notion'), true);
+  assert.ok((metrics.helperStats ?? []).some((row) => row.helper === 'services' && row.calls === 1));
 });
+

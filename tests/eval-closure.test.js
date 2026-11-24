@@ -64,6 +64,13 @@ function passiveInput(overrides = {}) {
       servers: ['github'],
       tool: 'execute_read',
     }],
+    requestIndex: [{
+      id: REQ_ID,
+      ts: '2026-11-24T06:12:00.000Z',
+      clientPlatform: 'gemini',
+      buildCommit: '3dd206f',
+      tool: 'execute_read',
+    }],
     dimensions: {
       byClientPlatform: [{ platform: 'gemini', requestIdSamples: [REQ_ID] }],
       byFourDimension: [{ clientPlatform: 'gemini', requestIdSamples: [REQ_ID] }],
@@ -86,14 +93,14 @@ function passiveInput(overrides = {}) {
 test('active-eval: valid record builds a stable id and validates', () => {
   const errors = validateActiveEval(activeRecord());
   assert.deepEqual(errors, []);
-  const built = buildActiveEval(activeRecord(), { now: '2026-11-24T06:21:00.000Z' });
+  const built = buildActiveEval(activeRecord(), { now: '2026-11-24T06:21:00.000Z', rawText: '原始主动评测原文（逐字保存）' });
   assert.equal(built.schema, ACTIVE_EVAL_SCHEMA);
   assert.match(built.activeEvalId, /^ae_20261124_[0-9a-f]{8}$/);
   assert.equal(built.recordedAt, '2026-11-24T06:21:00.000Z');
   assert.equal(built.observed.requestIds[0], REQ_ID);
   assert.equal(built.observed.services[1].name, 'notion');
   // Deterministic: same input + same now → byte-identical.
-  assert.deepEqual(built, buildActiveEval(activeRecord(), { now: '2026-11-24T06:21:00.000Z' }));
+  assert.deepEqual(built, buildActiveEval(activeRecord(), { now: '2026-11-24T06:21:00.000Z', rawText: '原始主动评测原文（逐字保存）' }));
 });
 
 test('active-eval: invalid platform/window/requestId are rejected, never fabricated', () => {
@@ -103,18 +110,25 @@ test('active-eval: invalid platform/window/requestId are rejected, never fabrica
   assert.ok(validateActiveEval(activeRecord({ buildCommit: 'xyz' })).some((e) => /buildCommit/.test(e)));
   assert.ok(validateActiveEval(activeRecord({ anchors: { startAction: '', endAction: '' } })).some((e) => /startAction/.test(e)));
   assert.throws(
-    () => buildActiveEval(activeRecord({ observed: { requestIds: ['not-a-uuid'] } })),
+    () => buildActiveEval(activeRecord({ observed: { requestIds: ['not-a-uuid'] } }), { rawText: 'x' }),
     /neither a UUID nor "unknown"/,
+  );
+  // G6: verbatim source text is mandatory; a summary alone is not evidence.
+  assert.throws(() => buildActiveEval(activeRecord()), /verbatim source text/);
+  assert.throws(
+    () => buildActiveEval(activeRecord({ source: { rawTextSha256: '0'.repeat(64) } }), { rawText: 'different' }),
+    /does not match/,
   );
 });
 
 // ── active ↔ passive comparison ────────────────────────────────────────────
 
 test('compare: exact requestId match + services/connect coverage', () => {
-  const active = buildActiveEval(activeRecord(), { now: '2026-11-24T06:21:00.000Z' });
+  const active = buildActiveEval(activeRecord(), { now: '2026-11-24T06:21:00.000Z', rawText: '原始主动评测原文（逐字保存）' });
   const result = compareActivePassive(active, passiveInput());
   assert.equal(result.match, 'exact');
   assert.deepEqual(result.requestIds.matched, [REQ_ID]);
+  assert.deepEqual(result.requestIds.verified, [REQ_ID], 'exact requires an in-window timestamp');
   assert.equal(result.checks.build, 'match');
   assert.equal(result.checks.platform, 'match');
   assert.equal(result.checks.window, 'match');
@@ -123,7 +137,7 @@ test('compare: exact requestId match + services/connect coverage', () => {
 });
 
 test('compare: EMPTY_WINDOW is unmatched, never a pass', () => {
-  const active = buildActiveEval(activeRecord(), { now: '2026-11-24T06:21:00.000Z' });
+  const active = buildActiveEval(activeRecord(), { now: '2026-11-24T06:21:00.000Z', rawText: '原始主动评测原文（逐字保存）' });
   const result = compareActivePassive(active, { dataStatus: 'EMPTY_WINDOW', metrics: { requests: 0 } });
   assert.equal(result.match, 'unmatched');
   assert.equal(result.passive.dataStatus, 'EMPTY_WINDOW');
@@ -133,7 +147,7 @@ test('compare: EMPTY_WINDOW is unmatched, never a pass', () => {
 });
 
 test('compare: build mismatch is reported and prevents a hard comparison', () => {
-  const active = buildActiveEval(activeRecord({ buildCommit: '3dd206f' }), { now: '2026-11-24T06:21:00.000Z' });
+  const active = buildActiveEval(activeRecord({ buildCommit: '3dd206f' }), { now: '2026-11-24T06:21:00.000Z', rawText: '原始主动评测原文（逐字保存）' });
   const passive = passiveInput();
   passive.filters.commit = '9ab0e57';
   passive.samples[0].buildCommit = '9ab0e57';
@@ -144,7 +158,7 @@ test('compare: build mismatch is reported and prevents a hard comparison', () =>
 });
 
 test('compare: service visible but status differs → missed with a reason', () => {
-  const active = buildActiveEval(activeRecord(), { now: '2026-11-24T06:21:00.000Z' });
+  const active = buildActiveEval(activeRecord(), { now: '2026-11-24T06:21:00.000Z', rawText: '原始主动评测原文（逐字保存）' });
   const passive = passiveInput();
   passive.serviceState.byServer.notion = { snapshots: 1, toolCount: 0, statuses: { observed: 1 }, needsReauth: false };
   passive.serviceState.offlineServers = [];
@@ -189,4 +203,115 @@ test('status-drift: aligned documents pass; missing expectation fails', () => {
   const missing = checkStatusDrift({ deploymentLog: 'no table here', documents: [{ path: 'AGENTS.md', text: 'x' }] });
   assert.equal(missing.ok, false);
   assert.ok(missing.violations.some((row) => row.kind === 'missing-expectation'));
+});
+
+
+// ── G2/G3/G8 regressions ───────────────────────────────────────────────────
+
+test('G2: a requestId outside the active window is NOT exact', () => {
+  const active = buildActiveEval(activeRecord({
+    window: { from: '2026-11-24T05:00:00.000Z', to: '2026-11-24T05:10:00.000Z' },
+  }), { now: '2026-11-24T05:11:00.000Z', rawText: 'raw' });
+  const passive = passiveInput();
+  const result = compareActivePassive(active, passive);
+  assert.notEqual(result.match, 'exact');
+  assert.equal(result.checks.window, 'mismatch');
+  assert.equal(result.requestIds.status, 'matched-ts-unverified');
+  assert.ok(result.reasons.some((reason) => /NOT exact/.test(reason)));
+});
+
+test('G3: the full requestIndex proves membership even when samples are capped', () => {
+  const active = buildActiveEval(activeRecord(), { now: '2026-11-24T06:21:00.000Z', rawText: 'raw' });
+  const passive = passiveInput();
+  // Simulate a large window where only ONE sample survived the cap; the
+  // full requestIndex still carries the active requestId.
+  const farId = '11111111-2222-4333-8444-555555555555';
+  passive.samples = [{ id: farId, ts: '2026-11-24T06:30:00.000Z', clientPlatform: 'gemini', buildCommit: '3dd206f' }];
+  passive.requestIndex = [{ id: REQ_ID, ts: '2026-11-24T06:12:00.000Z', clientPlatform: 'gemini', buildCommit: '3dd206f' }];
+  passive.metrics.requests = 200;
+  const result = compareActivePassive(active, passive);
+  assert.equal(result.requestIds.status, 'exact');
+  assert.equal(result.match, 'exact');
+  assert.deepEqual(result.requestIds.verified, [REQ_ID]);
+});
+
+test('G8: service coverage uses latest state, not a sticky historical count', () => {
+  const active = buildActiveEval(activeRecord({
+    observed: {
+      requestIds: [REQ_ID],
+      services: [{ name: 'notion', status: 'offline', needsReauth: true }],
+      connectFailures: [],
+    },
+  }), { now: '2026-11-24T06:21:00.000Z', rawText: 'raw' });
+  // Historical counts say offline once, but the LATEST snapshot is observed/online.
+  const passive = passiveInput();
+  passive.serviceState.byServer.notion = {
+    snapshots: 2,
+    toolCount: 0,
+    statuses: { offline: 1, observed: 1 },
+    needsReauth: true,
+    latest: { status: 'observed', needsReauth: false, at: '2026-11-24T06:19:00.000Z' },
+  };
+  const result = compareActivePassive(active, passive);
+  const notion = result.coverage.find((row) => row.kind === 'service' && row.subject === 'notion');
+  assert.equal(notion.covered, false, 'latest says online → the expected offline is not covered');
+  assert.match(String(notion.passiveStatus), /^latest:observed/);
+});
+
+// ── G5: drift must cover ACCEPTANCE / EVALUATION / baseline / healthz ──────
+
+test('G5: ACCEPTANCE / STATUS-matrix / EVALUATION / baseline / healthz drift', () => {
+  const deploymentLog = `
+| 2026-11-24 13:43 | \`3dd206f\` | CLI | deploy | READY | healthz |
+`;
+  const result = checkStatusDrift({
+    deploymentLog,
+    documents: [
+      { path: 'docs/ACCEPTANCE.md', text: '**当前：PASS（2026-11-24 手动部署 `d1f36ba`）**' },
+      { path: 'docs/STATUS.md', text: '| 生产态（`1481408`） | ... |' },
+      { path: 'docs/EVALUATION.md', text: '3. **部署未做**：Vercel 100/day；所以 F1/F2 只能标 pending-deploy' },
+      { path: 'AGENTS.md', text: '当前基线：`1518 tests / 1512 pass`\n当前生产：`3dd206f`' },
+    ],
+    expectedTestTotal: 1547,
+    healthzCommit: 'aaaaaaaa',
+  });
+  const kinds = result.violations.map((row) => row.kind);
+  assert.ok(kinds.includes('stale-build-reference'));
+  assert.ok(kinds.includes('stale-deployment-narrative'));
+  assert.ok(kinds.includes('test-baseline-drift'));
+  assert.ok(kinds.includes('healthz-build-mismatch'));
+  assert.equal(result.ok, false);
+});
+
+test('G5: an aligned set (no stale phrases, matching baseline/healthz) passes', () => {
+  const result = checkStatusDrift({
+    deploymentLog: '| 2026-11-24 13:43 | `3dd206f` | CLI | deploy | READY | x |',
+    documents: [
+      { path: 'docs/ACCEPTANCE.md', text: '**当前：PASS（2026-11-24 手动部署 `3dd206f`）**' },
+      { path: 'docs/STATUS.md', text: '| 生产部署（Vercel） | **`3dd206f`** | x |' },
+      { path: 'AGENTS.md', text: '当前基线：`1547 tests / 1541 pass`\n当前生产：`3dd206f`' },
+    ],
+    expectedTestTotal: 1547,
+    healthzCommit: '3dd206f9',
+  });
+  assert.equal(result.ok, true, JSON.stringify(result.violations));
+});
+
+// ── BADCASES linkage (4th ring) ────────────────────────────────────────────
+
+import { validateBadcases } from '../scripts/check-badcases.mjs';
+
+test('BADCASES: schema requires activeEvalId/regression columns; --strict rejects legacy dashes', () => {
+  const header = '| ID | 客户端 | 上游 | 类别 | 现象摘要 | 来源原文 | 发现构建 | 跨客户端验证结果 | 状态 | 关联 activeEvalId | 回归测试/任务 |';
+  const separator = '|---|---|---|---|---|---|---|---|---|---|---|';
+  const linked = '| **BC-999** | `gemini` | `github` | 正文 | x | y | `3dd206f` | `未验证` | 待复验 | ae_20261124_abcdef12 | tests/x.test.js |';
+  const legacy = '| **BC-998** | `gemini` | `github` | 正文 | x | y | `3dd206f` | `未验证` | 待复验 | — | — |';
+  const ok = validateBadcases([header, separator, linked].join('\n'));
+  assert.equal(ok.ok, true, JSON.stringify(ok.errors));
+  const warn = validateBadcases([header, separator, linked, legacy].join('\n'));
+  assert.equal(warn.ok, true);
+  assert.equal(warn.warnings.length, 2, 'legacy dashes are warnings by default');
+  const strict = validateBadcases([header, separator, linked, legacy].join('\n'), { strict: true });
+  assert.equal(strict.ok, false);
+  assert.ok(strict.errors.some((error) => /missing 关联 activeEvalId/.test(error)));
 });

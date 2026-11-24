@@ -32,14 +32,26 @@ const arr = (value) => (Array.isArray(value) ? value : []);
 export function normalizePassive(passive) {
   const input = passive?.input ?? passive ?? {};
   const samples = arr(input.samples);
+  const requestIndex = arr(input.requestIndex);
   const dimensions = input.dimensions ?? {};
   const ids = new Set();
+  const tsById = new Map();
   const idsFromRows = (rows) => {
     for (const row of arr(rows)) {
       for (const id of arr(row?.requestIdSamples)) if (str(id)) ids.add(id);
     }
   };
-  for (const sample of samples) if (str(sample?.id)) ids.add(sample.id);
+  for (const sample of samples) {
+    if (str(sample?.id)) ids.add(sample.id);
+    if (str(sample?.id) && str(sample?.ts)) tsById.set(sample.id, sample.ts);
+  }
+  // G3: the full requestIndex is the authoritative membership source; samples
+  // and per-bucket requestIdSamples are only fallbacks for older artifacts.
+  for (const item of requestIndex) {
+    if (!str(item?.id)) continue;
+    ids.add(item.id);
+    if (str(item?.ts)) tsById.set(item.id, item.ts);
+  }
   idsFromRows(dimensions.byClientPlatform);
   idsFromRows(dimensions.byFourDimension);
   idsFromRows(dimensions.byProtocolVersion);
@@ -55,7 +67,10 @@ export function normalizePassive(passive) {
   for (const sample of samples) if (str(sample?.buildCommit)) commits.add(sample.buildCommit);
   if (str(input?.filters?.commit)) commits.add(input.filters.commit);
 
-  const timestamps = samples.map((sample) => str(sample?.ts)).filter(Boolean);
+  const timestamps = [
+    ...samples.map((sample) => str(sample?.ts)),
+    ...requestIndex.map((item) => str(item?.ts)),
+  ].filter(Boolean);
   const requests = Number(input?.metrics?.requests ?? 0);
 
   return {
@@ -63,6 +78,8 @@ export function normalizePassive(passive) {
     dataStatus: str(input?.dataStatus) || (requests === 0 ? 'EMPTY_WINDOW' : 'HAS_DATA'),
     requests,
     requestIds: ids,
+    requestIndex,
+    tsById,
     platforms,
     commits,
     timestamps,
@@ -96,11 +113,22 @@ function platformCheck(activePlatform, passivePlatforms) {
   return passivePlatforms.has(platform) ? 'match' : 'mismatch';
 }
 
-function requestIdCheck(activeIds, passiveIds) {
+function requestIdCheck(activeIds, passiveIds, { window, tsById }) {
   const wanted = arr(activeIds).map(str).filter((id) => UUID_RE.test(id));
-  if (!wanted.length) return { status: 'unknown', matched: [], missing: [] };
+  if (!wanted.length) return { status: 'unknown', matched: [], missing: [], verified: [], unverified: [] };
   const matched = wanted.filter((id) => passiveIds.has(id));
-  return { status: matched.length ? 'exact' : 'none', matched, missing: wanted.filter((id) => !passiveIds.has(id)) };
+  const from = Date.parse(str(window?.from));
+  const to = Date.parse(str(window?.to));
+  const inWindow = (id) => {
+    const ts = tsById.get(id);
+    if (!ts || !Number.isFinite(from) || !Number.isFinite(to)) return false;
+    const parsed = Date.parse(ts);
+    return Number.isFinite(parsed) && parsed >= from && parsed <= to;
+  };
+  const verified = matched.filter((id) => inWindow(id));
+  const unverified = matched.filter((id) => !inWindow(id));
+  const status = matched.length === 0 ? 'none' : (verified.length ? 'exact' : 'matched-ts-unverified');
+  return { status, matched, missing: wanted.filter((id) => !passiveIds.has(id)), verified, unverified };
 }
 
 function serviceChecks(expectedServices, passive) {
@@ -110,14 +138,17 @@ function serviceChecks(expectedServices, passive) {
     if (!name) continue;
     const expected = service?.needsReauth === true || str(service?.status) === 'offline' ? 'offline' : 'online';
     const row = passive.serviceState?.byServer?.[name] ?? null;
-    const passiveOffline = Boolean(row && (row.needsReauth === true || (row.statuses?.offline ?? 0) > 0));
+    const latest = row?.latest ?? null;
+    const passiveOffline = latest
+      ? (latest.needsReauth === true || latest.status === 'offline')
+      : Boolean(row && (row.needsReauth === true || (row.statuses?.offline ?? 0) > 0));
     const covered = expected === 'offline' ? passiveOffline : Boolean(row && !passiveOffline);
     checks.push({
       kind: 'service',
       subject: name,
       expected,
       covered,
-      passiveStatus: row ? (passiveOffline ? 'offline' : 'online/observed') : 'no-snapshot',
+      passiveStatus: row ? (latest ? `latest:${latest.status ?? 'unknown'}` : (passiveOffline ? 'offline' : 'online/observed')) : 'no-snapshot',
       reason: covered ? null : (row ? 'passive-status-differs' : 'no-services-snapshot'),
     });
   }
@@ -152,7 +183,10 @@ export function compareActivePassive(active, passive) {
     platform: platformCheck(active?.platform, view.platforms),
     window: windowCheck(window, view.timestamps),
   };
-  const requestIds = requestIdCheck(active?.observed?.requestIds, view.requestIds);
+  const requestIds = requestIdCheck(active?.observed?.requestIds, view.requestIds, {
+    window,
+    tsById: view.tsById,
+  });
   checks.requestIds = requestIds.status;
 
   const serviceResults = serviceChecks(active?.observed?.services, view);
@@ -165,12 +199,12 @@ export function compareActivePassive(active, passive) {
   if (view.dataStatus === 'EMPTY_WINDOW') {
     match = 'unmatched';
     reasons.push('passive-window-is-empty (EMPTY_WINDOW is NOT a pass)');
-  } else if (requestIds.status === 'exact' && checks.build !== 'mismatch' && checks.platform !== 'mismatch') {
+  } else if (requestIds.status === 'exact' && checks.window === 'match' && checks.build !== 'mismatch' && checks.platform !== 'mismatch') {
     match = 'exact';
-    reasons.push(`matched requestIds: ${requestIds.matched.join(', ')}`);
+    reasons.push(`matched requestIds inside the active window: ${requestIds.verified.join(', ')}`);
   } else if (checks.window === 'match' && checks.platform === 'match' && checks.build !== 'mismatch') {
     match = 'likely';
-    reasons.push('window+platform+build align; no explicit requestId match in the passive artifact');
+    reasons.push('window+platform+build align; no requestId with a verified in-window timestamp');
   } else if (checks.window === 'match' && checks.platform !== 'mismatch') {
     match = 'weak';
     reasons.push('only the time window (and possibly platform) align');
@@ -179,6 +213,9 @@ export function compareActivePassive(active, passive) {
     reasons.push('no window/platform/build overlap, or passive data is missing');
   }
   for (const row of missed) reasons.push(`missed ${row.kind}:${row.subject} (${row.reason})`);
+  if (requestIds.status === 'matched-ts-unverified') {
+    reasons.push('requestId matched but its timestamp is outside the active window or unknown; NOT exact');
+  }
   if (checks.build === 'mismatch') reasons.push('buildCommit does not match the passive window (do not hard-compare across builds)');
   if (checks.platform === 'mismatch') reasons.push('clientPlatform does not match the passive window');
 
@@ -192,6 +229,8 @@ export function compareActivePassive(active, passive) {
     requestIds: {
       status: requestIds.status,
       matched: requestIds.matched,
+      verified: requestIds.verified,
+      unverified: requestIds.unverified,
       missing: requestIds.missing,
     },
     coverage,
@@ -213,7 +252,7 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   const activePath = arg('--active');
   const passivePath = arg('--passive');
   if (!activePath || !passivePath) {
-    stderr('usage: compare-active-passive.mjs --active <active-eval.json> --passive <analyzer-input|output.json> [--out <file>] [--json] [--require-match]');
+    stderr('usage: compare-active-passive.mjs --active <active-eval.json> --passive <analyzer-input|output.json> [--request-index <full-index.json>] [--out <file>] [--json] [--require-match] [--allow-unmatched]');
     return 2;
   }
   let active;
@@ -221,6 +260,13 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   try {
     active = JSON.parse(await readFile(activePath, 'utf8'));
     passive = JSON.parse(await readFile(passivePath, 'utf8'));
+    const requestIndexPath = arg('--request-index');
+    if (requestIndexPath) {
+      const extra = JSON.parse(await readFile(requestIndexPath, 'utf8'));
+      const list = Array.isArray(extra) ? extra : (Array.isArray(extra?.requestIndex) ? extra.requestIndex : arr(extra?.requests));
+      const input = passive?.input ?? passive;
+      input.requestIndex = [...arr(input.requestIndex), ...arr(list)];
+    }
   } catch (error) {
     stderr(`[compare] cannot read input: ${error.message}`);
     return 2;
@@ -234,7 +280,11 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   }
   if (argv.includes('--json')) stdout(JSON.stringify(result, null, 2));
   else stdout(`[compare] ${result.activeEvalId}: match=${result.match} missed=${result.missed.length} dataStatus=${result.passive.dataStatus}`);
-  if (argv.includes('--require-match') && result.match === 'unmatched') return 1;
+  if (argv.includes('--require-match') && result.match !== 'exact' && result.match !== 'likely') return 1;
+  // G4: empty/unmatched must not be green by default; explicit --allow-unmatched
+  // is required for deliberate "we know this window is empty" runs.
+  if (!argv.includes('--allow-unmatched')
+    && (result.match === 'unmatched' || result.passive.dataStatus === 'EMPTY_WINDOW')) return 1;
   return 0;
 }
 

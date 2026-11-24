@@ -36,6 +36,15 @@ const REF_PATTERNS = [
   { label: 'current-production', re: /当前生产[：:]\s*`([0-9a-f]{7,40})`/gi },
   { label: 'status-radar', re: /生产部署（Vercel）[^\n]*?\*\*\s*`([0-9a-f]{7,40})`[^*]*\*\*/gi },
   { label: 'healthz-verified', re: /healthz[^\n]*?commit=([0-9a-f]{7,40})/gi },
+  { label: 'acceptance-current', re: /当前：[^\n]*?`([0-9a-f]{7,40})`/gi },
+  { label: 'status-matrix', re: /生产态（\s*`([0-9a-f]{7,40})`\s*）/gi },
+  { label: 'v0b-build', re: /V0-B[^\n]*?`([0-9a-f]{7,40})`/gi },
+];
+
+/** Phrases that are only true before the first manual deployment. */
+const STALE_DEPLOY_PHRASES = [
+  { re: /部署未做/, label: 'deployment-not-done-claim' },
+  { re: /Vercel 100\/day/, label: 'vercel-quota-claim' },
 ];
 
 /** Extract claimed production commits from a markdown document. */
@@ -52,7 +61,10 @@ export function parseStatusDoc(text) {
 }
 
 /** Pure drift check. Commits compare by prefix (7+ chars), case-insensitive. */
-export function checkStatusDrift({ deploymentLog, documents = [], expectedCommit = null } = {}) {
+export function checkStatusDrift({
+  deploymentLog, documents = [], expectedCommit = null,
+  healthzCommit = null, expectedTestTotal = null,
+} = {}) {
   const parsed = parseDeploymentLog(deploymentLog);
   const expected = String(expectedCommit ?? parsed.latest ?? '').toLowerCase();
   const violations = [];
@@ -74,6 +86,31 @@ export function checkStatusDrift({ deploymentLog, documents = [], expectedCommit
         });
       }
     }
+    // These phrases were true only before the first production deployment.
+    if (document.path.endsWith('EVALUATION.md')) {
+      for (const phrase of STALE_DEPLOY_PHRASES) {
+        if (phrase.re.test(document.text)) {
+          violations.push({ kind: 'stale-deployment-narrative', file: document.path, label: phrase.label, expected });
+        }
+      }
+    }
+    if (expectedTestTotal !== null) {
+      const match = /当前基线：`?(\d+)\s*tests/i.exec(document.text);
+      if (match && Number(match[1]) !== Number(expectedTestTotal)) {
+        violations.push({
+          kind: 'test-baseline-drift',
+          file: document.path,
+          claimed: Number(match[1]),
+          expected: Number(expectedTestTotal),
+        });
+      }
+    }
+  }
+  if (healthzCommit) {
+    const live = String(healthzCommit).toLowerCase();
+    if (expected && !(live.startsWith(expected) || expected.startsWith(live))) {
+      violations.push({ kind: 'healthz-build-mismatch', claimed: live, expected });
+    }
   }
   if (!violations.length && refs.length === 0) {
     violations.push({ kind: 'no-build-references', detail: 'documents contain no production commit references to check' });
@@ -87,9 +124,9 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   const deploymentsPath = arg('--deployments', 'docs/DEPLOYMENTS.md');
   const documentPaths = argv.includes('--documents')
     ? argv.slice(argv.indexOf('--documents') + 1).filter((item) => !item.startsWith('--'))
-    : ['AGENTS.md', 'docs/STATUS.md'];
+    : ['AGENTS.md', 'docs/STATUS.md', 'docs/ACCEPTANCE.md', 'docs/EVALUATION.md'];
   if (!documentPaths.length) {
-    stderr('usage: check-status-drift.mjs [--deployments file] [--documents file ...] [--expected commit] [--json]');
+    stderr('usage: check-status-drift.mjs [--deployments file] [--documents file ...] [--expected commit] [--healthz-commit commit|--healthz-url url] [--test-total n] [--json]');
     return 2;
   }
   let deploymentLog;
@@ -103,7 +140,27 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
     stderr(`[status-drift] cannot read files: ${error.message}`);
     return 2;
   }
-  const result = checkStatusDrift({ deploymentLog, documents, expectedCommit: arg('--expected') || null });
+  let healthzCommit = arg('--healthz-commit') || null;
+  const healthzUrl = arg('--healthz-url');
+  if (!healthzCommit && healthzUrl) {
+    try {
+      const response = await fetch(healthzUrl, { headers: { accept: 'application/json' } });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const body = await response.json();
+      healthzCommit = typeof body?.commit === 'string' ? body.commit : null;
+    } catch (error) {
+      stderr(`[status-drift] cannot fetch healthz: ${error.message}`);
+      return 2;
+    }
+  }
+  const testTotalArg = arg('--test-total');
+  const result = checkStatusDrift({
+    deploymentLog,
+    documents,
+    expectedCommit: arg('--expected') || null,
+    healthzCommit,
+    expectedTestTotal: testTotalArg ? Number(testTotalArg) : null,
+  });
   if (argv.includes('--json')) {
     stdout(JSON.stringify(result, null, 2));
   } else {

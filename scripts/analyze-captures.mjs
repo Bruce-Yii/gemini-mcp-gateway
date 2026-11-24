@@ -17,7 +17,7 @@ import {
   listR2Keys, readR2Envelope, readDirEnvelopes, aggregateEnvelopes, classifyError,
   isTruncated, isModelTruncationSuspect, upstreamOf, digestSessions, digestProjects,
   clientPlatformOf, clientProfileOf, protocolVersionOf, executorOf,
-  serversOf, evalModeOf, UNKNOWN_BUCKET,
+  buildCommitOf, serversOf, evalModeOf, UNKNOWN_BUCKET,
 } from './capture-digest.mjs';
 
 const MAX_CODE = 2000;
@@ -256,16 +256,40 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
     unknownBucket: UNKNOWN_BUCKET,
   };
 
+  // Eval closure (G3): full request index for the filtered window. Unlike
+  // `samples` (top 15) and per-bucket requestIdSamples (top 5), this is NOT
+  // sampled, so active/passive comparison can prove requestId membership
+  // without suffering false negatives from the sample cap.
+  const requestIndex = mcpOnly.map((envelope) => {
+    const request = requestJson(envelope);
+    return {
+      id: String(envelope?.requestId ?? envelope?.request?.id ?? envelope?.id ?? 'unknown'),
+      ts: envelope?.ts ?? null,
+      clientPlatform: clientPlatformOf(envelope),
+      clientProfile: clientProfileOf(envelope),
+      protocolVersion: protocolVersionOf(envelope),
+      buildCommit: buildCommitOf(envelope),
+      method: request?.method ?? null,
+      tool: request?.params?.name ?? null,
+      status: Number(envelope?.response?.status ?? 0),
+      durationMs: Number(envelope?.response?.durationMs ?? 0),
+      servers: serversOf(envelope),
+    };
+  }).sort((a, b) => String(a.ts ?? '').localeCompare(String(b.ts ?? '')) || a.id.localeCompare(b.id));
+
   return {
     schema: 'analyzer-input.v1',
     date,
     dataStatus,
     filters: filters ?? null,
+    // Full-window request index (id/ts/platform/build/tool/servers). Not sampled.
+    requestIndex,
     dimensions,
     // Eval closure: deterministic, non-model signals that make offline /
     // needsReauth / connect failures visible to the passive lane.
     connectFailures: metrics.upstreamConnect ?? { failures: 0, byServer: {} },
     serviceState: metrics.serviceState ?? { snapshots: 0, byServer: {} },
+    helperCalls: metrics.helperStats ?? [],
     sessionWindows,
     sessionWindowsNote: 'Advisory clustering: sessionId when present, otherwise initialize / 15-min idle windows. windowId is analysis-only; cite requestId samples for replay. Do not treat cluster boundaries as verified client sessions.',
     // Project-level views (additive, advisory-only).
@@ -296,6 +320,26 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
 
 const CATEGORIES = new Set(['gateway', 'upstream', 'model', 'data', 'unknown']);
 const SEVERITIES = new Set(['P0', 'P1', 'P2', 'P3']);
+
+/**
+ * G4: an empty filtered window must never reach the model and must never look
+ * like a clean analysis. Produces a deterministic, non-model output artifact.
+ */
+export function buildEmptyWindowAnalyzerOutput(input) {
+  return {
+    schema: 'analyzer-output.v1',
+    policy: 'free-model-advisory-v1',
+    advisoryOnly: true,
+    requiresHumanReview: true,
+    dataStatus: 'EMPTY_WINDOW',
+    summary: 'EMPTY_WINDOW: no MCP requests matched the filters; this is NOT_ENOUGH evidence, not a pass.',
+    issues: [],
+    ignored: [{
+      clusterId: 'empty-window',
+      reason: 'No MCP requests in the filtered window; the model was not called and no conclusion may be drawn.',
+    }],
+  };
+}
 
 export function validateAnalyzerOutput(output, input) {
   const evidenceIds = new Set([
@@ -406,7 +450,7 @@ function analyzerPrompt(input) {
     ? 'dataStatus is EMPTY_WINDOW: the filter matched zero requests. Say exactly that and return no issues; an empty window is NOT evidence that the gateway is healthy (do not report "no problems" as a pass).'
     : '';
   const serviceStateHint = (input.connectFailures?.failures > 0 || input.serviceState?.snapshots > 0)
-    ? 'connectFailures and serviceState are DETERMINISTIC capture signals: upstream_connect{ok:false} means an upstream failed to connect, and serviceState rows with status=offline / needsReauth=true mean the gateway itself reported that service as unavailable. Cite these only with their requestId samples; do not treat a cold-start snapshot as a live health check.'
+    ? 'connectFailures and serviceState are DETERMINISTIC capture signals: upstream_connect{ok:false} means an upstream failed to connect, and serviceState rows with latest.status=offline / latest.needsReauth=true mean the gateway itself reported that service as unavailable (latest is the last snapshot; statuses counts are historical). Cite these only with their requestId samples; do not treat a cold-start snapshot as a live health check.'
     : '';
   return [
     {
@@ -609,6 +653,14 @@ async function main() {
       commit ? `commit=${commit}` : null,
     ].filter(Boolean).join(', ') || 'none';
     console.log(`[analyze] dry-run: dataStatus=${input.dataStatus} ${input.clusters.length} clusters, ${input.metrics.requests} requests, ${trend?.length ?? 0} days, filters=${filterText}`);
+    return;
+  }
+  // G4: never spend a model call on an empty window, and never emit an output
+  // that could be read as "0 issues = healthy".
+  if (input.dataStatus === 'EMPTY_WINDOW') {
+    const validated = buildEmptyWindowAnalyzerOutput(input);
+    await writeFile(join(out, `analyzer-output-${label}.json`), JSON.stringify({ date: label, input, raw: null, validated }, null, 2), 'utf8');
+    console.log(`[analyze] ${label}: EMPTY_WINDOW (model not called; NOT_ENOUGH)`);
     return;
   }
   const raw = await callAnalyzer(input);

@@ -657,7 +657,8 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     fourDimensionSummary: [],
     // Eval closure (additive): structured connect failures + services() state.
     upstreamConnect: { failures: 0, byServer: {} },
-    serviceState: { snapshots: 0, byServer: {}, offlineServers: [], staleServers: [], onlineServers: [] },
+    serviceState: { snapshots: 0, byServer: {}, offlineServers: [], staleServers: [], onlineServers: [], currentOfflineServers: [] },
+    helperStats: [],
   };
   const upstreamGroups = new Map();
   const toolGroups = new Map();
@@ -667,6 +668,7 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
   // (upstream_connect / gateway_helper), never from prose or model output.
   const connectGroups = new Map();
   const serviceGroups = new Map();
+  const helperGroups = new Map();
   let serviceSnapshotCount = 0;
   // Per-platform accumulator. Every platform gets its own row so one client's
   // errors / tool calls / truncations can never inflate another's.
@@ -691,6 +693,21 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
         }
         connectGroups.set(server, row);
       }
+      if (event?.type === 'gateway_helper') {
+        const helper = typeof event.payload?.helper === 'string' && event.payload.helper
+          ? event.payload.helper : 'unknown';
+        const helperRow = helperGroups.get(helper) ?? { helper, calls: 0, last: null };
+        helperRow.calls += 1;
+        const payload = event.payload ?? {};
+        helperRow.last = helper === 'services'
+          ? { services: Array.isArray(payload.services) ? payload.services.length : 0 }
+          : helper === 'listTools'
+            ? { count: Number(payload.count ?? 0) || 0 }
+            : helper === 'remainingCalls'
+              ? { remaining: Number(payload.remaining ?? 0) || 0 }
+              : {};
+        helperGroups.set(helper, helperRow);
+      }
       if (event?.type === 'gateway_helper' && event?.payload?.helper === 'services') {
         serviceSnapshotCount += 1;
         const rows = Array.isArray(event.payload.services) ? event.payload.services : [];
@@ -698,12 +715,21 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
           const name = typeof service?.name === 'string' && service.name ? service.name : 'unknown';
           const status = typeof service?.status === 'string' && service.status ? service.status : 'unknown';
           const row = serviceGroups.get(name) ?? {
-            name, snapshots: 0, toolCount: 0, statuses: {}, needsReauth: false, sampleRequestIds: [],
+            name, snapshots: 0, toolCount: 0, statuses: {}, needsReauth: false, sampleRequestIds: [], latest: null,
           };
           row.snapshots += 1;
           row.toolCount = Number(service?.toolCount ?? 0) || 0;
           row.statuses[status] = (row.statuses[status] ?? 0) + 1;
           if (service?.needsReauth === true) row.needsReauth = true;
+          // G8: keep the latest observation separately from the historical
+          // counts; comparisons must not treat "was offline once" as "is offline".
+          row.latest = {
+            status,
+            toolCount: row.toolCount,
+            needsReauth: service?.needsReauth === true,
+            at: envelope?.ts ?? null,
+            requestId: envelopeRequestId,
+          };
           if (row.sampleRequestIds.length < 5 && !row.sampleRequestIds.includes(envelopeRequestId)) {
             row.sampleRequestIds.push(envelopeRequestId);
           }
@@ -992,6 +1018,7 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     toolCount: row.toolCount,
     statuses: Object.fromEntries(Object.entries(row.statuses).sort(([a], [b]) => a.localeCompare(b))),
     needsReauth: row.needsReauth,
+    latest: row.latest ?? null,
     sampleRequestIds: row.sampleRequestIds,
   })).sort((a, b) => a.name.localeCompare(b.name));
   result.upstreamConnect = {
@@ -1006,7 +1033,12 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     onlineServers: serviceRows
       .filter((row) => !row.needsReauth && (row.statuses.offline ?? 0) === 0 && (row.statuses.stale ?? 0) === 0)
       .map((row) => row.name).sort(),
+    currentOfflineServers: serviceRows
+      .filter((row) => row.latest && (row.latest.needsReauth === true || row.latest.status === 'offline'))
+      .map((row) => row.name).sort(),
   };
+  result.helperStats = [...helperGroups.values()]
+    .sort((a, b) => a.helper.localeCompare(b.helper));
 
   // Keep a stable, human-friendly order in JSON output.
   for (const key of ['byDay', 'byDayHour', 'byHour', 'statuses', 'errorClasses', 'routeErrors', 'upstreamStats', 'toolStats', 'byRoute', 'modelTruncationByServer', 'modelTruncationByTool', 'modelTruncationBySession', 'byClientPlatform']) {
@@ -1068,8 +1100,13 @@ export function renderScorecard(date, metrics) {
   const serviceRowsMd = Object.values(metrics.serviceState?.byServer ?? {}).map((row) => {
     const ids = (row.sampleRequestIds ?? []).map((id) => `\`${id}\``).join(', ') || '—';
     const statuses = Object.entries(row.statuses ?? {}).map(([name, count]) => `${name}:${count}`).join(', ') || '—';
-    return `| ${row.name} | ${row.snapshots} | ${row.toolCount} | ${statuses} | ${row.needsReauth ? 'yes' : 'no'} | ${ids} |`;
-  }).join('\n') || '| — | 0 | 0 | — | no | — |';
+    const latest = row.latest ? `${row.latest.status ?? 'unknown'}${row.latest.needsReauth ? '/needsReauth' : ''}` : '—';
+    return `| ${row.name} | ${row.snapshots} | ${row.toolCount} | ${statuses} | ${latest} | ${ids} |`;
+  }).join('\n') || '| — | 0 | 0 | — | — | — |';
+  const helperRowsMd = (metrics.helperStats ?? []).map((row) => {
+    const last = row.last ? JSON.stringify(row.last) : '—';
+    return `| ${row.helper} | ${row.calls} | ${last} |`;
+  }).join('\n') || '| — | 0 | — |';
   return `# Capture Scorecard — ${date}
 
 | Metric | Value |
@@ -1161,11 +1198,18 @@ ${connectRowsMd}
 
 ## Service state snapshots (codemode.services())
 > 来自 \`gateway_helper{helper:"services"}\` 的冷启动快照（name/toolCount/status/online/needsReauth）；
-> 它不是 live 健康检查，但能让被动侧看见 offline / needsReauth 状态。
+> 它不是 live 健康检查。\`latest\` 是该服务在本窗口的最后一次观察，历史 counts 只作证据。
 
-| Service | Snapshots | Tool count | Status counts | Needs reauth | RequestId samples |
+| Service | Snapshots | Tool count | Status counts | Latest | RequestId samples |
 |---|---:|---:|---|---|---|
 ${serviceRowsMd}
+
+## Gateway helper calls (eval closure)
+> 来自 \`gateway_helper\` 的全部 helper 调用（services / listTools / remainingCalls）。
+
+| Helper | Calls | Last payload |
+|---|---:|---|
+${helperRowsMd}
 
 ## Truncation / overflow
 > Three independent signals. "Model truncation suspects" is the silent case:

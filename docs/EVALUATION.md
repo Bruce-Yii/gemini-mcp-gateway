@@ -83,8 +83,8 @@ L4 人工在线反馈           用户真实窗口，发现新维度
 
 | ID | 问题 | 半在线 | 代码层 | 缺口 | 下一步 |
 |---|---|---|---|---|---|
-| F1 | content 混入 notice | weak | fixed/pending-deploy | G1+G2 | J1 + 部署后回放 |
-| F2 | PR number 失真 | weak | fixed/pending-deploy | G1+G2 | J2 + 部署后回放 |
+| F1 | content 混入 notice | weak | fixed/deployed 3dd206f，在线复验未做 | G1+G2 | J1 + 同窗在线回放 |
+| F2 | PR number 失真 | weak | fixed/deployed 3dd206f，在线复验未做 | G1+G2 | J2 + 同窗在线回放 |
 | F3 | batch wrapper 不一致 | missing | fixed code-level（`unwrapBatch`） | G3 | J3 + 部署后复验 |
 | F4 | 截断切末尾 | weak | fixed code-level（`withTruncationMetadata`） | G3 | J4 + 部署后复验 |
 | F5 | 逐文件提交 | weak | fixed code-level（atomic guidance/partial） | G3 | J5 + 部署后复验 |
@@ -94,9 +94,9 @@ L4 人工在线反馈           用户真实窗口，发现新维度
 
 | ID | 问题 | 状态 |
 |---|---|---|
-| F1 | Actions logs 415 | fixed；真实 replay 200；pending deploy |
-| F2 | normalizeFile.path null | fixed；待部署 |
-| F3 | PR id/nodeId 缺失 | fixed；待部署 |
+| F1 | Actions logs 415 | fixed；真实 replay 200；deployed 3dd206f，在线复验未做 |
+| F2 | normalizeFile.path null | fixed；deployed 3dd206f |
+| F3 | PR id/nodeId 缺失 | fixed；deployed 3dd206f |
 | F4 | 大文件 truncated | 通过 |
 | F5 | branch 别名 | 通过（控制实验） |
 
@@ -104,7 +104,7 @@ L4 人工在线反馈           用户真实窗口，发现新维度
 
 1. J1–J6 已接 L1 `--profile online-gap`（acba249），但 baseline 尚未冻结；
 2. 在线 replay harness 已完成（1bb8f8a），真实 capture 端到端仍 unknown；
-3. **部署未做**：Vercel 100/day；所以 F1/F2 只能标 `pending-deploy`；
+3. **部署已完成**：当前生产 `3dd206f`；F1/F2 已随部署生效，但同窗在线复验仍未做（不得写“验收通过”）；
 4. **真实客户端 lane**：只有离线 conformance，没有真实 Gemini/ChatGPT/Claude 连接；
 5. **canary/shadow**：未实现；
 6. **自动 intake**：未实现，当前靠人贴 + lead 记录；
@@ -165,3 +165,4 @@ L4 人工在线反馈           用户真实窗口，发现新维度
 
 > 执行层（2026-11-24 补）：`active-eval.v1` 记录、同窗对照、`EMPTY_WINDOW` 语义、状态漂移检查
 > 见 [eval/EVAL-CLOSURE.md](eval/EVAL-CLOSURE.md)；开发窗口的触发探针见 `AGENTS.md` §3.1.1。
+
