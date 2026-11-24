@@ -1,6 +1,6 @@
 # Auth owner policy — 显式归属，未标记永不 refresh
 
-> 落地日期：2026-11-24。依据：`AGENTS.md` §2 + 用户 2026-11-24 的 owner 决策。
+> 落地日期：2026-11-24；2026-11-25 同步生产实况（Linear PAT / Notion gateway OAuth）。依据：`AGENTS.md` §2 + 用户 owner 决策。
 > 本文只描述**机制与操作步骤**；是否“授权就绪”仍以 [AUTH-READY.md](AUTH-READY.md) 为准
 > （当前 **NOT READY**，不要据此向用户发起授权）。
 
@@ -14,9 +14,9 @@ DSH 导出的 rotating grant 必须显式标 `dsh`，只读、永不 refresh。
 | 上游 | 凭证类型 | owner | 是否 refresh |
 |---|---|---|---|
 | GitHub | 长期 token（Copilot MCP） | dsh（env seed，静态使用） | 否 |
-| Linear | PAT（`authMode: static_bearer`） | manual | 否（过期即轮换 token） |
-| Notion | Business/Enterprise static MCP token，或网关自己 DCR | manual 或 gateway | static 否；gateway 是（DSH grant 必须被替换） |
-| Vercel | 网关自己 OAuth + `offline_access` | gateway | 是 |
+| Linear | PAT（`authMode: static_bearer`，`/mcp/readonly`） | manual | 否（过期即轮换 token） |
+| Notion | 网关自己 OAuth/DCR（`source=gateway-dcr`） | gateway | 是（access ~8h，refresh 轮换；旧 DSH grant 必须被替换） |
+| Vercel | 网关自己 OAuth + `offline_access` | gateway | 是（BLOCKED） |
 | Figma | 网关自己 OAuth；做不到暂不启用 | gateway（启用时） | 是 |
 | 现有 DSH token（env 里的 `*_REFRESH_TOKEN`） | DSH 导出 grant | **dsh** | **永不允许** |
 
@@ -29,8 +29,7 @@ DSH 导出的 rotating grant 必须显式标 `dsh`，只读、永不 refresh。
   - 未标记 → `_grantOwner()` 返回 `shared`，`_mayRefresh()` 为 false；
   - **删除了 legacy v1 的 `gateway` 例外**：v1 未标记记录同样是 `shared`，只读；
   - 只有显式 `owner=gateway` / `source=gateway-*` 才进入 refresh 路径。
-- `config.example.json`：`notion` / `linear` / `figma` 的 env-seeded grant 显式标
-  `"grantOwner": "dsh"`。
+- `config.example.json`：`linear` 为 `static_bearer`（`LINEAR_API_KEY`、`/mcp/readonly`）；`notion` 为网关自有 OAuth/DCR（`grantOwner:"gateway"`，无 env seed）；`figma` 等历史 env-seeded grant 仍显式标 `"grantOwner": "dsh"`。
 - `scripts/auth-migrate-owners.mjs`：把 **v1 legacy 未标记记录**复制到 v2 的
   `dsh` 命名空间（默认 plan 只读，`--apply` 才写）；永不改 refresh token、
   永不写/删 legacy key、永不联网调用 provider。默认拒绝迁移到 `gateway`
@@ -53,7 +52,7 @@ node scripts/auth-migrate-owners.mjs --environment production --owner dsh --appl
 - 迁移不会让 `dsh` grant 变成可 refresh —— 这是故意的；
 - 生产 KV 迁移必须由有权限的 operator 执行并留证据，**本次未执行**（未接触生产 KV）。
 
-## 4. 真实 tools/list（2026-11-24 02:20 SGT，只读探测）
+## 4. 真实 tools/list（历史快照 2026-11-24 02:20 SGT；当前见 §4.1）
 
 探测方式：MCP SDK `initialize + tools/list`，token 从本地 vault / CC Switch 读取，
 **未经网关 refresh 路径、未打印 token、未写 KV**。证据脚本：
@@ -71,7 +70,12 @@ node scripts/auth-migrate-owners.mjs --environment production --owner dsh --appl
 （static token 或 gateway OAuth），不是代码 bug。未验证：生产网关进程内
 `getAuthStatus()` 的逐上游状态（需要生产 KV/管理端点；本次未触碰生产 token）。
 
-## 5. 状态语义（避免误判）
+## 4.1 当前生产实况（2026-11-25）
+
+- **Linear**：`static_bearer` + PAT（`/mcp/readonly`）；生产 `f2002d9` 实测 27 tools、`linear__list_teams` 成功；不 refresh。
+- **Notion**：网关自有 OAuth/DCR；KV `owner=gateway`、`source=gateway-dcr`、`refresh=yes`，直连 `tools/list` 200；但生产 runtime 仍 `offline`（0 tools），根因 `_resolveToken` 无 `tokenEnv` 提前 return，PR #31 OPEN；不得写“Notion 可用”。
+- **Vercel**：CIMD 仍 BLOCKED；**Figma**：历史 token 可用（47 tools），owner 迁移未做。
+- 8h/72h 观测未开始；旧 DSH Notion 连接与旧 `NOTION_*`/`LINEAR_*` refresh env 尚未清理，等观测通过后按 `AUTH-READY.md` §1.9 执行。\n\n## 5. 状态语义（避免误判）
 
 `getAuthStatus()` 对**任何非 gateway** grant 都会返回 `REAUTH_REQUIRED` +
 `SHARED_GRANT_REFRESH_FORBIDDEN` / `STATIC_TOKEN_NO_REFRESH`。这表示
@@ -80,9 +84,9 @@ node scripts/auth-migrate-owners.mjs --environment production --owner dsh --appl
 
 ## 6. 未完成（阻塞在外部动作）
 
-1. Linear PAT 尚未创建并放入 vault → `manual` 记录未落 KV；
-2. Notion static MCP token 或 DCR 授权未做；
-3. Vercel `offline_access` 真实授权未做；
-4. Figma 是否启用未定；
-5. 生产 KV 的 owner 迁移未执行（需 operator + KV 凭据）；
-6. 以上全部完成后，才能更新 AUTH-READY 并考虑是否发起一次授权请求。
+1. ~~Linear PAT~~ 已完成（`LINEAR_API_KEY` + static_bearer，生产实测）；
+2. ~~Notion DCR 授权~~ 已完成；但生产 runtime 仍 offline，等 PR #31 合并部署；
+3. Vercel `offline_access` 真实授权未做（BLOCKED）；
+4. Figma owner 迁移/是否启用未定；
+5. Notion 8h/72h 稳定观测未做；旧 DSH 连接/旧 refresh env 未清理；
+6. 以上完成后，才能更新 AUTH-READY 并考虑是否发起一次授权请求。

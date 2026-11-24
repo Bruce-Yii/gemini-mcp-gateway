@@ -192,3 +192,63 @@ toolSeqFingerprint = sha256(tool names + normalized args keys + order)
 - 时间戳 + 平台 + 项目 + 工具指纹，不靠人眼；
 - 对不上有原因，不硬凑；
 - 主动标签能反哺被动规则，最终减少主动提问频率。
+
+---
+
+## 10. 2026-11-25 同步：按 PR #28 现行实现校正口径（append-only）
+
+> §3/§4/§8 是 2026-11-24 的设计稿；**现行可执行入口**是 `scripts/record-active-eval.mjs` +
+> `scripts/compare-active-passive.mjs`（不是旧称 `link-active-passive.mjs`）。以下以代码为准，
+> 代码已合入 `main` `cd23fdc` 但**未部署**，生产仍 `f2002d9`。
+
+### 10.1 `active-eval.v1` 实际字段（取代 §3.1 草稿）
+
+- `platform` / `buildCommit` / `window{from,to}` / `anchors{startAction,endAction,repos,prs,issues,branches,files}` / `prompt`；
+- `observed.requestIds[]`（没有就 `unknown`，禁止编造）、`observed.services[]`、`observed.connectFailures[]`；
+- **`observed.findings[]`**（PR #28 新增）：主动窗口自报的语义问题
+  `{id, title, keywords[]}`；`id`/`title` 非空字符串，`keywords` 可缺失/为空（匹配时用 `title` 兜底）；
+  结构非法直接退出码 2，不静默丢弃；
+- `activeEvalId = ae_<window日期>_<8位hash>`，哈希包含 `observed`（含 findings）。
+
+### 10.2 `compare-active-passive.mjs` 实际输出（取代 §3.3 草稿的部分字段）
+
+- `match`：`exact | likely | weak | unmatched`；与 §4 的优先级一致，但 **exact 额外要求
+  命中的 `requestId` 时间戳落在 active window 内**；跨构建只记 `build mismatch`，禁止硬比。
+- `findings`：`{total, detected, missed}`——主动 `observed.findings[]` 的被动命中汇总；
+- `missed[]`：包含服务/连接失败覆盖缺口与 **未命中的 finding**（`kind=finding`、
+  `reason=passive-not-detected`）；
+- `coverage[]`：本版 compare 把 `services`、`connectFailures`、`findings` 三类检查放进同一数组；
+- 判定文本：用主动 finding 的 `keywords`（为空时用 `title` 兜底）去匹配被动 issue 的
+  `title + likelyCause + suggestedFix`，大小写不敏感子串匹配；任一关键词命中即 `covered=true`
+  并记 `passiveIssueId`，全部未命中强制进 `missed[]`；
+- 默认退出码：只要 `findings.missed > 0` 就非零（即使 `match=exact`）；`unmatched` /
+  `EMPTY_WINDOW` 仍默认非零。`--allow-missed-findings` 只是显式审计例外，**不是通过口径**。
+- 命中只表示“被动日志里出现过同义文本”，**不等于问题已修复或已被 analyzer 正确归因**。
+
+### 10.3 `responsePreview` 在关联链中的位置（PR #28）
+
+- `responsePreview` **不参与 compare 的匹配**；它是 analyzer-input 的成功态证据：
+  捕获响应体的有界预览（前 500 字符 + 截断标记）+ `topLevelKeys`/`nullKeys`/`arrays`/`nested`
+  轮廓，`subCalls[]` 另带 `error{name,message}` / `resultShape`。
+- 关联链是：主动 `observed.findings[]` → 被动 analyzer `validated.issues` → compare 的
+  `findings{total,detected,missed}`；analyzer 可据 `responsePreview + subCalls` 产出 issue，
+  compare 再用 issue 文本核对主动 findings。
+- 边界：预览有界，字段不在 preview 里 ≠ 全量 body 不存在；预览不是 exact 判据；
+  analyzer 输出仍是 advisory（`AGENTS.md` §1）。
+
+### 10.4 R2 429 与 scorecard 聚合边界（Pack 1 = PR #30，OPEN）
+
+- R2 REST API 是**账户级** 1,200 req / 5 min（[官方 limits](https://developers.cloudflare.com/r2/platform/limits/)）。
+  日常短窗（`--last-minutes`）与周报解耦；周报优先聚合已提交 daily scorecard（0 R2 GET），
+  只有显式 `from_r2=true` 才回退 7 天 raw + analyzer。
+- 429 一律显式失败：解析 `Retry-After`/`Ratelimit`，总等待超 120s 抛 `R2_RATE_LIMITED`；
+  **不是** `EMPTY_WINDOW`，不是 `unmatched` 的合法通过理由，也不能据此写“被动无数据”。
+- scorecard 缺日 → `NOT_ENOUGH`，不伪造完整；跨构建/跨窗口仍按 `build mismatch` 只记录原因。
+- 现状：修复分支真实重跑 last 180m 已从 2 条恢复到 34 条（gemini 17 / chatgpt 10 / unknown 7），
+  但 weekly-review 在 R2 GET 上仍 429；PR #28 已合入 main 未部署，Pack 1/Pack 2 未合并，
+  同窗重跑与验收待 R2 冷却后执行。
+
+### 10.5 与门禁索引
+
+本批「M4 五门」口径见 [README.md](README.md) §当前门禁入口；五门状态必须按 gate 附证据，
+不得把本节的新机制合并成整体 PASS。

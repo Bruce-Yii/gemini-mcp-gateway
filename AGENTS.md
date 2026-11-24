@@ -6,21 +6,25 @@
 
 本文件只写本项目特有、且与工作区根 `AGENTS.md` 不同的规则；通用规则以根文件为准。
 
-最后更新：2026-11-24（Asia/Singapore）
+最后更新：2026-11-25（Asia/Singapore）
 
 ---
 
 ## 0. 当前真实状态（先读，防止把“代码已修”当“线上已生效”）
 
-- **生产已部署 `3dd206f`**（2026-11-24 13:43 手动部署；14:02 为 `CLIENT_PLATFORM_OAUTH_MAP` 同 commit 重部署）：`https://gemini-mcp-gateway.vercel.app` healthz 已核 `commit=3dd206f…` / `buildHash=25a35e6e…`。
-  本次包含 Issue #15 优先修复（issue_write URL 兜底 number、40KB 文件截断假阳性）与 M4-A/M4-C 之前已合入的评测接线。
-  “部署成功”不等于验收通过：真实客户端、真实写回环 CI、授权生命周期、同任务在线复验仍未完成；不能写“线上已验收”。
+- **生产已部署 `f2002d9`**（2026-11-25 01:55 手动 `vercel --prod`，带 `VERCEL_GIT_COMMIT_SHA`）：`https://gemini-mcp-gateway.vercel.app` healthz 已核 `commit=f2002d9…` / `buildHash=3b1a0772…` / `builtAt=2026-11-24T17:54:55.59Z`；`deploymentId=dpl_6P2Ww8vsTHXbbSF98GTE55HKitB4`。
+  本次合并 PR #29：Linear 切 `static_bearer` PAT（`https://mcp.linear.app/mcp/readonly` + `LINEAR_API_KEY`），Notion 改网关自有 OAuth/DCR（`owner=gateway`）；production 新增 `LINEAR_API_KEY` / `UPSTREAM_OAUTH_ADMIN_KEY`。
+- **`main=cd23fdc`**（PR #28 评测工具层修复已合、**未部署**）；不要声称线上包含 #28。
+- **线上上游实况（`f2002d9` 实测 2026-11-24T18:17Z）**：GitHub 42 / Linear 27 / Vercel 73 / Figma 47 tools 在线（合计 189）；`linear__list_teams` 成功，Linear PAT 路径已验证。
+  **Notion 仍 `offline`（0 tools、`needsReauth`）**：OAuth 授权已落 KV（`owner=gateway`、`source=gateway-dcr`、`refresh=yes`，直接 `tools/list` 200），但运行时 `_resolveToken()` 在无 `tokenEnv` 时提前 return，请求不带 `Authorization`。PR #31 修复中、**未合并**；在合并部署并复验 `codemode.services()` 前，不能写“Notion 可用”。
+- **入站安全变量名**（只记名字，严禁记录值）：生产已生效 `OAUTH_APPROVE_PASSPHRASE`（PR #26，consent 审批口令；缺失/错误 403 不落 code）、`ALLOW_DCR_FOR_CHATGPT=1`（ChatGPT DCR 显式 carve-out）、`UPSTREAM_OAUTH_ADMIN_KEY`（`/upstream/oauth/start` 管理入口）；`CLIENT_PLATFORM_OAUTH_MAP` 已追加 ChatGPT 客户端 → `chatgpt` 映射（Config），截至 `f2002d9` 未 redeploy。
+- **旧凭据清理/轮换延后**：等 Notion 8h/72h 稳定观测通过后，再移除旧 DSH Notion 连接与旧 `NOTION_*`/`LINEAR_*` refresh env，并轮换暴露过的 Linear PAT；**当前不要删**（见 §2 与 `docs/AUTH-READY.md` §1.9）。
 - **push 自动 production 部署仍关闭**（`git.deploymentEnabled.main=false`，`05f607c` 起已多次复核）；branch push 仍生成 preview。
 - 独立审查见 `docs/OPEN-SOURCE/INDEPENDENT-REVIEW-2026-11-24.md`。
 - **工作区全量测试以最近一次 lead 跑出的结果为准**；不要用其他 agent 的中间态。
-  当前基线：`1555 tests / 1549 pass / 0 fail / 6 todo`（2026-11-24 评测闭环工具层修复后，lead 实跑；Node20/22/24 CI 全绿）。
+  当前基线：`1583 tests / 1577 pass / 0 fail / 6 todo`（2026-11-25 lead 实跑；docs 分支基于 main cd23fdc，勿引用 PR/子代理数字）。
 - **不找用户反复要授权**：授权只有在 `docs/AUTH-READY.md` 全绿后才发起；
-  当前明确 **NOT READY**。
+  当前明确 **NOT READY**（Notion runtime offline、8h/72h 未观测、Vercel CIMD BLOCKED、旧凭据未清理）。
 - **OSS 未公开**：只有 `work/oss-release-staging` / `work/oss-release-repo`
   本地产物；没有远端、没有 push、没有公开仓库。发布前必须过
   `docs/OPEN-SOURCE/RELEASE-LOCAL.md` + `PUBLIC-SAFETY-AUDIT.md`。
@@ -41,13 +45,17 @@
 
 ---
 
-## 2. 授权 / token 生命周期（2026-11-23 架构结论）
+## 2. 授权 / token 生命周期（2026-11-25 更新）
 
 - **DSH 与网关不能共享同一个 rotating refresh token。**
   - OAuth 2.1 / RFC 9700：refresh token 绑定 client/grant，replay 会吊销整个 grant；
   - DSH 与网关必须是两个独立 client / 独立 grant；
-  - 二选一：网关独立授权，或 DSH 做 token broker；**默认网关独立授权**。
-- `owner=dsh` 只是当前迁移兼容值，不是产品 owner 类型；完全态 owner 见 `docs/FRAMEWORK-FULL.md`。
+  - 二选一：网关独立授权，或 DSH 做 token broker；**网关独立授权是唯一默认，Notion/Linear 生产已按此切换**。
+- **当前生产授权事实（`f2002d9`）**：
+  - Linear：`static_bearer` PAT，`url=https://mcp.linear.app/mcp/readonly`，`tokenEnv=LINEAR_API_KEY`；不 refresh，实测 27 tools、`list_teams` 成功。
+  - Notion：网关自有 OAuth/DCR，v2 grant `owner=gateway`、`source=gateway-dcr`、`refresh=yes`；DSH 侧不再是 owner。生产 runtime 仍 offline（根因与修复见 §0，PR #31 未合并）。
+  - Vercel：OAuth-only，必须 `offline_access`；CIMD 被 AS 拒绝，BLOCKED。
+  - Figma 等历史配置仍可能标 `grantOwner=dsh`；`owner=dsh` 只是迁移兼容值，不是产品 owner 类型；完全态 owner 见 `docs/FRAMEWORK-FULL.md`。
 - 网关 token 记录必须带：
   - `owner`（gateway / dsh / manual）；
   - `source`、`grantId`、`environment`；
@@ -57,11 +65,13 @@
   `owner=dsh` / 未标记必须拒绝自动刷新，只允许显式长期 access token。
 - 本地默认 `environment=local`；Vercel 无 `VERCEL_ENV` 默认 `preview`；
   绝不让本地/预览读写 production key。
-- Provider 事实：
-  - Notion MCP：OAuth/DCR，或 Business/Enterprise static MCP token；无普通 API key；
-  - Linear 官方 MCP：支持 Bearer PAT（优先 static_bearer），也可 OAuth；
-  - Vercel：OAuth-only，必须 `offline_access`；CIMD 目前被 AS 拒绝，BLOCKED。
-- token / client_secret 永远不进 stdout、日志、git、公开文档。
+- **入站最小暴露**：
+  - `/oauth/authorize` consent 必须过 `OAUTH_APPROVE_PASSPHRASE`（常量时间比较；缺失/错误 403、不落 code、不打印口令）；
+  - DCR 默认关闭（LOCKED）；只有显式 `ALLOW_DCR_FOR_CHATGPT` / `ALLOW_DCR_FOR_CLAUDE` 才 carve-out；
+  - `/upstream/oauth/start` 必须带 `UPSTREAM_OAUTH_ADMIN_KEY`（值不记录）；
+  - 生产同时存在预注册 client 与 DCR 两套接入，属已知分裂；统一 Client Registry 是 **Issue #27**（M6 开源前必须）。
+- **旧凭据清理顺序（强制）**：Notion 8h（至少跨一次自动 refresh）+ 72h 无 `invalid_grant` 通过 → 移除旧 DSH Notion 连接 → 移除旧 `NOTION_*`/`LINEAR_*` refresh env → 轮换暴露过的 Linear PAT → 复验 `codemode.services()`/`search`。**观测通过前禁止删除/轮换**。
+- token / client_secret / PAT / passphrase / admin key 永远不进 stdout、日志、git、公开文档。
 - `docs/AUTH-READY.md` 是唯一“何时找用户授权”的门禁；不是全绿就不要发起授权。
 
 ---
@@ -218,11 +228,14 @@ online-feedback.v1 记录
 - 部署前过 `docs/DEPLOY-POLICY.md`；部署后记录 `docs/DEPLOYMENTS.md`，并跑
   `node scripts/check-status-drift.mjs --expected <deployed-commit>` 确认 AGENTS/STATUS 没有旧 build 引用。
 - 能本地/回放验证就不要发 preview。
-- 当前生产：`3dd206f`（2026-11-24 手动部署；A 门当前构建可追溯；B–G 未完成）；下次在有真实客户端/写回环证据时再部署。
+- 当前生产：`f2002d9`（2026-11-25 手动部署；`buildHash=3b1a0772…`；A 门当前构建可追溯；B–G 未完成）；下次部署应在 PR #31 合并且全量测试绿后，用于修复 Notion runtime 并复验 `codemode.services()`/`search('notion')`；纯文档/评测脚本改动（如 `main cd23fdc`）不部署。
 
 ## 9. 当前不要做的事
 
-- 不要声称 Vercel 已部署最新代码；
+- 不要声称 Vercel 已部署最新代码（生产是 `f2002d9`，`main cd23fdc` 未部署）；
+- 不要声称 Notion 生产可用：runtime 仍 offline（0 tools），PR #31 未合并、未部署；
+- 不要删除旧 DSH Notion 连接 / 旧 `NOTION_*`/`LINEAR_*` refresh env，也不要轮换 Linear PAT（等 Notion 8h/72h 观测通过）；
+- 不要打印、记录或提交任何 passphrase / admin key / PAT / client secret 值（只写变量名）；
 - 不要声称 ChatGPT Free/Plus 支持完整 MCP；
 - 不要公开 OSS 仓库 / push / 建远端；
 - 不要为过测试保留无标记截断；
@@ -293,6 +306,3 @@ online-feedback.v1 记录
 - 若因冲突/串行依赖没有 fan-out：在回复里写明“未 fan-out 的原因”，不能沉默单干。
 - 评测/审计类子代理结论必须能回到 `文件:行` / 命令 / 数据证据；无证据的结论按 advisory 处理。
 - 共享任务目录按 scope 组织：同一模块的写任务串行，跨模块的只读/写任务可并行。
-
-
-
