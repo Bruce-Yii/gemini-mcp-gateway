@@ -104,7 +104,7 @@ online-feedback.v1 记录
 
 只要用户把**主动线上评测结果**或**真实会话优缺点/改进反馈**丢进开发窗口，Agent 必须立即按以下 5 步接续，缺一不可：
 1. **保留原文**：原封不动保存用户/客户端原文与当前 `buildCommit`；
-2. **拉同期被动日志对照**：用 `node scripts/analyze-captures.mjs --last-minutes 60`（按需指定 `--commit`）拉出同一时间窗的 R2 被动日志，核对问题在 `subCalls` / `servers` / `clientPlatform` 中是否可见；
+2. **按动作范围锚点拉同期被动日志对照**：优先依据主动回复第 0 条给出的「起止动作锚点 + 关键 PR/Issue/分支/文件名」（不要求客户端猜时间戳），配合 `node scripts/analyze-captures.mjs --last-minutes 60`（按需指定 `--platform` / `--commit`）卡出对应 R2 被动日志窗口，核对问题在 `subCalls` / `servers` / `clientPlatform` 中是否可见；
 3. **记入分类 Badcase**：按 `客户端 × 上游(含跨上游) × 问题类别` 登记进 `docs/eval/BADCASES.md`，作为高价值抽测与全量回归资产；
 4. **派单复现修复**：换受控测试仓库复现动作并修复，高频核心问题同步补进离线确定性测试；
 5. **被动反哺核对**：顺手确认“为什么刚才被动分析没抓到/有没有抓到”，若漏抓则补采集字段或调优分析提示词。
