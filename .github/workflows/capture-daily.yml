@@ -50,29 +50,41 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Digest R2 captures
-        id: digest
+      # Incremental pull: restore the local store, fetch ONLY objects we have
+      # never seen, then hand the store to digest/analyzer. Hourly runs fetch a
+      # handful of new envelopes instead of re-reading the whole day.
+      - name: Restore capture store
+        uses: actions/cache/restore@v4
+        with:
+          path: work/capture-store
+          key: capture-store-${{ github.run_id }}
+          restore-keys: |
+            capture-store-
+      - name: Sync captures (incremental)
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_AUTH_EMAIL: ${{ secrets.R2_AUTH_EMAIL }}
           R2_AUTH_KEY: ${{ secrets.R2_AUTH_KEY }}
         run: |
-          # ONE R2 read per run: the digest fetches the window once, writes the
-          # scorecard AND an NDJSON bundle; the analyzer step reuses the bundle
-          # instead of hitting the Cloudflare REST API again (1200 req/5min).
+          RETAIN="${{ github.event.inputs.last_minutes }}"
+          # Retention window for the local store (how far back analysis may go).
+          if [ -z "$RETAIN" ] || [ "$RETAIN" = "0" ]; then RETAIN=1440; fi
+          if [ "${{ github.event.schedule }}" = "7 * * * *" ]; then RETAIN=1440; fi
+          node scripts/sync-captures.mjs --dir work/capture-store --retain-minutes "$RETAIN" --json
+      - name: Save capture store
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: work/capture-store
+          key: capture-store-${{ github.run_id }}
+      - name: Digest R2 captures
+        id: digest
+        run: |
+          # No R2 reads here: the incremental sync already produced the store.
           DAY="$(date -u +%F)"
           echo "day=$DAY" >> "$GITHUB_OUTPUT"
-          LAST_MIN="${{ github.event.inputs.last_minutes }}"
-          # Hourly cron: pull only the last 90 minutes. Quota is a RATE limit
-          # (1200 req / 5 min), so many small reads never approach it while one
-          # whole-day read can exceed it on its own.
-          if [ "${{ github.event.schedule }}" = "7 * * * *" ]; then LAST_MIN=90; fi
-          if [ -n "$LAST_MIN" ] && [ "$LAST_MIN" != "0" ]; then
-            node scripts/capture-digest.mjs --last-minutes "$LAST_MIN" --out work/digest --bundle-out work/digest/envelopes.ndjson
-          else
-            node scripts/capture-digest.mjs --date "$DAY" --out work/digest --bundle-out work/digest/envelopes.ndjson
-          fi
+          node scripts/capture-digest.mjs --bundle work/capture-store/envelopes.ndjson --out work/digest --bundle-out work/digest/envelopes.ndjson
       - name: Analyze clusters with the free model (advisory only)
         continue-on-error: true
         env:

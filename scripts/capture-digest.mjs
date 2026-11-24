@@ -1817,12 +1817,19 @@ async function main() {
   const days = Number(arg('--days') || 7);
   const lastMinutes = Number(arg('--last-minutes') || 0);
   const bundleOut = arg('--bundle-out');
+  const bundleIn = arg('--bundle');
 
   let payload;
   let label = date;
   let envelopes = null;
 
-  if (lastMinutes > 0) {
+  if (bundleIn) {
+    // Incremental sync already pulled only the NEW objects; reuse that store so
+    // the digest never issues its own R2 reads.
+    envelopes = await readEnvelopeBundle(bundleIn);
+    label = `store-${envelopes.length}`;
+    payload = { metrics: aggregateEnvelopes(envelopes, { date: label }) };
+  } else if (lastMinutes > 0) {
     // Rolling window: read ONCE, then aggregate/sessions/bundle from the same
     // batch. Older code re-listed and re-fetched every envelope a second time.
     const keys = [];
