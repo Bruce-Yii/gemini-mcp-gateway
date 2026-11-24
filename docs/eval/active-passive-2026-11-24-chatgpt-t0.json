@@ -1,0 +1,219 @@
+{
+  "schema": "active-passive-comparison.v1",
+  "activeEvalId": "ae_20261124_30c393b5",
+  "generatedAt": "2026-11-24T23:51:38.218Z",
+  "match": "likely",
+  "reasons": [
+    "window+platform+build align; no requestId with a verified in-window timestamp",
+    "missed finding:F-t0-gh-search-incomplete (passive-not-detected)",
+    "missed finding:F-t0-notion-business-gate (passive-not-detected)",
+    "missed finding:F-t0-output-truncation (passive-not-detected)",
+    "missed finding:F-t0-search-overuse (passive-not-detected)"
+  ],
+  "checks": {
+    "build": "match",
+    "platform": "match",
+    "window": "match",
+    "requestIds": "unknown"
+  },
+  "requestIds": {
+    "status": "unknown",
+    "matched": [],
+    "verified": [],
+    "unverified": [],
+    "missing": []
+  },
+  "coverage": [
+    {
+      "kind": "service",
+      "subject": "github",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:observed",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "vercel",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:observed",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "linear",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:observed",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "notion",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:observed",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "figma",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:observed",
+      "reason": null
+    },
+    {
+      "kind": "finding",
+      "subject": "F-t0-gh-search-incomplete",
+      "title": "GitHub code search returns incomplete_results with zero hits",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-t0-call-budget",
+      "title": "Recursive whole-repo scan hits the 50 tool-call budget",
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-t0-notion-business-gate",
+      "title": "Notion last-edited filters are gated behind Business plan",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-t0-output-truncation",
+      "title": "Large execute_read results are truncated at the output layer",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-t0-search-overuse",
+      "title": "Tool discovery used far more search calls than the baseline",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-t0-script-syntax",
+      "title": "Two client-side script syntax errors needed a retry",
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
+    }
+  ],
+  "missed": [
+    {
+      "kind": "finding",
+      "subject": "F-t0-gh-search-incomplete",
+      "title": "GitHub code search returns incomplete_results with zero hits",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-t0-notion-business-gate",
+      "title": "Notion last-edited filters are gated behind Business plan",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-t0-output-truncation",
+      "title": "Large execute_read results are truncated at the output layer",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-t0-search-overuse",
+      "title": "Tool discovery used far more search calls than the baseline",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    }
+  ],
+  "findings": {
+    "total": 6,
+    "detected": 0,
+    "missed": 4,
+    "activeOnly": 2
+  },
+  "passive": {
+    "dataStatus": "HAS_DATA",
+    "requests": 25,
+    "platforms": [
+      "chatgpt"
+    ],
+    "buildCommits": [
+      "13287877a0de4b9e9c9a0ce78577a4db9c3a3ca4"
+    ],
+    "serviceSnapshots": 1,
+    "connectFailures": 0,
+    "issues": 0
+  }
+}

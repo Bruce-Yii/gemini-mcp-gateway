@@ -1,0 +1,435 @@
+T0 跨客户端实测报告
+PASS WITH FRICTION
+只读执行
+0 次写操作
+执行客户端： chatgpt
+仓库： Bruce-Yii/gemini-mcp-gateway
+分支： main
+套餐： T0 极速烟测（4 题）
+评测协议版本： gold-eval-index.v1 / 1.0.0
+本轮以仓库中的 RUNNER 和 INDEX 为唯一执行依据，没有沿用上一轮 M4 Gate 5 的任务定义。
+Section 0 · 动作范围起止锚点
+执行范围
+项目
+实测值
+客户端平台
+chatgpt
+执行套餐
+T0
+题目数量
+4
+只读约束
+已遵守
+execute 写入次数
+0
+执行题目：
+MK-GH-02
+VLF-VC-01
+VLF-LN-01
+UA-ATL-01
+权威文件读取
+文件
+SHA
+truncated
+RUNNER.md
+983947dede121af93a2fb20ae5e017ba5247cada
+false
+INDEX.json
+b09a4d39087cf630aa7166f9a36d15202cbfd78f
+false
+mcpmark-gold.json
+eda786786e5cc4f58fc5d222a906282164b626bd
+false
+vercel-linear-figma-gold.json
+64cfca2a0c7943ca2e7f7fc8b1f2e09ecbc10c63
+false
+universe-atlas-gold.json
+641e47e1b186fae5d6bb1d00cd1f8da4c11a5ec5
+false
+三个批次文件均完整读取，并提取了四道题的完整 userPrompt、verifiableClaims 和 efficiencyBaseline。
+UTC 时间锚点
+- 首个可审计工具返回：2026-11-24T23:31:38.908Z
+- 最后一次工具返回：unknown（最后一次 GitHub 查询没有返回调用时间戳）
+- 最后一个有明确时间记录的执行快照：2026-11-24T23:35:19.038Z
+不能将最后一个有时间记录的快照冒充最后一次工具返回时间。
+起止关键动作
+- 起始：github__get_file_contents → 读取 RUNNER.md 与 INDEX.json。
+- 结束：github__list_commits → 获取 main 最近 10 条提交，核验生产部署与主干关系。
+requestId
+unknown
+没有发现可直接核验的 requestId。
+Notion 返回了一条独立的 mcpRequestId：
+ef9b831d-b7d3-410d-b20e-7892a62ca5c7
+不将其冒充为 requestId。
+Section 1 · 上游服务状态
+来自 codemode.services() 的冷启动快照。
+2026-11-24T23:31:53.118Z · 非实时健康检查
+上游
+toolCount
+status
+GitHub
+42
+observed
+Vercel
+73
+observed
+Linear
+27
+observed
+Notion
+53
+observed
+Figma
+47
+observed
+5/5 已挂载
+observed 只表示本地挂载状态正常且没有已记录故障，不代表实时鉴权成功。
+Section 2 · 逐题验收与 Claim 打分表
+2.1 MK-GH-02 — GitHub 提交与代码审计
+PASS-FRICTION
+权重阈值：0.75 · 实际 coverage：0.90
+Claim 逐条核验
+Claim
+得分
+实测证据
+PR #31 合并 SHA
+1.0
+de974ee50ccc321a68203f2d4e697965b6e03a48
+作者与 UTC 时间
+1.0
+Bruce-Yii，2026-11-24T19:08:16Z
+needsToken 与修改前后表达式
+1.0
+已核对 diff 和源码
+全仓符号文件及准确行号
+0.5
+发现 AGENTS.md 第 19 行，但全仓检索未完成
+0 写入、0 手工字符截断
+1.0
+符合
+关键证据
+GitHub 提交：
+de974ee50ccc321a68203f2d4e697965b6e03a48
+修改前：
+if (config.tokenEnv) {
+修改后：
+const oauthProvider = providerFor(config);
+const needsToken = Boolean(config.tokenEnv || oauthProvider?.tokenUrl);
+
+if (needsToken) {
+在 main 当前版本的 src/upstream/upstreams.js 中：
+行号已核验
+needsToken 位于第 316 行。
+源码文件 SHA：
+cc755c8cc8f9b542948685b997e83f286ff02473
+正文长度：27,938 字符，truncated:false。
+未完全通过的原因
+github__search_code 连续两次返回：
+incomplete_results: true
+total_count: 0
+items: []
+随后尝试递归遍历仓库：
+- 发现 38 个目录。
+- 枚举到 441 个候选文件。
+- 递归读取触发 50 次工具调用上限。
+- 最终只能确认部分文件。
+目前发现：
+文件
+行号
+AGENTS.md
+19
+不能据此宣称全仓所有匹配文件均已找到。
+失败模式：early_termination。
+2.2 VLF-VC-01 — Vercel 部署查询
+PASS
+阈值：0.80 · 实际 coverage：1.00
+正确处理了：
+deployments.deployments
+没有把嵌套对象误判为空数组。
+最新 Production 1 条
+Target
+DeploymentId
+State
+CreatedAtUTC
+CommitSHA
+production
+dpl_BtmSxXazqvfP2yJvpp1zPz6WeDZs
+READY
+22:52:40.659Z
+13287877a0de4b9e9c9a0ce78577a4db9c3a3ca4
+最新 Preview 2 条
+Target
+DeploymentId
+State
+CreatedAtUTC
+CommitSHA
+preview*
+dpl_9FM1nNtY1vs9HDbjESg9JXuRMZ1y
+READY
+23:19:53.820Z
+ee4b4a37653c9ad9b23c0881ffaea70239b3f1ca
+preview*
+dpl_8RxmdownrdjZdisYhnp1JCBNBaW4
+READY
+23:12:04.389Z
+6ecb0c2cf8d104b2fa518b1bd04883093927f8ed
+*两条 Preview 查询均使用 target=preview，但 Vercel 返回的原始 target 字段为 null。这里按查询条件标注环境，没有伪造 API 字段。
+Claim 核验
+Claim
+得分
+结果
+正确解包并覆盖 1+2 条部署
+1.0
+PASS
+deploymentId、状态、UTC 时间
+1.0
+PASS
+SHA 如实读取
+1.0
+PASS
+两次只读调用完成
+1.0
+PASS
+三条记录都有真实 commit SHA，没有使用其他部署的 SHA 替代。
+2.3 VLF-LN-01 — Linear 工作区分诊
+PASS
+阈值：0.80 · 实际 coverage：1.00
+团队查询
+团队
+Key
+ID
+垃圾堆
+LAJI
+5052e903-62c0-4ccb-b001-84322df76417
+Yu
+YU
+6e1ac4ef-d588-4b37-94a7-9bc905d8b450
+共 2 个团队，hasNextPage:false。
+Issue 状态字典
+LAJI：
+- Backlog
+- Done
+- Canceled
+- In Progress
+- Todo
+- In Review
+- Duplicate
+YU：
+- Blocked
+- Waiting
+- In Review
+- Canceled
+- Backlog
+- Todo
+- Duplicate
+- Done
+- In Progress
+最近更新的 8 条 Issue
+状态
+数量
+Issue
+Backlog
+2
+LAJI-36、YU-408
+Canceled
+1
+LAJI-35
+In Review
+1
+YU-380
+In Progress
+4
+YU-419、YU-405、YU-412、YU-404
+查询参数：
+limit = 8
+orderBy = updatedAt
+fields = [
+id, title, url, status, team, updatedAt
+]
+返回 8 条真实记录，hasNextPage:true，并提供下一页 cursor。
+Claim 核验
+Claim
+得分
+结果
+完整列出真实团队
+1.0
+PASS
+状态字典与 8 条 Issue
+1.0
+PASS
+无 limit 超限、无 Complexity 错误
+1.0
+PASS
+精简返回，无 Linear 子结果截断
+1.0
+PASS
+没有发生 GraphQL Complexity 超限。
+2.4 UA-ATL-01 — 三上游自然语言编排
+PASS-FRICTION
+阈值：0.75 · 实际 coverage：0.75
+原始任务没有提供任何服务名或工具名：
+帮我快速对个账：咱们网关项目最近一次发上线是什么时候、现在代码库主干有没有比线上更新的改动、另外我个人知识库里最近编辑过的 3 篇页面分别叫什么？
+实际路由到了：
+- Vercel：生产部署。
+- GitHub：main 最新提交。
+- Notion：个人工作区页面。
+Claim 核验
+Claim
+得分
+实测结果
+三上游正确路由
+1.0
+PASS
+最新生产部署时间与 ID
+1.0
+PASS
+main 是否有未上线提交
+1.0
+PASS
+最近编辑的 3 篇 Notion 页面
+0.0
+FAIL
+生产部署
+- Deployment ID：dpl_BtmSxXazqvfP2yJvpp1zPz6WeDZs
+- 创建时间：2026-11-24T22:52:40.659Z
+- Production SHA：13287877a0de4b9e9c9a0ce78577a4db9c3a3ca4
+GitHub main HEAD
+a2aaf5aa51fefeab232ed84a0e5e5b56788239f5
+提交时间：
+2026-11-24T23:13:04Z
+进一步读取 main 最近 10 条提交，发现：
+顺序
+Commit
+时间 UTC
+#45
+13287877
+22:48:46
+#46
+0b9a83d
+22:57:37
+#47
+a2aaf5a
+23:13:04
+因此可以确认：线上部署对应 #45，main 已经包含其后的 #46、#47 两个提交。
+主干确实比线上更新。
+Notion 问题
+调用了 Notion 搜索：
+query = ""
+filters.edited_by_user_ids = ["me"]
+sort = "last_edited"
+page_size = 3
+返回明确提示：
+These Business-plan options were omitted:
+filters.edited_by_user_ids, sort.
+原因是当前连接不具备 Business / Enterprise 对应的筛选能力。
+另外读取了 Private Pages 和 Recently Viewed，但它们不能证明最近编辑顺序，因此没有用最近浏览记录替代最近编辑记录。
+最终未能提供三篇最近编辑页面的准确标题。
+失败归类： Host 能力限制（Notion Business 功能门槛），不归因于 Notion 鉴权失败。
+Section 3 · 定量效率与摩擦清单
+3.1 效率汇总
+指标
+实际数量
+Gateway search 调用
+16
+execute_read 调用
+10
+execute 写入调用
+0
+审批弹窗次数
+unknown
+权威文件正文截断
+0
+已核验源码正文截断
+0
+输出层截断事件
+3
+手工字符截断
+0
+数组 .slice() 批处理调用
+37
+脚本语法重试
+2
+说明：
+- 37 次 .slice() 是数组分批，不是字符截断，没有静默删除文件正文。
+- 3 次输出层截断发生在大结果合并回传时。
+- Linear 自身的 8 条 Issue 返回没有出现字段裁剪。
+- Notion 最近浏览列表出现过字段裁剪。
+- GitHub 全仓扫描受到 50 次工具调用上限影响。
+3.2 与效率基线对比
+四道题的基线合计：
+指标
+基线
+实际
+结果
+Search
+9
+16
+超出 7
+execute_read
+8
+10
+超出 2
+execute
+0
+0
+符合
+效率未达标
+本轮虽然完成了绝大多数业务验证，但工具发现和重复检索次数偏高。
+尤其是 GitHub 全仓扫描：没有先利用有效的仓库级检索能力控制扫描范围，而是扩展成递归遍历 441 个文件，导致工具调用上限被消耗。
+这是本轮客户端执行策略的问题。
+3.3 摩擦与缺陷清单
+优先级
+问题
+分类
+证据
+P1
+GitHub code search 返回 incomplete_results
+passive-observable
+两次 0 命中
+P1
+全仓扫描触发 50 次工具调用上限
+active-only
+递归扫描失败
+P1
+Notion 最近编辑过滤受套餐限制
+passive-observable
+明确返回 Business plan notice
+P2
+大型 execute_read 结果出现输出层截断
+passive-observable
+3 次截断事件
+P2
+工具发现调用次数过多
+active-only
+16 次 search
+P2
+两次客户端脚本语法错误
+active-only
+修正后继续执行
+没有发现任何写操作越权，也没有出现鉴权失败或误报数据成功的情况。
+最终结论
+T0 评测成绩
+15.5/17
+总 Claim 得分
+91.18%
+Claim 总覆盖率
+题目
+最终结果
+MK-GH-02
+PASS-FRICTION
+VLF-VC-01
+PASS
+VLF-LN-01
+PASS
+UA-ATL-01
+PASS-FRICTION
+安全验收：通过
+execute = 0，全程只读。
+最终判断：
+ChatGPT 已具备 GitHub、Vercel、Linear、Notion 的跨上游实际调用与编排能力。
+本轮真正暴露的三个问题是：
+1. GitHub 全仓检索的可靠性和调用预算控制不足。
+2. Notion 的最近编辑查询受到套餐能力限制。
+3. 大结果回传和客户端自身任务编排效率仍有改进空间。
+本轮没有修改仓库、Linear、Notion 或 Vercel 资源。没有创建测试记录，也没有进行任何修复。
+T0 交卷结束。
