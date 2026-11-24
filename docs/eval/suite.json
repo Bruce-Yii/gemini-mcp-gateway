@@ -1,0 +1,1256 @@
+{
+  "schema": "authoritative-suite.v1",
+  "version": "1.1.0",
+  "updatedAt": "2026-11-25T00:00:00Z",
+  "maintainedBy": "[云端总控]",
+  "description": "高覆盖、机器可读的多客户端权威评测题库真源（36 条，覆盖 5 大上游 × 6 类故障面 + 跨上游串联 + 黑盒客户端隔离探针）。与 docs/eval/AUTHORITATIVE-SUITE.md 互补，供跨客户端快速迭代与脚本联动使用。",
+  "tiers": {
+    "T1": {
+      "name": "Smoke 最小烟测包",
+      "access": "read-only",
+      "taskIds": [
+        "AT-GH-01",
+        "AT-LN-01",
+        "AT-NT-03",
+        "AT-XU-01"
+      ]
+    },
+    "T2": {
+      "name": "Cross-Client 跨客户端防串伤包",
+      "access": "mixed",
+      "taskIds": [
+        "AT-GH-01",
+        "AT-GH-03",
+        "AT-GH-06",
+        "AT-GH-08",
+        "AT-VC-04",
+        "AT-LN-01",
+        "AT-LN-02",
+        "AT-NT-03",
+        "AT-XU-01",
+        "AT-XU-02",
+        "AT-CL-01",
+        "AT-CL-02",
+        "AT-CL-04",
+        "AT-CL-05"
+      ]
+    },
+    "T3": {
+      "name": "Full 全量权威大考包",
+      "access": "read-write",
+      "taskIds": [
+        "AT-GH-01",
+        "AT-GH-02",
+        "AT-GH-03",
+        "AT-GH-04",
+        "AT-GH-05",
+        "AT-GH-06",
+        "AT-GH-07",
+        "AT-GH-08",
+        "AT-GH-09",
+        "AT-GH-10",
+        "AT-VC-01",
+        "AT-VC-02",
+        "AT-VC-03",
+        "AT-VC-04",
+        "AT-VC-05",
+        "AT-LN-01",
+        "AT-LN-02",
+        "AT-LN-03",
+        "AT-LN-04",
+        "AT-NT-01",
+        "AT-NT-02",
+        "AT-NT-03",
+        "AT-NT-04",
+        "AT-FG-01",
+        "AT-FG-02",
+        "AT-FG-03",
+        "AT-XU-01",
+        "AT-XU-02",
+        "AT-XU-03",
+        "AT-XU-04",
+        "AT-CL-01",
+        "AT-CL-02",
+        "AT-CL-03",
+        "AT-CL-04",
+        "AT-CL-05",
+        "AT-CL-06"
+      ]
+    }
+  },
+  "summary": {
+    "total": 36,
+    "byCategory": {
+      "single-upstream": 26,
+      "cross-upstream": 4,
+      "client-probe": 6
+    },
+    "byUpstream": {
+      "github": 20,
+      "vercel": 8,
+      "linear": 8,
+      "notion": 6,
+      "figma": 5
+    }
+  },
+  "tasks": [
+    {
+      "id": "AT-GH-01",
+      "category": "single-upstream",
+      "upstreams": [
+        "github"
+      ],
+      "tiers": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "content-purity",
+        "truncation-false-positive",
+        "path-loss"
+      ],
+      "sourceRefs": [
+        "B5",
+        "PR80-101",
+        "Issue #4",
+        "Issue #15",
+        "BC-001",
+        "BC-010"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "读取 >30KB 文件（如 src/evidence/capture.js），校验正文纯净度、path 非 null、40KB 不误标 truncated:true",
+      "assertions": [
+        "content 无 download notice 或 SHA 前缀",
+        "path === \"src/evidence/capture.js\"",
+        "truncated === false"
+      ],
+      "clientStatus": {
+        "gemini": "PASS (3dd206f)",
+        "chatgpt": "PASS (42caaf2, ae_20261124_4889f8f4)",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-GH-02",
+      "category": "single-upstream",
+      "upstreams": [
+        "github"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "param-aliasing",
+        "silent-fallback"
+      ],
+      "sourceRefs": [
+        "11-23 F2",
+        "285e881c"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "并发读取同一文件在 main 与非 main 分支上的内容，验证 branch→ref 别名不静默回退到 main",
+      "assertions": [
+        "不同分支返回对应真实内容",
+        "传 branch 参数不静默读 main"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-GH-03",
+      "category": "single-upstream",
+      "upstreams": [
+        "github"
+      ],
+      "tiers": [
+        "T2",
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "batch-unwrap",
+        "partial-failure-isolation",
+        "context-bloat"
+      ],
+      "sourceRefs": [
+        "B1",
+        "B5",
+        "PR80-101",
+        "BC-017"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "单次 execute_read 用 safeAll + unwrapBatch 并发读 5–8 个源码文件（含 1 个不存在路径），验证单 404 不拖垮整批且无双重包装",
+      "assertions": [
+        "单条 404 仅该槽位 ok:false",
+        "其余文件正常返回",
+        "unwrapBatch 输出扁平 [{ok,value}]"
+      ],
+      "clientStatus": {
+        "gemini": "PARTIAL (3dd206f)",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-GH-04",
+      "category": "single-upstream",
+      "upstreams": [
+        "github"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "write",
+      "failureModes": [
+        "atomic-write",
+        "sha-confusion",
+        "pr-number-id"
+      ],
+      "sourceRefs": [
+        "F004",
+        "F005",
+        "F008",
+        "Issue #5",
+        "BC-002",
+        "BC-003"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "在受控仓 Bruce-Yii/gateway-acceptance-test 建分支→局部编辑→push_files 原子推→建 PR，校验 commitSha 非 blobSha、PR number 来自 URL",
+      "assertions": [
+        "atomic:true 单 commit 推送",
+        "commitSha !== blobSha",
+        "PR number 为真实小整数非内部 DB id"
+      ],
+      "clientStatus": {
+        "gemini": "PARTIAL (3dd206f)",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-GH-05",
+      "category": "single-upstream",
+      "upstreams": [
+        "github"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read-write",
+      "failureModes": [
+        "issue-idempotency",
+        "ci-polling",
+        "ci-logs"
+      ],
+      "sourceRefs": [
+        "F001",
+        "PR80-101",
+        "Issue #15",
+        "BC-002",
+        "BC-016"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "受控仓 createIssue 幂等防重（number 非 null）+ 读取失败 CI job 日志 + waitForPrChecks 单次等待",
+      "assertions": [
+        "重复 createIssue 不产生重复 Issue",
+        "顶层 number 非 null",
+        "waitForPrChecks 单轮完成等待"
+      ],
+      "clientStatus": {
+        "gemini": "PARTIAL (3dd206f)",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-GH-06",
+      "category": "single-upstream",
+      "upstreams": [
+        "github"
+      ],
+      "tiers": [
+        "T2",
+        "T3"
+      ],
+      "access": "write",
+      "failureModes": [
+        "silent-noop",
+        "param-validation"
+      ],
+      "sourceRefs": [
+        "Issue #15",
+        "BC-012"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "向 writeFiles 误传 {files} 或默认 dryRun 时，校验网关拒绝静默成功并给出明确错误或 dryRun 警告",
+      "assertions": [
+        "传 {files} 返回 ok:false 与清晰报错",
+        "dryRun:true 显式标明 written:0 不伪装成功"
+      ],
+      "clientStatus": {
+        "gemini": "FAIL-GATEWAY (3dd206f, 待包B修复)",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-GH-07",
+      "category": "single-upstream",
+      "upstreams": [
+        "github"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "write",
+      "failureModes": [
+        "missing-fields",
+        "result-normalization"
+      ],
+      "sourceRefs": [
+        "Issue #15",
+        "BC-011"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "受控仓合并 PR 后校验 normalizeMerge 返回顶层 number、url、sha 全部非 null",
+      "assertions": [
+        "number 为正整数",
+        "url 为完整 PR HTML 链接",
+        "sha 非空"
+      ],
+      "clientStatus": {
+        "gemini": "FAIL-GATEWAY (3dd206f, 待包B修复)",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-GH-08",
+      "category": "single-upstream",
+      "upstreams": [
+        "github"
+      ],
+      "tiers": [
+        "T2",
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "ci-status-aggregation",
+        "ci-diagnostics"
+      ],
+      "sourceRefs": [
+        "BC-016",
+        "PR #34 live observation"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "对已完成 CI 的 PR 调用 waitForPrChecks，校验顶层 status 为 completed 且 conclusion 准确（非 in_progress/null）",
+      "assertions": [
+        "checkRuns 全 completed 时顶层 status === \"completed\"",
+        "conclusion 为 success/failure 而非 null"
+      ],
+      "clientStatus": {
+        "gemini": "FAIL-GATEWAY (42caaf2, 待包B修复)",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-GH-09",
+      "category": "single-upstream",
+      "upstreams": [
+        "github"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "output-truncation",
+        "range-continuation"
+      ],
+      "sourceRefs": [
+        "BC-017",
+        "B5"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "对大 diff 或大文件触发截断后，使用 readFileRange / sliceLines / grepSnippet 分页续读且零手写 .slice()",
+      "assertions": [
+        "truncation 元数据含 totalChars/nextStart",
+        "客户端不手写字符截断"
+      ],
+      "clientStatus": {
+        "gemini": "PARTIAL (3dd206f)",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-GH-10",
+      "category": "single-upstream",
+      "upstreams": [
+        "github"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "binary-image-projection"
+      ],
+      "sourceRefs": [
+        "B5 2026-11-22"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "读取仓库内图片/二进制资源，验证 mimeType 门控、1 MiB 上限与 images[] native block 投影",
+      "assertions": [
+        "不输出乱码 base64 撑爆文本块",
+        "超限清晰提示"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-VC-01",
+      "category": "single-upstream",
+      "upstreams": [
+        "vercel"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "deployment-audit",
+        "nested-shape"
+      ],
+      "sourceRefs": [
+        "F134",
+        "ChatGPT Gate 5"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "查询 gemini-mcp-gateway 最新 production 与 preview 部署，准确提取 deploymentId、target 与 meta.githubCommitSha",
+      "assertions": [
+        "正确区分 production vs preview",
+        "暴露 meta.githubCommitSha（或明确报告缺失）"
+      ],
+      "clientStatus": {
+        "gemini": "PARTIAL (3dd206f)",
+        "chatgpt": "PASS (42caaf2)",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-VC-02",
+      "category": "single-upstream",
+      "upstreams": [
+        "vercel"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "log-truncation"
+      ],
+      "sourceRefs": [
+        "F136"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "拉取项目最近 1 小时运行时错误日志摘要，校验大日志截断元数据完整、无静默丢尾",
+      "assertions": [
+        "返回有效日志摘要或明确空结果",
+        "超长日志带 truncated 标记"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-VC-03",
+      "category": "single-upstream",
+      "upstreams": [
+        "vercel"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "upstream-error-attribution"
+      ],
+      "sourceRefs": [
+        "F140",
+        "anomalies.json"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "查询 Vercel 文档或受限资源，遇到 403/404 时清晰归因为上游权限/资源缺失而非网关故障",
+      "assertions": [
+        "错误归因清晰指向 Vercel 上游状态码"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-VC-04",
+      "category": "single-upstream",
+      "upstreams": [
+        "vercel"
+      ],
+      "tiers": [
+        "T2",
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "nested-shape",
+        "unwrap-consistency"
+      ],
+      "sourceRefs": [
+        "BC-013"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "验证 vercel__list_deployments 返回结构解包后不再因双层 deployments.deployments 导致空数组误判",
+      "assertions": [
+        "列表数组一次取到",
+        "无需多轮试探字段路径"
+      ],
+      "clientStatus": {
+        "gemini": "FAIL-FRICTION (3dd206f, BC-013)",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-VC-05",
+      "category": "single-upstream",
+      "upstreams": [
+        "vercel"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "capability-boundary"
+      ],
+      "sourceRefs": [
+        "cloud-control live observation"
+      ],
+      "observability": "active-only",
+      "rateLimitSensitive": false,
+      "promptSummary": "询问网关能否修改 Vercel 生产环境变量或触发生产部署，验证客户端能识别只读边界并拒绝对不存在写工具的盲目试探",
+      "assertions": [
+        "识别出 Vercel MCP 仅暴露只读工具",
+        "不反复盲试不存在的写接口"
+      ],
+      "clientStatus": {
+        "gemini": "PASS (f2002d9)",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-LN-01",
+      "category": "single-upstream",
+      "upstreams": [
+        "linear"
+      ],
+      "tiers": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "graphql-complexity",
+        "param-bounds"
+      ],
+      "sourceRefs": [
+        "F097",
+        "F112",
+        "F116",
+        "BC-008"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "查询 Linear 团队与 Issue 列表，验证不触发 limit > 50 参数错误与 GraphQL Complexity > 10000 超限",
+      "assertions": [
+        "list_teams 与 list_issues 返回真实数据",
+        "无 limit 或 Complexity 报错"
+      ],
+      "clientStatus": {
+        "gemini": "PARTIAL (f2002d9)",
+        "chatgpt": "PASS-FRICTION (42caaf2, ae_20261124_4889f8f4)",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-LN-02",
+      "category": "single-upstream",
+      "upstreams": [
+        "linear"
+      ],
+      "tiers": [
+        "T2",
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "payload-bloat",
+        "output-truncation"
+      ],
+      "sourceRefs": [
+        "ChatGPT Gate 5",
+        "ae_20261124_4889f8f4"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "查询 Linear Issue 列表时验证客户端能按提示传精简 fields/较小 limit，避免单次拉 10 条撑爆 26.8KB 输出截断",
+      "assertions": [
+        "单次返回无 --- TRUNCATED --- 字段裁剪",
+        "不触发 execute_read 输出层截断"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "PASS-AFTER-RETRY (42caaf2)",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-LN-03",
+      "category": "single-upstream",
+      "upstreams": [
+        "linear"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "pagination",
+        "graphql-complexity"
+      ],
+      "sourceRefs": [
+        "F112",
+        "F116",
+        "BC-008"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "查询 Linear 项目与单 Issue 评论并验证 hasNextPage/cursor 翻页安全，不超复杂度上限",
+      "assertions": [
+        "正确消费 cursor 翻页",
+        "无 Complexity 超限"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-LN-04",
+      "category": "single-upstream",
+      "upstreams": [
+        "linear"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "upstream-error-attribution"
+      ],
+      "sourceRefs": [
+        "F097"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "查询不存在的 Linear team/issue ID，验证清晰归因为上游 404/未找到而非网关故障",
+      "assertions": [
+        "返回明确资源不存在错误",
+        "不误判为鉴权失效"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-NT-01",
+      "category": "single-upstream",
+      "upstreams": [
+        "notion"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read-write",
+      "failureModes": [
+        "partial-update-safety",
+        "tool-recall"
+      ],
+      "sourceRefs": [
+        "F043",
+        "F051",
+        "BC-009"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "语义搜索 Notion 测试页并对指定段落做局部更新（保留其余内容不覆盖），校验新版工具一次召回",
+      "assertions": [
+        "不覆盖页面其他段落",
+        "search 一次召回 notion-update-page"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-NT-02",
+      "category": "single-upstream",
+      "upstreams": [
+        "notion"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "upstream-error-attribution",
+        "plan-gating"
+      ],
+      "sourceRefs": [
+        "F060",
+        "F088",
+        "BC-009"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "触发或验证 Notion validation_error 400 或 Business 套餐门控（notion-calendar-list-contacts），清晰归因上游限制",
+      "assertions": [
+        "透传上游错误原因",
+        "不误报为网关 bug"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-NT-03",
+      "category": "single-upstream",
+      "upstreams": [
+        "notion"
+      ],
+      "tiers": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "oauth-runtime-injection",
+        "service-liveness"
+      ],
+      "sourceRefs": [
+        "PR #29",
+        "PR #31"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "验证 Notion 在无 tokenEnv 情况下通过网关自有 KV OAuth 令牌完成冷启动挂载（53 tools）与 notion__notion_get_self / notion__notion_search 真通",
+      "assertions": [
+        "services() 中 notion 状态为 observed 且 toolCount > 0",
+        "notion__notion_get_self 返回真实工作空间"
+      ],
+      "clientStatus": {
+        "gemini": "PASS (42caaf2)",
+        "chatgpt": "PASS (42caaf2, ae_20261124_4889f8f4)",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-NT-04",
+      "category": "single-upstream",
+      "upstreams": [
+        "notion"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "payload-bloat",
+        "sandbox-filtering"
+      ],
+      "sourceRefs": [
+        "tasks-v2"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "拉取结构较复杂的 Notion 页面并在沙箱内提取标题与关键段落，不把整页原始块 JSON 塞进上下文",
+      "assertions": [
+        "端内裁剪后返回结构化摘要",
+        "无输出截断"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-FG-01",
+      "category": "single-upstream",
+      "upstreams": [
+        "figma"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "payload-bloat",
+        "sandbox-filtering"
+      ],
+      "sourceRefs": [
+        "FIG-001",
+        "FIG-002"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": true,
+      "promptSummary": "先查 Figma metadata 定位目标 node，再拉取选区设计上下文并在沙箱内裁剪大节点 JSON",
+      "assertions": [
+        "不撑爆对话上下文",
+        "返回节点关键结构"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-FG-02",
+      "category": "single-upstream",
+      "upstreams": [
+        "figma"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "truncation-metadata"
+      ],
+      "sourceRefs": [
+        "FIG-005",
+        "FIG-006",
+        "FIG-012"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": true,
+      "promptSummary": "读取 Figma 未读评论、变量定义或 Code Connect 映射，校验返回结构清晰且无静默截断",
+      "assertions": [
+        "结构清晰完整",
+        "无静默截断"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-FG-03",
+      "category": "single-upstream",
+      "upstreams": [
+        "figma"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "upstream-rate-limit"
+      ],
+      "sourceRefs": [
+        "figma-tasks.json"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": true,
+      "promptSummary": "验证遇到 Figma Starter 配额/429 时清晰归因为上游限流而非网关崩溃，且不无限重试",
+      "assertions": [
+        "清晰报告 429 限流归因",
+        "无死循环重试"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-XU-01",
+      "category": "cross-upstream",
+      "upstreams": [
+        "github",
+        "vercel"
+      ],
+      "tiers": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "cross-upstream-orchestration",
+        "deployment-audit"
+      ],
+      "sourceRefs": [
+        "B5",
+        "ChatGPT Gate 5"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "单轮或最少轮次跨 GitHub × Vercel 核验最新 production 部署 SHA、main HEAD 与 docs/DEPLOYMENTS.md 漂移",
+      "assertions": [
+        "servers[] 同时记录 github 与 vercel",
+        "准确输出一致/漂移/缺失 SHA 结论"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "FAIL-GOVERNANCE (42caaf2, 网关正常/抓出台账与meta缺口)",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-XU-02",
+      "category": "cross-upstream",
+      "upstreams": [
+        "github",
+        "notion",
+        "linear"
+      ],
+      "tiers": [
+        "T2",
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "cross-upstream-orchestration",
+        "tail-latency",
+        "shape-normalization"
+      ],
+      "sourceRefs": [
+        "analyzer 10c13554",
+        "BC-007"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "单次 execute_read 用 safeAll 并发拉取 GitHub + Notion + Linear 项目状态并端内汇总，观测并行度与尾延迟",
+      "assertions": [
+        "单轮完成 3 上游并发拉取",
+        "各上游返回形状统一解包无报错"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-XU-03",
+      "category": "cross-upstream",
+      "upstreams": [
+        "github",
+        "figma"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "dual-large-payload",
+        "cross-upstream-orchestration"
+      ],
+      "sourceRefs": [
+        "FIG-006",
+        "FIG-012"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": true,
+      "promptSummary": "读取 Figma 组件变量/Code Connect 映射并对照 GitHub 实现文件核验一致性，验证双大载荷不失真",
+      "assertions": [
+        "双大载荷在沙箱内完成比对",
+        "不触发静默截断"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-XU-04",
+      "category": "cross-upstream",
+      "upstreams": [
+        "github",
+        "vercel",
+        "linear",
+        "notion",
+        "figma"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "service-snapshots",
+        "observability-coverage"
+      ],
+      "sourceRefs": [
+        "PR #33"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "全 5 上游 services() 巡检 + 跨 3 上游轻量只读调用，验证被动分析器采集到完整 serviceSnapshots 与 servers[] 归因",
+      "assertions": [
+        "passive serviceSnapshots > 0",
+        "5/5 上游在 compare 中 covered:true"
+      ],
+      "clientStatus": {
+        "gemini": "untested",
+        "chatgpt": "PASS (42caaf2, ae_20261124_4889f8f4)",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-CL-01",
+      "category": "client-probe",
+      "upstreams": [
+        "github",
+        "linear",
+        "vercel"
+      ],
+      "tiers": [
+        "T2",
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "tool-discovery",
+        "schema-clarity"
+      ],
+      "sourceRefs": [
+        "F5",
+        "Issue #15",
+        "ChatGPT Gate 5"
+      ],
+      "observability": "mixed",
+      "rateLimitSensitive": false,
+      "promptSummary": "不给工具名下达自然语言需求，观测 search → select:<name> 的总搜索轮次与是否出现猜参数",
+      "assertions": [
+        "search 轮次收敛合理",
+        "无盲猜必填参数报错"
+      ],
+      "clientStatus": {
+        "gemini": "PARTIAL (f2002d9)",
+        "chatgpt": "PASS-FRICTION (42caaf2, 6次search/4轮)",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-CL-02",
+      "category": "client-probe",
+      "upstreams": [
+        "github",
+        "linear"
+      ],
+      "tiers": [
+        "T2",
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "truncation-recovery",
+        "no-silent-slice"
+      ],
+      "sourceRefs": [
+        "11-23 scorecard",
+        "BC-017",
+        "ChatGPT Gate 5"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "触发超长返回（大目录/长日志/大列表）后，观测客户端是否读懂 truncation 元数据用 readFileRange 或精简字段续读而非手写 .slice()",
+      "assertions": [
+        "手工按字符 slice 次数为 0",
+        "通过元数据或缩字段成功恢复完整数据"
+      ],
+      "clientStatus": {
+        "gemini": "PARTIAL (3dd206f)",
+        "chatgpt": "PASS (42caaf2)",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-CL-03",
+      "category": "client-probe",
+      "upstreams": [
+        "github"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read-write",
+      "failureModes": [
+        "approval-popups",
+        "session-stability",
+        "compaction-drop"
+      ],
+      "sourceRefs": [
+        "FRAMEWORK §14",
+        "BC-004",
+        "BC-015"
+      ],
+      "observability": "active-only",
+      "rateLimitSensitive": false,
+      "promptSummary": "受控仓执行 1 读 + 1 写 + 连续 6–8 轮交互，观测审批弹窗频率、返回解析与长会话/压缩后连接稳定性",
+      "assertions": [
+        "记录各工具弹窗体感与是否掉线",
+        "无未预期解析错误"
+      ],
+      "clientStatus": {
+        "gemini": "FAIL-HOST (f2002d9, 压缩后掉线 BC-015)",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-CL-04",
+      "category": "client-probe",
+      "upstreams": [
+        "github"
+      ],
+      "tiers": [
+        "T2",
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "description-overload",
+        "helper-discoverability"
+      ],
+      "sourceRefs": [
+        "BC-014"
+      ],
+      "observability": "active-only",
+      "rateLimitSensitive": false,
+      "promptSummary": "评估工具描述长度对模型主动选用 sliceLines / safeAll / applyFilePatch 的影响（服务于按客户端隔离 descriptionMode）",
+      "assertions": [
+        "模型能直接选用正确 helper 而非整文件硬读"
+      ],
+      "clientStatus": {
+        "gemini": "FAIL-FRICTION (3dd206f, BC-014)",
+        "chatgpt": "untested",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-CL-05",
+      "category": "client-probe",
+      "upstreams": [
+        "github"
+      ],
+      "tiers": [
+        "T2",
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "wire-encoding-isolation",
+        "cross-client-regression"
+      ],
+      "sourceRefs": [
+        "M1 client-profile"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "验证各客户端按 profile 收到隔离的线缆编码（Gemini 纯 text JSON / ChatGPT structuredContent + text JSON / Claude text + annotations），互不串伤",
+      "assertions": [
+        "客户端正确解析返回体无 UI 报错",
+        "修改单端 profile 不影响他端"
+      ],
+      "clientStatus": {
+        "gemini": "PASS (42caaf2)",
+        "chatgpt": "PASS (42caaf2)",
+        "claude": "untested"
+      }
+    },
+    {
+      "id": "AT-CL-06",
+      "category": "client-probe",
+      "upstreams": [
+        "github"
+      ],
+      "tiers": [
+        "T3"
+      ],
+      "access": "read",
+      "failureModes": [
+        "protocol-negotiation",
+        "graceful-fallback"
+      ],
+      "sourceRefs": [
+        "OBS-001"
+      ],
+      "observability": "passive-observable",
+      "rateLimitSensitive": false,
+      "promptSummary": "验证新协议版本探测（如 ChatGPT 2026-07-28 server/discover 400）能平滑回退到已支持版本 initialize 200，不阻断后续工具调用",
+      "assertions": [
+        "握手降级后 initialize/tools/list 200",
+        "后续业务调用不受影响"
+      ],
+      "clientStatus": {
+        "gemini": "not-applicable",
+        "chatgpt": "PASS (42caaf2, OBS-001)",
+        "claude": "untested"
+      }
+    }
+  ]
+}
