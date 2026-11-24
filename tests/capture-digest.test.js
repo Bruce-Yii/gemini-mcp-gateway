@@ -458,3 +458,18 @@ test('R2 retries transient 429/5xx for list and get', async () => {
   assert.deepEqual(env, { ok: true });
   assert.equal(getCalls, 3);
 });
+
+test('R2 429 exhaustion throws R2_RATE_LIMITED, never fakes success', async () => {
+  const fetchImpl = async () => new Response('', {
+    status: 429,
+    headers: { ratelimit: '"default";r=0;t=0' },
+  });
+  await assert.rejects(
+    () => readR2Envelope('capture/x.json.gz', { fetchImpl, maxAttempts: 2, maxWaitMs: 0 }),
+    /R2_RATE_LIMITED/,
+  );
+  await assert.rejects(
+    () => listR2Keys('capture/', { fetchImpl, maxAttempts: 1, maxWaitMs: 0 }),
+    /R2_RATE_LIMITED/,
+  );
+});
