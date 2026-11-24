@@ -39,7 +39,7 @@ node scripts/check-module-boundaries.mjs              # 模块边界门禁（0 n
 
 ## 核心评测资产（当前活跃）
 
-- [suite.json](suite.json) — 机器可读权威评测题库真源（`authoritative-suite.v1`，36 条：5 大上游 × 6 故障面 + 跨上游 + 客户端隔离探针，含 T1/T2/T3 套餐与跨客户端状态）
+- [suite.json](suite.json) — 机器可读权威评测题库真源（`authoritative-suite.v2`，72 条：单上游高频工作流 44 + 跨上游/长链条 10 + 对抗性边界 8 + 客户端隔离探针 10，含 T0/T1/T2/T3 四档套餐与跨客户端状态）
 - [AUTHORITATIVE-SUITE.md](AUTHORITATIVE-SUITE.md) — 高复用「单上游 + 跨上游」核心权威任务集（19 条，源自真实历史资产；含 AT-GH-01 / AT-LN-01 / AT-XU-01 等）+ 两套深度客户端投喂模板
 - [BADCASES.md](BADCASES.md) — 分类 Badcase 库（`客户端 × 上游(含跨上游) × 问题类别`）；含 PR #28 五根因回填、BC-015 复现记录、R2 429 条目与 ChatGPT `server/discover` 观察项
 - [HISTORY-MINED-2026-11-24.md](HISTORY-MINED-2026-11-24.md) — 历史主动评测原文、被动日志异常与任务集索引全量打捞
