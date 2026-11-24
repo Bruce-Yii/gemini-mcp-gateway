@@ -220,6 +220,87 @@ export function oauthClientIdOf(envelope) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+/* ------------------------------------------------------------------ *
+ * Four-dimension ledger (M4-A): clientPlatform × protocolVersion ×
+ * clientProfile × buildCommit.
+ *
+ * Protocol version is NEVER guessed from the client name: it is either an
+ * explicit future `protocolVersion` field on the envelope, or derived from the
+ * request path (`/mcp/v2` -> v2, `/mcp` -> v1). Everything else is `unknown`,
+ * including old envelopes captured before these fields existed.
+ * ------------------------------------------------------------------ */
+
+/** Recognized protocol versions. Closed set — no fuzzy matching. */
+export const PROTOCOL_VERSIONS = Object.freeze(['v1', 'v2']);
+/** Canonical executor per protocol version (v2 is the flag-gated typed-plan). */
+export const EXECUTORS = Object.freeze({ v1: 'codemode', v2: 'typed-plan' });
+/** Canonical unknown bucket used by every dimension. */
+export const UNKNOWN_BUCKET = 'unknown';
+
+/** Pathname of the captured request URL (never throws). */
+function requestPathOf(envelope) {
+  try {
+    return new URL(String(envelope?.request?.url ?? '/'), 'http://localhost').pathname;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Read the protocol version of an envelope: explicit `protocolVersion` first
+ * (future capture stamping), otherwise the request path. Unknown stays unknown.
+ */
+export function protocolVersionOf(envelope) {
+  const explicit = envelope?.protocolVersion;
+  if (typeof explicit === 'string') {
+    const normalized = explicit.trim().toLowerCase();
+    if (PROTOCOL_VERSIONS.includes(normalized)) return normalized;
+  }
+  const path = requestPathOf(envelope);
+  if (path === '/mcp/v2') return 'v2';
+  if (path === '/mcp') return 'v1';
+  return UNKNOWN_BUCKET;
+}
+
+/** Executor label for the envelope's protocol version (unknown when unknown). */
+export function executorOf(envelope) {
+  return EXECUTORS[protocolVersionOf(envelope)] ?? UNKNOWN_BUCKET;
+}
+
+/** Build commit from `deployment.commit`; missing/empty -> unknown. */
+export function buildCommitOf(envelope) {
+  const commit = envelope?.deployment?.commit;
+  return typeof commit === 'string' && commit.trim() ? commit.trim() : UNKNOWN_BUCKET;
+}
+
+/**
+ * Explicit `servers[]` of one envelope (cross-upstream tags). Missing / empty /
+ * non-array -> `['unknown']`. We NEVER infer servers here: per-upstream stats
+ * have their own event-based derivation; this field is the explicit capture tag.
+ */
+export function serversOf(envelope) {
+  const raw = envelope?.servers;
+  if (!Array.isArray(raw)) return [UNKNOWN_BUCKET];
+  const list = [...new Set(raw.filter((value) => typeof value === 'string' && value.trim()).map((value) => value.trim()))];
+  return list.length ? list : [UNKNOWN_BUCKET];
+}
+
+/** Evaluation mode label (`active` / `passive`), otherwise unknown. */
+export function evalModeOf(envelope) {
+  const value = envelope?.evalMode;
+  return value === 'active' || value === 'passive' ? value : UNKNOWN_BUCKET;
+}
+
+/** Stable key of the four-dimension bucket, in fixed dimension order. */
+export function fourDimensionKeyOf(envelope) {
+  return [
+    clientPlatformOf(envelope),
+    protocolVersionOf(envelope),
+    clientProfileOf(envelope),
+    buildCommitOf(envelope),
+  ].join('|');
+}
+
 function env(name) {
   return process.env[name] ?? '';
 }
@@ -564,6 +645,16 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     // additive: the legacy aggregate shape above is preserved byte-for-byte.
     byClientPlatform: {},
     platformSummary: [],
+    // Additive fields (M4-A, four-dimension ledger) — filled below.
+    // clientPlatform × protocolVersion(v1/v2) × clientProfile × buildCommit.
+    byProtocolVersion: {},
+    byClientProfile: {},
+    byBuildCommit: {},
+    byEvalMode: {},
+    byServerTag: {},
+    multiServerRequests: 0,
+    byFourDimension: {},
+    fourDimensionSummary: [],
   };
   const upstreamGroups = new Map();
   const toolGroups = new Map();
@@ -591,7 +682,7 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     let path = '/';
     try { path = new URL(String(envelope?.request?.url ?? '/'), 'http://localhost').pathname; } catch { /* keep default */ }
     const method = String(envelope?.request?.method ?? 'POST').toUpperCase();
-    const isMcp = path === '/mcp' && method === 'POST';
+    const isMcp = (path === '/mcp' || path === '/mcp/v2') && method === 'POST';
     if (isMcp) {
       result.mcpRequests += 1;
       platformRow.mcpRequests += 1;
@@ -616,7 +707,7 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     bumpHistogram(result.byHour, hour);
     bumpHistogram(result.byDayHour, `${day}T${hour}`);
 
-    const routeKey = isMcp ? 'POST /mcp' : `${method} ${path}`;
+    const routeKey = `${method} ${path}`; // MCP routes keep their exact path (v1 vs v2).
     const route = routeGroups.get(routeKey) ?? blankGroup();
     route.calls += 1;
     route.durations.push(Number(envelope?.response?.durationMs ?? 0));
@@ -719,6 +810,129 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     requestIdSamples: row.requestIdSamples,
   }));
 
+  // --- M4-A: four-dimension ledger ---------------------------------------
+  // clientPlatform × protocolVersion(v1/v2) × clientProfile × buildCommit.
+  // Every dimension is explicit-only; old envelopes without the fields land in
+  // `unknown` instead of being silently attributed to a modern client/build.
+  const dimensionGroups = new Map();
+  const protocolGroups = new Map();
+  const profileGroups = new Map();
+  const buildGroups = new Map();
+  const evalModeGroups = new Map();
+  const serverTagGroups = new Map();
+  const bumpBucket = (map, key, extra, flags) => {
+    const row = map.get(key) ?? {
+      ...extra, requests: 0, mcpRequests: 0, errors: 0, toolCalls: 0, truncationSuspects: 0,
+    };
+    row.requests += 1;
+    if (flags.isMcp) row.mcpRequests += 1;
+    if (flags.isError) row.errors += 1;
+    if (flags.toolCall) row.toolCalls += 1;
+    if (flags.suspect) row.truncationSuspects += 1;
+    map.set(key, row);
+    return row;
+  };
+  for (const envelope of envelopes) {
+    const platform = clientPlatformOf(envelope);
+    const protocolVersion = protocolVersionOf(envelope);
+    const executor = executorOf(envelope);
+    const clientProfile = clientProfileOf(envelope);
+    const buildCommit = buildCommitOf(envelope);
+    const evalMode = evalModeOf(envelope);
+    const servers = serversOf(envelope);
+    const path = requestPathOf(envelope);
+    const method = String(envelope?.request?.method ?? 'POST').toUpperCase();
+    const isMcp = (path === '/mcp' || path === '/mcp/v2') && method === 'POST';
+    const mcpMethod = mcpMethodOf(envelope);
+    const status = Number(envelope?.response?.status ?? 0);
+    const raw = String(envelope?.response?.raw ?? '');
+    const isError = status >= 400 || /"isError":true|execute error/i.test(raw);
+    const suspect = isTruncated(envelope) || isModelTruncationSuspect(envelope);
+    const flags = { isMcp, isError, toolCall: isMcp && mcpMethod === 'tools/call', suspect };
+    const requestId = String(envelope?.requestId ?? envelope?.request?.id ?? envelope?.id ?? 'unknown');
+    if (servers.length > 1) result.multiServerRequests += 1;
+
+    const dimensionKey = fourDimensionKeyOf(envelope);
+    const dimension = dimensionGroups.get(dimensionKey) ?? {
+      clientPlatform: platform,
+      protocolVersion,
+      executor,
+      clientProfile,
+      buildCommit,
+      requests: 0,
+      mcpRequests: 0,
+      errors: 0,
+      toolCalls: 0,
+      truncationSuspects: 0,
+      evalModes: {},
+      servers: [],
+      requestIdSamples: [],
+    };
+    dimension.requests += 1;
+    if (isMcp) dimension.mcpRequests += 1;
+    if (isError) dimension.errors += 1;
+    if (flags.toolCall) dimension.toolCalls += 1;
+    if (suspect) dimension.truncationSuspects += 1;
+    dimension.evalModes[evalMode] = (dimension.evalModes[evalMode] ?? 0) + 1;
+    for (const server of servers) if (!dimension.servers.includes(server)) dimension.servers.push(server);
+    if (dimension.requestIdSamples.length < 5 && !dimension.requestIdSamples.includes(requestId)) {
+      dimension.requestIdSamples.push(requestId);
+    }
+    dimensionGroups.set(dimensionKey, dimension);
+
+    bumpBucket(protocolGroups, protocolVersion, { protocolVersion, executor }, flags);
+    bumpBucket(profileGroups, clientProfile, { clientProfile }, flags);
+    const buildRow = bumpBucket(buildGroups, buildCommit, { buildCommit, clientPlatforms: [] }, flags);
+    if (!buildRow.clientPlatforms.includes(platform)) buildRow.clientPlatforms.push(platform);
+    bumpBucket(evalModeGroups, evalMode, { evalMode }, flags);
+    for (const server of servers) bumpBucket(serverTagGroups, server, { server }, flags);
+  }
+
+  const orderBy = (order) => (a, b) => order.indexOf(a) - order.indexOf(b);
+  const rowsToObject = (map, order, field) => Object.fromEntries(
+    [...map.values()]
+      .sort((a, b) => {
+        const base = orderBy(order)(a[field], b[field]);
+        return base !== 0 ? base : String(a[field]).localeCompare(String(b[field]));
+      })
+      .map((row) => [row[field], row]),
+  );
+  result.byProtocolVersion = rowsToObject(protocolGroups, [...PROTOCOL_VERSIONS, UNKNOWN_BUCKET], 'protocolVersion');
+  result.byClientProfile = rowsToObject(
+    profileGroups,
+    ['gemini-text-json', 'chatgpt-structured', 'claude-text', UNKNOWN_BUCKET],
+    'clientProfile',
+  );
+  result.byEvalMode = rowsToObject(evalModeGroups, ['active', 'passive', UNKNOWN_BUCKET], 'evalMode');
+  result.byBuildCommit = Object.fromEntries(
+    [...buildGroups.values()]
+      .sort((a, b) => (b.requests - a.requests) || a.buildCommit.localeCompare(b.buildCommit))
+      .map((row) => [row.buildCommit, row]),
+  );
+  result.byServerTag = Object.fromEntries(
+    [...serverTagGroups.values()]
+      .sort((a, b) => (b.requests - a.requests) || a.server.localeCompare(b.server))
+      .map((row) => [row.server, row]),
+  );
+  result.fourDimensionSummary = [...dimensionGroups.values()]
+    .sort((a, b) => (b.requests - a.requests)
+      || fourDimensionKeyOf({
+        clientPlatform: a.clientPlatform,
+        protocolVersion: a.protocolVersion,
+        clientProfile: a.clientProfile,
+        deployment: { commit: a.buildCommit },
+      }).localeCompare(fourDimensionKeyOf({
+        clientPlatform: b.clientPlatform,
+        protocolVersion: b.protocolVersion,
+        clientProfile: b.clientProfile,
+        deployment: { commit: b.buildCommit },
+      })));
+  result.byFourDimension = Object.fromEntries(
+    [...result.fourDimensionSummary]
+      .map((row) => [`${row.clientPlatform}|${row.protocolVersion}|${row.clientProfile}|${row.buildCommit}`, row])
+      .sort(([a], [b]) => a.localeCompare(b)),
+  );
+
   // Keep a stable, human-friendly order in JSON output.
   for (const key of ['byDay', 'byDayHour', 'byHour', 'statuses', 'errorClasses', 'routeErrors', 'upstreamStats', 'toolStats', 'byRoute', 'modelTruncationByServer', 'modelTruncationByTool', 'modelTruncationBySession', 'byClientPlatform']) {
     result[key] = Object.fromEntries(Object.entries(result[key]).sort(([a], [b]) => a.localeCompare(b)));
@@ -762,6 +976,15 @@ export function renderScorecard(date, metrics) {
       const ids = (p.requestIdSamples ?? []).map((id) => `\`${id}\``).join(', ') || '—';
       return `| ${p.platform} | ${p.requests} | ${p.mcpRequests} | ${p.errors} | ${p.toolCalls} | ${p.truncationSuspects} | ${p.sessions} | ${p.projects} | ${ids} |`;
     }).join('\n') || '| — | 0 | 0 | 0 | 0 | 0 | 0 | 0 | — |';
+  const protocolRows = Object.values(metrics.byProtocolVersion ?? {}).map((p) => `| ${p.protocolVersion} | ${p.executor} | ${p.requests} | ${p.mcpRequests} | ${p.errors} | ${p.toolCalls} | ${p.truncationSuspects} |`).join('\n') || '| — | — | 0 | 0 | 0 | 0 | 0 |';
+  const profileRows = Object.values(metrics.byClientProfile ?? {}).map((p) => `| ${p.clientProfile} | ${p.requests} | ${p.mcpRequests} | ${p.errors} | ${p.toolCalls} | ${p.truncationSuspects} |`).join('\n') || '| — | 0 | 0 | 0 | 0 | 0 |';
+  const evalModeCell = (modes) => Object.entries(modes ?? {}).map(([mode, count]) => `${mode}:${count}`).join(', ') || '—';
+  const fourDimRows = (metrics.fourDimensionSummary ?? []).map((row) => {
+    const ids = (row.requestIdSamples ?? []).map((id) => `\`${id}\``).join(', ') || '—';
+    return `| ${row.clientPlatform} | ${row.protocolVersion} | ${row.executor} | ${row.clientProfile} | ${row.buildCommit} | ${row.requests} | ${row.mcpRequests} | ${row.errors} | ${row.toolCalls} | ${row.truncationSuspects} | ${evalModeCell(row.evalModes)} | ${(row.servers ?? []).join(', ')} | ${ids} |`;
+  }).join('\n') || '| — | — | — | — | — | 0 | 0 | 0 | 0 | 0 | — | — | — |';
+  const serverTagRows = Object.values(metrics.byServerTag ?? {}).map((row) => `| ${row.server} | ${row.requests} | ${row.mcpRequests} | ${row.errors} | ${row.toolCalls} | ${row.truncationSuspects} |`).join('\n') || '| — | 0 | 0 | 0 | 0 | 0 |';
+  const evalModeRows = Object.values(metrics.byEvalMode ?? {}).map((row) => `| ${row.evalMode} | ${row.requests} | ${row.mcpRequests} | ${row.errors} | ${row.toolCalls} | ${row.truncationSuspects} |`).join('\n') || '| — | 0 | 0 | 0 | 0 | 0 |';
   return `# Capture Scorecard — ${date}
 
 | Metric | Value |
@@ -792,6 +1015,42 @@ export function renderScorecard(date, metrics) {
 | Platform | Requests | MCP requests | Errors | Tool calls | Trunc suspects | Sessions | Projects | RequestId samples |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
 ${platformRows}
+
+## By protocol version (v1 / v2) — M4-A
+> \`protocolVersion\` 只来自显式字段或请求路径（\`/mcp/v2\`=v2，\`/mcp\`=v1）；
+> 旧 envelope / 非 MCP 路由一律 \`unknown\`，不猜。
+
+| Protocol | Executor | Requests | MCP requests | Errors | Tool calls | Trunc suspects |
+|---|---|---|---:|---:|---:|---:|
+${protocolRows}
+
+## By client profile — M4-A
+
+| Profile | Requests | MCP requests | Errors | Tool calls | Trunc suspects |
+|---|---|---:|---:|---:|---:|
+${profileRows}
+
+## Four-dimension ledger — platform × protocol × profile × build (M4-A)
+> 每个桶独立统计；桶与桶之间不做硬比。\`unknown\` 是合法桶（旧 envelope / 缺字段）。
+
+| Platform | Protocol | Executor | Profile | Build commit | Requests | MCP | Errors | Tool calls | Trunc | Eval modes | Servers[] | RequestId samples |
+|---|---|---|---|---:|---:|---:|---:|---:|---|---|---|
+${fourDimRows}
+
+## By servers[] (cross-upstream) — M4-A
+> 只读 capture 显式 \`servers[]\`；缺失记 \`unknown\`，不从工具名反推。
+> 一次请求串多个上游时，每个 server 各计一次；\`multiServerRequests\`=${metrics.multiServerRequests ?? 0}。
+
+| Server | Requests | MCP requests | Errors | Tool calls | Trunc suspects |
+|---|---|---:|---:|---:|---:|
+${serverTagRows}
+
+## By eval mode (active / passive) — M4-A
+> \`evalMode\` 缺省/非法一律 \`unknown\`，绝不按时间或来源猜测。
+
+| Eval mode | Requests | MCP requests | Errors | Tool calls | Trunc suspects |
+|---|---|---:|---:|---:|---:|
+${evalModeRows}
 
 ## Tool calls (MCP method)
 ${Object.entries(metrics.tools).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, count]) => `- ${name}: ${count}`).join('\n') || '- none'}

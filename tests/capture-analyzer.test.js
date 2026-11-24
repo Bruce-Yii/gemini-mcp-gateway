@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   buildAnalyzerInput, validateAnalyzerOutput, dailyTrend, renderWeeklyReview, isoWeek, filterEnvelopes,
+  parseCliFilters,
 } from '../scripts/analyze-captures.mjs';
 import { aggregateEnvelopes } from '../scripts/capture-digest.mjs';
 
@@ -227,4 +233,110 @@ test('filterEnvelopes filters by lastMinutes and buildCommit prefix', () => {
   ];
   const filtered = filterEnvelopes(list, { lastMinutes: 30, commit: '1481408', nowMs });
   assert.deepEqual(filtered.map((x) => x.requestId), ['r1']);
+});
+
+// ── M4-A: platform / evalMode filters + four-dimension analyzer input ─────────
+
+const ANALYZER_SCRIPT = fileURLToPath(new URL('../scripts/analyze-captures.mjs', import.meta.url));
+
+function dimensionEnv({ id, url = '/mcp', platform, profile, evalMode, commit = '5039ac6', ts }) {
+  return {
+    requestId: id,
+    ts,
+    clientPlatform: platform,
+    clientProfile: profile,
+    evalMode,
+    deployment: { commit },
+    request: {
+      method: 'POST',
+      url,
+      raw: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: 'execute_read', arguments: { code: 'async () => 1' } } }),
+    },
+    response: { status: 200, raw: 'ok', bytes: 2, durationMs: 10 },
+    events: [],
+  };
+}
+
+test('M4-A: parseCliFilters validates --platform/--eval-mode/--last-minutes/--commit', () => {
+  assert.deepEqual(parseCliFilters([]), { platform: '', evalMode: '', lastMinutes: 0, commit: '' });
+  assert.deepEqual(
+    parseCliFilters(['--platform', 'Gemini', '--eval-mode', 'ACTIVE', '--last-minutes', '60', '--commit', '5039ac6']),
+    { platform: 'gemini', evalMode: 'active', lastMinutes: 60, commit: '5039ac6' },
+  );
+  assert.throws(() => parseCliFilters(['--platform', 'bogus']), /invalid --platform "bogus": expected gemini\|chatgpt\|claude/);
+  assert.throws(() => parseCliFilters(['--eval-mode', 'bogus']), /invalid --eval-mode "bogus": expected active\|passive/);
+  assert.throws(() => parseCliFilters(['--platform']), /--platform requires a value/);
+  assert.throws(() => parseCliFilters(['--platform', '--dry-run']), /--platform requires a value/);
+  assert.throws(() => parseCliFilters(['--last-minutes', '0']), /invalid --last-minutes "0": expected a positive number/);
+  assert.throws(() => parseCliFilters(['--last-minutes', 'abc']), /invalid --last-minutes "abc"/);
+  assert.throws(() => parseCliFilters(['--commit', '   ']), /--commit requires a non-empty commit prefix/);
+});
+
+test('M4-A: filterEnvelopes composes platform × evalMode × lastMinutes × commit', () => {
+  const nowMs = Date.parse('2026-11-24T02:00:00.000Z');
+  const list = [
+    dimensionEnv({ id: 'a1', platform: 'gemini', profile: 'gemini-text-json', evalMode: 'active', ts: '2026-11-24T01:45:00.000Z', commit: 'c1' }),
+    dimensionEnv({ id: 'a2', platform: 'gemini', profile: 'gemini-text-json', evalMode: 'passive', ts: '2026-11-24T01:50:00.000Z', commit: 'c1' }),
+    dimensionEnv({ id: 'a3', platform: 'gemini', profile: 'gemini-text-json', evalMode: 'active', ts: '2026-11-24T00:30:00.000Z', commit: 'c1' }),
+    dimensionEnv({ id: 'a4', platform: 'chatgpt', profile: 'chatgpt-structured', evalMode: 'active', ts: '2026-11-24T01:55:00.000Z', commit: 'c2' }),
+  ];
+  const selected = filterEnvelopes(list, { lastMinutes: 60, platform: 'gemini', evalMode: 'active', commit: 'c1', nowMs });
+  assert.deepEqual(selected.map((row) => row.requestId), ['a1']);
+  assert.deepEqual(
+    filterEnvelopes(list, { platform: 'gemini', nowMs }).map((row) => row.requestId),
+    ['a1', 'a2', 'a3'],
+  );
+  assert.deepEqual(
+    filterEnvelopes(list, { evalMode: 'active', nowMs }).map((row) => row.requestId),
+    ['a1', 'a3', 'a4'],
+  );
+  assert.throws(() => filterEnvelopes(list, { platform: 'bogus' }), /invalid platform filter/);
+  assert.throws(() => filterEnvelopes(list, { evalMode: 'bogus' }), /invalid evalMode filter/);
+});
+
+test('M4-A: analyzer input carries dimensions + sample protocol/profile/executor', () => {
+  const input = buildAnalyzerInput([
+    dimensionEnv({ id: 'v1', url: '/mcp', platform: 'gemini', profile: 'gemini-text-json', evalMode: 'active', ts: '2026-11-24T01:00:00.000Z' }),
+    dimensionEnv({ id: 'v2', url: '/mcp/v2', platform: 'chatgpt', profile: 'chatgpt-structured', evalMode: 'passive', ts: '2026-11-24T01:01:00.000Z' }),
+  ], { date: '2026-11-24', filters: { platform: 'gemini', evalMode: 'active', lastMinutes: 60, commit: '5039ac6' } });
+
+  assert.deepEqual(input.filters, { platform: 'gemini', evalMode: 'active', lastMinutes: 60, commit: '5039ac6' });
+  assert.equal(input.dimensions.byProtocolVersion.v1.requests, 1);
+  assert.equal(input.dimensions.byProtocolVersion.v2.requests, 1);
+  assert.equal(input.dimensions.byProtocolVersion.v2.executor, 'typed-plan');
+  assert.equal(input.dimensions.byFourDimension.length, 2);
+  assert.equal(input.dimensions.unknownBucket, 'unknown');
+  assert.equal(input.dimensions.multiServerRequests, 0);
+  const v2 = input.samples.find((sample) => sample.id === 'v2');
+  assert.equal(v2.protocolVersion, 'v2');
+  assert.equal(v2.executor, 'typed-plan');
+  assert.equal(v2.clientProfile, 'chatgpt-structured');
+});
+
+test('M4-A: CLI --dir composes filters; invalid args exit 1 with a clear error', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'm4a-'));
+  const out = join(dir, 'out');
+  const now = Date.now();
+  const ts = (minutesAgo) => new Date(now - minutesAgo * 60 * 1000).toISOString();
+  writeFileSync(join(dir, 'a.json'), JSON.stringify(dimensionEnv({ id: 'a', url: '/mcp', platform: 'gemini', profile: 'gemini-text-json', evalMode: 'active', ts: ts(10) })));
+  writeFileSync(join(dir, 'b.json'), JSON.stringify(dimensionEnv({ id: 'b', url: '/mcp/v2', platform: 'gemini', profile: 'gemini-text-json', evalMode: 'passive', ts: ts(5) })));
+  writeFileSync(join(dir, 'c.json'), JSON.stringify(dimensionEnv({ id: 'c', url: '/mcp', platform: 'chatgpt', profile: 'chatgpt-structured', evalMode: 'active', ts: ts(5) })));
+  try {
+    const stdout = execFileSync(process.execPath, [
+      ANALYZER_SCRIPT, '--dir', dir, '--out', out,
+      '--platform', 'gemini', '--eval-mode', 'active', '--last-minutes', '60', '--dry-run',
+    ], { encoding: 'utf8' });
+    assert.match(stdout, /dry-run: 0 clusters, 1 requests/);
+    assert.match(stdout, /filters=platform=gemini, evalMode=active, lastMinutes=60/);
+
+    let failure;
+    try {
+      execFileSync(process.execPath, [ANALYZER_SCRIPT, '--dir', dir, '--out', out, '--platform', 'bogus', '--dry-run'], { encoding: 'utf8' });
+    } catch (error) { failure = error; }
+    assert.ok(failure, 'invalid --platform must fail');
+    assert.equal(failure.status, 1);
+    assert.match(String(failure.stderr), /invalid --platform "bogus"/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
