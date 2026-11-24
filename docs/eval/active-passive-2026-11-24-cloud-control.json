@@ -1,0 +1,230 @@
+{
+  "schema": "active-passive-comparison.v1",
+  "activeEvalId": "ae_20261124_927eae1a",
+  "generatedAt": "2026-11-24T18:58:14.457Z",
+  "match": "likely",
+  "reasons": [
+    "window+platform+build align; no requestId with a verified in-window timestamp",
+    "missed service:github (no-services-snapshot)",
+    "missed service:linear (no-services-snapshot)",
+    "missed service:vercel (no-services-snapshot)",
+    "missed service:figma (no-services-snapshot)",
+    "missed service:notion (no-services-snapshot)",
+    "missed finding:F-writefiles (passive-not-detected)",
+    "missed finding:F-tool-description (passive-not-detected)"
+  ],
+  "checks": {
+    "build": "unknown",
+    "platform": "match",
+    "window": "match",
+    "requestIds": "unknown"
+  },
+  "requestIds": {
+    "status": "unknown",
+    "matched": [],
+    "verified": [],
+    "unverified": [],
+    "missing": []
+  },
+  "coverage": [
+    {
+      "kind": "service",
+      "subject": "github",
+      "expected": "online",
+      "covered": false,
+      "passiveStatus": "no-snapshot",
+      "reason": "no-services-snapshot"
+    },
+    {
+      "kind": "service",
+      "subject": "linear",
+      "expected": "online",
+      "covered": false,
+      "passiveStatus": "no-snapshot",
+      "reason": "no-services-snapshot"
+    },
+    {
+      "kind": "service",
+      "subject": "vercel",
+      "expected": "online",
+      "covered": false,
+      "passiveStatus": "no-snapshot",
+      "reason": "no-services-snapshot"
+    },
+    {
+      "kind": "service",
+      "subject": "figma",
+      "expected": "online",
+      "covered": false,
+      "passiveStatus": "no-snapshot",
+      "reason": "no-services-snapshot"
+    },
+    {
+      "kind": "service",
+      "subject": "notion",
+      "expected": "offline",
+      "covered": false,
+      "passiveStatus": "no-snapshot",
+      "reason": "no-services-snapshot"
+    },
+    {
+      "kind": "connect-failure",
+      "subject": "notion",
+      "expected": "failed-connect",
+      "covered": true,
+      "passiveStatus": "connect-failure-visible",
+      "reason": null
+    },
+    {
+      "kind": "finding",
+      "subject": "F-notion-offline",
+      "title": "Notion runtime offline after gateway OAuth",
+      "expected": "passive-issue-detected",
+      "covered": true,
+      "passiveStatus": "issue-detected:issue-3",
+      "passiveIssueId": "issue-3",
+      "matchedKeyword": "notion",
+      "reason": null
+    },
+    {
+      "kind": "finding",
+      "subject": "F-mcp-drop",
+      "title": "MCP connector not-found after context compaction",
+      "expected": "passive-issue-detected",
+      "covered": true,
+      "passiveStatus": "issue-detected:issue-1",
+      "passiveIssueId": "issue-1",
+      "matchedKeyword": "MCP",
+      "reason": null
+    },
+    {
+      "kind": "finding",
+      "subject": "F-writefiles",
+      "title": "writeFiles silent no-op with {files} or default dryRun",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-normalizemerge",
+      "title": "normalizeMerge returns null number and url",
+      "expected": "passive-issue-detected",
+      "covered": true,
+      "passiveStatus": "issue-detected:issue-5",
+      "passiveIssueId": "issue-5",
+      "matchedKeyword": "normalizeMerge",
+      "reason": null
+    },
+    {
+      "kind": "finding",
+      "subject": "F-nested-truncation",
+      "title": "double-nested list responses and ~20KB truncation force rereads",
+      "expected": "passive-issue-detected",
+      "covered": true,
+      "passiveStatus": "issue-detected:issue-4",
+      "passiveIssueId": "issue-4",
+      "matchedKeyword": "truncated",
+      "reason": null
+    },
+    {
+      "kind": "finding",
+      "subject": "F-tool-description",
+      "title": "long execute descriptions hide sliceLines/applyFilePatch",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "reason": "passive-not-detected"
+    }
+  ],
+  "missed": [
+    {
+      "kind": "service",
+      "subject": "github",
+      "expected": "online",
+      "covered": false,
+      "passiveStatus": "no-snapshot",
+      "reason": "no-services-snapshot"
+    },
+    {
+      "kind": "service",
+      "subject": "linear",
+      "expected": "online",
+      "covered": false,
+      "passiveStatus": "no-snapshot",
+      "reason": "no-services-snapshot"
+    },
+    {
+      "kind": "service",
+      "subject": "vercel",
+      "expected": "online",
+      "covered": false,
+      "passiveStatus": "no-snapshot",
+      "reason": "no-services-snapshot"
+    },
+    {
+      "kind": "service",
+      "subject": "figma",
+      "expected": "online",
+      "covered": false,
+      "passiveStatus": "no-snapshot",
+      "reason": "no-services-snapshot"
+    },
+    {
+      "kind": "service",
+      "subject": "notion",
+      "expected": "offline",
+      "covered": false,
+      "passiveStatus": "no-snapshot",
+      "reason": "no-services-snapshot"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-writefiles",
+      "title": "writeFiles silent no-op with {files} or default dryRun",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-tool-description",
+      "title": "long execute descriptions hide sliceLines/applyFilePatch",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "reason": "passive-not-detected"
+    }
+  ],
+  "findings": {
+    "total": 6,
+    "detected": 4,
+    "missed": 2
+  },
+  "passive": {
+    "dataStatus": "HAS_DATA",
+    "requests": 34,
+    "platforms": [
+      "chatgpt",
+      "gemini",
+      "unknown"
+    ],
+    "buildCommits": [
+      "3dd206f7238491e93f15c3ce39bce37c0e4bceba",
+      "f2002d9ca48e55292eb824faa10b85b39ea35440"
+    ],
+    "serviceSnapshots": 0,
+    "connectFailures": 9,
+    "issues": 5
+  }
+}

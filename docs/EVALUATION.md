@@ -104,11 +104,12 @@ L4 人工在线反馈           用户真实窗口，发现新维度
 
 1. J1–J6 已接 L1 `--profile online-gap`（acba249），但 baseline 尚未冻结；
 2. 在线 replay harness 已完成（1bb8f8a），真实 capture 端到端仍 unknown；
-3. **部署已完成**：当前生产 `3dd206f`；F1/F2 已随部署生效，但同窗在线复验仍未做（不得写“验收通过”）；
+3. **部署进度**：生产 `f2002d9`（2026-11-25 01:55 手动部署）；F1/F2 的修复已随 `3dd206f` 上线（`f2002d9` 继承），但 PR #28 的证据链修复只在 `main` `cd23fdc`（**未部署**）；F1/F2 同窗在线复验仍未做（不得写“验收通过”）；
 4. **真实客户端 lane**：只有离线 conformance，没有真实 Gemini/ChatGPT/Claude 连接；
 5. **canary/shadow**：未实现；
 6. **自动 intake**：未实现，当前靠人贴 + lead 记录；
-7. F3–F5 代码层已修（codemode-ergonomics），但部署后在线复验未做。
+7. F3–F5 代码层已修（codemode-ergonomics），但部署后在线复验未做；
+8. **PR #28 证据链修复**已合入 `main` `cd23fdc`（R2 全量分页 / `isTruncated` 严格化 / `responsePreview`+`subCalls` / analyzer 成功态归因 / `observed.findings` 对账），**未部署**（生产仍 `f2002d9`）；同窗重跑与验收待 R2 冷却后执行。Pack 1（PR #30，weekly 读 scorecard + `R2_RATE_LIMITED`）与 Pack 2（PR #31，Notion 运行时 `Authorization`）均 **OPEN 未合并**。
 
 ## 7. 新增一条在线反馈时
 
@@ -168,3 +169,41 @@ L4 人工在线反馈           用户真实窗口，发现新维度
 > 执行层（2026-11-24 补）：`active-eval.v1` 记录、同窗对照、`EMPTY_WINDOW` 语义、状态漂移检查
 > 见 [eval/EVAL-CLOSURE.md](eval/EVAL-CLOSURE.md)；开发窗口的触发探针见 `AGENTS.md` §3.1.1。
 
+---
+
+## 10. 2026-11-25 证据链修复（PR #28）与 R2 约束（append-only）
+
+> PR #28 已于 2026-11-24T18:19:59Z 合入 `main` `cd23fdc`，**未部署**（生产仍 `f2002d9` 旧代码）。
+> 本节只同步**代码态机制**与**边界**，不是生产验收，也不是“线上已修”。
+
+### 10.1 五个根因 → 现行机制
+
+| # | 根因 | 现行机制（`main` `cd23fdc`） | 主要落位 |
+|---|---|---|---|
+| 1 | R2 `list` 默认每页 20 条导致日志静默缺失（P0） | `listR2Keys` 使用 `per_page=1000` + `result_info.cursor` 全量翻页，`maxPages` 默认 50；触顶仍有 cursor 时 warning + 返回数组 `truncated=true`；429/5xx 有界重试 | `scripts/capture-digest.mjs` |
+| 2 | `isTruncated` 假阳性（P0） | 删除宽泛 `truncated:` 正则；只认 `response.truncated===true`、真实 `truncation` 对象、或响应尾部 256 字符内的固定 marker；普通 JSON 正文里的 `"truncated": false/true` 不再误判 | `scripts/capture-digest.mjs` |
+| 3 | 成功样本不可见（P0） | analyzer-input 的 `samples[]` 增加 `responsePreview`（前 500 字符 + `topLevelKeys`/`nullKeys`/`arrays`/`nested` 轮廓）；`subCalls[]` 增加 `error`/`resultShape`；预览与错误做 secret 形态脱敏 | `scripts/analyze-captures.mjs` |
+| 4 | analyzerPrompt 只盯错误簇 + 无归因（P1） | prompt 要求结合 `responsePreview + subCalls + clientPlatform + servers[]` 识别 HTTP-200 语义摩擦（null 字段、双层嵌套、误报截断、跨上游冗余、重复防御解析）；issue schema 增加可选 `clientPlatform`/`servers`，validator 不因归因缺失丢 issue | `scripts/analyze-captures.mjs` |
+| 5 | 主动↔被动对照假绿 `missed: []`（P1） | `active-eval.v1` 支持 `observed.findings[] {id,title,keywords}`；compare 逐条匹配被动 `validated.issues` 的 `title+likelyCause+suggestedFix`，未命中强制 `missed[]`（`reason=passive-not-detected`），默认非零退出（显式 `--allow-missed-findings` 才例外） | `scripts/record-active-eval.mjs`、`scripts/compare-active-passive.mjs` |
+
+边界：
+
+- `responsePreview` 是**有界**预览；字段不在 preview 里 ≠ 全量 body 里不存在，analyzer 不得据此过度断言。
+- analyzer 输出仍是 **advisory 假设**（`AGENTS.md` §1）；归因/`servers[]` 是模型推断，不是事实。
+- `isTruncated` 修复是**采集侧语义**，不改工具层 `fileResult.truncated`（后者已在 `3dd206f` 修过 40KB 假阳性）。
+
+### 10.2 R2 约束（日常短窗与周报解耦）
+
+- **外部限流事实**：R2 REST API 是**账户级** 1,200 req / 5 min（[官方 limits](https://developers.cloudflare.com/r2/platform/limits/)）。
+- **问题**：分页修复后 `capture-daily` 能取全量，但 weekly-review 每次手动 dispatch 都重扫 7 天 raw envelope，会打满配额触发 429。
+- **已观测**：修复分支真实重跑 last 180m，请求数 **2 → 34**（gemini 17 / chatgpt 10 / unknown 7）；同 run 的 weekly-review 在 R2 GET 上仍 429，run conclusion=failure——**digest/analyzer 数据已产出，不是数据丢失**，需冷却后重跑。
+- **现行约束（代码态）**：
+  1. 日常分析只用**短窗**（`--last-minutes`），不默认拉 7 天；
+  2. 周报优先**聚合已提交的 daily scorecard**（`docs/eval/scorecard-YYYY-MM-DD.json`），0 R2 GET（Pack 1 = PR #30，**OPEN 未合并**）；
+  3. 只有显式 `from_r2=true` 才回退旧 `capture-digest --since --days 7` + analyzer；
+  4. 429 解析 `Retry-After`/`Ratelimit`，总等待超 120s 抛显式 `R2_RATE_LIMITED`，**不把 429 当空报告/成功**；缺 scorecard 的日期写 `NOT_ENOUGH`，不伪造完整。
+- **诚实状态**：PR #28 已合入 main 未部署；Pack 1/Pack 2 未合并；`2 → 34` 是修复分支观测，不能当生产验收。
+
+### 10.3 与门禁索引的关系
+
+本批「M4 五门」口径（Gate1 线上采集+平台分账 / Gate2 R2+免费模型稳定跑通 / Gate3 主被动精确对齐+反哺闭环 / Gate4 缺陷闭环修复 / Gate5 ChatGPT 跨客户端防回退）见 [eval/README.md](eval/README.md) §当前门禁入口；五门不是既有编号体系，状态必须按证据随附，不能写成整体 PASS。

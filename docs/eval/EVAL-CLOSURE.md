@@ -59,6 +59,35 @@ gh run download <run-id> -n capture-digest -D work/run-<run-id>
 
 `EMPTY_WINDOW` **不是通过**，是“过滤窗口内没有数据”，必须写 `NOT_ENOUGH`。workflow 对 `workflow_dispatch` 的空窗口直接失败，scheduled 只告警；analyzer 遇到空窗口不调用模型。
 
+### 2.1 analyzer-input 成功态字段（PR #28，main `cd23fdc`，未部署）
+
+`analyzer-input` 的 `samples[]` 现在额外携带（让被动分析也能看见 HTTP-200 成功态语义摩擦）：
+
+- `responsePreview`：成功响应体的**有界预览**（前 500 字符，带显式截断标记）+ 解析轮廓
+  `topLevelKeys` / `keyCount` / `nullKeys` / `arrays` / `nested`（只暴露键名/计数，不暴露值）；
+- `subCalls[]` 的 `error`（只保留 `name`/`message`，截断且做 secret 形态脱敏）与 `resultShape`。
+
+用途：识别 `number:null`、双层嵌套（`result.content[0].text` 内再包 JSON）、误报截断、跨上游重复解包/格式化等
+“HTTP 200 但语义有摩擦”的问题。边界：
+
+- `responsePreview` 有界；**字段不在 preview 里 ≠ 全量 body 里不存在**，不能据此过度断言；
+- analyzer-output.v1 的 issue 新增可选 `clientPlatform` / `servers[]` 归因；缺失时保留 issue（不因归因未知丢弃），
+  归因只是模型推断，仍按 `AGENTS.md` §1 当 advisory；
+- 预览与 subCall 错误都走 secret 形态脱敏，但 capture 本身仍是 full-fidelity（不得反推“已脱敏采集”）。
+
+### 2.2 R2 约束与周报 scorecard 聚合边界（Pack 1 = PR #30，OPEN）
+
+- R2 REST API 是**账户级** 1,200 req / 5 min（[官方 limits](https://developers.cloudflare.com/r2/platform/limits/)）。
+  日常短窗（`--last-minutes 60`）与周报必须解耦；周报不再每次手动 dispatch 都重扫 7 天 raw envelope。
+- 现状证据：修复分支真实重跑 last 180m，请求数从 2 恢复 **34 条**（gemini 17 / chatgpt 10 / unknown 7）；
+  同 run 的 weekly-review 在 R2 GET 上仍 429，run conclusion=failure——digest/analyzer 已产出，**数据未丢**，
+  属外部限流，需冷却后重跑。
+- 代码态（Pack 1，**PR #30 OPEN，未合并**）：weekly 默认读已提交 `docs/eval/scorecard-YYYY-MM-DD.json`
+  （0 R2 GET）；只有 `from_r2=true` 才显式回退旧 7 天 raw + analyzer；429 优先解析 `Retry-After` / `Ratelimit`，
+  总等待超 120s 抛显式 `R2_RATE_LIMITED`。
+- 边界：缺 scorecard 的日期在 weekly 里显式 `NOT_ENOUGH`，不伪造完整；429 **不是** `EMPTY_WINDOW`，
+  不能记 pass/空报告；同窗对照必须等 R2 冷却后重跑，不能拿“run failure”当数据缺失结论。
+
 ## 3. 主动 ↔ 被动对照
 
 ```bash
@@ -138,5 +167,9 @@ node scripts/check-status-drift.mjs --expected <deployed-commit>
 - `active-eval.v1` 只记录“人看到什么 + 原文”，不把模型/分析器输出写成事实。
 - `EMPTY_WINDOW`、`unknown`、`unmatched` 都是合法结果，**不是 pass**。
 - 不跨构建硬比；不同构建的 `build` check 必须是 `mismatch`，只记录原因。
-
-
+- **R2 429 是外部限流，不是空窗口**：冷却前重跑可能仍 429；`R2_RATE_LIMITED`（Pack 1）与
+  “run failure 但 digest 已产出”都必须显式记录，不能写成 `EMPTY_WINDOW` 或数据丢失。
+- **代码态 ≠ 生产态**：PR #28 的五根因修复已合入 `main` `cd23fdc`，但生产仍 `f2002d9`；
+  `responsePreview`/`observed.findings` 等结论在部署或冷却后重跑前都只能写“代码已合入/未验收”。
+- **scorecard 聚合是周报的默认输入**（Pack 1 = PR #30，OPEN）：daily scorecard 缺日 → `NOT_ENOUGH`；
+  不得用周报聚合倒推单窗口 exact/likely 结论。

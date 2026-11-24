@@ -1,0 +1,58 @@
+### 0. 动作范围起止锚点（Section 0）
+
+* **评测客户端 / 角色**：`gemini`（云端总控长会话）
+* **覆盖生产版本**：
+* 前段：`3dd206f`（PR #22 部署后，验证 `fileResult` 修复）
+* 末段：`f2002d9ca48e55292eb824faa10b85b39ea35440`（`buildHash`: `3b1a07726fdaa28a21f594cdb07981bcbd015f0c`，`deploymentId`: `dpl_6P2Ww8vsTHXbbSF98GTE55HKitB4`）
+
+
+* **覆盖主干进度**：`main` 推进至 `cd23fdcc287f3db3847e925fb4eaacd0c325a9e3`（PR #28 已合入、未部署）
+* **起点锚点**：接管 `Bruce-Yii/gemini-mcp-gateway` 架构与 M4 评测深挖，批量读取 `docs/` 与 `src/` 核心源码，连续推进并创建/合并 PR #8–#11、#16–#26、#28。
+* **终点锚点**：`2026-11-24T18:17Z` 在 `f2002d9` 上完成 PR #28 合并，并实测 `codemode.services()`、`codemode.linear__list_teams({ limit: 5 })`、`codemode.search('notion')`；此后会话触发上下文压缩，网关连接断开。
+* **requestIds**：`unknown`（上下文压缩后单次调用 UUID 未保留；被动 R2 可用 `2026-11-24T18:17Z` + `buildHash=3b1a0772…` + `linear__list_teams` / `services` / PR #28 merge 精准回查）。
+
+### 1. 本周期实测能力与通过项
+
+* **GitHub 全流程读写（高可靠）**：跨分支读文件、审 diff、建分支、原子提交（`github__push_files`）、开 PR、合 PR 全链路跑通，累计支撑十余个 PR 的完整闭环。
+* **Linear 切换 PAT 后可用（已验证）**：`2026-11-24T18:17Z` 在 `f2002d9` 实测 `linear` 显示 27 tools（`observed`），`codemode.linear__list_teams({ limit: 5 })` 正常返回真实团队（含 `LAJI` / `垃圾堆`）。
+* **PR #22 回归修复有效（已验证）**：`3dd206f` 上实测确认 `fileResult` 40KB 不再误报 `truncated: true`，且 `path: "src/evidence/capture.js"` 正常保留。
+* **上游在线盘点（`f2002d9` 实测）**：`figma` 47 tools、`github` 42 tools、`linear` 27 tools、`vercel` 73 tools（合计 **189 tools** 在线），`notion` 0 tools（异常）。
+
+### 2. 真实摩擦与缺陷清单（按严重度）
+
+| 优先级 | 现象与复现事实 | 影响 | 关联编号 / 状态 |
+| --- | --- | --- | --- |
+| **P0** | **`notion` 线上运行时仍 `offline`（0 tools，`needsReauth`）**：PR #29 切网关自有 OAuth/DCR 且本地直连 `tools/list` 200，但 `f2002d9` 线上 `codemode.services()` 仍报 `offline`，`codemode.search('notion')` 为 0。 | Notion 能力在线上完全不可用，且暴露“本地直连通 ≠ 网关运行时通”的盲区。 | Pack 2 排查中 |
+| **P0** | **长会话上下文压缩后 MCP 掉线**：触发 compaction 后，`@Gemini Mcp Gateway` 入口工具全部返回 `not-found`，无法自动重连。 | 云端总控长链路工作流中途断联，被迫人工重新唤起或转交本地。 | **BC-015**（再次复现） |
+| **P1** | **`writeFiles` 误传 `{files}` 或默认 `dryRun` 时静默成功**：实际推 0 commit 且无明确报错，必须绕开它直接用 `github__push_files`。 | 极易造成“模型以为改完了、实际仓库没落盘”的隐蔽事故。 | **BC-012** / Issue #15 |
+| **P1** | **`normalizeMerge` 返回 `number: null, url: null**`：合并后仅 `sha` 有值，拿不到 PR 号和链接。 | 需要额外查询或手动拼接链接，影响审计闭环。 | **BC-011** / Issue #15 |
+| **P2** | **列表返回体双层嵌套 + 20KB 截断重读 + `Promise.all` 单 404 拖垮整批**：Vercel / GitHub Actions 列表结构不统一；返回偏胖时触发 ~20KB 截断被迫多轮切片重读。 | 增加无效试探轮次，回吐一部分原本省下的上下文 Token。 | **BC-013 / BC-017** |
+| **P2** | **工具说明偏长导致漏用省 Token helper**：`execute` / `execute_read` 描述过长，容易忽略 `sliceLines` / `applyFilePatch`。 | 读大文件时倾向整文件读取，放大截断概率。 | **BC-014** |
+| **P3** | **Vercel 工具集只读边界不够显性**：暴露的 55 个 env/deploy 工具全部只读，写环境变量和部署不可用，需要枚举 `listTools()` 才能确认。 | 首次操作前会多花 1 轮探路。 | 建议在服务摘要中标明 read-only 边界 |
+
+### 3. 专项评估：Token 节省、多任务效率与核心优势
+
+#### (1) 上下文 Token 真的省很多吗？
+
+* **结论：实测省得非常明显，是这个网关最直接的结构性收益。**
+* **实测依据**：目前 4 个在线服务合计 **189 个工具**（Notion 恢复后 200+）。如果原生直连，每轮对话都要把近 200 个 JSON Schema 塞进系统上下文，长会话很快就会被工具定义吃掉大量窗口，且模型选工具准确率会下降。网关把它们压缩成 **3 个入口工具**（`search`、`execute_read`、`execute`），让我们这个窗口能连续完成十几个 PR 的深度代码审计、写文档和合代码，撑了非常多轮才触发一次上下文压缩。
+* **扣分项**：省下的 Token 会在两种情况下被“倒扣”——一是脚本没在沙箱里过滤直接吐原始大 JSON（触发 ~20KB 截断后反复重读）；二是 `execute_read` 描述过长导致漏用 `sliceLines`。把这两点收紧，省 Token 效果还能再提一档。
+
+#### (2) 多任务效率真的提升了吗？
+
+* **结论：提升极大，实际价值甚至高于省 Token。**
+* **实测依据**：以前做一次跨模块排查（同时看 4 个源码文件 + 查 PR diff + 查 Vercel 部署 + 查 Linear 团队），原生 MCP 至少需要 6–8 轮串行模型往返，每轮都要等推理、重新吞吐历史上下文、还要点多次审批确认。用网关的 `execute_read`，**1 轮沙箱脚本就能并发拉完所有跨平台数据并做好聚合裁剪**，把多轮往返压成 1 轮，审批打断次数也成倍下降。
+* **扣分项**：遇到 `BC-011/012/013/017`（如 `Promise.all` 单条 404 拖垮整批、嵌套格式不统一）时会多耗 1–2 轮容错重试；这些都属于代码层可根治的毛刺。
+
+#### (3) 其他明显优势
+
+* **多客户端一次配置、统一复用**：Gemini、ChatGPT（及后续 Claude / Codex）共用同一套网关和上游 OAuth/PAT，不用在每个客户端重复接 5 套 MCP 和反复授权。
+* **读写物理隔离 + 统一安全门**：`execute_read` 与 `execute` 天然拆开，方便客户端对只读静默放行、对写入严格审批；入站还有 `OAUTH_APPROVE_PASSPHRASE` 兜底。
+* **自带可观测性与自进化闭环**：直连第三方 MCP 是黑盒，踩坑没法量化；网关通过 R2 全量采集 + 4 维分账（平台/协议/配置/版本）+ 主被动对照，能把每次真实踩坑沉淀成回归用例。
+* **统一的上游脏接口适配层**：官方 MCP 质量参差不齐，网关能在 `codemode` 层统一做解包、分页、截断保护与字段归一化，一处修复全客户端受益。
+
+### 4. 本轮最优先改进建议（Top 3）
+
+1. **先修通 Notion 线上运行时 `offline`（Pack 2）**：解决“本地直连 200 但网关运行时 0 tools”的根因，并在部署验收里把 `codemode.services()` 实测作为必过门禁。
+2. **收口 Issue #15 的 2 个高痛点契约毛刺（`BC-011` / `BC-012`）**：`writeFiles` 传错参数直接抛明确错误、不再静默成功；`normalizeMerge` 补齐 `number` 与 `url`。
+3. **精简 `execute` / `execute_read` 工具描述并内置防截断容错（`BC-014` / `BC-017`）**：把 `sliceLines` / `applyFilePatch` 和 `Promise.allSettled` 习惯推到最显眼位置，同时对大列表返回做默认字段瘦身，把省 Token 和并发效率吃满。

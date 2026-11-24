@@ -36,7 +36,7 @@ L0 模块（六模块）
 ```text
 1.1 Registry        平台/模式/计划/能力
 1.2 Mode             web-non-code / desktop / ide / cli-code
-1.3 AuthAdapter      OAuth / DCR / CIMD / locked / manual
+1.3 AuthAdapter      OAuth / DCR（默认关、仅显式 carve-out）/ CIMD / locked / manual / 审批口令
 1.4 Profile          schema / 编码 / annotations / 上下文限制
 1.5 Onboarding       部署→上游授权→客户端连接
 1.6 Approval        客户端权限优先；annotations 策略
@@ -60,7 +60,7 @@ L0 模块（六模块）
 ```text
 3.1 Registry         provider/transport/auth/SOP
 3.2 ProviderAdapter  GitHub/Notion/Linear/Vercel/Figma/搜索类
-3.3 GrantBroker      owner/refresh/static/DCR/CIMD
+3.3 GrantBroker      owner/refresh/static PAT/DCR/CIMD/入站审批
 3.4 Canonical        file/PR/issue/action
 3.5 WriteTransaction patch/commit/PR/CI/回滚
 3.6 Health           tools/list/auth/quota
@@ -212,6 +212,18 @@ link(activeEvalId, passiveRequestIds, match, confidence)
 | Upstream | provider adapters / grant / canonical / write / health / quota |
 | Runtime | adapter / config / store / sink / health / deploy / cost |
 | Release | export / safety / templates / docs / governance |
+
+### Upstream / Auth 工作包（2026-11-25 活跃，按依赖排序）
+
+> 背景：PR #29 已把 Linear 切到 `static_bearer` PAT（`/mcp/readonly` + `LINEAR_API_KEY`）、Notion 切回网关自有 OAuth/DCR（`owner=gateway`），生产 `f2002d9`；
+> PR #26 已加入站审批口令。以下四个工作包承接剩余漂移，**A1 未完成前不能宣称 Notion 可用**。
+
+| WP | 内容 | 依赖 | 写作用域（建议） | 状态 / 验收 |
+|---|---|---|---|---|
+| **A1 Pack 2 · Notion runtime 注入** | 无 `tokenEnv` 的网关自有 OAuth 上游也要从 KV grant 解 token 并注入 `Authorization`（修 `_resolveToken()` 无 `tokenEnv` 提前 return、`_createTransport()` 只在有 `tokenEnv` 时取 token） | PR #29 已合入生产 | `src/upstream/upstreams.js`、`tests/upstreams.test.js` | PR #31（`fix/notion-gateway-oauth-token`，`9e7c57c`）OPEN、**未合并**；验收：冷启动 `codemode.services()` 中 notion online、`search('notion')` 非空 |
+| **A2 授权生命周期观测 + 旧凭据清理** | 先 8h（至少跨一次自动 refresh）再 72h 无 `invalid_grant`；通过后移除旧 DSH Notion 连接、旧 `NOTION_*`/`LINEAR_*` refresh env，并轮换暴露过的 Linear PAT | A1 部署 + 生产稳定 | 运维/KV/env（无仓库代码）；记录 `docs/DEPLOYMENTS.md`、`docs/ledger/` | 未开始；当前**禁止**删除/轮换（会打断观测并可能吊销 Notion grant）；条件见 [AUTH-READY.md](AUTH-READY.md) §1.6、§1.9 |
+| **A3 Issue #15 剩余契约毛刺** | ① `normalizeMerge` 顶层 `number`/`url` 恒 `null`（BC-011）：补参（如 `pullNumber`）或明确返回契约；② `writeFiles` 误传 `files`/默认 dryRun 时静默成功（BC-012）：入参校验显式报错或兼容 `files` | 无（PR #22 已修 Issue #15 的 #1 `issue_write` number 与 #3 40KB 截断假阳性） | `src/execution/result-normalize.js`、`src/execution/file-write.js`、`src/execution/codemode.js` + `tests/` | 未开始；验收：确定性测试 + Gemini 真实窗口复验；公共层按 AGENTS.md §3.2 需第二客户端防串伤回归 |
+| **A4 Issue #27 统一 Client Registry** | 预注册 Client Registry 替代生产 DCR：`client:create/list/rotate/revoke` CLI、authorize/token 读 Registry、`/oauth/register` 默认 403、Gemini/ChatGPT/Claude 迁移、自托管/开源只保留一条接入路径 | A1/A2 完成后再动 OAuth 核心；入站口令已就绪（PR #26） | `src/client/oauth.js`、`src/shared/store.js`、`scripts/`（新 CLI）、`docs/OPEN-SOURCE/` | 未开始；**M6 开源前必须**（P0 = Registry + CLI + authorize/token 读 Registry；P1 = ChatGPT cutover + 删除 DCR compat + 文档/CI 校验） |
 
 ---
 
