@@ -34,7 +34,7 @@ import { listR2Keys, readR2Envelope } from './capture-digest.mjs';
 
 export const SYNC_SCHEMA = 'capture-sync.v1';
 const DEFAULT_RETAIN_MINUTES = 24 * 60;
-const DEFAULT_MAX_FETCH = 400; // well under the 1200/5min account budget
+const DEFAULT_MAX_FETCH = 900; // cold-start seed stays under the 1200/5min budget
 
 const str = (value) => (typeof value === 'string' ? value : '');
 
@@ -195,4 +195,5 @@ if (isDirectRun) {
     process.exitCode = 1;
   });
 }
+
 
