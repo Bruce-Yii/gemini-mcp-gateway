@@ -57,8 +57,8 @@ graph LR
 
 | 指标 | 当前状态 |
 |---|---|
-| 生产部署 | `1481408`（手动部署；`main` 自动生产部署已关闭） |
-| 全量测试基线 | `1461 tests / 1455 pass / 0 fail / 6 todo` |
+| 生产部署 | `5039ac6`（手动部署；`main` 自动生产部署已关闭） |
+| 全量测试基线 | `1518 tests / 1512 pass / 0 fail / 6 todo`（Node 20 为 1511 pass，1 个 TS 用例按能力 skip） |
 | 模块物理目录 | `src/` 已拆分为 6 目录（根目录保留兼容 shim） |
 | 模块边界门禁 | `0 new violations`；9 条 legacy 边待清 |
 | V0 验收 | **NOT ACCEPTED**（A 门当前构建可追溯，B–G 未过） |
