@@ -1,7 +1,7 @@
 # Acceptance criteria (V0) — 不是测试数，是真实结果
 
 > **当前结论：NOT ACCEPTED（1/7：A PASS；B/D/E/G FAIL；C/F PARTIAL）。**
-> 最后同步：2026-11-25（Asia/Singapore）；生产 `42caaf2`，`main` HEAD `42caaf2`（PR #28/#30/#31/#32 已合入并部署）。
+> 最后同步：2026-11-25（Asia/Singapore）；生产 `1328787`，`main` HEAD `1328787`（PR #28/#30/#31/#32 已合入并部署）。
 > 下面的“已通过”只能说明代码层回归；不能说明线上、真实客户端、真实写入、真实授权可用。
 > 测试数量、CI 绿灯、fake harness 通过，**都不算验收**。
 
@@ -10,7 +10,7 @@
 - 测试是我们自己写的，可能和实现共享同一个错误假设；
 - L1/G6 用 fake upstream，不等于真实 GitHub/Notion/Linear/Vercel；
 - replay fixture 不含真实 requestId/真实模型/真实宿主；
-- 部署构建 `42caaf2` 已包含 PR #28/#30/#31/#32；runtime 验收仍需在线实测；
+- 部署构建 `1328787` 已包含 PR #28/#30/#31/#32；runtime 验收仍需在线实测；
 - skip 是“私有 fixture 不存在”，不是功能通过；
 - Docker build、npm audit 未跑；
 - M4 Gate 2/3 仍有未验项（周报限流、语义发现重跑）；
@@ -20,11 +20,11 @@
 
 ### A. 构建与部署可追溯
 
-- [x] 生产 `/healthz` 返回的 commit/buildHash 与当前验收构建 `42caaf2` 一致；
+- [x] 生产 `/healthz` 返回的 commit/buildHash 与当前验收构建 `1328787` 一致；
 - [x] 部署记录可查（DEPLOYMENTS + deploymentId）；
 - [x] 不是旧构建、不是本地 loopback（Vercel `env=production`）。
 
-**当前：PASS（2026-11-25 03:14 手动部署 `42caaf2`；healthz `commit=42caaf2…` / `buildHash=27e67f39…` / `deploymentId=dpl_DLBySiFi6P63sQnpoYEiSB2DDowM`；DEPLOYMENTS 已登记。历史 40 次自动部署仍不可追溯，不影响当前构建可追溯性；A 门只证明构建可追溯，不代表 B–G 验收）**
+**当前：PASS（2026-11-25 06:52 手动部署 `1328787`；healthz `commit=1328787…` / `buildHash=1e73e4aa…` / `deploymentId=dpl_BtmSxXazqvfP2yJvpp1zPz6WeDZs`；DEPLOYMENTS 已登记。历史 40 次自动部署仍不可追溯，不影响当前构建可追溯性；A 门只证明构建可追溯，不代表 B–G 验收）**
 
 ### B. 真实客户端任务
 
@@ -72,7 +72,7 @@
 - [ ] 72h 无 `invalid_grant`；
 - [ ] 失败有 `REAUTH_REQUIRED`，不静默。
 
-**当前：FAIL（仅凭据侧有进展：Linear 已切 `static_bearer` + PAT 并在此前线上构建 `list_teams` 成功；Notion OAuth 已存储 `owner=gateway` / `source=gateway-dcr` / `refresh=yes`，PR #31 已随 `42caaf2` 部署，runtime 是否恢复待在线实测；未测前不写可用（0 tools、`needsReauth`）。重启后可用、跨环境隔离、8h/72h 无 `invalid_grant`、`REAUTH_REQUIRED` 实测均未完成）**
+**当前：FAIL（仅凭据侧有进展：Linear 已切 `static_bearer` + PAT 并在此前线上构建 `list_teams` 成功；Notion OAuth 已存储 `owner=gateway` / `source=gateway-dcr` / `refresh=yes`，PR #31 已随 `1328787` 部署，runtime 是否恢复待在线实测；未测前不写可用（0 tools、`needsReauth`）。重启后可用、跨环境隔离、8h/72h 无 `invalid_grant`、`REAUTH_REQUIRED` 实测均未完成）**
 
 ### E. 在线 ↔ 半在线同任务对照
 
