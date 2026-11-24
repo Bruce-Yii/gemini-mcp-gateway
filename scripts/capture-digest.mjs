@@ -340,10 +340,15 @@ const R2_LIST_MAX_PAGES = 50;
  * single-request implementation.
  */
 const R2_RETRY_STATUSES = new Set([429, 502, 503, 504]);
+const R2_MAX_WAIT_MS = 120000;
 
 function retryDelayMs(response, attempt) {
-  const header = Number(response?.headers?.get?.('retry-after'));
-  if (Number.isFinite(header) && header >= 0) return Math.min(15000, header * 1000);
+  const retryAfter = Number(response?.headers?.get?.('retry-after'));
+  if (Number.isFinite(retryAfter) && retryAfter >= 0) return Math.min(15000, retryAfter * 1000);
+  // Cloudflare Ratelimit: `"default";r=50;t=30` (t = seconds until reset).
+  const ratelimit = response?.headers?.get?.('ratelimit') ?? response?.headers?.get?.('ratelimit-policy') ?? '';
+  const reset = /(?:^|[;,\s])t=(\d+)/.exec(String(ratelimit));
+  if (reset) return Math.min(15000, Number(reset[1]) * 1000);
   return Math.min(15000, 1000 * (2 ** attempt));
 }
 
@@ -351,13 +356,25 @@ function retryDelayMs(response, attempt) {
  * R2 HTTP with bounded retries for transient 429/5xx. Sequential GETs across a
  * 7-day weekly review can trip the R2 API rate limit; a hard failure there made
  * the whole evidence workflow red even after the digest had succeeded.
+ *
+ * After the retry budget is exhausted we throw `R2_RATE_LIMITED` explicitly:
+ * a rate-limited read must never be reported as a successful/empty result.
  */
-async function fetchR2(url, options, { fetchImpl = fetch, maxAttempts = 6 } = {}) {
+async function fetchR2(url, options, { fetchImpl = fetch, maxAttempts = 6, maxWaitMs = R2_MAX_WAIT_MS } = {}) {
   let response;
+  let waitedMs = 0;
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     response = await fetchImpl(url, options);
-    if (response.ok || !R2_RETRY_STATUSES.has(response.status) || attempt === maxAttempts - 1) return response;
-    await new Promise((resolve) => setTimeout(resolve, retryDelayMs(response, attempt)));
+    if (response.ok || !R2_RETRY_STATUSES.has(response.status) || attempt === maxAttempts - 1) break;
+    const delay = retryDelayMs(response, attempt);
+    if (waitedMs + delay > maxWaitMs) break;
+    waitedMs += delay;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+  if (response && R2_RETRY_STATUSES.has(response.status)) {
+    const error = new Error(`R2_RATE_LIMITED: HTTP ${response.status} after ${maxAttempts} attempts / ${waitedMs}ms wait`);
+    error.code = 'R2_RATE_LIMITED';
+    throw error;
   }
   return response;
 }
@@ -378,7 +395,9 @@ export async function listR2Keys(prefix, options = {}) {
   while (pages < maxPages) {
     const params = new URLSearchParams({ prefix, per_page: String(R2_LIST_PER_PAGE) });
     if (cursor) params.set('cursor', cursor);
-    const response = await fetchR2(`${r2Endpoint()}?${params.toString()}`, { headers: r2AuthHeaders() }, { fetchImpl, maxAttempts });
+    const response = await fetchR2(`${r2Endpoint()}?${params.toString()}`, { headers: r2AuthHeaders() }, {
+      fetchImpl, maxAttempts, maxWaitMs: options.maxWaitMs,
+    });
     if (!response.ok) throw new Error(`R2 list failed: ${response.status}`);
     const body = await response.json();
     pages += 1;
@@ -408,7 +427,9 @@ export async function listR2Keys(prefix, options = {}) {
 export async function readR2Envelope(key, options = {}) {
   const fetchImpl = options.fetchImpl ?? fetch;
   const maxAttempts = Number(options.maxAttempts) > 0 ? Math.floor(Number(options.maxAttempts)) : 6;
-  const response = await fetchR2(r2Endpoint(key), { headers: r2AuthHeaders() }, { fetchImpl, maxAttempts });
+  const response = await fetchR2(r2Endpoint(key), { headers: r2AuthHeaders() }, {
+    fetchImpl, maxAttempts, maxWaitMs: options.maxWaitMs,
+  });
   if (!response.ok) throw new Error(`R2 get failed: ${response.status}`);
   const buffer = Buffer.from(await response.arrayBuffer());
   try {

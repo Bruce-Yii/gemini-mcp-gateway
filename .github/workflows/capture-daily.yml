@@ -21,6 +21,16 @@ on:
         required: false
         default: ''
         type: string
+      run_weekly:
+        description: 'Also run the weekly review on this manual dispatch'
+        required: false
+        default: false
+        type: boolean
+      from_r2:
+        description: 'Weekly fallback: scan R2 raw envelopes (explicit; may hit R2 REST 429)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -119,7 +129,7 @@ jobs:
 
   weekly-review:
     needs: digest
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 3 * * 1'
+    if: (github.event_name == 'schedule' && github.event.schedule == '0 3 * * 1') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_weekly == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -128,7 +138,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Aggregate 7 days of digests and analyzer candidates
+      - name: Aggregate 7 days from committed scorecards (zero R2 requests)
+        if: github.event.inputs.from_r2 != 'true'
+        run: |
+          SINCE="$(date -u -d '6 days ago' +%F)"
+          echo "SINCE=$SINCE" >> "$GITHUB_ENV"
+          node scripts/weekly-from-scorecards.mjs --since "$SINCE" --days 7 --out-dir docs/eval
+      - name: Aggregate 7 days from R2 (explicit fallback)
+        if: github.event.inputs.from_r2 == 'true'
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
@@ -141,7 +158,8 @@ jobs:
           # --dry-run never calls the model: the weekly report is a deterministic
           # candidate roll-up of clusters + evidence ids, not validated issues.
           node scripts/analyze-captures.mjs --since "$SINCE" --days 7 --dry-run --out work/weekly
-      - name: Render docs/eval/weekly-YYYY-WW.md
+      - name: Render docs/eval/weekly-YYYY-WW.md (R2 fallback only)
+        if: github.event.inputs.from_r2 == 'true'
         run: |
           node --input-type=module <<'NODE'
           import { readFile, writeFile, mkdir } from 'node:fs/promises';
