@@ -2,7 +2,11 @@ name: capture-daily
 
 on:
   schedule:
-    - cron: '0 2 * * *' # daily digest + analyzer candidate, 10:00 Asia/Singapore
+    # Hourly incremental pull: each run reads only ~1-1.5h of captures (~30-60
+    # envelopes), so no single 5-minute window can ever approach the Cloudflare
+    # REST limit (1200 req / 5 min). Small and frequent beats one big burst.
+    - cron: '7 * * * *'
+    - cron: '0 2 * * *' # daily full-day scorecard, 10:00 Asia/Singapore
     - cron: '0 3 * * 1' # weekly review, 11:00 Asia/Singapore (previous 7 days)
   workflow_dispatch:
     inputs:
@@ -37,7 +41,7 @@ permissions:
 
 jobs:
   digest:
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 2 * * *' || github.event.schedule == '0 3 * * 1'
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '7 * * * *' || github.event.schedule == '0 2 * * *' || github.event.schedule == '0 3 * * 1'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,6 +64,10 @@ jobs:
           DAY="$(date -u +%F)"
           echo "day=$DAY" >> "$GITHUB_OUTPUT"
           LAST_MIN="${{ github.event.inputs.last_minutes }}"
+          # Hourly cron: pull only the last 90 minutes. Quota is a RATE limit
+          # (1200 req / 5 min), so many small reads never approach it while one
+          # whole-day read can exceed it on its own.
+          if [ "${{ github.event.schedule }}" = "7 * * * *" ]; then LAST_MIN=90; fi
           if [ -n "$LAST_MIN" ] && [ "$LAST_MIN" != "0" ]; then
             node scripts/capture-digest.mjs --last-minutes "$LAST_MIN" --out work/digest --bundle-out work/digest/envelopes.ndjson
           else
@@ -80,6 +88,8 @@ jobs:
           LAST_MIN="${{ github.event.inputs.last_minutes }}"
           PLAT="${{ github.event.inputs.platform }}"
           CMT="${{ github.event.inputs.commit }}"
+          # Match the digest window on the hourly incremental run.
+          if [ "${{ github.event.schedule }}" = "7 * * * *" ]; then LAST_MIN=90; fi
           if [ -n "$LAST_MIN" ] && [ "$LAST_MIN" != "0" ]; then
             ARGS+=(--last-minutes "$LAST_MIN")
           else
