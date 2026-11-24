@@ -36,6 +36,8 @@
 
 | 2026-11-25 03:14 | `42caaf2b9b8d8ce2f894efb2124a4036bf58ce72` | CLI（手动，`vercel --prod`，带 `VERCEL_GIT_COMMIT_SHA`） | 部署 main `42caaf2`：PR #28 评测五根因 + #30 R2 weekly scorecard/429 + #31 Notion gateway OAuth token 注入修复 + #32 文档同步；ChatGPT env map 已含 chatgpt 映射 | READY（Notion runtime 待在线实测） | `deploymentId=dpl_DLBySiFi6P63sQnpoYEiSB2DDowM`；healthz `commit=42caaf2…` / `buildHash=27e67f39…` / `builtAt=2026-11-24T19:13:54.938Z`；未声称 Notion 已恢复 |
 
+| 2026-11-25 06:52 | `13287877a0de4b9e9c9a0ce78577a4db9c3a3ca4` | CLI（手动，`vercel --prod --meta githubCommitSha=<sha> --build-env VERCEL_GIT_COMMIT_SHA=<sha>`） | 部署 main `1328787`：PR #33 评测闭环/防假绿、#39 Issue #15 契约收口（waitForPrChecks 聚合、writeFiles 防静默、normalizeMerge 补 number/url、Linear 防爆窗）、#38 客户端 Profile 隔离（OAuth client_id → profile + 4 维插槽）、#45 wireShape 指纹 + 单次 R2 读取/增量同步 | READY（runtime 待真实客户端复验） | `deploymentId=dpl_BtmSxXazqvfP2yJvpp1zPz6WeDZs`；healthz `commit=1328787…` / `buildHash=1e73e4aa…` / `builtAt=2026-11-24T22:52:44.956Z`；Vercel API 实查 `meta.githubCommitSha=1328787…`（非空，AT-XU-01 SHA 缺口消除） |
+
 ## 规则
 
 - 每次部署前过 [DEPLOY-POLICY.md](DEPLOY-POLICY.md) 检查；
