@@ -125,8 +125,35 @@ export async function syncCaptures({
 
   const { newKeys, seen: nextSeen } = planSync({ seen, present, maxFetch });
 
+  // A dry run must not spend a single GET: it only reports what a real run
+  // would fetch. (Fetching here made --dry-run as slow as the real thing.)
+  if (dryRun) {
+    return {
+      schema: SYNC_SCHEMA,
+      dir,
+      retainMinutes,
+      days: dayPrefixes(retainMinutes, now),
+      presentKeys: present.length,
+      seenKeysBefore: seen.length,
+      newKeys: newKeys.length,
+      fetchedEnvelopes: 0,
+      storedEnvelopes: previousEnvelopes.length,
+      maxFetch,
+      dryRun: true,
+      storeFile,
+      manifestFile,
+    };
+  }
+
+  // Bounded concurrency: fast enough for a cold start, still far below the
+  // 1200 req / 5 min account budget. Order is preserved for determinism.
   const fetched = [];
-  for (const key of newKeys) fetched.push(await readEnvelope(key));
+  const CONCURRENCY = 6;
+  for (let offset = 0; offset < newKeys.length; offset += CONCURRENCY) {
+    const batch = newKeys.slice(offset, offset + CONCURRENCY);
+    const rows = await Promise.all(batch.map((key) => readEnvelope(key)));
+    fetched.push(...rows);
+  }
 
   const cutoff = now.getTime() - retainMinutes * 60 * 1000;
   const byId = new Map();
