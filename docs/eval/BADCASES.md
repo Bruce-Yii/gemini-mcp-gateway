@@ -112,3 +112,14 @@
 - **定向抽测**：按 `客户端` 或 `上游` 列过滤出 `已上生产待复验` 项，交给对应客户端在受控测试仓库跑一遍；
 - **跨客户端防串伤**：按「公共层候选」抽 `cross-client` 条目，先主客户端、再第二客户端各跑一次，结果写进上方记录区；
 - **全量回归**：发版前可将表中所有 `cross-client` 与目标客户端条目打包交给单一客户端（如 ChatGPT / Gemini）做回归核验。
+
+## Active eval 最小对照（2026-11-24 cloud-control）
+
+- Active：`ae_20261124_927eae1a`（`active-eval-2026-11-24-cloud-control.json`，`requestIds: unknown`）
+- Passive：修复分支 run `45455949665` 的 `analyzer-output-2026-11-24-last-180m.json`（窗口 15:19–18:03Z；与 active 15:00–18:20Z 不是逐秒同窗）
+- 结果：[active-passive-2026-11-24-cloud-control.json](active-passive-2026-11-24-cloud-control.json) → `match=likely`，findings `total=6/detected=4/missed=2`
+- `missed[]`：
+  - `F-writefiles`（`writeFiles` 静默失败）→ `passive-not-detected`（已有 BC-012；本轮 passive 未抓到）
+  - `F-tool-description`（工具描述过长）→ `passive-not-detected`（已有 BC-014；本轮 passive 未抓到）
+- service snapshots：GitHub / Linear / Vercel / Figma / Notion 全部 `no-snapshot`，无法用 passive 证明 online/offline。
+- 结论：**半闭环**。active 原文、passive 对照、missed 登记已落库；但没有“补采集字段/提示词后重跑 missed 清零”，也没有逐秒同窗，不能写“闭环完成/已验收”。下一步是把 service snapshot 与成功态工具描述纳入 analyzer 采集，再重跑同一 active。
