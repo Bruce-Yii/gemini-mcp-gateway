@@ -6,7 +6,7 @@
 
 本文件只写本项目特有、且与工作区根 `AGENTS.md` 不同的规则；通用规则以根文件为准。
 
-最后更新：2026-11-23（Asia/Singapore）
+最后更新：2026-11-24（Asia/Singapore）
 
 ---
 
@@ -247,5 +247,52 @@ online-feedback.v1 记录
 8. `docs/ACCEPTANCE.md`（V0 真实验收门；测试绿 ≠ 验收）
 9. `docs/DEPLOY-POLICY.md`（少部署/批量部署）
 10. `docs/DEPLOYMENTS.md`（部署日志）
+
+---
+
+## 11. 子代理编排（默认按架构模块并行）
+
+> 原则：**能并行的独立工作不要自己串行做**。默认为按 `docs/ARCHITECTURE-INDEX.md` 的
+> M1–M6 模块 / L2 子模块 / 工作包拆 lane，而不是按“一句话任务”拆。root 仍对最终结果、
+> diff review、测试、合并与部署负责；子代理输出不是证据，必须由 root 复核。
+
+### 11.1 何时必须 fan-out
+
+满足任一即应拆：
+
+- 任务跨 **≥2 个架构模块**（M1–M6），或跨 **≥3 个互不依赖的文件/工作包**；
+- 需要**独立或对抗性验证**（审计、复现、边界检查、第二意见）；
+- 可并行的只读研究（每模块 / 每上游 / 每客户端 / 每评测层一条 lane）；
+- 大规模机械改动（多文件迁移、重命名、批量替换）且写域可切分。
+
+不得 fan-out（root 自己做并说明原因）：
+
+- 强串行依赖，前一步结果决定后一步；
+- 多个 lane 必须写同一个文件/同一目录；
+- 需要单一上下文才能做的最终裁决、合并冲突解决、部署判断。
+
+### 11.2 怎么拆
+
+- **按架构轴**：M1 Client（`src/client/`）、M2 Execution（`src/execution/`）、
+  M3 Upstream（`src/upstream/`）、M4 Evidence & Eval（`src/evidence/` + `scripts/`）、
+  M5 Runtime（`src/runtime/` + `src/shared/`）、M6 Release（`scripts/export-oss.mjs` + `docs/OPEN-SOURCE/`）。
+- 写任务必须给每个子代理**互斥写域**（文件/目录前缀），并记录在委派消息或共享任务里；
+  跨文件需求先报 root 切 scope，不允许“顺手改一下”。
+- 只读审计按模块、上游、客户端、L0–L3 评测层分 lane；不要再按“前端/后端”这类非本项目轴拆。
+- **1–2 个独立委派**用 `subagent` / `subagent_fork`；**≥3 个独立 lane** 用 `workflow` 脚本
+  fan-out（`pipeline` / `parallel`），不要逐轮串行。
+- 每个子代理 prompt 必须含：目标、输入路径、写域（或只读）、验收命令、禁止项
+  （不改共享文件 / 不提交 / 不合并 / 不部署 / 不打印 token）、输出 schema
+  （findings / files / tests）。
+- 独立 lane **同时启动**；root 在等待期间继续做不冲突的集成/验证，不忙轮询。
+
+### 11.3 边界与验收
+
+- 子代理默认**只读**；写权限仅限分配的不相交 scope；不得代提交、合并、部署或碰真实凭据。
+- root 必须在合并前 review 最终 diff、跑相关测试/审计；子代理不得自行宣称“通过”。
+- 若因冲突/串行依赖没有 fan-out：在回复里写明“未 fan-out 的原因”，不能沉默单干。
+- 评测/审计类子代理结论必须能回到 `文件:行` / 命令 / 数据证据；无证据的结论按 advisory 处理。
+- 共享任务目录按 scope 组织：同一模块的写任务串行，跨模块的只读/写任务可并行。
+
 
 
