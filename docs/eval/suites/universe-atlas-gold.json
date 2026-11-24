@@ -1,0 +1,516 @@
+{
+  "schema": "gold-eval-suite.v1",
+  "batch": "batch-2-universe-atlas",
+  "version": "1.0.0",
+  "updatedAt": "2026-11-25T00:00:00Z",
+  "maintainedBy": "[云端总控]",
+  "sourceBenchmarks": [
+    {
+      "name": "MCP-Universe",
+      "license": "Apache-2.0",
+      "repo": "https://github.com/SalesforceAIResearch/MCP-Universe",
+      "notes": "基于 mcpuniverse/benchmark/configs/mcpuniverse/repository_management（28 题）与 multi_server（25 题）真实任务结构精炼 8 道长程多步与动态真值精题。"
+    },
+    {
+      "name": "MCP-Atlas",
+      "license": "CC-BY-4.0",
+      "repo": "https://github.com/scaleapi/mcp-atlas",
+      "paper": "https://arxiv.org/abs/2602.00933",
+      "notes": "吸收零工具名/零服务器名自然语言提示、242 工具强干扰发现、Claim-level 覆盖阈值（>=0.75）及 11 类失败模式诊断分类法精炼 8 道高区分度精题。"
+    }
+  ],
+  "diagnosticTaxonomy": {
+    "toolCallFailures": [
+      "malformed_parameters",
+      "wrong_tool_selection",
+      "no_tool_use",
+      "failed_error_recovery"
+    ],
+    "cognitiveFailures": [
+      "task_misunderstanding",
+      "faulty_synthesis",
+      "response_misparsing",
+      "early_termination",
+      "hallucinated_facts",
+      "logical_errors",
+      "constraint_violations"
+    ]
+  },
+  "summary": {
+    "total": 16,
+    "byFamily": {
+      "mcp-universe": 8,
+      "mcp-atlas": 8
+    },
+    "byAccess": {
+      "read": 13,
+      "write": 1,
+      "read-write": 2
+    }
+  },
+  "tasks": [
+    {
+      "id": "UA-UNI-01",
+      "family": "mcp-universe",
+      "upstreams": [
+        "github"
+      ],
+      "access": "read",
+      "tier": "T1",
+      "referenceSource": "https://github.com/SalesforceAIResearch/MCP-Universe/blob/main/mcpuniverse/benchmark/configs/mcpuniverse/repository_management/github_task_0006.json",
+      "failureModeTarget": [
+        "faulty_synthesis",
+        "hallucinated_facts"
+      ],
+      "trap": "跨 3 个外部真实公开仓库并发拉取动态指标 + 沙箱端内排序汇总（防估算/防截断）",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请帮我对比三个公开 MCP 评测基准仓库的最新实时状态：eval-sys/mcpmark、SalesforceAIResearch/MCP-Universe、scaleapi/mcp-atlas。对每个仓库提取：(1) 默认分支名；(2) 最近一次主分支提交的 7 位 SHA 与 UTC 日期；(3) 当前 open pull requests 数量（至少拉前 30 条计数，若满 30 标 30+）。按最近提交日期倒序输出 4 列 Markdown 表格，严禁凭记忆编造。",
+      "verifiableClaims": [
+        "三个仓库默认分支名均与 GitHub 实时返回值一致",
+        "三个仓库最近一次主分支 commit SHA（7 位）与 UTC 日期真实准确",
+        "open PR 计数与实时查询结果一致（满 30 正确标 30+）",
+        "表格严格按最近提交日期倒序排列",
+        "单次或两次只读脚本并发完成，0 写入"
+      ]
+    },
+    {
+      "id": "UA-UNI-02",
+      "family": "mcp-universe",
+      "upstreams": [
+        "github"
+      ],
+      "access": "write",
+      "tier": "T2",
+      "referenceSource": "https://github.com/SalesforceAIResearch/MCP-Universe/blob/main/mcpuniverse/benchmark/configs/mcpuniverse/repository_management/github_task_0001.json",
+      "failureModeTarget": [
+        "constraint_violations",
+        "malformed_parameters"
+      ],
+      "trap": "多分支初始化 + 跨仓真实文件抽取 + 精确内容写入与 PR 核验",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 1,
+        "maxExecuteCalls": 3
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请在受控测试仓 Bruce-Yii/gateway-acceptance-test 基于 main 创建 2 个新分支：eval/uni-02-docs 与 eval/uni-02-config。在 eval/uni-02-docs 写入 README-UNI02.md（内容精确为 `# Gateway Eval Uni02\\n\\nAutomated multi-branch check.`）；在 eval/uni-02-config 从 Bruce-Yii/gemini-mcp-gateway 的 main 分支读取 vercel.json 原文并原样写入到 synced-vercel.json；最后从 eval/uni-02-config 向 main 发起 PR，返回精确 PR 编号与提交 SHA。",
+      "verifiableClaims": [
+        "eval/uni-02-docs 与 eval/uni-02-config 两个分支均成功基于 main 创建",
+        "eval/uni-02-docs 上 README-UNI02.md 正文与指定字符串字节级一致",
+        "eval/uni-02-config 上 synced-vercel.json 与源仓 vercel.json 字节级一致（无 download notice 污染）",
+        "成功创建 PR 且返回真实正整数 PR number 与非 blobSha 的 commitSha"
+      ]
+    },
+    {
+      "id": "UA-UNI-03",
+      "family": "mcp-universe",
+      "upstreams": [
+        "github",
+        "notion"
+      ],
+      "access": "read-write",
+      "tier": "T2",
+      "referenceSource": "https://github.com/SalesforceAIResearch/MCP-Universe/blob/main/mcpuniverse/benchmark/configs/mcpuniverse/multi_server/multi-server_task_google_search_notion_0001.json",
+      "failureModeTarget": [
+        "early_termination",
+        "faulty_synthesis"
+      ],
+      "trap": "跨 GitHub × Notion 有状态沉淀流 + 精确结构统计 + 写后终态回读核验",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 1
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请从 Bruce-Yii/gemini-mcp-gateway 的 main 分支统计 src/ 下各一级子目录的 .js 文件数量，并拉取最近 5 个已合并 PR（PR 号、标题、7 位合并 SHA），然后将这份汇总写入我的 Notion 受控测试父页下的新子页 `UA-UNI-03 Gateway Snapshot`（包含模块文件数表与最近 5 PR 表），写完后回读确认 2 张表全部落盘。",
+      "verifiableClaims": [
+        "src/ 下各子目录 .js 文件数统计与仓库实况 100% 吻合",
+        "最近 5 个已合并 PR 的编号、标题、7 位 SHA 全部真实准确",
+        "Notion 受控测试父页下成功创建 `UA-UNI-03 Gateway Snapshot`",
+        "回读页面确认 2 张表数据完整无截断"
+      ]
+    },
+    {
+      "id": "UA-UNI-04",
+      "family": "mcp-universe",
+      "upstreams": [
+        "github"
+      ],
+      "access": "read",
+      "tier": "T1",
+      "referenceSource": "https://github.com/SalesforceAIResearch/MCP-Universe/blob/main/mcpuniverse/benchmark/configs/mcpuniverse/multi_server/multi-server_task_google_search_notion_0004.json",
+      "failureModeTarget": [
+        "task_misunderstanding",
+        "early_termination"
+      ],
+      "trap": "多条件逆向线索推理（不给 PR 号、不给 commit SHA，必须多步反查串联证据链）",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "不提供编号，请通过多步线索反查 Bruce-Yii/gemini-mcp-gateway：(1) 找出那个只改了 2 个文件、修复“无 tokenEnv 时跳过网关自有 OAuth Authorization 头注入”问题的已合并 PR，给出 PR 号、合并提交 SHA 与 UTC 合并时间；(2) 在 docs/DEPLOYMENTS.md 中找出首次包含该修复的生产部署记录，给出 deploymentId 与 buildHash；(3) 确认该修复对应的测试文件里新增了哪一条测试用例名称。",
+      "verifiableClaims": [
+        "准确反查到 PR #31 与合并提交 de974ee5 及真实 UTC 时间",
+        "准确在 docs/DEPLOYMENTS.md 中定位到 dpl_DLBySiFi6P63sQnpoYEiSB2DDowM 与 buildHash 27e67f39",
+        "准确提取 tests/upstreams.test.js 中新增的测试用例名称",
+        "三条证据链全部完成无提前终止"
+      ]
+    },
+    {
+      "id": "UA-UNI-05",
+      "family": "mcp-universe",
+      "upstreams": [
+        "github",
+        "vercel"
+      ],
+      "access": "read",
+      "tier": "T1",
+      "referenceSource": "https://github.com/SalesforceAIResearch/MCP-Universe/blob/main/mcpuniverse/benchmark/configs/mcpuniverse/repository_management/github_task_0006.json",
+      "failureModeTarget": [
+        "response_misparsing",
+        "logical_errors"
+      ],
+      "trap": "跨 GitHub × Vercel 动态真值对账 + 精确计算未部署提交差集",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请核对网关项目线上生产状态与代码主干的实时差集：(1) 查线上最新 READY 生产部署的 deploymentId、创建时间及 meta 字段；(2) 结合 docs/DEPLOYMENTS.md 确定当前生产对应的真实 commit SHA；(3) 列出从该生产 commit 到 GitHub main HEAD 之间尚未部署的精确提交数量与每条提交的 7 位 SHA 和首行标题。",
+      "verifiableClaims": [
+        "准确获取最新 production READY deploymentId 与时间",
+        "如实报告 meta 是否含 githubCommitSha（空则报空不编造）",
+        "从 DEPLOYMENTS.md 准确提取当前生产 commit SHA",
+        "精确算出未部署提交数量并完整列出每条 SHA 与标题"
+      ]
+    },
+    {
+      "id": "UA-UNI-06",
+      "family": "mcp-universe",
+      "upstreams": [
+        "linear",
+        "github"
+      ],
+      "access": "read",
+      "tier": "T2",
+      "referenceSource": "https://github.com/SalesforceAIResearch/MCP-Universe/blob/main/mcpuniverse/benchmark/configs/mcpuniverse/multi_server/multi-server_task_google_search_notion_0002.json",
+      "failureModeTarget": [
+        "faulty_synthesis",
+        "response_misparsing"
+      ],
+      "trap": "Linear 精简字段防爆窗 + 跨 GitHub 代码定位关联 + 防幻觉强配对",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请拉取 Linear 工作区中最近更新的 3 条任务（仅取核心精简字段避免截断），提取它们的标题与状态；然后在 Bruce-Yii/gemini-mcp-gateway 仓库中检索与这些任务主题最相关的源码或文档路径，输出一张关联映射表；如果某条 Linear 任务属于其他项目、在网关仓库没有对应文件，必须明确标 `无关联`，严禁强行凑数。",
+      "verifiableClaims": [
+        "成功拉取 3 条真实 Linear 任务且未触发字段或输出截断",
+        "每条任务都给出了真实标题、状态与 URL",
+        "对无关任务诚实标 `无关联`，对有关联项给出真实存在的仓库路径"
+      ]
+    },
+    {
+      "id": "UA-UNI-07",
+      "family": "mcp-universe",
+      "upstreams": [
+        "vercel",
+        "github",
+        "linear"
+      ],
+      "access": "read",
+      "tier": "T2",
+      "referenceSource": "https://github.com/SalesforceAIResearch/MCP-Universe/blob/main/mcpuniverse/benchmark/configs/mcpuniverse/multi_server/multi-server_task_google_search_notion_0003.json",
+      "failureModeTarget": [
+        "early_termination",
+        "failed_error_recovery"
+      ],
+      "trap": "三上游生产事故排障并发聚合 + 证据交叉综合",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 3,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请做一次跨三平台的网关线上健康排障：并发拉取 (1) Vercel 上 gemini-mcp-gateway 最近的运行时错误概览与最新部署状态；(2) GitHub 上最近 5 次 main 提交；(3) Linear 团队列表与最近 3 条活跃任务。综合三方证据给出客观结论：当前线上是否有未解释的 5xx 异常？若有，最可能与哪次提交或任务有关？",
+      "verifiableClaims": [
+        "同时覆盖 Vercel、GitHub、Linear 三个上游且均有真实数据支撑",
+        "并发控制在 <= 2 次只读脚本内完成",
+        "客观报告 5xx 真实数量（0 则报 0，不虚构故障）",
+        "结论严格基于拉取到的证据链"
+      ]
+    },
+    {
+      "id": "UA-UNI-08",
+      "family": "mcp-universe",
+      "upstreams": [
+        "linear",
+        "github",
+        "notion"
+      ],
+      "access": "read-write",
+      "tier": "T2",
+      "referenceSource": "https://github.com/SalesforceAIResearch/MCP-Universe/blob/main/mcpuniverse/benchmark/configs/mcpuniverse/multi_server/multi-server_task_google_search_notion_0001.json",
+      "failureModeTarget": [
+        "early_termination",
+        "constraint_violations"
+      ],
+      "trap": "8–10 轮端到端长程工程流压测（测长链条状态保持、跨步传参、审批弹窗与中途掉线）",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 3,
+        "maxExecuteReadCalls": 3,
+        "maxExecuteCalls": 3
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请执行一次端到端跨三平台工程长链条验证：(1) 查 Linear 团队列表并取 1 条真实任务标题；(2) 读 Bruce-Yii/gemini-mcp-gateway 的 package.json 获取项目版本与脚本名；(3) 在受控仓 Bruce-Yii/gateway-acceptance-test 建分支 eval/uni-08-e2e，写入 e2e-report.json（含 Linear 标题、package 版本与 UTC 时间）并建 PR；(4) 等待 PR 检查结果；(5) 将本次 PR 链接、编号与检查结论写入 Notion 受控测试父页下的 `UA-UNI-08 E2E Log` 并回读核验。",
+      "verifiableClaims": [
+        "步骤 1–5 全部执行完毕，无中途提前终止或丢步",
+        "e2e-report.json 为合法 JSON 且含真实 Linear 标题与 package.json 数据",
+        "受控仓 PR 编号与链接准确写入 Notion 子页且回读一致",
+        "全程未修改 gemini-mcp-gateway 主仓任何内容"
+      ]
+    },
+    {
+      "id": "UA-ATL-01",
+      "family": "mcp-atlas",
+      "upstreams": [
+        "github",
+        "vercel",
+        "notion"
+      ],
+      "access": "read",
+      "tier": "T1",
+      "referenceSource": "https://arxiv.org/abs/2602.00933",
+      "failureModeTarget": [
+        "wrong_tool_selection",
+        "no_tool_use"
+      ],
+      "trap": "100% 零服务器名、零工具名纯口语需求，在 242 个真实干扰工具中精准发现并跨 3 平台编排",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 3,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "帮我快速对个账：咱们网关项目最近一次发上线是什么时候、现在代码库主干有没有比线上更新的改动、另外我个人知识库里最近编辑过的 3 篇页面分别叫什么？",
+      "verifiableClaims": [
+        "在零服务名/零工具名提示下正确路由到部署平台、代码库与知识库三个上游",
+        "准确给出最近一次生产部署时间与 ID",
+        "准确判断主干是否有未上线新提交并给出最新提交 SHA",
+        "准确列出个人工作区最近编辑的 3 篇真实页面标题"
+      ]
+    },
+    {
+      "id": "UA-ATL-02",
+      "family": "mcp-atlas",
+      "upstreams": [
+        "github",
+        "vercel",
+        "linear",
+        "notion"
+      ],
+      "access": "read",
+      "tier": "T1",
+      "referenceSource": "https://arxiv.org/abs/2602.00933",
+      "failureModeTarget": [
+        "early_termination"
+      ],
+      "trap": "专打前沿模型最高发失败模式 early_termination（42% 失败占比）：单轮 5 项独立子诉求检验是否漏答",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 3,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.8,
+      "userPrompt": "请在同一份答复里把下面 5 件事全部查清楚，缺一不可：(1) 代码库当前 open PR 精确数量；(2) 代码库当前 open Issue 精确数量与编号；(3) 线上生产部署最新状态与创建时间；(4) 任务看板里目前有哪些团队（名称与 key）；(5) 知识库当前认证工作区名称是什么。",
+      "verifiableClaims": [
+        "Claim 1：open PR 数量与实时值完全一致",
+        "Claim 2：open Issue 数量与全部编号与实时值完全一致",
+        "Claim 3：线上生产部署最新状态与时间真实准确",
+        "Claim 4：任务看板团队名称与 key（含 LAJI/YU）完整准确",
+        "Claim 5：知识库认证工作区名称准确，5 项零遗漏"
+      ]
+    },
+    {
+      "id": "UA-ATL-03",
+      "family": "mcp-atlas",
+      "upstreams": [
+        "github"
+      ],
+      "access": "read",
+      "tier": "T2",
+      "referenceSource": "https://arxiv.org/abs/2602.00933",
+      "failureModeTarget": [
+        "faulty_synthesis",
+        "logical_errors"
+      ],
+      "trap": "专打 faulty_synthesis（证据全拉到了但汇总算错）：强制沙箱精确聚合而非模型肉眼心算",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 1,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "统计网关代码库最近 10 个已合并 PR 的精确改动指标，必须用脚本算准而不要估算：(1) 这 10 个 PR 各自的编号与改动文件数；(2) 合计总新增行数（additions）与总删除行数（deletions）；(3) 改动文件数最多的那个 PR 编号与文件数；(4) 按合并前分支前缀（如 fix/docs/feat）统计数量分布。",
+      "verifiableClaims": [
+        "列出精确 10 个最近已合并 PR 的真实编号与各自文件数",
+        "总新增行数与总删除行数等于 10 个 PR 真实求和（0 算术误差）",
+        "改动文件数最多的 PR 编号与文件数准确无误",
+        "分支前缀分布求和等于 10"
+      ]
+    },
+    {
+      "id": "UA-ATL-04",
+      "family": "mcp-atlas",
+      "upstreams": [
+        "github",
+        "vercel",
+        "linear"
+      ],
+      "access": "read",
+      "tier": "T1",
+      "referenceSource": "https://arxiv.org/abs/2602.00933",
+      "failureModeTarget": [
+        "response_misparsing"
+      ],
+      "trap": "专打 response_misparsing：3 种异构上游列表（顶层数组 / 双层嵌套对象 / 分页节点）统一归一排序",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "从代码库最近 3 次提交、线上部署最近 3 条记录、以及任务看板最近更新的 3 条任务中，把这 9 条异构记录在沙箱内统一转换成同结构 JSON 数组，每条仅保留 `{ source, id, title, timestamp }` 四个字段，按 ISO 时间戳降序取前 6 条输出。",
+      "verifiableClaims": [
+        "成功解包 3 种不同返回形状且 3 个来源均有记录参与排序",
+        "输出为合法 JSON 数组且每条严格只含 source/id/title/timestamp 4 字段",
+        "时间戳均为合法 ISO 字符串且前 6 条严格降序排列",
+        "无 undefined/null 冒充 id 或 title"
+      ]
+    },
+    {
+      "id": "UA-ATL-05",
+      "family": "mcp-atlas",
+      "upstreams": [
+        "github"
+      ],
+      "access": "read",
+      "tier": "T2",
+      "referenceSource": "https://arxiv.org/abs/2602.00933",
+      "failureModeTarget": [
+        "failed_error_recovery"
+      ],
+      "trap": "专打 failed_error_recovery：故意混入不存在的分支与路径，检验单点 404 后自动隔离恢复而非整批崩掉",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 1,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "帮我同时检查网关代码库里这 4 个目标的内容与大小：(1) main 分支的 package.json；(2) main 分支的 src/does-not-exist-xyz.js；(3) nonexistent-branch-999 分支的 README.md；(4) main 分支的 vercel.json。请用并发方式处理，单个失败不能影响其他存在项的完整输出，并清楚区分哪些存在、哪些 404。",
+      "verifiableClaims": [
+        "package.json 与 vercel.json 均成功读出真实大小与关键内容",
+        "src/does-not-exist-xyz.js 明确报告不存在/404，未拖垮整批",
+        "nonexistent-branch-999 分支明确报告分支不存在，未静默回退读 main",
+        "4 项状态全部交代清晰，无重试死循环"
+      ]
+    },
+    {
+      "id": "UA-ATL-06",
+      "family": "mcp-atlas",
+      "upstreams": [
+        "github",
+        "linear",
+        "notion"
+      ],
+      "access": "read",
+      "tier": "T1",
+      "referenceSource": "https://arxiv.org/abs/2602.00933",
+      "failureModeTarget": [
+        "hallucinated_facts",
+        "no_tool_use"
+      ],
+      "trap": "专打 no_tool_use 与 hallucinated_facts：4 项强实时动态事实，必须现场调工具验证",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 1,
+      "userPrompt": "不要凭记忆猜测，请现场查询并精确回答 4 个实时事实：(1) 网关仓库 capture-daily.yml 最近一次 workflow run 的精确 run ID、触发事件与结论；(2) 网关仓库当前最新的 1 条 main commit 完整 40 位 SHA；(3) 任务看板中第一个团队的精确 ID 与名称；(4) 个人知识库当前登录用户类型与工作区名。",
+      "verifiableClaims": [
+        "capture-daily.yml 最新 run ID、event 与 conclusion 与实时 Actions API 完全一致",
+        "main 最新 commit 为真实 40 位十六进制 SHA",
+        "任务看板团队 ID 与名称真实准确",
+        "知识库用户类型与工作区名称真实准确"
+      ]
+    },
+    {
+      "id": "UA-ATL-07",
+      "family": "mcp-atlas",
+      "upstreams": [
+        "github",
+        "vercel"
+      ],
+      "access": "read",
+      "tier": "T2",
+      "referenceSource": "https://arxiv.org/abs/2602.00933",
+      "failureModeTarget": [
+        "constraint_violations"
+      ],
+      "trap": "专打 constraint_violations：5 条强负向约束叠加（只读、4 列、0 密钥、0 手工 slice、<=2 次脚本调用）",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.8,
+      "userPrompt": "请审计网关项目线上环境变量清单与代码中引用的环境变量是否对齐，必须严格遵守全部 5 条约束：(1) 全程只读 0 写入；(2) 严禁输出任何环境变量的值或片段，只允许输出变量名；(3) 最终结果只用一张 4 列 Markdown 表格（`EnvVar | InVercelProd | InCode | Note`）；(4) 读取大源码文件时禁止手写 `.slice()`/`.substring()` 按字符截断；(5) 全程只读脚本调用不超过 2 次。",
+      "verifiableClaims": [
+        "全程 0 写操作",
+        "输出中 0 明文密钥或变量值片段",
+        "最终表格严格 4 列且表头精确匹配",
+        "脚本中 0 次手工字符切片",
+        "execute_read 总调用次数 <= 2"
+      ]
+    },
+    {
+      "id": "UA-ATL-08",
+      "family": "mcp-atlas",
+      "upstreams": [
+        "github",
+        "vercel"
+      ],
+      "access": "read",
+      "tier": "T2",
+      "referenceSource": "https://arxiv.org/abs/2602.00933",
+      "failureModeTarget": [
+        "logical_errors",
+        "faulty_synthesis"
+      ],
+      "trap": "专打 logical_errors：四源交叉一致性审计（AGENTS.md × STATUS.md × DEPLOYMENTS.md × 线上 Vercel 实况）",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请把网关仓库里的 AGENTS.md、docs/STATUS.md、docs/DEPLOYMENTS.md 三份文档中宣称的“当前生产 commit / deploymentId / main HEAD”，与 GitHub main 实时 HEAD 以及 Vercel 实时最新生产部署做一次 5 方交叉核验。精确列出每一处存在漂移或不一致的字段（注明文件名与冲突值）；如果某项完全一致也请给出对应证据。",
+      "verifiableClaims": [
+        "同时读取了 3 份文档 + GitHub 实时 HEAD + Vercel 实时最新生产部署（5 方齐全）",
+        "准确指出每份文档宣称的 commit/deploymentId 与实时值是否一致",
+        "漂移项精确到文件名与具体冲突值，无逻辑矛盾或漏检"
+      ]
+    }
+  ]
+}
