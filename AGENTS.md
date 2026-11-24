@@ -14,14 +14,14 @@
 
 - **生产已部署 `42caaf2`**（2026-11-25 03:14 手动 `vercel --prod`，带 `VERCEL_GIT_COMMIT_SHA`）：`https://gemini-mcp-gateway.vercel.app` healthz 已核 `commit=42caaf2…` / `buildHash=27e67f39…` / `builtAt=2026-11-24T19:13:54.938Z`；`deploymentId=dpl_DLBySiFi6P63sQnpoYEiSB2DDowM`。
   本次合并 PR #29/#30/#31/#32：Linear 切 `static_bearer` PAT（`https://mcp.linear.app/mcp/readonly` + `LINEAR_API_KEY`）；Notion 改网关自有 OAuth/DCR（`owner=gateway`），PR #31 修复运行时无 `tokenEnv` 不注入 Authorization 的 bug；PR #30 周报改 scorecard 0 R2 GET；PR #32 文档同步。
-- **`main=b4c762e`**（已合入 PR #33 评测闭环与防假绿修复，未单独部署）；生产运行 `42caaf2`（含 PR #28/#29/#30/#31/#32）。
+- **`main=6f9f4ab`**（已合入 PR #33 评测闭环与防假绿、#39 Issue #15 契约收口、#38 客户端 Profile 隔离底座等，均**未部署**）；生产运行 `42caaf2`（含 PR #28/#29/#30/#31/#32）。
 - **线上上游实况（`42caaf2` 双端实测 2026-11-24T19:16Z Gemini / 19:23Z ChatGPT）**：5 大上游全部 `observed`——GitHub 42 / Vercel 73 / Notion 53 / Figma 47 / Linear 27（合计 **242 tools**）；`linear__list_teams` 与 `notion__notion_get_self` 均已在 Gemini 与 ChatGPT 两端实测返回真实数据，Notion runtime 恢复已实证（进入 8h/72h 稳定性观测，旧凭据仍暂不清理）。
 - **入站安全变量名**（只记名字，严禁记录值）：生产已生效 `OAUTH_APPROVE_PASSPHRASE`（PR #26，consent 审批口令；缺失/错误 403 不落 code）、`ALLOW_DCR_FOR_CHATGPT=1`（ChatGPT DCR 显式 carve-out）、`UPSTREAM_OAUTH_ADMIN_KEY`（`/upstream/oauth/start` 管理入口）；`CLIENT_PLATFORM_OAUTH_MAP` 已追加 ChatGPT 客户端 → `chatgpt` 映射，随 `42caaf2` 生效（值不记录）。
 - **旧凭据清理/轮换延后**：等 Notion 8h/72h 稳定观测通过后，再移除旧 DSH Notion 连接与旧 `NOTION_*`/`LINEAR_*` refresh env，并轮换暴露过的 Linear PAT；**当前不要删**（见 §2 与 `docs/AUTH-READY.md` §1.9）。
 - **push 自动 production 部署仍关闭**（`git.deploymentEnabled.main=false`，`05f607c` 起已多次复核）；branch push 仍生成 preview。
 - 独立审查见 `docs/OPEN-SOURCE/INDEPENDENT-REVIEW-2026-11-24.md`。
 - **工作区全量测试以最近一次 lead 跑出的结果为准**；不要用其他 agent 的中间态。
-  当前基线：`1592 tests / 1586 pass / 0 fail / 6 todo`（2026-11-25 lead 实跑（fix/eval-loop-trigger-and-observability）；勿引用 PR/子代理数字）。
+  当前基线：`1638 tests / 1632 pass / 0 fail / 6 todo`（2026-11-25 lead 在 `main 6f9f4ab` 实跑；勿引用 PR/子代理数字）。
 - **不找用户反复要授权**：授权只有在 `docs/AUTH-READY.md` 全绿后才发起；
   当前明确 **NOT READY**（Notion 已在线实测通过但 8h/72h 稳定性观测未满、Vercel CIMD BLOCKED、旧凭据未清理）。
 - **OSS 未公开**：只有 `work/oss-release-staging` / `work/oss-release-repo`
