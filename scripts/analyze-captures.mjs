@@ -26,7 +26,7 @@ import { redactSecrets } from '../src/execution/tool-format.js';
 // analyzer previews/sample errors are model-visible, so close that gap here.
 const JSON_SECRET_KEY_VALUE = /("(?:access[_-]?token|refresh[_-]?token|client[_-]?secret|api[_-]?key|apikey|token|secret|password|passwd|pwd|authorization|cookie|private[_-]?key|notion[_-]?token|linear[_-]?token|github[_-]?token)"\s*:\s*")[^"]*(")/gi;
 
-function redactAnalyzerText(text) {
+export function redactAnalyzerText(text) {
   return redactSecrets(text).replace(JSON_SECRET_KEY_VALUE, '$1[REDACTED]$2');
 }
 

@@ -35,6 +35,12 @@ const SECRET_PATTERNS = [
   /\bsk-[A-Za-z0-9_-]{8,}/g,
   /\bAKIA[A-Z0-9]{16}\b/g,
   /\bAIza[A-Za-z0-9_-]{20,}\b/g,
+  // Provider token families seen in this gateway's real upstreams. R2
+  // distillation writes redacted evidence into a committed candidate pool, so
+  // the lists below must cover the credentials those upstreams actually emit.
+  /\blin_api_[A-Za-z0-9]{8,}/g, // Linear personal API key
+  /\bntn_[A-Za-z0-9]{8,}/g, // Notion integration/MCP token
+  /\bfigd_[A-Za-z0-9_-]{8,}/g, // Figma personal access token
 ];
 
 /** Redact credential-shaped substrings in MODEL-VISIBLE text only. */
