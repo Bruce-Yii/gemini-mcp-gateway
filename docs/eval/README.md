@@ -10,6 +10,7 @@
 - [ANALYZER-REVIEW.md](ANALYZER-REVIEW.md) — 免费模型建议人工闸门与审查清单
 - [ACTIVE-PASSIVE-CORRELATION.md](ACTIVE-PASSIVE-CORRELATION.md) — 主动↔被动时间戳关联参考
 - [M4-A-FOUR-DIM.md](M4-A-FOUR-DIM.md) — platform × protocol(v1/v2) × profile × build 四维分账 + `--platform/--eval-mode` 过滤（含环境核验与边界）
+- [M4-C-FREQ-CLOSED-LOOP-2026-11-24.md](M4-C-FREQ-CLOSED-LOOP-2026-11-24.md) — 跨客户端防串伤规则落地 + 高频闭环实测（R2/analyzer 凭据不可用 → BLOCKED 记录，不伪造）
 
 ## 在线反馈与 Scorecard 记录
 
