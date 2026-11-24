@@ -4,6 +4,7 @@
 > **权威顺序**：[FRAMEWORK.md](FRAMEWORK.md)（用户原文与最高意图）→ [FRAMEWORK-FULL.md](FRAMEWORK-FULL.md)（目标态 S0–S5）→ **本文（唯一渐进式架构主目录）** → [MODULE-DECOMPOSITION.md](MODULE-DECOMPOSITION.md)（L2→L3 工作包派发）→ 审计报告。
 > **阅读方式（渐进式披露）**：**L0** 一屏看全景与不变量 → **L1** 看六模块边界与依赖红线 → **L2** 按需展开到子模块与细粒度组件（附局部横向闭环图）→ **L3** 落位到代码路径、活跃缺口与工作包。
 > **已收口文档**：原 `ARCHITECTURE.md`、`ARCHITECTURE-PROGRESSIVE.md` 核心内容已并入本文；`architecture-graph.json` 已冻结为实验性快照（不再手工双写）。
+> **动态实况雷达（高变动状态）**：逐客户端/逐上游真实可用矩阵、四态落差与 Top 3 优先打点见 [STATUS.md](STATUS.md)（本文仅保持静态架构骨架）。
 
 ---
 
