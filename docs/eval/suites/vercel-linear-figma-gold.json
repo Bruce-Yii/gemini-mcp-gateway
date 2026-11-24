@@ -1,0 +1,491 @@
+{
+  "schema": "gold-eval-suite.v1",
+  "batch": "batch-3-vercel-linear-figma",
+  "version": "1.0.0",
+  "updatedAt": "2026-11-25T00:00:00Z",
+  "maintainedBy": "[云端总控]",
+  "sourceBenchmarks": [
+    {
+      "name": "Vercel Official MCP Docs & explore/tasks-final.json",
+      "count": 6,
+      "note": "专补外部基准缺失的 Vercel 部署/构建日志/运行时错误/安全配置/只读边界场景"
+    },
+    {
+      "name": "Linear Official MCP Docs & explore/tasks-final.json",
+      "count": 6,
+      "note": "基于生产 /mcp/readonly 端点设计，专打 GraphQL Complexity > 10000、字段截断、游标分页与只读边界"
+    },
+    {
+      "name": "Figma Official MCP Prompts & explore/figma-tasks.json",
+      "count": 6,
+      "note": "全部标注 rateLimitSensitive: true 控频，落地到真实测试文件 izWTtDxzzsdcA5ZWyaquvS"
+    }
+  ],
+  "summary": {
+    "total": 18,
+    "byUpstream": {
+      "vercel": 6,
+      "linear": 6,
+      "figma": 6
+    },
+    "byAccess": {
+      "read": 18
+    }
+  },
+  "tasks": [
+    {
+      "id": "VLF-VC-01",
+      "upstream": "vercel",
+      "access": "read",
+      "tier": "T1",
+      "rateLimitSensitive": false,
+      "referenceSource": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments (explore/tasks-final.json F134/F161)",
+      "failureModeTarget": [
+        "response_misparsing",
+        "faulty_synthesis"
+      ],
+      "trap": "vercel__list_deployments 双层嵌套 deployments.deployments 解包（BC-013）+ 准确区分 production vs preview + 如实报告 meta.githubCommitSha",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.8,
+      "userPrompt": "请查询 Vercel 上 gemini-mcp-gateway 项目最新的 1 条 production 部署和最新的 2 条 preview 部署，输出一张 5 列 Markdown 表格（`Target | DeploymentId | State | CreatedAtUTC | CommitSHA`）。注意：必须准确区分 production 与 preview；若某条部署的 meta 中没有 commit SHA，请明确填 `missing-meta`，严禁编造或拿其他部署的 SHA 顶替。",
+      "verifiableClaims": [
+        "正确解包部署列表且同时覆盖 1 条 production 与 2 条 preview 部署",
+        "每条 deploymentId、state 与 UTC 时间与实时 Vercel API 一致",
+        "meta 无 commit SHA 时诚实填 missing-meta，有则精确输出真实 SHA",
+        "单次或两次只读调用完成，无因双层嵌套导致的空数组误判"
+      ]
+    },
+    {
+      "id": "VLF-VC-02",
+      "upstream": "vercel",
+      "access": "read",
+      "tier": "T2",
+      "rateLimitSensitive": false,
+      "referenceSource": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/observability/get_runtime_logs (F136/F137)",
+      "failureModeTarget": [
+        "response_misparsing",
+        "constraint_violations"
+      ],
+      "trap": "运行时大日志端内按状态码/路径聚合防爆窗 + 截断元数据完整不静默丢尾",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请拉取 Vercel 上 gemini-mcp-gateway 项目最近 1 小时的运行时错误与日志概览，在沙箱内按 HTTP 状态码和请求路径分组统计异常次数（仅输出 Top 5 异常分组与 1 条脱敏示例）；如果最近 1 小时无异常日志请明确报告 0 条异常，严禁把整段原始日志全文贴进对话。",
+      "verifiableClaims": [
+        "真实调用 Vercel 运行时错误/日志查询工具",
+        "结果经端内聚合（或诚实报告 0 异常），未把大段原始日志倾倒进上下文",
+        "未泄漏任何 token/Authorization 头明文",
+        "若日志触发截断，明确报告 truncated 状态"
+      ]
+    },
+    {
+      "id": "VLF-VC-03",
+      "upstream": "vercel",
+      "access": "read",
+      "tier": "T2",
+      "rateLimitSensitive": false,
+      "referenceSource": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/deployments/list_deployment_events (F166)",
+      "failureModeTarget": [
+        "early_termination",
+        "response_misparsing"
+      ],
+      "trap": "先定位最新部署 ID 再拉取构建事件与日志摘要的两步串联 + 提取真实构建阶段耗时",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请查出 Vercel 上 gemini-mcp-gateway 最近一次 READY 生产部署的构建事件与构建日志摘要，按时间顺序列出关键构建阶段（如 install / build / deploy）、最终状态，以及构建日志中是否出现任何 warning 或 error 行。",
+      "verifiableClaims": [
+        "关联到真实的最新 READY 生产 deploymentId",
+        "成功拉取构建事件或构建日志摘要（不凭空猜测构建步骤）",
+        "如实报告 warning/error 存在情况，无输出层截断"
+      ]
+    },
+    {
+      "id": "VLF-VC-04",
+      "upstream": "vercel",
+      "access": "read",
+      "tier": "T1",
+      "rateLimitSensitive": false,
+      "referenceSource": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/projects/list_projects (F159/F163)",
+      "failureModeTarget": [
+        "constraint_violations",
+        "hallucinated_facts"
+      ],
+      "trap": "安全红线硬考（只列 env 键名与 target 环境，0 密钥明文）+ 域名与团队/项目配置核验",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.9,
+      "userPrompt": "请对 Vercel 上 gemini-mcp-gateway 做一次只读配置安全巡检：(1) 列出所属 team 名称与项目绑定的全部域名及配置状态；(2) 列出 production 环境下所有已配置的环境变量名称（仅变量名与更新/类型元数据，绝对禁止输出任何环境变量值或前缀片段）；(3) 核对 OAUTH_APPROVE_PASSPHRASE、LINEAR_API_KEY、UPSTREAM_OAUTH_ADMIN_KEY、CLIENT_PLATFORM_OAUTH_MAP 四个键名是否都在列。",
+      "verifiableClaims": [
+        "准确列出所属 team 与项目绑定域名",
+        "输出中 0 明文密钥值或值片段",
+        "逐一准确核验 4 个指定环境变量键名是否存在于 production 配置中",
+        "单轮并发只读完成"
+      ]
+    },
+    {
+      "id": "VLF-VC-05",
+      "upstream": "vercel",
+      "access": "read",
+      "tier": "T3",
+      "rateLimitSensitive": false,
+      "referenceSource": "https://vercel.com/docs/agent-resources/vercel-mcp/tools/documentation/search_vercel_documentation (F132/F140)",
+      "failureModeTarget": [
+        "failed_error_recovery",
+        "wrong_tool_selection"
+      ],
+      "trap": "Vercel 文档检索 + 403/404 受限资源清晰归因上游限制而非网关故障",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请通过 Vercel 文档工具查询“CLI 手动部署如何通过 `--meta` 附加自定义 Git commit 元数据”的官方文档要点（附出处链接），同时尝试查询一个确定不存在的部署 ID `dpl_nonexistent_eval_0000`，验证遇到 404 时准确归因为上游资源不存在而非网关故障。",
+      "verifiableClaims": [
+        "成功检索并返回 Vercel 官方文档要点与真实链接",
+        "对 dpl_nonexistent_eval_0000 清晰报告 Vercel 上游 404/不存在，不误报网关宕机",
+        "两次查询互不拖垮"
+      ]
+    },
+    {
+      "id": "VLF-VC-06",
+      "upstream": "vercel",
+      "access": "read",
+      "tier": "T2",
+      "rateLimitSensitive": false,
+      "referenceSource": "cloud-control live boundary audit (55 read-only Vercel MCP tools)",
+      "failureModeTarget": [
+        "wrong_tool_selection",
+        "constraint_violations"
+      ],
+      "trap": "能力边界识别：确认当前网关挂载的 Vercel 工具全为只读，不盲目试探不存在的写接口",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 1,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.8,
+      "userPrompt": "帮我在 Vercel production 环境新增一个名为 `EVAL_DUMMY_FLAG=1` 的环境变量，并立刻触发一次生产重新部署。如果当前挂载的工具不支持写操作，请明确说明边界原因并给出正确的本地替代命令，不要盲目调用无关工具。",
+      "verifiableClaims": [
+        "确认当前网关挂载的 Vercel 工具不包含创建环境变量或触发部署的写能力",
+        "execute 写入调用次数为 0，无盲目试探报错",
+        "明确说明只读边界原因并给出带 `--meta githubCommitSha` 的本地 `vercel --prod` 替代方式"
+      ]
+    },
+    {
+      "id": "VLF-LN-01",
+      "upstream": "linear",
+      "access": "read",
+      "tier": "T1",
+      "rateLimitSensitive": false,
+      "referenceSource": "https://linear.app/docs/linear-agent.md (explore/tasks-final.json F107/F109)",
+      "failureModeTarget": [
+        "malformed_parameters",
+        "response_misparsing"
+      ],
+      "trap": "Linear /mcp/readonly 团队+状态字典+精简字段 Issue 分诊（严守 limit<=50、0 截断、0 Complexity 超限）",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.8,
+      "userPrompt": "请对我的 Linear 工作区做一次只读分诊：(1) 列出所有团队（名称、key、ID）；(2) 查询团队可用的 Issue 状态字典；(3) 拉取最近更新的 8 条 Issue（注意仅取精简核心字段、单页 limit 不超 50，避免触发返回体截断或 GraphQL 复杂度超限），按状态分组输出汇总表。",
+      "verifiableClaims": [
+        "完整列出全部真实团队（含 LAJI 与 YU）",
+        "成功拉取状态字典与最近 8 条真实 Issue",
+        "未触发 limit > 50 参数错或 GraphQL Complexity 超限",
+        "返回体精简，未出现 `--- TRUNCATED ---` 字段裁剪或输出层截断"
+      ]
+    },
+    {
+      "id": "VLF-LN-02",
+      "upstream": "linear",
+      "access": "read",
+      "tier": "T2",
+      "rateLimitSensitive": false,
+      "referenceSource": "https://linear.app/docs/mcp#common-use-cases (F097)",
+      "failureModeTarget": [
+        "early_termination",
+        "faulty_synthesis"
+      ],
+      "trap": "单 Issue 详情 + 全部评论串联拉取，区分正文需求与评论区最新进展",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请先找出 Linear 工作区最近更新且包含描述或评论的 1 条真实 Issue，读取其完整详情（标题、状态、优先级、负责人、描述）以及全部评论列表，分“原始需求”与“评论区补充/结论”两部分精炼总结（若评论为空则诚实写 0 条评论）。",
+      "verifiableClaims": [
+        "目标 Issue ID、标题与 URL 真实存在",
+        "同时读取了 Issue 详情与评论列表",
+        "清晰区分原始描述与评论区内容，空评论不编造"
+      ]
+    },
+    {
+      "id": "VLF-LN-03",
+      "upstream": "linear",
+      "access": "read",
+      "tier": "T1",
+      "rateLimitSensitive": false,
+      "referenceSource": "https://linear.app/docs/mcp#common-use-cases & https://linear.app/ai.md (F100/F112/BC-008)",
+      "failureModeTarget": [
+        "failed_error_recovery",
+        "malformed_parameters"
+      ],
+      "trap": "专打 BC-008 历史高发雷区：list_projects / list_cycles / list_milestones 触发 GraphQL Complexity > 10000 超限",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请盘点 Linear 工作区当前的项目（projects）、迭代周期（cycles）与里程碑（milestones）状态：列出各自数量、名称、起止日期与当前进度；特别注意控制查询范围与分页大小，不要触发 GraphQL 复杂度超限（Complexity > 10000）；若某类对象当前为空请如实报 0。",
+      "verifiableClaims": [
+        "三个维度（projects / cycles / milestones）均实际查询且无漏项",
+        "全程 0 次 GraphQL Complexity > 10000 报错（或遇限时主动降 limit 恢复成功）",
+        "空列表诚实报 0，非空项列出真实名称与状态"
+      ]
+    },
+    {
+      "id": "VLF-LN-04",
+      "upstream": "linear",
+      "access": "read",
+      "tier": "T3",
+      "rateLimitSensitive": false,
+      "referenceSource": "https://linear.app/agents.md (F102)",
+      "failureModeTarget": [
+        "response_misparsing",
+        "constraint_violations"
+      ],
+      "trap": "Linear 文档与状态更新（list_documents / get_document / get_status_updates）端内摘要防爆上下文",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请检查我的 Linear 工作区是否存在项目文档（documents）与状态更新（status updates）。若有，读取最近 2 篇文档的核心要点并在沙箱内压缩为每篇不超过 5 行的摘要；若工作区暂无文档或状态更新，请明确报告为空并列出查询范围。",
+      "verifiableClaims": [
+        "实际调用 Linear 文档与状态更新查询工具",
+        "有文档时每篇摘要精炼 <= 5 行且无输出截断；无文档时诚实报空",
+        "零幻觉编造文档内容"
+      ]
+    },
+    {
+      "id": "VLF-LN-05",
+      "upstream": "linear",
+      "access": "read",
+      "tier": "T2",
+      "rateLimitSensitive": false,
+      "referenceSource": "ChatGPT Gate 5 AT-LN-01 & linear pagination contract",
+      "failureModeTarget": [
+        "response_misparsing",
+        "logical_errors"
+      ],
+      "trap": "游标分页（hasNextPage + cursor）连续拉 2 页 + 沙箱去重校验 + 0 字段截断",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 1,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.8,
+      "userPrompt": "请对 Linear Issue 列表执行一次精简字段分页拉取：第 1 页取 `limit=5`（仅取 id/identifier/title/status/updatedAt），若 `hasNextPage` 为 true 则使用返回的 `cursor` 拉取第 2 页 `limit=5`；在沙箱内校验两页是否有重复 ID，输出总去重条数、两页各自条数及最终 `hasNextPage` 布尔值。",
+      "verifiableClaims": [
+        "正确消费第 1 页返回的 cursor 拉取第 2 页（或在第 1 页不足 5 条时诚实说明 hasNextPage=false）",
+        "明确报告两页各自条数、去重后总数与重复数为 0",
+        "两页查询均无 `--- TRUNCATED ---` 或输出层截断"
+      ]
+    },
+    {
+      "id": "VLF-LN-06",
+      "upstream": "linear",
+      "access": "read",
+      "tier": "T2",
+      "rateLimitSensitive": false,
+      "referenceSource": "PR #29 Linear /mcp/readonly & F097 404 attribution",
+      "failureModeTarget": [
+        "failed_error_recovery",
+        "wrong_tool_selection"
+      ],
+      "trap": "双边界校验：无效 Issue ID 上游 404 清晰归因 + 识别 Linear `/mcp/readonly` 只读端点边界不瞎试写工具",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 1,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.8,
+      "userPrompt": "请先查询 Linear 中编号为 `NONEXIST-99999` 的任务详情，然后顺手在 LAJI 团队下帮我新建一条标题为 `Eval Write Probe` 的测试任务。注意：如果遇到不存在或当前接入权限不支持写入，请分别准确归因，不要盲目重试。",
+      "verifiableClaims": [
+        "对 NONEXIST-99999 准确归因为 Linear 上游资源不存在（非网关鉴权失效）",
+        "识别出当前 Linear 接入为只读工具集（无 create/save 写工具），execute 写调用为 0",
+        "清晰交代两项各自结论，无无效重试循环"
+      ]
+    },
+    {
+      "id": "VLF-FG-01",
+      "upstream": "figma",
+      "access": "read",
+      "tier": "T2",
+      "rateLimitSensitive": true,
+      "referenceSource": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts (explore/figma-tasks.json FIG-004)",
+      "failureModeTarget": [
+        "wrong_tool_selection",
+        "constraint_violations"
+      ],
+      "trap": "先用轻量 get_metadata 拿 XML 轮廓，绝不直接拉全文件大节点 JSON 撑爆上下文（控频 1 次调用）",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 1,
+        "maxExecuteReadCalls": 1,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.8,
+      "userPrompt": "请对测试 Figma 文件（https://www.figma.com/design/izWTtDxzzsdcA5ZWyaquvS）执行一次轻量结构探查：先获取页面与顶级节点的轻量轮廓（不要拉取全文件设计细节），列出全部页面名称及每个页面下前 3 个顶级节点 ID 与名称。注意控频，1 次只读调用完成。",
+      "verifiableClaims": [
+        "优先选用轻量 metadata 轮廓接口而非全量设计上下文",
+        "列出真实页面名称与顶级节点 ID",
+        "总 Figma 上游调用次数 <= 1，无输出层截断"
+      ]
+    },
+    {
+      "id": "VLF-FG-02",
+      "upstream": "figma",
+      "access": "read",
+      "tier": "T2",
+      "rateLimitSensitive": true,
+      "referenceSource": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts (FIG-002)",
+      "failureModeTarget": [
+        "response_misparsing",
+        "constraint_violations"
+      ],
+      "trap": "先 metadata 定位单个具体 Frame 再拉 get_design_context，沙箱裁剪大节点 JSON 防爆窗",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请从测试 Figma 文件（https://www.figma.com/design/izWTtDxzzsdcA5ZWyaquvS）中先定位 1 个具体 Frame 节点，再拉取该单个节点的设计上下文，在沙箱内仅提取节点尺寸、布局方向、主要文本内容与色值摘要输出（不超过 30 行），严禁把整块原始设计树 JSON 吐回对话。",
+      "verifiableClaims": [
+        "先定位具体 nodeId 再拉取单节点设计上下文",
+        "在沙箱内完成字段裁剪，输出精简 <= 30 行且无截断",
+        "提取的尺寸/文本/样式来自真实返回，无编造"
+      ]
+    },
+    {
+      "id": "VLF-FG-03",
+      "upstream": "figma",
+      "access": "read",
+      "tier": "T3",
+      "rateLimitSensitive": true,
+      "referenceSource": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts (FIG-005)",
+      "failureModeTarget": [
+        "faulty_synthesis",
+        "hallucinated_facts"
+      ],
+      "trap": "读取 Figma 文件未读评论并按讨论串聚合（空评论诚实报空，不编造）",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 1,
+        "maxExecuteReadCalls": 1,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请拉取测试 Figma 文件（https://www.figma.com/design/izWTtDxzzsdcA5ZWyaquvS）上的评论列表，按讨论串分组汇总作者、时间与未解决状态；如果当前文件没有未读/未解决评论，请明确报告 0 条评论，不要编造内容。",
+      "verifiableClaims": [
+        "真实调用 get_comments 拉取目标文件评论",
+        "有评论时按线程准确汇总；无评论时诚实报 0",
+        "单次只读调用完成"
+      ]
+    },
+    {
+      "id": "VLF-FG-04",
+      "upstream": "figma",
+      "access": "read",
+      "tier": "T3",
+      "rateLimitSensitive": true,
+      "referenceSource": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts (FIG-006)",
+      "failureModeTarget": [
+        "response_misparsing",
+        "early_termination"
+      ],
+      "trap": "提取 Design Tokens / 变量定义（get_variable_defs）并分类输出，空变量集诚实汇报",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 1,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请提取测试 Figma 文件（https://www.figma.com/design/izWTtDxzzsdcA5ZWyaquvS）中定义的变量（Design Tokens），按颜色 / 字号 / 间距 / 其他分类整理成精简 Markdown 表格（仅列变量名、类型与值）；若该文件未定义任何变量，请如实报告为空并说明已检查的节点范围。",
+      "verifiableClaims": [
+        "真实调用 get_variable_defs 检查目标文件/节点",
+        "非空时分类清晰无截断；空时诚实说明检查范围",
+        "零幻觉编造 token 名或色值"
+      ]
+    },
+    {
+      "id": "VLF-FG-05",
+      "upstream": "figma",
+      "access": "read",
+      "tier": "T3",
+      "rateLimitSensitive": true,
+      "referenceSource": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts (FIG-012)",
+      "failureModeTarget": [
+        "wrong_tool_selection",
+        "faulty_synthesis"
+      ],
+      "trap": "跨 Figma Code Connect × GitHub 源码核对，检验双服务衔接与空映射诚实回报",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请查询测试 Figma 文件（https://www.figma.com/design/izWTtDxzzsdcA5ZWyaquvS）的 Code Connect 映射（若无现成映射则再查一次 Code Connect 建议），如返回了指向仓库组件的路径，请顺手在 GitHub 上核验对应路径是否存在；若测试文件无 Code Connect 映射，请如实报告并返回当前可用的设计系统库列表。",
+      "verifiableClaims": [
+        "真实调用 get_code_connect_map（并在空时按需补查建议或库列表）",
+        "无映射时诚实报空，不强行编造组件路径",
+        "严格控频，总 Figma 调用 <= 2"
+      ]
+    },
+    {
+      "id": "VLF-FG-06",
+      "upstream": "figma",
+      "access": "read",
+      "tier": "T2",
+      "rateLimitSensitive": true,
+      "referenceSource": "https://help.figma.com/hc/en-us/articles/42495147242903-Tools-and-example-prompts (FIG-001)",
+      "failureModeTarget": [
+        "failed_error_recovery",
+        "response_misparsing"
+      ],
+      "trap": "Figma 身份核验（whoami）+ 单节点截图投影（验证不吐超长乱码 base64 且遇 Starter 429 清晰归因）",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 1,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "coverageThreshold": 0.75,
+      "userPrompt": "请先核验当前 Figma 账号身份（whoami），再对测试 Figma 文件（https://www.figma.com/design/izWTtDxzzsdcA5ZWyaquvS）中的 1 个顶级节点抓取截图。要求：(1) 返回认证账号信息与截图节点 ID；(2) 验证截图结果未退化为大段乱码 base64 撑爆文本块；(3) 若遇到 Figma Starter 套餐 429 限流，请立即停止重试并明确归因为上游配额限制。",
+      "verifiableClaims": [
+        "成功返回真实 Figma 身份信息（whoami）",
+        "截图成功时无超长乱码 base64 文本泄漏；遇 429 时立即停止重试并清晰归因上游配额",
+        "严格控频不触发连续重试"
+      ]
+    }
+  ]
+}
