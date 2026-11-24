@@ -40,7 +40,7 @@
   配置口令后 consent 页要求密码；缺失/错误 → HTTP 403 且 `codeCount()==0`（不落 code）；未配置时保持 legacy 行为；口令值不出现在日志/403 页面。
   （DCR 默认 403 的断言另由 `tests/claude-connector.test.js` 覆盖。）
 - [x] **全量 npm test 绿（以 lead 最近实跑为准）** —
-  `npm test` — 上一记录 `1583 tests / 1577 pass / 0 fail / 6 todo`（2026-11-25 lead 实跑）；docs 分支基于 main cd23fdc（含 PR #28），
+  `npm test` — 上一记录 `1592 tests / 1586 pass / 0 fail / 6 todo`（2026-11-25 lead 实跑）；fix/eval-loop-trigger-and-observability 基于 main 42caaf2，
   **不要引用子代理/PR 里的数字**；并发 agent 会改变总数，以 ledger §5 当次记录为准。
 - [x] **静态扫描无 P0** —
   `node scripts/audit-truncation.mjs --ci` — `P0=0 PASS`（仅 P1 warning）。

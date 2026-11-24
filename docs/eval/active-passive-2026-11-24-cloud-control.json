@@ -1,7 +1,7 @@
 {
   "schema": "active-passive-comparison.v1",
-  "activeEvalId": "ae_20261124_927eae1a",
-  "generatedAt": "2026-11-24T18:58:14.457Z",
+  "activeEvalId": "ae_20261124_8396a638",
+  "generatedAt": "2026-11-24T19:18:11.829Z",
   "match": "likely",
   "reasons": [
     "window+platform+build align; no requestId with a verified in-window timestamp",
@@ -10,8 +10,7 @@
     "missed service:vercel (no-services-snapshot)",
     "missed service:figma (no-services-snapshot)",
     "missed service:notion (no-services-snapshot)",
-    "missed finding:F-writefiles (passive-not-detected)",
-    "missed finding:F-tool-description (passive-not-detected)"
+    "missed finding:F-writefiles (passive-not-detected)"
   ],
   "checks": {
     "build": "unknown",
@@ -79,67 +78,85 @@
       "kind": "finding",
       "subject": "F-notion-offline",
       "title": "Notion runtime offline after gateway OAuth",
+      "observability": "passive-observable",
       "expected": "passive-issue-detected",
       "covered": true,
       "passiveStatus": "issue-detected:issue-3",
       "passiveIssueId": "issue-3",
       "matchedKeyword": "notion",
+      "matchedKeywords": [
+        "notion"
+      ],
       "reason": null
     },
     {
       "kind": "finding",
       "subject": "F-mcp-drop",
       "title": "MCP connector not-found after context compaction",
-      "expected": "passive-issue-detected",
-      "covered": true,
-      "passiveStatus": "issue-detected:issue-1",
-      "passiveIssueId": "issue-1",
-      "matchedKeyword": "MCP",
-      "reason": null
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
     },
     {
       "kind": "finding",
       "subject": "F-writefiles",
       "title": "writeFiles silent no-op with {files} or default dryRun",
+      "observability": "passive-observable",
       "expected": "passive-issue-detected",
       "covered": false,
       "passiveStatus": "not-detected",
       "passiveIssueId": null,
       "matchedKeyword": null,
+      "matchedKeywords": [],
       "reason": "passive-not-detected"
     },
     {
       "kind": "finding",
       "subject": "F-normalizemerge",
       "title": "normalizeMerge returns null number and url",
+      "observability": "passive-observable",
       "expected": "passive-issue-detected",
       "covered": true,
       "passiveStatus": "issue-detected:issue-5",
       "passiveIssueId": "issue-5",
       "matchedKeyword": "normalizeMerge",
+      "matchedKeywords": [
+        "normalizeMerge"
+      ],
       "reason": null
     },
     {
       "kind": "finding",
       "subject": "F-nested-truncation",
       "title": "double-nested list responses and ~20KB truncation force rereads",
+      "observability": "passive-observable",
       "expected": "passive-issue-detected",
       "covered": true,
       "passiveStatus": "issue-detected:issue-4",
       "passiveIssueId": "issue-4",
       "matchedKeyword": "truncated",
+      "matchedKeywords": [
+        "truncated"
+      ],
       "reason": null
     },
     {
       "kind": "finding",
       "subject": "F-tool-description",
       "title": "long execute descriptions hide sliceLines/applyFilePatch",
-      "expected": "passive-issue-detected",
-      "covered": false,
-      "passiveStatus": "not-detected",
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
       "passiveIssueId": null,
       "matchedKeyword": null,
-      "reason": "passive-not-detected"
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
     }
   ],
   "missed": [
@@ -187,29 +204,21 @@
       "kind": "finding",
       "subject": "F-writefiles",
       "title": "writeFiles silent no-op with {files} or default dryRun",
+      "observability": "passive-observable",
       "expected": "passive-issue-detected",
       "covered": false,
       "passiveStatus": "not-detected",
       "passiveIssueId": null,
       "matchedKeyword": null,
-      "reason": "passive-not-detected"
-    },
-    {
-      "kind": "finding",
-      "subject": "F-tool-description",
-      "title": "long execute descriptions hide sliceLines/applyFilePatch",
-      "expected": "passive-issue-detected",
-      "covered": false,
-      "passiveStatus": "not-detected",
-      "passiveIssueId": null,
-      "matchedKeyword": null,
+      "matchedKeywords": [],
       "reason": "passive-not-detected"
     }
   ],
   "findings": {
     "total": 6,
-    "detected": 4,
-    "missed": 2
+    "detected": 3,
+    "missed": 1,
+    "activeOnly": 2
   },
   "passive": {
     "dataStatus": "HAS_DATA",

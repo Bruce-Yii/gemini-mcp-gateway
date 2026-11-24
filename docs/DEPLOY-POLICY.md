@@ -35,6 +35,23 @@
 不要求每次等“完美批次”。  
 如果现在就需要真实环境验证，部署是合理成本，不要为了省额度耽误实测。
 
+## 3.1 手动生产部署命令（强制带 SHA）
+
+CLI 部署默认 `meta:{}`，Vercel 返回体里没有可核验的 GitHub commit；必须同时写 `--meta githubCommitSha` 和 build env（healthz 用）：
+
+```bash
+SHA="$(git rev-parse HEAD)"
+vercel --prod --meta githubCommitSha="$SHA" --build-env VERCEL_GIT_COMMIT_SHA="$SHA"
+```
+
+部署后必须核对：
+
+- `GET /healthz` 的 `commit` 等于 `$SHA`；
+- Vercel deployment 的 `meta.githubCommitSha` 等于 `$SHA`（不是 `{}`）；
+- `docs/DEPLOYMENTS.md` 已登记同一个 `deploymentId` + `$SHA`。
+
+缺少任一项时，不能把该部署视为“与 main 一致”，只能记 `unverified`。
+
 ## 4. 部署后
 
 - 立刻 `GET /healthz` 核对 commit/buildHash；
@@ -44,5 +61,5 @@
 
 ## 5. 当前状态
 
-- 生产：`87d91af`（验收门 A PASS）；
+- 生产：`42caaf2`（2026-11-25 03:14 手动部署；`buildHash=27e67f39…`；`deploymentId=dpl_DLBySiFi6P63sQnpoYEiSB2DDowM`；A 门 PASS，B–G 未完成）；
 - 下一次：有明确实测需求或值得部署的进展时再部署，不设固定次数上限。

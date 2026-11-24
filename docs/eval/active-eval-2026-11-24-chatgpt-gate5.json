@@ -1,0 +1,163 @@
+{
+  "schema": "active-eval.v1",
+  "activeEvalId": "ae_20261124_4889f8f4",
+  "recordedAt": "2026-11-24T19:32:16.683Z",
+  "platform": "chatgpt",
+  "buildCommit": "42caaf2b9b8d8ce2f894efb2124a4036bf58ce72",
+  "window": {
+    "from": "2026-11-24T19:23:47.429Z",
+    "to": "2026-11-24T19:25:11.850Z"
+  },
+  "anchors": {
+    "repos": [
+      "Bruce-Yii/gemini-mcp-gateway"
+    ],
+    "prs": [
+      28,
+      30,
+      31,
+      32
+    ],
+    "issues": [],
+    "branches": [
+      "main"
+    ],
+    "files": [
+      "docs/eval/AUTHORITATIVE-SUITE.md",
+      "docs/DEPLOYMENTS.md",
+      "src/evidence/capture.js"
+    ],
+    "startAction": "首次 search 发现 GitHub/Linear/Notion/Vercel 工具（search 无时间戳）",
+    "endAction": "第一次 execute_read 复核 Vercel 最新 deployment 与 Linear 精简 Issue 查询（19:23:47.429–19:25:11.850Z）"
+  },
+  "prompt": "M4 Gate 5 跨客户端实测报告\n部分通过\n全程只读\n3 项任务均已实际执行\n测试客户端： ChatGPT\n测试对象： Bruce-Yii/gemini-mcp-gateway，main\n测试依据： docs/eval/AUTHORITATIVE-SUITE.md\n安全边界： 未调用任何写入工具，没有创建、修改、删除、部署或合并任何资源。\nSection 0：动作范围起止锚点\n项目\n实测记录\n客户端\nchatgpt\n完整执行起点\n首次 search，具体 UTC 时间未返回\n首个可审计时间锚点\n2026-11-24 19:23:47.429 UTC\n最后执行时间\n2026-11-24 19:25:11.850 UTC\n可精确核验的时间窗\n19:23:47.429–19:25:11.850 UTC\n由于 search 工具没有提供调用时间戳，不能把首个 execute_read 时间冒充完整任务起始时间。\n关键动作锚点\n1. 起始：search，发现 GitHub、Linear、Notion、Vercel 上游工具。\n2. 第二步：execute_read，读取权威任务集并获取 services snapshot。\n3. 中间：execute_read，并发执行三项测试及 Notion 检查。\n4. 结束：execute_read，复核最新 Vercel deployment 和 Linear 精简 Issue 查询。\nrequestId\nunknown\n本轮返回结果均未暴露可核验的 requestId，不编造。\nSection 1：上游服务状态\n来自 codemode.services() 的冷启动快照：\n上游\ntoolCount\nstatus\nverifiedAt\nGitHub\n42\nobserved\n19:23:47.472Z\nVercel\n73\nobserved\n19:23:47.472Z\nLinear\n27\nobserved\n19:23:47.472Z\nNotion\n53\nobserved\n19:23:47.472Z\nFigma\n47\nobserved\n19:23:47.472Z\n5/5 observed\n注意：observed 仅表示冷启动时工具已挂载且没有记录到连接故障，不代表五个服务都完成了实时健康检查。\nNotion 只读验证\n实际调用：\nnotion__notion_get_self\n返回：\n- Workspace：yu Bruce的工作空间\n- User：yi\n- 用户信息及工作区信息正常返回。\n- 未出现工具调用异常。\n结论：Notion 只读调用成功。\n但返回体没有暴露 HTTP status 字段，因此不能独立证明 HTTP 状态码确实为 200。\nSection 2：三项任务逐项验收\nAT-GH-01：GitHub 大文件纯净度\nPASS\n实际调用：\ngithub__get_file_contents\n参数：\nowner = Bruce-Yii\nrepo  = gemini-mcp-gateway\npath  = src/evidence/capture.js\nref   = main\n实际返回：\n验收字段\n实测结果\n调用成功\ntrue\npath\nsrc/evidence/capture.js\n文件 SHA\n9f9a36748e89e04936550122f6a5c0130b37557c\ncontent 类型\nstring\ncontent 长度\n41,278 字符\ndownload notice\nfalse\nSHA 混入正文\nfalse\ntruncated\nfalse\n核心验收\n正文纯净度\nPASS\npath 非 null\nPASS\n40KB 级文件误报截断\n未发生\n这项测试通过了此前重点修复的 40KB 文件截断假阳性问题。\nAT-LN-01：Linear 团队及 Issue 查询\nPASS\n实际调用：\n- linear__list_teams\n- linear__list_issues\n首次执行：\nlist_teams:\n  limit = 20\n\nlist_issues:\n  limit = 10\n  orderBy = updatedAt\n实际返回：\n团队查询：\n- 2 个团队。\n- LAJI：垃圾堆\n- YU：Yu\n- hasNextPage = false\nIssue 查询：\n- 成功返回 10 条 Issue。\n- hasNextPage = true\n- 返回有效 cursor。\n- 没有出现 limit > 50 参数错误。\n- 没有出现 GraphQL Complexity 超限错误。\n但首次 Issue 返回存在一个问题：\n部分 Issue 被标记为：\ntruncated: true\n同时出现：\n--- TRUNCATED ---\nkeys omitted\n这意味着请求成功不等于数据完整。\n因此我又执行了一次定向查询：\nlimit = 5\n\nfields = [\n  id, title, url, status, team, updatedAt\n]\n第二次返回：\n- 5 条完整的精简 Issue 记录。\n- URL、状态、团队和更新时间均正常。\n- 没有字段裁剪标记。\n- 没有 GraphQL Complexity 报错。\n最终判断： 查询能力通过，但首次默认返回体存在冗余字段及截断问题，精简字段后恢复正常。\nAT-XU-01：GitHub × Vercel 部署一致性\nFAIL\n这项是本轮最重要的发现。\n实际调用：\n- vercel__list_deployments\n- vercel__get_deployment\n- github__list_commits\n- github__get_file_contents\n第一步：Vercel 最新 Production 部署\n项目：gemini-mcp-gateway\n最新 production deployment：\nVercel Production\nREADY\ndeploymentId\ndpl_DLBySiFi6P63sQnpoYEiSB2DDowM\n字段\n返回值\ntarget\nproduction\nsource\ncli\ncreatedAt\n19:13:50.387 UTC\nstate\nREADY\nproject\ngemini-mcp-gateway\nmeta\n{}\n关键问题：\n最新 deployment 没有返回 commit SHA。\n随后直接调用 vercel__get_deployment 再查一次，结果仍然是：\nmeta = {}\nsource = cli\n因此，不能从 Vercel 返回体中确定这个最新 production 部署究竟对应哪个 GitHub commit。\n第二步：GitHub main HEAD\n实际调用：\ngithub__list_commits\n返回：\nGitHub main HEAD\n42caaf2b9b8d8ce2f894efb2124a4036bf58ce72\nCommit 时间\n2026-11-24T19:08:19Z\nCommit message\ndocs: 同步核心状态、授权基线与评测台账 (#32)\n第三步：DEPLOYMENTS.md\n读取成功：\ndocs/DEPLOYMENTS.md\n- SHA：b19ca17df5e94f02b755dfd32c8978210ccf5a38\n- truncated:false\n文档最新登记的 production deployment：\n字段\n记录\nCommit\nf2002d9\ndeploymentId\ndpl_6P2Ww8vsTHXbbSF98GTE55HKitB4\n时间\n2026-11-25 01:55（新加坡时间）\n方式\nCLI 手动部署\n但是 Vercel 实际最新 production deployment 已经变成：\ndpl_DLBySiFi6P63sQnpoYEiSB2DDowM\n该 deployment 没有出现在部署台账的最新记录中。\n最终核验：\n核验项\n结果\n找到最新 production deployment\nPASS\n找到 deploymentId\nPASS\n找到该 deployment 的 commit SHA\nFAIL\n找到 GitHub main HEAD\nPASS\n读取 DEPLOYMENTS.md\nPASS\n最新部署是否登记在台账\nFAIL\n是否能确认生产与 main 一致\n无法确认\n这里不能直接宣称生产代码已经漂移。\n准确结论是：\n最新生产部署缺少可验证的 commit SHA，同时部署台账没有登记该 deployment。生产与 main 的一致性目前无法证明。\n这项按严格验收标准判定 FAIL。\nSection 3：效率与客户端体感定量表\n3.1 工具调用效率\n指标\n实测\nsearch 实际调用次数\n6\nexecute_read 调用次数\n3\nexecute 写入调用次数\n0\n上游查询并发批次\n2\n首次权威文档读取\n1\n后续定向复查\n1\n其中，6 次 search 分布在 4 次客户端工具调度中；3 次 execute_read 均为独立调用。\n3.2 截断及重读\n指标\n结果\n文件正文自身截断\n0\nGitHub 文件误报截断\n0\n首次 Linear 返回字段裁剪\n1 批\nexecute_read 输出层截断\n1 次\n因此进行定向重查\n1 次\n手工按字符切片\n0\n首次较大的 execute_read 返回约 26,800 字符，模型侧输出出现：\ntruncated: true\ntotalChars: 26800\ntail: true\nnext: readFileRange\n注意：这里是 execute_read 输出层的截断，不是 GitHub 文件正文截断。\n之后通过缩小 Linear 查询字段解决，没有采用静默字符切片。\n3.3 参数、解包与客户端问题\n观测项目\n结果\n工具参数猜测\n未发现上游参数猜测\nLinear limit 超限\n无\nGraphQL Complexity\n无\nsafeAll / unwrapBatch 解包\n正常\nJSON / structuredContent 解析\n正常\n异常嵌套导致重试\n无\n上游鉴权失败\n无\n网关连接中断\n无可见证据\n审批弹窗打断\n无可见记录\n另有两次本地 functions.exec 脚本构造语法错误，未进入上游执行，修正后继续完成任务。这是本次客户端执行过程中的自身失误，不应归因于网关。\n审批弹窗次数没有独立 UI 遥测，因此不能据此断言实际弹窗次数为零。\nSection 4：摩擦与缺陷清单\n按严重程度排列。\n严重度\n发现\n具体证据\n高\n最新 Production 部署缺少 commit SHA\ndpl_DLBySiFi6P63sQnpoYEiSB2DDowM 的 meta:{}\n高\n部署台账未记录最新部署\nVercel 最新 deployment 与 DEPLOYMENTS.md 不一致\n中\nLinear 默认 Issue 返回过度裁剪\n10 条 Issue 出现 truncated:true\n中\nexecute_read 输出容易被大结果撑满\n约 26,800 字符后发生输出截断\n低\n工具搜索需要多轮缩小关键词\n首次综合搜索未直接返回全部目标工具\n建议改进优先级\n1. P0：部署 SHA 可追溯性。 对 CLI production 部署建立强制 commit SHA 记录，缺失时不能把部署视为完成一致性验收。\n2. P0：部署台账同步。 确保最新 deploymentId、commit SHA 和部署时间可以相互核对。\n3. P1：Linear 默认返回精简。 优先返回常用字段，避免每条 Issue 出现内部字段裁剪。\n4. P1：跨上游任务结果控制。 大文件和长文档在沙箱内完成摘要，只向客户端返回验收字段。\n5. P2：工具发现优化。 更容易通过一次自然语言搜索找到目标工具。\n最终验收结论\n2 / 3\n核心任务通过数量\nAT-GH-01\nPASS\nAT-LN-01\nPASS（有返回体问题）\nAT-XU-01\nFAIL\n总体判断\nChatGPT 已实际完成 GitHub 大文件读取、Linear 查询及 GitHub × Vercel 跨上游串联。\n工具发现、并发执行、返回解包基本正常。主要问题集中在 Linear 返回体控制，以及 Vercel CLI 部署缺少 commit SHA 导致的生产一致性审计缺口。\n我的独立判断：\n这次测试最有价值的不是证明工具能调用，而是发现了一个真实的生产治理问题。\n最新 deployment 已经 READY，但没有可验证的 commit SHA，部署台账也没有对应记录。不能因为 Vercel 显示 READY 就认定部署与 GitHub main 一致。\n本轮没有修复任何问题，也没有改变仓库或生产环境。测试到此结束，保留所有现场状态。",
+  "expected": {
+    "outcome": "Gate 5：AT-GH-01 PASS、AT-LN-01 PASS（有返回体问题）、AT-XU-01 FAIL（Vercel meta 无 SHA + 台账未登记）",
+    "tools": [
+      "search",
+      "execute_read",
+      "github__get_file_contents",
+      "linear__list_teams",
+      "linear__list_issues",
+      "vercel__list_deployments",
+      "vercel__get_deployment",
+      "github__list_commits",
+      "notion__notion_get_self"
+    ],
+    "checks": [
+      "GitHub 40KB 正文纯净、path/SHA 保留、truncated=false",
+      "Linear teams/issues 可用，首次 truncated=true/keys omitted，精简后正常",
+      "Vercel deployment meta={} 无 commit SHA；DEPLOYMENTS 最新仍 f2002d9"
+    ]
+  },
+  "observed": {
+    "tools": [
+      "search",
+      "execute_read"
+    ],
+    "results": [
+      "5/5 services observed：GitHub 42/Vercel 73/Linear 27/Notion 53/Figma 47",
+      "Notion notion_get_self 成功",
+      "AT-GH-01 PASS",
+      "AT-LN-01 PASS（有返回体问题）",
+      "AT-XU-01 FAIL"
+    ],
+    "errors": [
+      "Vercel deployment meta={} 无法证明 commit SHA",
+      "DEPLOYMENTS.md 未登记 dpl_DLBySiFi6P63sQnpoYEiSB2DDowM",
+      "Linear 10 条 Issue truncated:true / keys omitted",
+      "execute_read 约 26800 字符输出截断"
+    ],
+    "requestIds": [
+      "unknown"
+    ],
+    "captureVerified": false,
+    "services": [
+      {
+        "name": "github",
+        "status": "observed",
+        "needsReauth": false
+      },
+      {
+        "name": "vercel",
+        "status": "observed",
+        "needsReauth": false
+      },
+      {
+        "name": "linear",
+        "status": "observed",
+        "needsReauth": false
+      },
+      {
+        "name": "notion",
+        "status": "observed",
+        "needsReauth": false
+      },
+      {
+        "name": "figma",
+        "status": "observed",
+        "needsReauth": false
+      }
+    ],
+    "connectFailures": [],
+    "findings": [
+      {
+        "id": "F-chatgpt-deploy-sha",
+        "title": "Production deployment meta is empty and has no commit SHA",
+        "keywords": [
+          "meta: {}",
+          "commit SHA",
+          "dpl_DLBySiFi6P63sQnpoYEiSB2DDowM",
+          "source=cli"
+        ],
+        "observability": "passive-observable"
+      },
+      {
+        "id": "F-chatgpt-deploy-ledger",
+        "title": "DEPLOYMENTS.md does not list the latest production deployment",
+        "keywords": [
+          "DEPLOYMENTS.md",
+          "dpl_DLBySiFi6P63sQnpoYEiSB2DDowM",
+          "f2002d9"
+        ],
+        "observability": "active-only"
+      },
+      {
+        "id": "F-chatgpt-linear-truncated",
+        "title": "Linear default issue response is field-truncated",
+        "keywords": [
+          "keys omitted",
+          "truncated: true",
+          "linear__list_issues"
+        ],
+        "observability": "passive-observable"
+      },
+      {
+        "id": "F-chatgpt-execute-read-large",
+        "title": "Large execute_read output hit output truncation",
+        "keywords": [
+          "totalChars: 26800",
+          "readFileRange",
+          "execute_read"
+        ],
+        "observability": "passive-observable"
+      },
+      {
+        "id": "F-chatgpt-search-discovery",
+        "title": "Multiple search rounds needed to find target tools",
+        "keywords": [
+          "工具发现",
+          "多轮",
+          "search"
+        ],
+        "observability": "active-only"
+      }
+    ]
+  },
+  "source": {
+    "window": "ChatGPT M4 Gate 5 read-only test",
+    "messageAt": "2026-11-25T03:25:00.000Z",
+    "rawTextSha256": "2ad7bfc323d3d258a66b8ddb432cf08b3a6f6478432936bb221e9f4feaee107e",
+    "rawBytes": 9214
+  }
+}

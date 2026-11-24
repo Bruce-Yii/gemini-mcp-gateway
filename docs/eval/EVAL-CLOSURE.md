@@ -30,7 +30,7 @@ node scripts/record-active-eval.mjs --input work/active.json --now 2026-11-24T06
 | `observed.requestIds[]` | UUID 或 `unknown`；**不编造**；建议用 `--capture-index` 验证 id 真在 capture 中 |
 | `observed.services[]` | 可选：`{name, status, needsReauth}`，用于和被动 `serviceState` 对照 |
 | `observed.connectFailures[]` | 可选：连不上的上游名，用于和被动 `connectFailures` 对照 |
-| `observed.findings[]` | 可选：主动窗口自己报出的语义问题 `{id, title, keywords}`。`id`/`title` 非空字符串；`keywords` 是字符串数组（可缺失/为空，匹配时用 `title` 兜底）；结构非法直接退出 2 |
+| `observed.findings[]` | 可选：主动窗口自己报出的语义问题 `{id, title, keywords, observability}`。`id`/`title` 非空字符串；`keywords` 是字符串数组（可缺失/为空，匹配时用 `title` 兜底）；`observability` 为 `passive-observable`（默认）或 `active-only`；结构非法直接退出 2 |
 
 `activeEvalId` 由规范化内容哈希派生（`ae_<window日期>_<8位hash>`），同输入同 id，不随机；哈希包含 observed，两次不同观测不会撞 id。
 `--raw` 的逐字文本会写到 `<out>.raw.txt` 并记录 `source.rawTextSha256/rawBytes`；缺原文直接退出 2，防止“摘要当原文”。
@@ -115,7 +115,7 @@ compare 默认把 `unmatched` / `EMPTY_WINDOW` 视为非零退出；只有显式
 - `checks`（build/platform/window/requestIds）；
 - `coverage[]`：`observed.services` 和 `observed.connectFailures` 是否在被动
   `serviceState`/`connectFailures` 里可见；
-- `findings`：`{total, detected, missed}`，主动 `observed.findings[]` 的被动命中汇总；
+- `findings`：`{total, detected, missed}`，主动 `observed.findings[]` 的被动命中汇总；存在 `active-only` 时追加 `activeOnly`（不进入 missed 门禁）；
 - `missed[]`：漏抓项 + 原因（如 `no-services-snapshot`、`no-connect-failure-or-offline-snapshot`、`passive-not-detected`）；
 - 跨构建时明确 `build mismatch`，禁止硬比。
 
@@ -127,10 +127,13 @@ compare 默认把 `unmatched` / `EMPTY_WINDOW` 视为非零退出；只有显式
 |---|---|
 | 被动来源 | analyzer-output 包装的 `validated.issues`，或裸 `passive.issues` |
 | 匹配文本 | 每条被动 issue 的 `title + likelyCause + suggestedFix`，大小写不敏感子串匹配 |
-| 关键词 | `keywords` 任一命中即 `covered=true`，并记 `passiveIssueId`；`keywords` 为空时用 `title` 兜底 |
+| 观察性 | `observability` 默认 `passive-observable`；`active-only` 记录为 `covered:null`、`passiveStatus:active-only`，不计入 missed |
+| 关键词 | 至少一个**具体**关键词命中，或同一 issue 命中两个关键词才 `covered=true`；`MCP`/`api`/`error`/`tool`/`not-found` 等泛词/停用词单独命中不算 |
 | 未命中 | `covered=false`、`reason=passive-not-detected`，强制进 `missed[]`（`kind=finding`） |
 
-`keywords` 要选能定位该问题的短语：过窄会漏配（保守地判为未命中），过泛（如 `unknown`）会把无关 issue 当成已覆盖；
+`active-only` 用于客户端宿主才能看到、被动 R2 日志天生不可见的项（如上下文压缩后 MCP 掉线、静态工具描述过长）；这类项必须进 BADCASES/业务 Issue，不能靠被动门禁考核。
+
+`keywords` 要选能定位该问题的短语：过窄会漏配（保守地判为未命中），过泛（如 `unknown`）会被上述具体性规则拒绝；
 命中只表示“被动日志里出现过同义文本”，不等于问题已被修复或已被 analyzer 正确归因。
 
 默认退出码：只要存在未命中的 finding 就非零退出（即使 `match=exact`）——主动报了 3 个语义问题、

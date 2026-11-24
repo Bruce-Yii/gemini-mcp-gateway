@@ -1,0 +1,337 @@
+M4 Gate 5 跨客户端实测报告
+部分通过
+全程只读
+3 项任务均已实际执行
+测试客户端： ChatGPT
+测试对象： Bruce-Yii/gemini-mcp-gateway，main
+测试依据： docs/eval/AUTHORITATIVE-SUITE.md
+安全边界： 未调用任何写入工具，没有创建、修改、删除、部署或合并任何资源。
+Section 0：动作范围起止锚点
+项目
+实测记录
+客户端
+chatgpt
+完整执行起点
+首次 search，具体 UTC 时间未返回
+首个可审计时间锚点
+2026-11-24 19:23:47.429 UTC
+最后执行时间
+2026-11-24 19:25:11.850 UTC
+可精确核验的时间窗
+19:23:47.429–19:25:11.850 UTC
+由于 search 工具没有提供调用时间戳，不能把首个 execute_read 时间冒充完整任务起始时间。
+关键动作锚点
+1. 起始：search，发现 GitHub、Linear、Notion、Vercel 上游工具。
+2. 第二步：execute_read，读取权威任务集并获取 services snapshot。
+3. 中间：execute_read，并发执行三项测试及 Notion 检查。
+4. 结束：execute_read，复核最新 Vercel deployment 和 Linear 精简 Issue 查询。
+requestId
+unknown
+本轮返回结果均未暴露可核验的 requestId，不编造。
+Section 1：上游服务状态
+来自 codemode.services() 的冷启动快照：
+上游
+toolCount
+status
+verifiedAt
+GitHub
+42
+observed
+19:23:47.472Z
+Vercel
+73
+observed
+19:23:47.472Z
+Linear
+27
+observed
+19:23:47.472Z
+Notion
+53
+observed
+19:23:47.472Z
+Figma
+47
+observed
+19:23:47.472Z
+5/5 observed
+注意：observed 仅表示冷启动时工具已挂载且没有记录到连接故障，不代表五个服务都完成了实时健康检查。
+Notion 只读验证
+实际调用：
+notion__notion_get_self
+返回：
+- Workspace：yu Bruce的工作空间
+- User：yi
+- 用户信息及工作区信息正常返回。
+- 未出现工具调用异常。
+结论：Notion 只读调用成功。
+但返回体没有暴露 HTTP status 字段，因此不能独立证明 HTTP 状态码确实为 200。
+Section 2：三项任务逐项验收
+AT-GH-01：GitHub 大文件纯净度
+PASS
+实际调用：
+github__get_file_contents
+参数：
+owner = Bruce-Yii
+repo  = gemini-mcp-gateway
+path  = src/evidence/capture.js
+ref   = main
+实际返回：
+验收字段
+实测结果
+调用成功
+true
+path
+src/evidence/capture.js
+文件 SHA
+9f9a36748e89e04936550122f6a5c0130b37557c
+content 类型
+string
+content 长度
+41,278 字符
+download notice
+false
+SHA 混入正文
+false
+truncated
+false
+核心验收
+正文纯净度
+PASS
+path 非 null
+PASS
+40KB 级文件误报截断
+未发生
+这项测试通过了此前重点修复的 40KB 文件截断假阳性问题。
+AT-LN-01：Linear 团队及 Issue 查询
+PASS
+实际调用：
+- linear__list_teams
+- linear__list_issues
+首次执行：
+list_teams:
+  limit = 20
+
+list_issues:
+  limit = 10
+  orderBy = updatedAt
+实际返回：
+团队查询：
+- 2 个团队。
+- LAJI：垃圾堆
+- YU：Yu
+- hasNextPage = false
+Issue 查询：
+- 成功返回 10 条 Issue。
+- hasNextPage = true
+- 返回有效 cursor。
+- 没有出现 limit > 50 参数错误。
+- 没有出现 GraphQL Complexity 超限错误。
+但首次 Issue 返回存在一个问题：
+部分 Issue 被标记为：
+truncated: true
+同时出现：
+--- TRUNCATED ---
+keys omitted
+这意味着请求成功不等于数据完整。
+因此我又执行了一次定向查询：
+limit = 5
+
+fields = [
+  id, title, url, status, team, updatedAt
+]
+第二次返回：
+- 5 条完整的精简 Issue 记录。
+- URL、状态、团队和更新时间均正常。
+- 没有字段裁剪标记。
+- 没有 GraphQL Complexity 报错。
+最终判断： 查询能力通过，但首次默认返回体存在冗余字段及截断问题，精简字段后恢复正常。
+AT-XU-01：GitHub × Vercel 部署一致性
+FAIL
+这项是本轮最重要的发现。
+实际调用：
+- vercel__list_deployments
+- vercel__get_deployment
+- github__list_commits
+- github__get_file_contents
+第一步：Vercel 最新 Production 部署
+项目：gemini-mcp-gateway
+最新 production deployment：
+Vercel Production
+READY
+deploymentId
+dpl_DLBySiFi6P63sQnpoYEiSB2DDowM
+字段
+返回值
+target
+production
+source
+cli
+createdAt
+19:13:50.387 UTC
+state
+READY
+project
+gemini-mcp-gateway
+meta
+{}
+关键问题：
+最新 deployment 没有返回 commit SHA。
+随后直接调用 vercel__get_deployment 再查一次，结果仍然是：
+meta = {}
+source = cli
+因此，不能从 Vercel 返回体中确定这个最新 production 部署究竟对应哪个 GitHub commit。
+第二步：GitHub main HEAD
+实际调用：
+github__list_commits
+返回：
+GitHub main HEAD
+42caaf2b9b8d8ce2f894efb2124a4036bf58ce72
+Commit 时间
+2026-11-24T19:08:19Z
+Commit message
+docs: 同步核心状态、授权基线与评测台账 (#32)
+第三步：DEPLOYMENTS.md
+读取成功：
+docs/DEPLOYMENTS.md
+- SHA：b19ca17df5e94f02b755dfd32c8978210ccf5a38
+- truncated:false
+文档最新登记的 production deployment：
+字段
+记录
+Commit
+f2002d9
+deploymentId
+dpl_6P2Ww8vsTHXbbSF98GTE55HKitB4
+时间
+2026-11-25 01:55（新加坡时间）
+方式
+CLI 手动部署
+但是 Vercel 实际最新 production deployment 已经变成：
+dpl_DLBySiFi6P63sQnpoYEiSB2DDowM
+该 deployment 没有出现在部署台账的最新记录中。
+最终核验：
+核验项
+结果
+找到最新 production deployment
+PASS
+找到 deploymentId
+PASS
+找到该 deployment 的 commit SHA
+FAIL
+找到 GitHub main HEAD
+PASS
+读取 DEPLOYMENTS.md
+PASS
+最新部署是否登记在台账
+FAIL
+是否能确认生产与 main 一致
+无法确认
+这里不能直接宣称生产代码已经漂移。
+准确结论是：
+最新生产部署缺少可验证的 commit SHA，同时部署台账没有登记该 deployment。生产与 main 的一致性目前无法证明。
+这项按严格验收标准判定 FAIL。
+Section 3：效率与客户端体感定量表
+3.1 工具调用效率
+指标
+实测
+search 实际调用次数
+6
+execute_read 调用次数
+3
+execute 写入调用次数
+0
+上游查询并发批次
+2
+首次权威文档读取
+1
+后续定向复查
+1
+其中，6 次 search 分布在 4 次客户端工具调度中；3 次 execute_read 均为独立调用。
+3.2 截断及重读
+指标
+结果
+文件正文自身截断
+0
+GitHub 文件误报截断
+0
+首次 Linear 返回字段裁剪
+1 批
+execute_read 输出层截断
+1 次
+因此进行定向重查
+1 次
+手工按字符切片
+0
+首次较大的 execute_read 返回约 26,800 字符，模型侧输出出现：
+truncated: true
+totalChars: 26800
+tail: true
+next: readFileRange
+注意：这里是 execute_read 输出层的截断，不是 GitHub 文件正文截断。
+之后通过缩小 Linear 查询字段解决，没有采用静默字符切片。
+3.3 参数、解包与客户端问题
+观测项目
+结果
+工具参数猜测
+未发现上游参数猜测
+Linear limit 超限
+无
+GraphQL Complexity
+无
+safeAll / unwrapBatch 解包
+正常
+JSON / structuredContent 解析
+正常
+异常嵌套导致重试
+无
+上游鉴权失败
+无
+网关连接中断
+无可见证据
+审批弹窗打断
+无可见记录
+另有两次本地 functions.exec 脚本构造语法错误，未进入上游执行，修正后继续完成任务。这是本次客户端执行过程中的自身失误，不应归因于网关。
+审批弹窗次数没有独立 UI 遥测，因此不能据此断言实际弹窗次数为零。
+Section 4：摩擦与缺陷清单
+按严重程度排列。
+严重度
+发现
+具体证据
+高
+最新 Production 部署缺少 commit SHA
+dpl_DLBySiFi6P63sQnpoYEiSB2DDowM 的 meta:{}
+高
+部署台账未记录最新部署
+Vercel 最新 deployment 与 DEPLOYMENTS.md 不一致
+中
+Linear 默认 Issue 返回过度裁剪
+10 条 Issue 出现 truncated:true
+中
+execute_read 输出容易被大结果撑满
+约 26,800 字符后发生输出截断
+低
+工具搜索需要多轮缩小关键词
+首次综合搜索未直接返回全部目标工具
+建议改进优先级
+1. P0：部署 SHA 可追溯性。 对 CLI production 部署建立强制 commit SHA 记录，缺失时不能把部署视为完成一致性验收。
+2. P0：部署台账同步。 确保最新 deploymentId、commit SHA 和部署时间可以相互核对。
+3. P1：Linear 默认返回精简。 优先返回常用字段，避免每条 Issue 出现内部字段裁剪。
+4. P1：跨上游任务结果控制。 大文件和长文档在沙箱内完成摘要，只向客户端返回验收字段。
+5. P2：工具发现优化。 更容易通过一次自然语言搜索找到目标工具。
+最终验收结论
+2 / 3
+核心任务通过数量
+AT-GH-01
+PASS
+AT-LN-01
+PASS（有返回体问题）
+AT-XU-01
+FAIL
+总体判断
+ChatGPT 已实际完成 GitHub 大文件读取、Linear 查询及 GitHub × Vercel 跨上游串联。
+工具发现、并发执行、返回解包基本正常。主要问题集中在 Linear 返回体控制，以及 Vercel CLI 部署缺少 commit SHA 导致的生产一致性审计缺口。
+我的独立判断：
+这次测试最有价值的不是证明工具能调用，而是发现了一个真实的生产治理问题。
+最新 deployment 已经 READY，但没有可验证的 commit SHA，部署台账也没有对应记录。不能因为 Vercel 显示 READY 就认定部署与 GitHub main 一致。
+本轮没有修复任何问题，也没有改变仓库或生产环境。测试到此结束，保留所有现场状态。

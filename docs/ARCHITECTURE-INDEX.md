@@ -59,7 +59,7 @@ graph LR
 | 指标 | 当前状态 |
 |---|---|
 | 生产部署 | `f2002d9`（2026-11-25 01:55 手动 `vercel --prod`；`buildHash=3b1a0772…`；`deploymentId=dpl_6P2Ww8vsTHXbbSF98GTE55HKitB4`）；`main=cd23fdc`（PR #28 已合、未部署） |
-| 全量测试基线 | `1583 tests / 1577 pass / 0 fail / 6 todo`（2026-11-25 lead 实跑；docs 分支基于 main cd23fdc，勿引用 PR/子代理数字） |
+| 全量测试基线 | `1592 tests / 1586 pass / 0 fail / 6 todo`（2026-11-25 lead 实跑（fix/eval-loop-trigger-and-observability）；勿引用 PR/子代理数字） |
 | 上游在线实况（`f2002d9` 实测） | GitHub 42 / Linear 27 / Vercel 73 / Figma 47 tools 在线；**Notion 0（offline，PR #31 未合并）** |
 | 模块物理目录 | `src/` 已拆分为 6 目录（根目录保留兼容 shim） |
 | 模块边界门禁 | `0 new violations`；9 条 legacy 边待清 |

@@ -792,8 +792,10 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
   // (upstream_connect / gateway_helper), never from prose or model output.
   const connectGroups = new Map();
   const serviceGroups = new Map();
+  const connectSnapshotGroups = new Map();
   const helperGroups = new Map();
   let serviceSnapshotCount = 0;
+  let connectSnapshotCount = 0;
   // Per-platform accumulator. Every platform gets its own row so one client's
   // errors / tool calls / truncations can never inflate another's.
   const platformGroups = new Map();
@@ -803,6 +805,41 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     const envelopeRequestId = String(envelope?.requestId ?? envelope?.request?.id ?? envelope?.id ?? 'unknown');
     // ── Eval closure: structured connect failures + services() snapshots ──
     for (const event of Array.isArray(envelope?.events) ? envelope.events : []) {
+      if (event?.type === 'upstream_connect') {
+        const server = typeof event.payload?.server === 'string' && event.payload.server
+          ? event.payload.server : 'unknown';
+        const ok = event.payload?.ok !== false;
+        const status = ok ? 'online' : 'offline';
+        const message = String(event.payload?.error?.message ?? '');
+        const authFailure = !ok && /invalid_token|unauthorized|forbidden|401|reauth|invalid_grant/i.test(message);
+        const connectRow = connectSnapshotGroups.get(server) ?? {
+          name: server,
+          snapshots: 0,
+          toolCount: 0,
+          statuses: {},
+          needsReauth: false,
+          sampleRequestIds: [],
+          latest: null,
+          source: 'upstream_connect',
+        };
+        connectRow.snapshots += 1;
+        if (ok) connectRow.toolCount = Number(event.payload?.toolCount ?? connectRow.toolCount ?? 0) || 0;
+        connectRow.statuses[status] = (connectRow.statuses[status] ?? 0) + 1;
+        if (authFailure) connectRow.needsReauth = true;
+        connectRow.latest = {
+          status,
+          toolCount: connectRow.toolCount,
+          needsReauth: authFailure || connectRow.needsReauth,
+          at: envelope?.ts ?? null,
+          requestId: envelopeRequestId,
+          source: 'upstream_connect',
+        };
+        if (connectRow.sampleRequestIds.length < 5 && !connectRow.sampleRequestIds.includes(envelopeRequestId)) {
+          connectRow.sampleRequestIds.push(envelopeRequestId);
+        }
+        connectSnapshotGroups.set(server, connectRow);
+        connectSnapshotCount += 1;
+      }
       if (event?.type === 'upstream_connect' && event?.payload?.ok === false) {
         const server = typeof event.payload.server === 'string' && event.payload.server
           ? event.payload.server : 'unknown';
@@ -1145,12 +1182,33 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     latest: row.latest ?? null,
     sampleRequestIds: row.sampleRequestIds,
   })).sort((a, b) => a.name.localeCompare(b.name));
+  // Cold-start connection events are snapshots too. Merge only servers that a
+  // codemode.services() helper did not already describe, so one server is not
+  // counted twice in the same observation.
+  let mergedConnectSnapshots = 0;
+  for (const row of connectSnapshotGroups.values()) {
+    if (serviceGroups.has(row.name)) continue;
+    serviceRows.push({
+      name: row.name,
+      snapshots: row.snapshots,
+      toolCount: row.toolCount,
+      statuses: Object.fromEntries(Object.entries(row.statuses).sort(([a], [b]) => a.localeCompare(b))),
+      needsReauth: row.needsReauth,
+      latest: row.latest ?? null,
+      sampleRequestIds: row.sampleRequestIds,
+      source: 'upstream_connect',
+    });
+    mergedConnectSnapshots += row.snapshots;
+  }
+  serviceRows.sort((a, b) => a.name.localeCompare(b.name));
   result.upstreamConnect = {
     failures: connectRows.reduce((sum, row) => sum + row.failures, 0),
     byServer: Object.fromEntries(connectRows.map((row) => [row.server, row])),
   };
   result.serviceState = {
-    snapshots: serviceSnapshotCount,
+    snapshots: serviceSnapshotCount + mergedConnectSnapshots,
+    helperSnapshots: serviceSnapshotCount,
+    connectSnapshots: mergedConnectSnapshots,
     byServer: Object.fromEntries(serviceRows.map((row) => [row.name, row])),
     offlineServers: serviceRows.filter((row) => row.needsReauth || (row.statuses.offline ?? 0) > 0).map((row) => row.name).sort(),
     staleServers: serviceRows.filter((row) => (row.statuses.stale ?? 0) > 0).map((row) => row.name).sort(),
@@ -1160,6 +1218,13 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     currentOfflineServers: serviceRows
       .filter((row) => row.latest && (row.latest.needsReauth === true || row.latest.status === 'offline'))
       .map((row) => row.name).sort(),
+    source: 'codemode.services+upstream_connect',
+  };
+  result.serviceSnapshots = result.serviceState;
+  result.serviceSnapshotCounts = {
+    snapshots: result.serviceState.snapshots,
+    helper: result.serviceState.helperSnapshots,
+    connect: result.serviceState.connectSnapshots,
   };
   result.helperStats = [...helperGroups.values()]
     .sort((a, b) => a.helper.localeCompare(b.helper));

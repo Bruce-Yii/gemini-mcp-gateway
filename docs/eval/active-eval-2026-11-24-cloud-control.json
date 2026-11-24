@@ -1,7 +1,7 @@
 {
   "schema": "active-eval.v1",
-  "activeEvalId": "ae_20261124_927eae1a",
-  "recordedAt": "2026-11-24T18:40:18.289Z",
+  "activeEvalId": "ae_20261124_8396a638",
+  "recordedAt": "2026-11-24T19:18:06.557Z",
   "platform": "gemini",
   "buildCommit": "unknown",
   "window": {
@@ -130,7 +130,8 @@
           "offline",
           "needsReauth",
           "0 tools"
-        ]
+        ],
+        "observability": "passive-observable"
       },
       {
         "id": "F-mcp-drop",
@@ -140,7 +141,8 @@
           "compaction",
           "掉线",
           "MCP"
-        ]
+        ],
+        "observability": "active-only"
       },
       {
         "id": "F-writefiles",
@@ -150,7 +152,8 @@
           "dryRun",
           "patches",
           "静默"
-        ]
+        ],
+        "observability": "passive-observable"
       },
       {
         "id": "F-normalizemerge",
@@ -159,7 +162,8 @@
           "normalizeMerge",
           "number: null",
           "url: null"
-        ]
+        ],
+        "observability": "passive-observable"
       },
       {
         "id": "F-nested-truncation",
@@ -169,7 +173,8 @@
           "20KB",
           "truncated",
           "Promise.all"
-        ]
+        ],
+        "observability": "passive-observable"
       },
       {
         "id": "F-tool-description",
@@ -179,7 +184,8 @@
           "sliceLines",
           "applyFilePatch",
           "过长"
-        ]
+        ],
+        "observability": "active-only"
       }
     ]
   },

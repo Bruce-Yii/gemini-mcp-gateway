@@ -422,6 +422,10 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
     // needsReauth / connect failures visible to the passive lane.
     connectFailures: metrics.upstreamConnect ?? { failures: 0, byServer: {} },
     serviceState: metrics.serviceState ?? { snapshots: 0, byServer: {} },
+    // Explicitly named output requested by the active↔passive loop: a passive
+    // snapshot can come from codemode.services() OR cold-start upstream_connect
+    // events (see capture-digest). Keep `serviceState` as the legacy alias.
+    serviceSnapshots: metrics.serviceSnapshots ?? metrics.serviceState ?? { snapshots: 0, byServer: {} },
     helperCalls: metrics.helperStats ?? [],
     sessionWindows,
     sessionWindowsNote: 'Advisory clustering: sessionId when present, otherwise initialize / 15-min idle windows. windowId is analysis-only; cite requestId samples for replay. Do not treat cluster boundaries as verified client sessions.',
@@ -467,6 +471,7 @@ export function buildEmptyWindowAnalyzerOutput(input) {
     dataStatus: 'EMPTY_WINDOW',
     summary: 'EMPTY_WINDOW: no MCP requests matched the filters; this is NOT_ENOUGH evidence, not a pass.',
     issues: [],
+    serviceSnapshots: { snapshots: 0, byServer: {}, offlineServers: [] },
     ignored: [{
       clusterId: 'empty-window',
       reason: 'No MCP requests in the filtered window; the model was not called and no conclusion may be drawn.',
@@ -519,6 +524,7 @@ export function validateAnalyzerOutput(output, input) {
     dataStatus: input?.dataStatus ?? null,
     summary: truncate(output?.summary ?? '', 500),
     issues,
+    serviceSnapshots: input?.serviceSnapshots ?? input?.serviceState ?? { snapshots: 0, byServer: {} },
     ignored: Array.isArray(output?.ignored) ? output.ignored.slice(0, 20) : [],
   };
 }
@@ -592,8 +598,8 @@ export function analyzerPrompt(input) {
   const dataStatusHint = input.dataStatus === 'EMPTY_WINDOW'
     ? 'dataStatus is EMPTY_WINDOW: the filter matched zero requests. Say exactly that and return no issues; an empty window is NOT evidence that the gateway is healthy (do not report "no problems" as a pass).'
     : '';
-  const serviceStateHint = (input.connectFailures?.failures > 0 || input.serviceState?.snapshots > 0)
-    ? 'connectFailures and serviceState are DETERMINISTIC capture signals: upstream_connect{ok:false} means an upstream failed to connect, and serviceState rows with latest.status=offline / latest.needsReauth=true mean the gateway itself reported that service as unavailable (latest is the last snapshot; statuses counts are historical). Cite these only with their requestId samples; do not treat a cold-start snapshot as a live health check.'
+  const serviceStateHint = (input.connectFailures?.failures > 0 || input.serviceSnapshots?.snapshots > 0 || input.serviceState?.snapshots > 0)
+    ? 'connectFailures and serviceSnapshots/serviceState are DETERMINISTIC capture signals: upstream_connect{ok:false} means an upstream failed to connect, and serviceSnapshots rows with latest.status=offline / latest.needsReauth=true mean the gateway itself reported that service as unavailable (latest is the last snapshot; statuses counts are historical; cold-start connect events are included as connectSnapshots). Cite these only with their requestId samples; do not treat a cold-start snapshot as a live health check.'
     : '';
   // Blind-spot fix: samples now carry the success-response outline, so the model
   // can reason about HTTP-200 semantic friction that no error cluster shows.

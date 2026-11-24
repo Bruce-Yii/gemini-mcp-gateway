@@ -7,7 +7,7 @@
 ## 0. 当前快照
 
 - 生产 Vercel：**`f2002d9`**（2026-11-25 01:55 手动部署；healthz `commit=f2002d9…` / `buildHash=3b1a0772…` / `deploymentId=dpl_6P2Ww8vsTHXbbSF98GTE55HKitB4`）；`main` HEAD `cd23fdc`（PR #28 已合入、未进入生产构建）
-- 最近全量：`1583 tests / 1577 pass / 0 fail / 6 todo`（2026-11-25 lead 实跑；docs 分支基于 main cd23fdc，引用时以 lead 当次实跑为准）
+- 最近全量：`1592 tests / 1586 pass / 0 fail / 6 todo`（2026-11-25 lead 实跑（fix/eval-loop-trigger-and-observability），引用时以 lead 当次实跑为准）
 - 工作分支：`docs/sync-status-and-milestones`（只同步 `docs/STATUS.md`、`docs/EXECUTION-PLAN.md`、`docs/ACCEPTANCE.md`；不碰业务代码）
 - 已完成 PR 里程碑：`#22` Issue #15 前两项 → `#23` M5-E 闭环工具层 → `#24` 双窗口主动评测 → `#25` 子代理 M1–M6 编排规则 → `#26` 入站审批口令 → `#28` 5 个评测根因（未部署）→ `#29` Linear PAT + Notion gateway OAuth（生产 `f2002d9`）
 - Auth：Linear `static_bearer` + PAT 线上可用；Notion OAuth 凭据已存储但 runtime `offline`（Pack 2 / PR #31 OPEN）；Vercel CIMD BLOCKED；`AUTH-READY.md` = **NOT READY**（已按 2026-11-25 事实重写）
@@ -29,7 +29,7 @@
 | **Auth / 上游授权** | 🔨 Linear PAT 线上可用；Notion OAuth 已存储但 runtime `offline`（Pack 2 PR #31 OPEN）；Vercel CIMD BLOCKED；D 门 8h/72h 未验 | `AUTH-READY.md`（NOT READY）、`eval/AUTH-PROVIDERS.md` |
 | **Platform 隔离** | 🔨 代码层：Gemini / ChatGPT / Claude profile、ChatGPT DCR/OAuth、Claude callback；ChatGPT 已捕获 10 条请求；真实客户端 B 门未验 | `CLIENT-PROFILES.md`、`eval/PLATFORM-CONFORMANCE-MATRIX.md` |
 | **Typed plan** | ✅ `/mcp/v2` flag、执行器、security 修复；未默认启用；无真实模型 A/B | `TYPED-PLAN-TEST-PLAN.md` |
-| **Online / semi-online eval** | ✅ M4 Gate 1 / Gate 4 PASS；🔨 Gate 2 短窗 PASS、周报待 Pack 1；🔨 Gate 3 请求对齐 `exact`、语义发现待 PR #28 重跑；❌ Gate 5 未执行 | `EVALUATION.md`、`eval/EVAL-CLOSURE.md`、`eval/scorecard-2026-11-24.md` |
+| **Online / semi-online eval** | ✅ M4 Gate 1 / Gate 4 PASS；🔨 Gate 2 短窗 PASS、周报待 Pack 1；🔨 Gate 3 请求对齐 `exact`、语义发现待 PR #28 重跑；🔨 Gate 5 部分通过（ChatGPT 2/3；AT-XU-01 FAIL） | `EVALUATION.md`、`eval/EVAL-CLOSURE.md`、`eval/scorecard-2026-11-24.md` |
 | **OSS 发布** | 🔨 staging/local repo 已重建；未公开；M6 前需 Issue #27 Client Registry 替代 DCR | `OPEN-SOURCE/RELEASE-LOCAL.md`、`PUBLIC-SAFETY-AUDIT.md` |
 | **Infra / 部署** | ⚠️ 生产 `f2002d9`；`main` `cd23fdc` 未部署；手动部署；Pack 1 / Pack 2 未上线 | `DEPLOYMENTS.md`、`DEPLOY-POLICY.md` |
 
@@ -50,7 +50,7 @@
 
 | 任务 | 状态 |
 |---|---|
-| ChatGPT 跨客户端防回退（M4 Gate 5） | ❌ 未执行；条件具备（AT-GH-01 / AT-LN-01 / AT-XU-01） |
+| ChatGPT 跨客户端防回退（M4 Gate 5） | 🔨 部分通过（ChatGPT 2/3）；AT-XU-01 FAIL；Gemini 未复验 |
 | B 门 Gemini / ChatGPT 10 条固定任务 | ❌ 未跑 |
 | Claude 真实 connector 验收 | ❌ 未派 |
 | 多平台 eval lane 接入 `run-l1-smoke` | ❌ 未派 |
