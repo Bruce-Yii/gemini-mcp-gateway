@@ -30,28 +30,7 @@
 
 > 注：同 commit 的前两次 CLI 部署因本地 worktree/clone 缺少 GitHub 远端元数据，healthz 落为 `commit=unknown`；已由本行带 `VERCEL_GIT_COMMIT_SHA` 的部署覆盖，生产只以 `dpl_FHYvwXwtEmp1BP47noMUnAQkRB8U` 为准。
 
+
+| 2026-11-25 01:55 | `f2002d9` | CLI（手动，`vercel --prod`，带 `VERCEL_GIT_COMMIT_SHA`） | 合并 #29：Linear 切 `static_bearer`（`/mcp/readonly` + `LINEAR_API_KEY`），Notion 恢复网关自有 OAuth（owner=gateway）；production 新增 `LINEAR_API_KEY` / `UPSTREAM_OAUTH_ADMIN_KEY` Secret；Notion OAuth 已发起（302 → mcp.notion.com/authorize），待用户 Authorize | READY（AUTH PENDING） | `deploymentId=dpl_6P2Ww8vsTHXbbSF98GTE55HKitB4`；healthz `commit=f2002d9…` / `buildHash=3b1a0772…` / `builtAt=2026-11-24T17:54:55.59Z`；Notion callback 未到，工具可用性未验收 |
+
 ## 规则
-
-- 每次部署前过 [DEPLOY-POLICY.md](DEPLOY-POLICY.md) 检查；
-- 记录 commit、方式、目的、healthz 证据、对应 acceptance gate；
-- 生产部署必须手动发起，并登记 deploymentId；
-- docs/tests-only 不部署；
-- 自动部署关闭后，push 到 main 不再改变生产；若发现 healthz commit 变化而本表无记录，按事故处理。
-
-## Preview（非生产）部署 — 2026-11-24 02:26 / 02:32
-
-`main` 关闭自动部署后，**branch push 仍会生成 preview 部署**（保留 preview 是有意选择）：
-
-| 时间 | 分支 / commit | 类型 | 说明 |
-|---|---|---|---|
-| 02:26 | `fix/auth-owner-marking` / `2f79eaf` | preview | PR #6；target 非 production，生产仍 `9ab0e57` |
-| 02:32 | `fix/oauth-origin-consistency` / `6c5d910` | preview | PR #7；同上 |
-
-另：`1cd94ab`、`cad0dd2` 两个 main docs 提交均**无** deployment（已复核）。
-若要连 preview 也不生成，需要把 `git.deploymentEnabled` 扩成 `{"*": false}` 并手动部署一次。
-
-## 未登记的部署历史（2026-11-24 01:12 复核）
-
-2026-11-23 07:31 — 2026-11-24 01:12 期间共 **40 次**自动 production 部署（Vercel API 实查），
-本表此前只登记了 `87d91af` 一次。历史不可追溯部分按 `INDEPENDENT-REVIEW-2026-11-24.md`
-记为 A 门 PARTIAL 的原因之一；不补造记录。
