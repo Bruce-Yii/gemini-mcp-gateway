@@ -247,8 +247,12 @@ export class UpstreamManager {
   }
 
   async _resolveToken(config, { force = false } = {}) {
-    if (!config.tokenEnv) return undefined;
-    const envToken = process.env[config.tokenEnv];
+    const provider = providerFor(config);
+    // A gateway-owned OAuth grant may have NO env token (the grant lives in
+    // KV). Only skip token resolution when the upstream is neither env-token
+    // nor OAuth-refresh capable.
+    if (!config.tokenEnv && !provider?.tokenUrl) return undefined;
+    const envToken = config.tokenEnv ? process.env[config.tokenEnv] : undefined;
     // static_bearer: an EXPLICIT config opt-in for an owner-created static
     // credential (Notion MCP token / Linear PAT / Vercel REST token). It is
     // long-lived, non-rotating and must NEVER enter the OAuth refresh path.
@@ -272,7 +276,6 @@ export class UpstreamManager {
       }
       return envToken;
     }
-    const provider = providerFor(config);
     if (!provider?.tokenUrl) return envToken; // long-lived token (GitHub/Vercel/custom)
     // OAuth-refresh upstream: go through the refresh-aware lifecycle. `force` is
     // set only after the provider itself rejected the token with 401/invalid_token.
@@ -306,26 +309,31 @@ export class UpstreamManager {
       if (!config.url) throw new Error('http 上游缺少 url');
       const headers = { ...(config.headers ?? {}) };
       // tokenEnv: read the bearer token from an environment variable so the
-      // secret never lands in config files, git, or logs. For Notion/Linear the
-      // token goes through the auto-refresh lifecycle before being used.
-      if (config.tokenEnv) {
+      // secret never lands in config files, git, or logs. Gateway-owned OAuth
+      // grants can also exist without tokenEnv (token lives in KV), so resolve
+      // auth when either an env token or an OAuth refresh provider is configured.
+      const oauthProvider = providerFor(config);
+      const needsToken = Boolean(config.tokenEnv || oauthProvider?.tokenUrl);
+      if (needsToken) {
         // On an auth-retry we already forced a fresh token; do not resolve
         // (and possibly refresh) a second time for the same reconnect.
         const token = tokenOverride !== undefined ? tokenOverride : await this._resolveToken(config);
-        if (!token) {
+        if (!token && config.tokenEnv) {
           throw new Error(`http 上游环境变量 ${config.tokenEnv} 未设置`);
         }
-        // Most upstreams use Bearer; a few expect Basic (Atlassian personal API
-        // tokens), a provider-specific scheme (Sentry's "Sentry-Bearer"), or
-        // the raw token in a custom header (Figma's X-Figma-Token).
-        const rawScheme = config.authScheme || 'Bearer';
-        const lower = rawScheme.toLowerCase();
-        const scheme = lower === 'basic' ? 'Basic' : lower === 'bearer' ? 'Bearer' : rawScheme;
-        const headerName = config.tokenHeader ?? 'Authorization';
-        if (headerName.toLowerCase() === 'authorization') {
-          headers.Authorization = `${scheme} ${token}`;
-        } else {
-          headers[headerName] = token;
+        if (token) {
+          // Most upstreams use Bearer; a few expect Basic (Atlassian personal API
+          // tokens), a provider-specific scheme (Sentry's "Sentry-Bearer"), or
+          // the raw token in a custom header (Figma's X-Figma-Token).
+          const rawScheme = config.authScheme || 'Bearer';
+          const lower = rawScheme.toLowerCase();
+          const scheme = lower === 'basic' ? 'Basic' : lower === 'bearer' ? 'Bearer' : rawScheme;
+          const headerName = config.tokenHeader ?? 'Authorization';
+          if (headerName.toLowerCase() === 'authorization') {
+            headers.Authorization = `${scheme} ${token}`;
+          } else {
+            headers[headerName] = token;
+          }
         }
       }
       const options = {};
