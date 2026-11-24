@@ -4,27 +4,30 @@
     "requests": 20,
     "mcpRequests": 20,
     "nonMcpRequests": 0,
-    "errors": 1,
-    "mcpErrors": 1,
+    "errors": 2,
+    "mcpErrors": 2,
     "statuses": {
-      "200": 18,
-      "202": 2
+      "200": 16,
+      "202": 2,
+      "401": 2
     },
     "errorClasses": {
-      "upstream_4xx": 1
+      "auth": 2
     },
     "routeErrors": {},
     "tools": {
-      "tools/call": 10,
+      "tools/call": 8,
       "tools/list": 5,
       "notifications/initialized": 2,
       "initialize": 3
     },
     "upstreams": {
-      "execute_read": 8,
-      "execute": 2
+      "execute_read": 5,
+      "execute": 3
     },
     "durations": [
+      1,
+      1,
       4,
       5,
       11,
@@ -38,71 +41,71 @@
       904,
       1744,
       1845,
-      2198,
       2578,
-      2800,
+      2849,
       2906,
       3662,
-      4545,
       9469
     ],
-    "bytes": 150593,
+    "bytes": 139846,
     "truncated": 5,
     "overflow": 0,
     "truncationRate": 0.25,
     "overflowRate": 0,
-    "errorRate": 0.05,
+    "errorRate": 0.1,
     "byDay": {
       "2026-11-24": 20
     },
     "byHour": {
-      "12": 2,
+      "12": 1,
       "13": 3,
-      "00": 5,
+      "15": 1,
+      "16": 2,
+      "00": 4,
       "01": 2,
-      "02": 3,
+      "02": 2,
       "03": 1,
       "04": 1,
       "06": 3
     },
     "byDayHour": {
-      "2026-11-24T00": 5,
+      "2026-11-24T00": 4,
       "2026-11-24T01": 2,
-      "2026-11-24T02": 3,
+      "2026-11-24T02": 2,
       "2026-11-24T03": 1,
       "2026-11-24T04": 1,
       "2026-11-24T06": 3,
-      "2026-11-24T12": 2,
-      "2026-11-24T13": 3
+      "2026-11-24T12": 1,
+      "2026-11-24T13": 3,
+      "2026-11-24T15": 1,
+      "2026-11-24T16": 2
     },
     "byRoute": {
       "POST /mcp": {
         "calls": 20,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 710,
-        "p95Ms": 4545,
-        "avgMs": 1703,
+        "p50Ms": 25,
+        "p95Ms": 3662,
+        "avgMs": 1369,
         "errorClasses": {},
         "truncated": 5,
         "overflow": 0,
-        "modelTruncationSuspects": 8
+        "modelTruncationSuspects": 6
       }
     },
     "upstreamStats": {
       "github": {
-        "calls": 10,
-        "errors": 1,
-        "errorRate": 0.1,
+        "calls": 8,
+        "errors": 0,
+        "errorRate": 0,
         "p50Ms": 2578,
         "p95Ms": 9469,
-        "avgMs": 3246,
-        "errorClasses": {
-          "upstream_4xx": 1
-        },
+        "avgMs": 3220,
+        "errorClasses": {},
         "truncated": 0,
         "overflow": 0,
-        "modelTruncationSuspects": 8
+        "modelTruncationSuspects": 6
       },
       "unknown": {
         "calls": 10,
@@ -119,63 +122,63 @@
     },
     "toolStats": {
       "execute": {
-        "calls": 2,
+        "calls": 3,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 1744,
+        "p50Ms": 2849,
         "p95Ms": 9469,
-        "avgMs": 5607,
+        "avgMs": 4687,
         "errorClasses": {},
         "truncated": 0,
         "overflow": 0,
-        "modelTruncationSuspects": 1
+        "modelTruncationSuspects": 2
       },
       "execute_read": {
-        "calls": 8,
-        "errors": 1,
-        "errorRate": 0.125,
+        "calls": 5,
+        "errors": 0,
+        "errorRate": 0,
         "p50Ms": 2578,
-        "p95Ms": 4545,
-        "avgMs": 2656,
-        "errorClasses": {
-          "upstream_4xx": 1
-        },
+        "p95Ms": 3662,
+        "avgMs": 2340,
+        "errorClasses": {},
         "truncated": 0,
         "overflow": 0,
-        "modelTruncationSuspects": 7
+        "modelTruncationSuspects": 4
       }
     },
-    "model_truncation_suspects": 8,
-    "modelTruncationRate": 0.4,
+    "model_truncation_suspects": 6,
+    "modelTruncationRate": 0.3,
     "modelTruncationByServer": {
-      "github": 8
+      "github": 6
     },
     "modelTruncationByTool": {
-      "execute": 1,
-      "execute_read": 7
+      "execute": 2,
+      "execute_read": 4
     },
     "modelTruncationBySession": {
-      "033ebd44-57ac-4766-bbdb-7decb45ee3fb": 2,
+      "033ebd44-57ac-4766-bbdb-7decb45ee3fb": 1,
       "0fc836c7-42a3-4384-81f9-96ffd8fddd6f": 1,
-      "2300fd1b-3d55-460e-9484-ad6babc559ac": 2,
-      "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3": 2,
+      "2300fd1b-3d55-460e-9484-ad6babc559ac": 1,
+      "49939f51-7233-4858-a42e-18030de9ec4d": 1,
+      "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3": 1,
       "ef3d080d-6fe0-40f0-b2d0-5bde5e32d994": 1
     },
     "byProject": {
       "github:Bruce-Yii/gemini-mcp-gateway": {
         "key": "github:Bruce-Yii/gemini-mcp-gateway",
-        "requests": 6,
-        "mcpRequests": 6,
+        "requests": 5,
+        "mcpRequests": 5,
         "errors": 0,
-        "toolCalls": 6,
-        "truncationSuspects": 5,
+        "toolCalls": 5,
+        "truncationSuspects": 4,
         "firstTs": "2026-11-24T00:02:01.572Z",
-        "lastTs": "2026-11-24T12:57:27.829Z",
+        "lastTs": "2026-11-24T15:40:22.133Z",
         "firstTsRaw": "2026-11-24T00:02:01.572Z",
-        "lastTsRaw": "2026-11-24T12:57:27.829Z",
+        "lastTsRaw": "2026-11-24T15:40:22.133Z",
         "sessionIds": [
           "033ebd44-57ac-4766-bbdb-7decb45ee3fb",
           "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
+          "49939f51-7233-4858-a42e-18030de9ec4d",
           "99307365-3ce0-4769-8724-b0648281f5c2",
           "ef3d080d-6fe0-40f0-b2d0-5bde5e32d994"
         ],
@@ -186,18 +189,18 @@
         "requestIdSamples": [
           "00c1d059-6d78-4c98-868f-a5d0fbaa5c82",
           "08d8bf5a-069e-4db5-ac53-32f975c809a3",
+          "0a8bd8ef-c934-4054-a1ef-87f0e7d15c97",
           "0d0fc47b-347c-43b7-a627-63e1f30b76d8",
-          "0ec61a1a-1827-40fd-8f5d-4da717d78c69",
-          "0f000d24-c8e6-4e71-945b-b870c44e3b7e"
+          "0ec61a1a-1827-40fd-8f5d-4da717d78c69"
         ]
       },
       "github:Bruce-Yii/recruitment-agent": {
         "key": "github:Bruce-Yii/recruitment-agent",
-        "requests": 4,
-        "mcpRequests": 4,
-        "errors": 1,
-        "toolCalls": 4,
-        "truncationSuspects": 3,
+        "requests": 3,
+        "mcpRequests": 3,
+        "errors": 0,
+        "toolCalls": 3,
+        "truncationSuspects": 2,
         "firstTs": "2026-11-24T00:07:42.356Z",
         "lastTs": "2026-11-24T13:31:16.312Z",
         "firstTsRaw": "2026-11-24T00:07:42.356Z",
@@ -213,8 +216,7 @@
         "requestIdSamples": [
           "0271e7ca-d2dd-44d8-8902-ad38f2157743",
           "03a21275-f6ac-4704-91c0-9b97fcee54b4",
-          "05623334-9d25-4299-ac8d-e52f1cd8c252",
-          "118148d9-d0f0-4139-af13-c4ae2f2116fc"
+          "05623334-9d25-4299-ac8d-e52f1cd8c252"
         ]
       }
     },
@@ -222,20 +224,19 @@
       {
         "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
         "sessionId": "033ebd44-57ac-4766-bbdb-7decb45ee3fb",
-        "requests": 2,
-        "mcpRequests": 2,
+        "requests": 1,
+        "mcpRequests": 1,
         "errors": 0,
-        "toolCalls": 2,
-        "truncationSuspects": 2,
-        "firstTs": "2026-11-24T12:57:27.664Z",
+        "toolCalls": 1,
+        "truncationSuspects": 1,
+        "firstTs": "2026-11-24T12:57:27.829Z",
         "lastTs": "2026-11-24T12:57:27.829Z",
-        "firstTsRaw": "2026-11-24T12:57:27.664Z",
+        "firstTsRaw": "2026-11-24T12:57:27.829Z",
         "lastTsRaw": "2026-11-24T12:57:27.829Z",
         "requestIdSamples": [
-          "00c1d059-6d78-4c98-868f-a5d0fbaa5c82",
-          "1188c924-320a-47da-b866-07405561a5c1"
+          "00c1d059-6d78-4c98-868f-a5d0fbaa5c82"
         ],
-        "primaryProjectRequests": 2,
+        "primaryProjectRequests": 1,
         "clientPlatforms": [
           "gemini"
         ]
@@ -243,21 +244,20 @@
       {
         "projectKey": "github:Bruce-Yii/recruitment-agent",
         "sessionId": "2300fd1b-3d55-460e-9484-ad6babc559ac",
-        "requests": 3,
-        "mcpRequests": 3,
-        "errors": 1,
-        "toolCalls": 3,
-        "truncationSuspects": 2,
+        "requests": 2,
+        "mcpRequests": 2,
+        "errors": 0,
+        "toolCalls": 2,
+        "truncationSuspects": 1,
         "firstTs": "2026-11-24T00:07:42.356Z",
         "lastTs": "2026-11-24T01:23:06.097Z",
         "firstTsRaw": "2026-11-24T00:07:42.356Z",
         "lastTsRaw": "2026-11-24T01:23:06.097Z",
         "requestIdSamples": [
           "0271e7ca-d2dd-44d8-8902-ad38f2157743",
-          "05623334-9d25-4299-ac8d-e52f1cd8c252",
-          "118148d9-d0f0-4139-af13-c4ae2f2116fc"
+          "05623334-9d25-4299-ac8d-e52f1cd8c252"
         ],
-        "primaryProjectRequests": 3,
+        "primaryProjectRequests": 2,
         "clientPlatforms": [
           "unknown"
         ]
@@ -285,22 +285,41 @@
       {
         "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
         "sessionId": "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
-        "requests": 2,
-        "mcpRequests": 2,
+        "requests": 1,
+        "mcpRequests": 1,
         "errors": 0,
-        "toolCalls": 2,
-        "truncationSuspects": 2,
-        "firstTs": "2026-11-24T02:17:57.286Z",
+        "toolCalls": 1,
+        "truncationSuspects": 1,
+        "firstTs": "2026-11-24T03:10:10.854Z",
         "lastTs": "2026-11-24T03:10:10.854Z",
-        "firstTsRaw": "2026-11-24T02:17:57.286Z",
+        "firstTsRaw": "2026-11-24T03:10:10.854Z",
         "lastTsRaw": "2026-11-24T03:10:10.854Z",
         "requestIdSamples": [
-          "08d8bf5a-069e-4db5-ac53-32f975c809a3",
-          "0f000d24-c8e6-4e71-945b-b870c44e3b7e"
+          "08d8bf5a-069e-4db5-ac53-32f975c809a3"
         ],
-        "primaryProjectRequests": 2,
+        "primaryProjectRequests": 1,
         "clientPlatforms": [
           "unknown"
+        ]
+      },
+      {
+        "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
+        "sessionId": "49939f51-7233-4858-a42e-18030de9ec4d",
+        "requests": 1,
+        "mcpRequests": 1,
+        "errors": 0,
+        "toolCalls": 1,
+        "truncationSuspects": 1,
+        "firstTs": "2026-11-24T15:40:22.133Z",
+        "lastTs": "2026-11-24T15:40:22.133Z",
+        "firstTsRaw": "2026-11-24T15:40:22.133Z",
+        "lastTsRaw": "2026-11-24T15:40:22.133Z",
+        "requestIdSamples": [
+          "0a8bd8ef-c934-4054-a1ef-87f0e7d15c97"
+        ],
+        "primaryProjectRequests": 1,
+        "clientPlatforms": [
+          "gemini"
         ]
       },
       {
@@ -352,7 +371,7 @@
         "errors": 0,
         "toolCalls": 4,
         "truncationSuspects": 5,
-        "sessions": 6,
+        "sessions": 7,
         "projects": 2,
         "sessionIds": [
           "033ebd44-57ac-4766-bbdb-7decb45ee3fb",
@@ -360,6 +379,7 @@
           "73ea6fb7-d680-4b09-96f4-14894887182a",
           "73d9b270-c9b2-4f95-b8c9-7388e3f8fdf1",
           "2857ba2b-5cdb-4bd4-bd0e-9a456403fa34",
+          "49939f51-7233-4858-a42e-18030de9ec4d",
           "ef3d080d-6fe0-40f0-b2d0-5bde5e32d994"
         ],
         "projectKeys": [
@@ -381,9 +401,9 @@
         "platform": "unknown",
         "requests": 12,
         "mcpRequests": 12,
-        "errors": 1,
-        "toolCalls": 6,
-        "truncationSuspects": 8,
+        "errors": 2,
+        "toolCalls": 4,
+        "truncationSuspects": 6,
         "sessions": 9,
         "projects": 2,
         "sessionIds": [
@@ -421,7 +441,7 @@
         "errors": 0,
         "toolCalls": 4,
         "truncationSuspects": 5,
-        "sessions": 6,
+        "sessions": 7,
         "projects": 2,
         "requestIdSamples": [
           "00c1d059-6d78-4c98-868f-a5d0fbaa5c82",
@@ -435,9 +455,9 @@
         "platform": "unknown",
         "requests": 12,
         "mcpRequests": 12,
-        "errors": 1,
-        "toolCalls": 6,
-        "truncationSuspects": 8,
+        "errors": 2,
+        "toolCalls": 4,
+        "truncationSuspects": 6,
         "sessions": 9,
         "projects": 2,
         "requestIdSamples": [
@@ -455,9 +475,9 @@
         "executor": "codemode",
         "requests": 20,
         "mcpRequests": 20,
-        "errors": 1,
-        "toolCalls": 10,
-        "truncationSuspects": 13
+        "errors": 2,
+        "toolCalls": 8,
+        "truncationSuspects": 11
       }
     },
     "byClientProfile": {
@@ -465,9 +485,9 @@
         "clientProfile": "gemini-text-json",
         "requests": 20,
         "mcpRequests": 20,
-        "errors": 1,
-        "toolCalls": 10,
-        "truncationSuspects": 13
+        "errors": 2,
+        "toolCalls": 8,
+        "truncationSuspects": 11
       }
     },
     "byBuildCommit": {
@@ -476,11 +496,11 @@
         "clientPlatforms": [
           "unknown"
         ],
-        "requests": 12,
-        "mcpRequests": 12,
-        "errors": 1,
-        "toolCalls": 6,
-        "truncationSuspects": 8
+        "requests": 10,
+        "mcpRequests": 10,
+        "errors": 0,
+        "toolCalls": 4,
+        "truncationSuspects": 6
       },
       "3dd206f7238491e93f15c3ce39bce37c0e4bceba": {
         "buildCommit": "3dd206f7238491e93f15c3ce39bce37c0e4bceba",
@@ -492,6 +512,17 @@
         "errors": 0,
         "toolCalls": 4,
         "truncationSuspects": 5
+      },
+      "9eb0c7aa3d10d777d3066f858a67be39cc8303dd": {
+        "buildCommit": "9eb0c7aa3d10d777d3066f858a67be39cc8303dd",
+        "clientPlatforms": [
+          "unknown"
+        ],
+        "requests": 2,
+        "mcpRequests": 2,
+        "errors": 2,
+        "toolCalls": 0,
+        "truncationSuspects": 0
       }
     },
     "byEvalMode": {
@@ -499,9 +530,9 @@
         "evalMode": "unknown",
         "requests": 20,
         "mcpRequests": 20,
-        "errors": 1,
-        "toolCalls": 10,
-        "truncationSuspects": 13
+        "errors": 2,
+        "toolCalls": 8,
+        "truncationSuspects": 11
       }
     },
     "byServerTag": {
@@ -509,9 +540,9 @@
         "server": "unknown",
         "requests": 15,
         "mcpRequests": 15,
-        "errors": 1,
-        "toolCalls": 6,
-        "truncationSuspects": 9
+        "errors": 2,
+        "toolCalls": 4,
+        "truncationSuspects": 7
       },
       "github": {
         "server": "github",
@@ -592,13 +623,13 @@
         "executor": "codemode",
         "clientProfile": "gemini-text-json",
         "buildCommit": "5039ac69d4e514bc11cdcc4fb2ce19d7dd5e234a",
-        "requests": 12,
-        "mcpRequests": 12,
-        "errors": 1,
-        "toolCalls": 6,
-        "truncationSuspects": 8,
+        "requests": 10,
+        "mcpRequests": 10,
+        "errors": 0,
+        "toolCalls": 4,
+        "truncationSuspects": 6,
         "evalModes": {
-          "unknown": 12
+          "unknown": 10
         },
         "servers": [
           "unknown"
@@ -610,6 +641,28 @@
           "08d8bf5a-069e-4db5-ac53-32f975c809a3",
           "0a820ad5-dd0f-44db-b91e-18b42c77ed46"
         ]
+      },
+      "unknown|v1|gemini-text-json|9eb0c7aa3d10d777d3066f858a67be39cc8303dd": {
+        "clientPlatform": "unknown",
+        "protocolVersion": "v1",
+        "executor": "codemode",
+        "clientProfile": "gemini-text-json",
+        "buildCommit": "9eb0c7aa3d10d777d3066f858a67be39cc8303dd",
+        "requests": 2,
+        "mcpRequests": 2,
+        "errors": 2,
+        "toolCalls": 0,
+        "truncationSuspects": 0,
+        "evalModes": {
+          "unknown": 2
+        },
+        "servers": [
+          "unknown"
+        ],
+        "requestIdSamples": [
+          "0b8671d5-4ee9-46bd-a550-0f106748396d",
+          "0dbba1c9-7c11-4c64-8655-bbbb2cf0b1f1"
+        ]
       }
     },
     "fourDimensionSummary": [
@@ -619,13 +672,13 @@
         "executor": "codemode",
         "clientProfile": "gemini-text-json",
         "buildCommit": "5039ac69d4e514bc11cdcc4fb2ce19d7dd5e234a",
-        "requests": 12,
-        "mcpRequests": 12,
-        "errors": 1,
-        "toolCalls": 6,
-        "truncationSuspects": 8,
+        "requests": 10,
+        "mcpRequests": 10,
+        "errors": 0,
+        "toolCalls": 4,
+        "truncationSuspects": 6,
         "evalModes": {
-          "unknown": 12
+          "unknown": 10
         },
         "servers": [
           "unknown"
@@ -667,6 +720,28 @@
           "0442a80c-85a2-4fc1-a0fa-d8697ed42650",
           "06b36205-bbd6-4df3-a619-741ffda52db9"
         ]
+      },
+      {
+        "clientPlatform": "unknown",
+        "protocolVersion": "v1",
+        "executor": "codemode",
+        "clientProfile": "gemini-text-json",
+        "buildCommit": "9eb0c7aa3d10d777d3066f858a67be39cc8303dd",
+        "requests": 2,
+        "mcpRequests": 2,
+        "errors": 2,
+        "toolCalls": 0,
+        "truncationSuspects": 0,
+        "evalModes": {
+          "unknown": 2
+        },
+        "servers": [
+          "unknown"
+        ],
+        "requestIdSamples": [
+          "0b8671d5-4ee9-46bd-a550-0f106748396d",
+          "0dbba1c9-7c11-4c64-8655-bbbb2cf0b1f1"
+        ]
       }
     ],
     "upstreamConnect": {
@@ -705,9 +780,9 @@
       "currentOfflineServers": []
     },
     "helperStats": [],
-    "p50Ms": 710,
-    "p95Ms": 4545,
-    "avgMs": 1703,
+    "p50Ms": 25,
+    "p95Ms": 3662,
+    "avgMs": 1369,
     "date": "2026-11-24"
   },
   "sessions": [
@@ -760,11 +835,11 @@
       "strategy": "sessionId",
       "sessionId": "2300fd1b-3d55-460e-9484-ad6babc559ac",
       "taskId": null,
-      "requests": 3,
-      "mcpRequests": 3,
-      "mcpErrors": 1,
-      "toolCalls": 3,
-      "truncationSuspects": 2,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 2,
+      "truncationSuspects": 1,
       "firstTs": "2026-11-24T00:07:42.356Z",
       "lastTs": "2026-11-24T01:23:06.097Z",
       "firstTsRaw": "2026-11-24T00:07:42.356Z",
@@ -774,11 +849,10 @@
       },
       "requestIdSamples": [
         "05623334-9d25-4299-ac8d-e52f1cd8c252",
-        "118148d9-d0f0-4139-af13-c4ae2f2116fc",
         "0271e7ca-d2dd-44d8-8902-ad38f2157743"
       ],
       "methods": {
-        "tools/call": 3
+        "tools/call": 2
       },
       "projects": [
         {
@@ -788,7 +862,7 @@
           "key": "github:Bruce-Yii/recruitment-agent",
           "confidence": "medium",
           "source": "code-literal",
-          "requests": 3
+          "requests": 2
         }
       ],
       "primaryProjects": [
@@ -798,7 +872,7 @@
         "unknown"
       ],
       "requestsByClientPlatform": {
-        "unknown": 3
+        "unknown": 2
       }
     },
     {
@@ -898,51 +972,6 @@
       }
     },
     {
-      "windowId": "session:84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
-      "strategy": "sessionId",
-      "sessionId": "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
-      "taskId": null,
-      "requests": 2,
-      "mcpRequests": 2,
-      "mcpErrors": 0,
-      "toolCalls": 2,
-      "truncationSuspects": 2,
-      "firstTs": "2026-11-24T02:17:57.286Z",
-      "lastTs": "2026-11-24T03:10:10.854Z",
-      "firstTsRaw": "2026-11-24T02:17:57.286Z",
-      "lastTsRaw": "2026-11-24T03:10:10.854Z",
-      "clientInfo": {
-        "ip": "108.177.68.198"
-      },
-      "requestIdSamples": [
-        "0f000d24-c8e6-4e71-945b-b870c44e3b7e",
-        "08d8bf5a-069e-4db5-ac53-32f975c809a3"
-      ],
-      "methods": {
-        "tools/call": 2
-      },
-      "projects": [
-        {
-          "server": "github",
-          "owner": "Bruce-Yii",
-          "repo": "gemini-mcp-gateway",
-          "key": "github:Bruce-Yii/gemini-mcp-gateway",
-          "confidence": "medium",
-          "source": "code-literal",
-          "requests": 2
-        }
-      ],
-      "primaryProjects": [
-        "github:Bruce-Yii/gemini-mcp-gateway"
-      ],
-      "clientPlatforms": [
-        "unknown"
-      ],
-      "requestsByClientPlatform": {
-        "unknown": 2
-      }
-    },
-    {
       "windowId": "session:96612174-3e1d-4a87-ac18-bbe1ced3c177",
       "strategy": "sessionId",
       "sessionId": "96612174-3e1d-4a87-ac18-bbe1ced3c177",
@@ -1000,6 +1029,50 @@
       },
       "projects": [],
       "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 1
+      }
+    },
+    {
+      "windowId": "session:84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
+      "strategy": "sessionId",
+      "sessionId": "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
+      "taskId": null,
+      "requests": 1,
+      "mcpRequests": 1,
+      "mcpErrors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T03:10:10.854Z",
+      "lastTs": "2026-11-24T03:10:10.854Z",
+      "firstTsRaw": "2026-11-24T03:10:10.854Z",
+      "lastTsRaw": "2026-11-24T03:10:10.854Z",
+      "clientInfo": {
+        "ip": "108.177.68.101"
+      },
+      "requestIdSamples": [
+        "08d8bf5a-069e-4db5-ac53-32f975c809a3"
+      ],
+      "methods": {
+        "tools/call": 1
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "gemini-mcp-gateway",
+          "key": "github:Bruce-Yii/gemini-mcp-gateway",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 1
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/gemini-mcp-gateway"
+      ],
       "clientPlatforms": [
         "unknown"
       ],
@@ -1154,24 +1227,23 @@
       "strategy": "sessionId",
       "sessionId": "033ebd44-57ac-4766-bbdb-7decb45ee3fb",
       "taskId": null,
-      "requests": 2,
-      "mcpRequests": 2,
+      "requests": 1,
+      "mcpRequests": 1,
       "mcpErrors": 0,
-      "toolCalls": 2,
-      "truncationSuspects": 2,
-      "firstTs": "2026-11-24T12:57:27.664Z",
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T12:57:27.829Z",
       "lastTs": "2026-11-24T12:57:27.829Z",
-      "firstTsRaw": "2026-11-24T12:57:27.664Z",
+      "firstTsRaw": "2026-11-24T12:57:27.829Z",
       "lastTsRaw": "2026-11-24T12:57:27.829Z",
       "clientInfo": {
-        "ip": "192.178.23.41"
+        "ip": "192.178.23.37"
       },
       "requestIdSamples": [
-        "1188c924-320a-47da-b866-07405561a5c1",
         "00c1d059-6d78-4c98-868f-a5d0fbaa5c82"
       ],
       "methods": {
-        "tools/call": 2
+        "tools/call": 1
       },
       "projects": [
         {
@@ -1181,7 +1253,7 @@
           "key": "github:Bruce-Yii/gemini-mcp-gateway",
           "confidence": "medium",
           "source": "code-literal",
-          "requests": 2
+          "requests": 1
         }
       ],
       "primaryProjects": [
@@ -1191,7 +1263,7 @@
         "gemini"
       ],
       "requestsByClientPlatform": {
-        "gemini": 2
+        "gemini": 1
       }
     },
     {
@@ -1271,23 +1343,99 @@
       "requestsByClientPlatform": {
         "gemini": 2
       }
+    },
+    {
+      "windowId": "session:49939f51-7233-4858-a42e-18030de9ec4d",
+      "strategy": "sessionId",
+      "sessionId": "49939f51-7233-4858-a42e-18030de9ec4d",
+      "taskId": null,
+      "requests": 1,
+      "mcpRequests": 1,
+      "mcpErrors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T15:40:22.133Z",
+      "lastTs": "2026-11-24T15:40:22.133Z",
+      "firstTsRaw": "2026-11-24T15:40:22.133Z",
+      "lastTsRaw": "2026-11-24T15:40:22.133Z",
+      "clientInfo": {
+        "ip": "192.178.23.32"
+      },
+      "requestIdSamples": [
+        "0a8bd8ef-c934-4054-a1ef-87f0e7d15c97"
+      ],
+      "methods": {
+        "tools/call": 1
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "gemini-mcp-gateway",
+          "key": "github:Bruce-Yii/gemini-mcp-gateway",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 1
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/gemini-mcp-gateway"
+      ],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 1
+      }
+    },
+    {
+      "windowId": "window:001",
+      "strategy": "first-request",
+      "sessionId": null,
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 0,
+      "mcpErrors": 2,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T16:19:17.781Z",
+      "lastTs": "2026-11-24T16:29:20.793Z",
+      "firstTsRaw": "2026-11-24T16:19:17.781Z",
+      "lastTsRaw": "2026-11-24T16:29:20.793Z",
+      "clientInfo": {
+        "ip": "9.129.50.15"
+      },
+      "requestIdSamples": [
+        "0b8671d5-4ee9-46bd-a550-0f106748396d",
+        "0dbba1c9-7c11-4c64-8655-bbbb2cf0b1f1"
+      ],
+      "methods": {},
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 2
+      }
     }
   ],
   "byProject": {
     "github:Bruce-Yii/gemini-mcp-gateway": {
       "key": "github:Bruce-Yii/gemini-mcp-gateway",
-      "requests": 6,
-      "mcpRequests": 6,
+      "requests": 5,
+      "mcpRequests": 5,
       "errors": 0,
-      "toolCalls": 6,
-      "truncationSuspects": 5,
+      "toolCalls": 5,
+      "truncationSuspects": 4,
       "firstTs": "2026-11-24T00:02:01.572Z",
-      "lastTs": "2026-11-24T12:57:27.829Z",
+      "lastTs": "2026-11-24T15:40:22.133Z",
       "firstTsRaw": "2026-11-24T00:02:01.572Z",
-      "lastTsRaw": "2026-11-24T12:57:27.829Z",
+      "lastTsRaw": "2026-11-24T15:40:22.133Z",
       "sessionIds": [
         "033ebd44-57ac-4766-bbdb-7decb45ee3fb",
         "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
+        "49939f51-7233-4858-a42e-18030de9ec4d",
         "99307365-3ce0-4769-8724-b0648281f5c2",
         "ef3d080d-6fe0-40f0-b2d0-5bde5e32d994"
       ],
@@ -1298,18 +1446,18 @@
       "requestIdSamples": [
         "00c1d059-6d78-4c98-868f-a5d0fbaa5c82",
         "08d8bf5a-069e-4db5-ac53-32f975c809a3",
+        "0a8bd8ef-c934-4054-a1ef-87f0e7d15c97",
         "0d0fc47b-347c-43b7-a627-63e1f30b76d8",
-        "0ec61a1a-1827-40fd-8f5d-4da717d78c69",
-        "0f000d24-c8e6-4e71-945b-b870c44e3b7e"
+        "0ec61a1a-1827-40fd-8f5d-4da717d78c69"
       ]
     },
     "github:Bruce-Yii/recruitment-agent": {
       "key": "github:Bruce-Yii/recruitment-agent",
-      "requests": 4,
-      "mcpRequests": 4,
-      "errors": 1,
-      "toolCalls": 4,
-      "truncationSuspects": 3,
+      "requests": 3,
+      "mcpRequests": 3,
+      "errors": 0,
+      "toolCalls": 3,
+      "truncationSuspects": 2,
       "firstTs": "2026-11-24T00:07:42.356Z",
       "lastTs": "2026-11-24T13:31:16.312Z",
       "firstTsRaw": "2026-11-24T00:07:42.356Z",
@@ -1325,8 +1473,7 @@
       "requestIdSamples": [
         "0271e7ca-d2dd-44d8-8902-ad38f2157743",
         "03a21275-f6ac-4704-91c0-9b97fcee54b4",
-        "05623334-9d25-4299-ac8d-e52f1cd8c252",
-        "118148d9-d0f0-4139-af13-c4ae2f2116fc"
+        "05623334-9d25-4299-ac8d-e52f1cd8c252"
       ]
     }
   },
@@ -1334,20 +1481,19 @@
     {
       "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
       "sessionId": "033ebd44-57ac-4766-bbdb-7decb45ee3fb",
-      "requests": 2,
-      "mcpRequests": 2,
+      "requests": 1,
+      "mcpRequests": 1,
       "errors": 0,
-      "toolCalls": 2,
-      "truncationSuspects": 2,
-      "firstTs": "2026-11-24T12:57:27.664Z",
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T12:57:27.829Z",
       "lastTs": "2026-11-24T12:57:27.829Z",
-      "firstTsRaw": "2026-11-24T12:57:27.664Z",
+      "firstTsRaw": "2026-11-24T12:57:27.829Z",
       "lastTsRaw": "2026-11-24T12:57:27.829Z",
       "requestIdSamples": [
-        "00c1d059-6d78-4c98-868f-a5d0fbaa5c82",
-        "1188c924-320a-47da-b866-07405561a5c1"
+        "00c1d059-6d78-4c98-868f-a5d0fbaa5c82"
       ],
-      "primaryProjectRequests": 2,
+      "primaryProjectRequests": 1,
       "clientPlatforms": [
         "gemini"
       ]
@@ -1355,21 +1501,20 @@
     {
       "projectKey": "github:Bruce-Yii/recruitment-agent",
       "sessionId": "2300fd1b-3d55-460e-9484-ad6babc559ac",
-      "requests": 3,
-      "mcpRequests": 3,
-      "errors": 1,
-      "toolCalls": 3,
-      "truncationSuspects": 2,
+      "requests": 2,
+      "mcpRequests": 2,
+      "errors": 0,
+      "toolCalls": 2,
+      "truncationSuspects": 1,
       "firstTs": "2026-11-24T00:07:42.356Z",
       "lastTs": "2026-11-24T01:23:06.097Z",
       "firstTsRaw": "2026-11-24T00:07:42.356Z",
       "lastTsRaw": "2026-11-24T01:23:06.097Z",
       "requestIdSamples": [
         "0271e7ca-d2dd-44d8-8902-ad38f2157743",
-        "05623334-9d25-4299-ac8d-e52f1cd8c252",
-        "118148d9-d0f0-4139-af13-c4ae2f2116fc"
+        "05623334-9d25-4299-ac8d-e52f1cd8c252"
       ],
-      "primaryProjectRequests": 3,
+      "primaryProjectRequests": 2,
       "clientPlatforms": [
         "unknown"
       ]
@@ -1397,22 +1542,41 @@
     {
       "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
       "sessionId": "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
-      "requests": 2,
-      "mcpRequests": 2,
+      "requests": 1,
+      "mcpRequests": 1,
       "errors": 0,
-      "toolCalls": 2,
-      "truncationSuspects": 2,
-      "firstTs": "2026-11-24T02:17:57.286Z",
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T03:10:10.854Z",
       "lastTs": "2026-11-24T03:10:10.854Z",
-      "firstTsRaw": "2026-11-24T02:17:57.286Z",
+      "firstTsRaw": "2026-11-24T03:10:10.854Z",
       "lastTsRaw": "2026-11-24T03:10:10.854Z",
       "requestIdSamples": [
-        "08d8bf5a-069e-4db5-ac53-32f975c809a3",
-        "0f000d24-c8e6-4e71-945b-b870c44e3b7e"
+        "08d8bf5a-069e-4db5-ac53-32f975c809a3"
       ],
-      "primaryProjectRequests": 2,
+      "primaryProjectRequests": 1,
       "clientPlatforms": [
         "unknown"
+      ]
+    },
+    {
+      "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
+      "sessionId": "49939f51-7233-4858-a42e-18030de9ec4d",
+      "requests": 1,
+      "mcpRequests": 1,
+      "errors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T15:40:22.133Z",
+      "lastTs": "2026-11-24T15:40:22.133Z",
+      "firstTsRaw": "2026-11-24T15:40:22.133Z",
+      "lastTsRaw": "2026-11-24T15:40:22.133Z",
+      "requestIdSamples": [
+        "0a8bd8ef-c934-4054-a1ef-87f0e7d15c97"
+      ],
+      "primaryProjectRequests": 1,
+      "clientPlatforms": [
+        "gemini"
       ]
     },
     {
