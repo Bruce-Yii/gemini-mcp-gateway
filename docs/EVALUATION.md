@@ -148,3 +148,17 @@ L4 人工在线反馈           用户真实窗口，发现新维度
 状态：FB/N10–N16 为已登记任务（fake/replay、`dryRun:true`、`forRealWrite=false`、
 `requestIds:unknown`），尚未接入真实 runner；部署后同任务在线复验与 join/baseline 更新不在本批。
 
+---
+
+## 9. 云端总控定型：开发期五环评测闭环（2026-11-24 收口）
+
+> 为贴合当前高频开发迭代节奏（半小时~1小时一轮），不追求重型全自动化，将评测体系收口为以下 5 环闭环，并**正式下线/停止新增 `N10+ / J6+ / FB10+` 碎片字母编号**（历史任务集仅作归档，新问题统一进 [eval/BADCASES.md](eval/BADCASES.md)）：
+
+1. **无感采集层（`src/evidence/capture.js`）**：全保真采集落 R2，带 `buildCommit`、OAuth `clientPlatform`、`servers[]`（跨上游）与可选 `evalMode`（`active`/`passive`），以 `session / 15分钟窗口 / project` 聚合切片。
+2. **高频被动分析（`scripts/analyze-captures.mjs`）**：支持 `--last-minutes 60` 与 `--commit` 快拉，展开沙箱内 `upstream subCalls[]` 明细，交给免费模型灵活识问题（仅作假设）。
+3. **主动线上评测（真实客户端分工）**：
+   - **Gemini**：以日常真实会话 + 隔几轮询问优缺点、前后对比为主；
+   - **ChatGPT 及其他平台**：以批量运行高复用的单上游/跨上游权威任务集（Issue #3 模式）为主；
+   - **纠偏**：停止用本地 `hy4` 弱模型（及 DSH 宿主）跑分来评判客户端适配能力，离线侧只保留无模型的确定性契约回归。
+4. **分类 Badcase 与复现回归（`docs/eval/BADCASES.md`）**：按 `客户端 × 上游(含跨上游) × 问题类别` 沉淀，拿到线索后直接换受控测试仓库复现动作并修复。
+5. **主动反哺被动（`AGENTS.md` §3.1 触发）**：每次主动反馈丢进开发窗口，固定顺手拉同一时间窗被动日志对照，补齐采集盲区或分析提示词，逐步压低人工主动频次。
