@@ -1,0 +1,1589 @@
+{
+  "schema": "gold-eval-index.v1",
+  "version": "1.0.0",
+  "updatedAt": "2026-11-25T00:00:00Z",
+  "maintainedBy": "[云端总控]",
+  "runnerProtocol": "docs/eval/suites/RUNNER.md",
+  "totalTasks": 66,
+  "suites": [
+    {
+      "batch": "batch-1-mcpmark",
+      "file": "mcpmark-gold.json",
+      "count": 16
+    },
+    {
+      "batch": "batch-2-universe-atlas",
+      "file": "universe-atlas-gold.json",
+      "count": 16
+    },
+    {
+      "batch": "batch-3-vercel-linear-figma",
+      "file": "vercel-linear-figma-gold.json",
+      "count": 18
+    },
+    {
+      "batch": "batch-4-adversarial-and-clients",
+      "file": "adversarial-client-gold.json",
+      "count": 16
+    }
+  ],
+  "tiers": {
+    "T0": {
+      "name": "极速烟测（4 题，纯只读 ~3 分钟）",
+      "taskIds": [
+        "MK-GH-02",
+        "VLF-VC-01",
+        "VLF-LN-01",
+        "UA-ATL-01"
+      ]
+    },
+    "T1": {
+      "name": "日常高频回归与防串伤（全 T1 精题，纯只读）",
+      "taskIds": [
+        "MK-GH-02",
+        "MK-NT-01",
+        "MK-NT-02",
+        "UA-UNI-01",
+        "UA-UNI-04",
+        "UA-UNI-05",
+        "UA-ATL-01",
+        "UA-ATL-02",
+        "UA-ATL-04",
+        "UA-ATL-06",
+        "VLF-VC-01",
+        "VLF-VC-04",
+        "VLF-LN-01",
+        "VLF-LN-03",
+        "AC-ADV-01",
+        "AC-ADV-02",
+        "AC-ADV-06",
+        "AC-CL-03",
+        "AC-CL-05",
+        "AC-CL-07",
+        "AC-CL-08"
+      ]
+    },
+    "T2": {
+      "name": "新客户端画像与公共层大改压测（T1 + T2）",
+      "taskIds": [
+        "MK-GH-01",
+        "MK-GH-02",
+        "MK-GH-03",
+        "MK-GH-04",
+        "MK-GH-05",
+        "MK-GH-07",
+        "MK-NT-01",
+        "MK-NT-02",
+        "MK-NT-03",
+        "MK-NT-05",
+        "UA-UNI-01",
+        "UA-UNI-02",
+        "UA-UNI-03",
+        "UA-UNI-04",
+        "UA-UNI-05",
+        "UA-UNI-06",
+        "UA-UNI-07",
+        "UA-UNI-08",
+        "UA-ATL-01",
+        "UA-ATL-02",
+        "UA-ATL-03",
+        "UA-ATL-04",
+        "UA-ATL-05",
+        "UA-ATL-06",
+        "UA-ATL-07",
+        "UA-ATL-08",
+        "VLF-VC-01",
+        "VLF-VC-02",
+        "VLF-VC-03",
+        "VLF-VC-04",
+        "VLF-VC-06",
+        "VLF-LN-01",
+        "VLF-LN-02",
+        "VLF-LN-03",
+        "VLF-LN-05",
+        "VLF-LN-06",
+        "VLF-FG-01",
+        "VLF-FG-02",
+        "VLF-FG-06",
+        "AC-ADV-01",
+        "AC-ADV-02",
+        "AC-ADV-03",
+        "AC-ADV-04",
+        "AC-ADV-05",
+        "AC-ADV-06",
+        "AC-ADV-07",
+        "AC-ADV-08",
+        "AC-CL-01",
+        "AC-CL-03",
+        "AC-CL-04",
+        "AC-CL-05",
+        "AC-CL-06",
+        "AC-CL-07",
+        "AC-CL-08"
+      ]
+    },
+    "T3": {
+      "name": "全量 66 题权威大考",
+      "taskIds": [
+        "MK-GH-01",
+        "MK-GH-02",
+        "MK-GH-03",
+        "MK-GH-04",
+        "MK-GH-05",
+        "MK-GH-06",
+        "MK-GH-07",
+        "MK-GH-08",
+        "MK-GH-09",
+        "MK-NT-01",
+        "MK-NT-02",
+        "MK-NT-03",
+        "MK-NT-04",
+        "MK-NT-05",
+        "MK-NT-06",
+        "MK-NT-07",
+        "UA-UNI-01",
+        "UA-UNI-02",
+        "UA-UNI-03",
+        "UA-UNI-04",
+        "UA-UNI-05",
+        "UA-UNI-06",
+        "UA-UNI-07",
+        "UA-UNI-08",
+        "UA-ATL-01",
+        "UA-ATL-02",
+        "UA-ATL-03",
+        "UA-ATL-04",
+        "UA-ATL-05",
+        "UA-ATL-06",
+        "UA-ATL-07",
+        "UA-ATL-08",
+        "VLF-VC-01",
+        "VLF-VC-02",
+        "VLF-VC-03",
+        "VLF-VC-04",
+        "VLF-VC-05",
+        "VLF-VC-06",
+        "VLF-LN-01",
+        "VLF-LN-02",
+        "VLF-LN-03",
+        "VLF-LN-04",
+        "VLF-LN-05",
+        "VLF-LN-06",
+        "VLF-FG-01",
+        "VLF-FG-02",
+        "VLF-FG-03",
+        "VLF-FG-04",
+        "VLF-FG-05",
+        "VLF-FG-06",
+        "AC-ADV-01",
+        "AC-ADV-02",
+        "AC-ADV-03",
+        "AC-ADV-04",
+        "AC-ADV-05",
+        "AC-ADV-06",
+        "AC-ADV-07",
+        "AC-ADV-08",
+        "AC-CL-01",
+        "AC-CL-02",
+        "AC-CL-03",
+        "AC-CL-04",
+        "AC-CL-05",
+        "AC-CL-06",
+        "AC-CL-07",
+        "AC-CL-08"
+      ]
+    }
+  },
+  "byClient": {
+    "gemini": {
+      "dedicatedProbes": [
+        "AC-CL-01",
+        "AC-CL-02",
+        "AC-CL-07",
+        "AC-CL-08"
+      ],
+      "recommendedT1": [
+        "MK-GH-02",
+        "MK-NT-01",
+        "MK-NT-02",
+        "UA-UNI-01",
+        "UA-UNI-04",
+        "UA-UNI-05",
+        "UA-ATL-01",
+        "UA-ATL-02",
+        "UA-ATL-04",
+        "UA-ATL-06",
+        "VLF-VC-01",
+        "VLF-VC-04",
+        "VLF-LN-01",
+        "VLF-LN-03",
+        "AC-ADV-01",
+        "AC-ADV-02",
+        "AC-ADV-06",
+        "AC-CL-07",
+        "AC-CL-08"
+      ]
+    },
+    "chatgpt": {
+      "dedicatedProbes": [
+        "AC-CL-03",
+        "AC-CL-04",
+        "AC-CL-06",
+        "AC-CL-07",
+        "AC-CL-08"
+      ],
+      "recommendedT1": [
+        "MK-GH-02",
+        "MK-NT-01",
+        "MK-NT-02",
+        "UA-UNI-01",
+        "UA-UNI-04",
+        "UA-UNI-05",
+        "UA-ATL-01",
+        "UA-ATL-02",
+        "UA-ATL-04",
+        "UA-ATL-06",
+        "VLF-VC-01",
+        "VLF-VC-04",
+        "VLF-LN-01",
+        "VLF-LN-03",
+        "AC-ADV-01",
+        "AC-ADV-02",
+        "AC-ADV-06",
+        "AC-CL-03",
+        "AC-CL-07",
+        "AC-CL-08"
+      ]
+    },
+    "claude": {
+      "dedicatedProbes": [
+        "AC-CL-05",
+        "AC-CL-06",
+        "AC-CL-08"
+      ],
+      "recommendedT1": [
+        "MK-GH-02",
+        "MK-NT-01",
+        "MK-NT-02",
+        "UA-UNI-01",
+        "UA-UNI-04",
+        "UA-UNI-05",
+        "UA-ATL-01",
+        "UA-ATL-02",
+        "UA-ATL-04",
+        "UA-ATL-06",
+        "VLF-VC-01",
+        "VLF-VC-04",
+        "VLF-LN-01",
+        "VLF-LN-03",
+        "AC-ADV-01",
+        "AC-ADV-02",
+        "AC-ADV-06",
+        "AC-CL-05",
+        "AC-CL-08"
+      ]
+    },
+    "codex": {
+      "dedicatedProbes": [
+        "AC-CL-06"
+      ],
+      "recommendedT1": [
+        "MK-GH-02",
+        "MK-NT-01",
+        "MK-NT-02",
+        "UA-UNI-01",
+        "UA-UNI-04",
+        "UA-UNI-05",
+        "UA-ATL-01",
+        "UA-ATL-02",
+        "UA-ATL-04",
+        "UA-ATL-06",
+        "VLF-VC-01",
+        "VLF-VC-04",
+        "VLF-LN-01",
+        "VLF-LN-03",
+        "AC-ADV-01",
+        "AC-ADV-02",
+        "AC-ADV-06"
+      ]
+    }
+  },
+  "byUpstream": {
+    "github": [
+      "MK-GH-01",
+      "MK-GH-02",
+      "MK-GH-03",
+      "MK-GH-04",
+      "MK-GH-05",
+      "MK-GH-06",
+      "MK-GH-07",
+      "MK-GH-08",
+      "MK-GH-09",
+      "UA-UNI-01",
+      "UA-UNI-02",
+      "UA-UNI-03",
+      "UA-UNI-04",
+      "UA-UNI-05",
+      "UA-UNI-06",
+      "UA-UNI-07",
+      "UA-UNI-08",
+      "UA-ATL-01",
+      "UA-ATL-02",
+      "UA-ATL-03",
+      "UA-ATL-04",
+      "UA-ATL-05",
+      "UA-ATL-06",
+      "UA-ATL-07",
+      "UA-ATL-08",
+      "AC-ADV-01",
+      "AC-ADV-02",
+      "AC-ADV-03",
+      "AC-ADV-04",
+      "AC-ADV-05",
+      "AC-ADV-06",
+      "AC-ADV-07",
+      "AC-ADV-08",
+      "AC-CL-01",
+      "AC-CL-02",
+      "AC-CL-03",
+      "AC-CL-04",
+      "AC-CL-05",
+      "AC-CL-06",
+      "AC-CL-07",
+      "AC-CL-08"
+    ],
+    "notion": [
+      "MK-NT-01",
+      "MK-NT-02",
+      "MK-NT-03",
+      "MK-NT-04",
+      "MK-NT-05",
+      "MK-NT-06",
+      "MK-NT-07",
+      "UA-UNI-03",
+      "UA-UNI-08",
+      "UA-ATL-01",
+      "UA-ATL-02",
+      "UA-ATL-06",
+      "AC-ADV-06",
+      "AC-CL-08"
+    ],
+    "vercel": [
+      "UA-UNI-05",
+      "UA-UNI-07",
+      "UA-ATL-01",
+      "UA-ATL-02",
+      "UA-ATL-04",
+      "UA-ATL-07",
+      "UA-ATL-08",
+      "VLF-VC-01",
+      "VLF-VC-02",
+      "VLF-VC-03",
+      "VLF-VC-04",
+      "VLF-VC-05",
+      "VLF-VC-06",
+      "AC-ADV-01",
+      "AC-ADV-05",
+      "AC-CL-02",
+      "AC-CL-03",
+      "AC-CL-08"
+    ],
+    "linear": [
+      "UA-UNI-06",
+      "UA-UNI-07",
+      "UA-UNI-08",
+      "UA-ATL-02",
+      "UA-ATL-04",
+      "UA-ATL-06",
+      "VLF-LN-01",
+      "VLF-LN-02",
+      "VLF-LN-03",
+      "VLF-LN-04",
+      "VLF-LN-05",
+      "VLF-LN-06",
+      "AC-ADV-01",
+      "AC-ADV-06",
+      "AC-CL-02",
+      "AC-CL-03",
+      "AC-CL-05",
+      "AC-CL-08"
+    ],
+    "figma": [
+      "VLF-FG-01",
+      "VLF-FG-02",
+      "VLF-FG-03",
+      "VLF-FG-04",
+      "VLF-FG-05",
+      "VLF-FG-06"
+    ]
+  },
+  "entries": [
+    {
+      "id": "MK-GH-01",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T2",
+      "access": "write",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "MK-GH-02",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "MK-GH-03",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T2",
+      "access": "write",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "MK-GH-04",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T2",
+      "access": "write",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "MK-GH-05",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T2",
+      "access": "write",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "MK-GH-06",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T3",
+      "access": "read",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "MK-GH-07",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "MK-GH-08",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T3",
+      "access": "write",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "MK-GH-09",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T3",
+      "access": "read",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "MK-NT-01",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "notion"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "MK-NT-02",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "notion"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "MK-NT-03",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T2",
+      "access": "write",
+      "upstreams": [
+        "notion"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "MK-NT-04",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T3",
+      "access": "read",
+      "upstreams": [
+        "notion"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "MK-NT-05",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "notion"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "MK-NT-06",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T3",
+      "access": "read",
+      "upstreams": [
+        "notion"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "MK-NT-07",
+      "file": "mcpmark-gold.json",
+      "batch": "batch-1-mcpmark",
+      "tier": "T3",
+      "access": "write",
+      "upstreams": [
+        "notion"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": []
+    },
+    {
+      "id": "UA-UNI-01",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "faulty_synthesis",
+        "hallucinated_facts"
+      ]
+    },
+    {
+      "id": "UA-UNI-02",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T2",
+      "access": "write",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "constraint_violations",
+        "malformed_parameters"
+      ]
+    },
+    {
+      "id": "UA-UNI-03",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T2",
+      "access": "read-write",
+      "upstreams": [
+        "github",
+        "notion"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "early_termination",
+        "faulty_synthesis"
+      ]
+    },
+    {
+      "id": "UA-UNI-04",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "task_misunderstanding",
+        "early_termination"
+      ]
+    },
+    {
+      "id": "UA-UNI-05",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "github",
+        "vercel"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "response_misparsing",
+        "logical_errors"
+      ]
+    },
+    {
+      "id": "UA-UNI-06",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "linear",
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "faulty_synthesis",
+        "response_misparsing"
+      ]
+    },
+    {
+      "id": "UA-UNI-07",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "vercel",
+        "github",
+        "linear"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "early_termination",
+        "failed_error_recovery"
+      ]
+    },
+    {
+      "id": "UA-UNI-08",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T2",
+      "access": "read-write",
+      "upstreams": [
+        "linear",
+        "github",
+        "notion"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "early_termination",
+        "constraint_violations"
+      ]
+    },
+    {
+      "id": "UA-ATL-01",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "github",
+        "vercel",
+        "notion"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "wrong_tool_selection",
+        "no_tool_use"
+      ]
+    },
+    {
+      "id": "UA-ATL-02",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "github",
+        "vercel",
+        "linear",
+        "notion"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "early_termination"
+      ]
+    },
+    {
+      "id": "UA-ATL-03",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "faulty_synthesis",
+        "logical_errors"
+      ]
+    },
+    {
+      "id": "UA-ATL-04",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "github",
+        "vercel",
+        "linear"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "response_misparsing"
+      ]
+    },
+    {
+      "id": "UA-ATL-05",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "failed_error_recovery"
+      ]
+    },
+    {
+      "id": "UA-ATL-06",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "github",
+        "linear",
+        "notion"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "hallucinated_facts",
+        "no_tool_use"
+      ]
+    },
+    {
+      "id": "UA-ATL-07",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "github",
+        "vercel"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "constraint_violations"
+      ]
+    },
+    {
+      "id": "UA-ATL-08",
+      "file": "universe-atlas-gold.json",
+      "batch": "batch-2-universe-atlas",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "github",
+        "vercel"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "logical_errors",
+        "faulty_synthesis"
+      ]
+    },
+    {
+      "id": "VLF-VC-01",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "vercel"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "response_misparsing",
+        "faulty_synthesis"
+      ]
+    },
+    {
+      "id": "VLF-VC-02",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "vercel"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "response_misparsing",
+        "constraint_violations"
+      ]
+    },
+    {
+      "id": "VLF-VC-03",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "vercel"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "early_termination",
+        "response_misparsing"
+      ]
+    },
+    {
+      "id": "VLF-VC-04",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "vercel"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "constraint_violations",
+        "hallucinated_facts"
+      ]
+    },
+    {
+      "id": "VLF-VC-05",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T3",
+      "access": "read",
+      "upstreams": [
+        "vercel"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "failed_error_recovery",
+        "wrong_tool_selection"
+      ]
+    },
+    {
+      "id": "VLF-VC-06",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "vercel"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "wrong_tool_selection",
+        "constraint_violations"
+      ]
+    },
+    {
+      "id": "VLF-LN-01",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "linear"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "malformed_parameters",
+        "response_misparsing"
+      ]
+    },
+    {
+      "id": "VLF-LN-02",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "linear"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "early_termination",
+        "faulty_synthesis"
+      ]
+    },
+    {
+      "id": "VLF-LN-03",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "linear"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "failed_error_recovery",
+        "malformed_parameters"
+      ]
+    },
+    {
+      "id": "VLF-LN-04",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T3",
+      "access": "read",
+      "upstreams": [
+        "linear"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "response_misparsing",
+        "constraint_violations"
+      ]
+    },
+    {
+      "id": "VLF-LN-05",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "linear"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "response_misparsing",
+        "logical_errors"
+      ]
+    },
+    {
+      "id": "VLF-LN-06",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "linear"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "failed_error_recovery",
+        "wrong_tool_selection"
+      ]
+    },
+    {
+      "id": "VLF-FG-01",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "figma"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": true,
+      "failureModeTarget": [
+        "wrong_tool_selection",
+        "constraint_violations"
+      ]
+    },
+    {
+      "id": "VLF-FG-02",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "figma"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": true,
+      "failureModeTarget": [
+        "response_misparsing",
+        "constraint_violations"
+      ]
+    },
+    {
+      "id": "VLF-FG-03",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T3",
+      "access": "read",
+      "upstreams": [
+        "figma"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": true,
+      "failureModeTarget": [
+        "faulty_synthesis",
+        "hallucinated_facts"
+      ]
+    },
+    {
+      "id": "VLF-FG-04",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T3",
+      "access": "read",
+      "upstreams": [
+        "figma"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": true,
+      "failureModeTarget": [
+        "response_misparsing",
+        "early_termination"
+      ]
+    },
+    {
+      "id": "VLF-FG-05",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T3",
+      "access": "read",
+      "upstreams": [
+        "figma"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": true,
+      "failureModeTarget": [
+        "wrong_tool_selection",
+        "faulty_synthesis"
+      ]
+    },
+    {
+      "id": "VLF-FG-06",
+      "file": "vercel-linear-figma-gold.json",
+      "batch": "batch-3-vercel-linear-figma",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "figma"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": true,
+      "failureModeTarget": [
+        "failed_error_recovery",
+        "response_misparsing"
+      ]
+    },
+    {
+      "id": "AC-ADV-01",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "github",
+        "vercel",
+        "linear"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "wrong_tool_selection",
+        "early_termination"
+      ]
+    },
+    {
+      "id": "AC-ADV-02",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "failed_error_recovery",
+        "response_misparsing"
+      ]
+    },
+    {
+      "id": "AC-ADV-03",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T2",
+      "access": "write",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "failed_error_recovery",
+        "constraint_violations"
+      ]
+    },
+    {
+      "id": "AC-ADV-04",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T2",
+      "access": "read-write",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "malformed_parameters",
+        "response_misparsing"
+      ]
+    },
+    {
+      "id": "AC-ADV-05",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "github",
+        "vercel"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "malformed_parameters",
+        "failed_error_recovery"
+      ]
+    },
+    {
+      "id": "AC-ADV-06",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "github",
+        "linear",
+        "notion"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "hallucinated_facts",
+        "no_tool_use"
+      ]
+    },
+    {
+      "id": "AC-ADV-07",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "constraint_violations"
+      ]
+    },
+    {
+      "id": "AC-ADV-08",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "all"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "failed_error_recovery",
+        "early_termination"
+      ]
+    },
+    {
+      "id": "AC-CL-01",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T2",
+      "access": "read-write",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "gemini"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "constraint_violations"
+      ]
+    },
+    {
+      "id": "AC-CL-02",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T3",
+      "access": "read",
+      "upstreams": [
+        "github",
+        "linear",
+        "vercel"
+      ],
+      "targetClients": [
+        "gemini"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "failed_error_recovery"
+      ]
+    },
+    {
+      "id": "AC-CL-03",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "github",
+        "linear",
+        "vercel"
+      ],
+      "targetClients": [
+        "chatgpt"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "wrong_tool_selection",
+        "response_misparsing"
+      ]
+    },
+    {
+      "id": "AC-CL-04",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "chatgpt"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "failed_error_recovery"
+      ]
+    },
+    {
+      "id": "AC-CL-05",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "github",
+        "linear"
+      ],
+      "targetClients": [
+        "claude"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "malformed_parameters",
+        "response_misparsing"
+      ]
+    },
+    {
+      "id": "AC-CL-06",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T2",
+      "access": "read",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "codex",
+        "claude",
+        "chatgpt"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "constraint_violations",
+        "response_misparsing"
+      ]
+    },
+    {
+      "id": "AC-CL-07",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "github"
+      ],
+      "targetClients": [
+        "gemini",
+        "chatgpt"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "constraint_violations"
+      ]
+    },
+    {
+      "id": "AC-CL-08",
+      "file": "adversarial-client-gold.json",
+      "batch": "batch-4-adversarial-and-clients",
+      "tier": "T1",
+      "access": "read",
+      "upstreams": [
+        "github",
+        "vercel",
+        "linear",
+        "notion"
+      ],
+      "targetClients": [
+        "gemini",
+        "chatgpt",
+        "claude"
+      ],
+      "rateLimitSensitive": false,
+      "failureModeTarget": [
+        "faulty_synthesis",
+        "early_termination"
+      ]
+    }
+  ]
+}
