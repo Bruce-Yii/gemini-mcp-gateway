@@ -1,9 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   aggregateEnvelopes, classifyError, renderScorecard, isTruncated,
   protocolVersionOf, executorOf, serversOf, evalModeOf, fourDimensionKeyOf,
-  listR2Keys, readR2Envelope,
+  listR2Keys, readR2Envelope, encodeEnvelopeBundle, writeEnvelopeBundle, readEnvelopeBundle,
 } from '../scripts/capture-digest.mjs';
 
 const envelope = (status, durationMs, raw = '{}', extra = {}) => ({
@@ -488,4 +491,29 @@ test('eval-closure: cold-start upstream_connect events become serviceSnapshots',
   assert.equal(metrics.serviceSnapshots.byServer.notion.needsReauth, true);
   assert.deepEqual(metrics.serviceSnapshots.onlineServers, ['github']);
   assert.deepEqual(metrics.serviceSnapshots.currentOfflineServers, ['notion']);
+});
+
+// ── Single-read bundle: digest writes it, analyzer reuses it ─────────────────
+
+test('envelope bundle: NDJSON round-trips and tolerates blank lines', async () => {
+  const store = {};
+  const envelopes = [{ requestId: 'a', ts: '2026-11-24T19:00:00.000Z' }, { requestId: 'b' }];
+  const text = encodeEnvelopeBundle(envelopes);
+  assert.equal(text.trim().split('\n').length, 2);
+  assert.equal(text.endsWith('\n'), true);
+  // Round-trip through the exported writer/reader using a temp file.
+  const dir = mkdtempSync(join(tmpdir(), 'bundle-'));
+  try {
+    const file = join(dir, 'envelopes.ndjson');
+    const written = await writeEnvelopeBundle(file, envelopes);
+    assert.equal(written, 2);
+    assert.deepEqual(await readEnvelopeBundle(file), envelopes);
+    writeFileSync(join(dir, 'blanks.ndjson'), '\n{"requestId":"c"}\n\n', 'utf8');
+    assert.deepEqual(await readEnvelopeBundle(join(dir, 'blanks.ndjson')), [{ requestId: 'c' }]);
+    assert.equal(encodeEnvelopeBundle([]), '');
+    store.ok = true;
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  assert.equal(store.ok, true);
 });

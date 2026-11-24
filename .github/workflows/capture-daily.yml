@@ -54,9 +54,17 @@ jobs:
           R2_AUTH_EMAIL: ${{ secrets.R2_AUTH_EMAIL }}
           R2_AUTH_KEY: ${{ secrets.R2_AUTH_KEY }}
         run: |
+          # ONE R2 read per run: the digest fetches the window once, writes the
+          # scorecard AND an NDJSON bundle; the analyzer step reuses the bundle
+          # instead of hitting the Cloudflare REST API again (1200 req/5min).
           DAY="$(date -u +%F)"
           echo "day=$DAY" >> "$GITHUB_OUTPUT"
-          node scripts/capture-digest.mjs --date "$DAY" --out work/digest
+          LAST_MIN="${{ github.event.inputs.last_minutes }}"
+          if [ -n "$LAST_MIN" ] && [ "$LAST_MIN" != "0" ]; then
+            node scripts/capture-digest.mjs --last-minutes "$LAST_MIN" --out work/digest --bundle-out work/digest/envelopes.ndjson
+          else
+            node scripts/capture-digest.mjs --date "$DAY" --out work/digest --bundle-out work/digest/envelopes.ndjson
+          fi
       - name: Analyze clusters with the free model (advisory only)
         continue-on-error: true
         env:
@@ -68,7 +76,7 @@ jobs:
           ANALYZER_MODEL: ${{ secrets.ANALYZER_MODEL }}
           ANALYZER_API_KEY: ${{ secrets.ANALYZER_API_KEY }}
         run: |
-          ARGS=(--out work/analyzer)
+          ARGS=(--out work/analyzer --bundle work/digest/envelopes.ndjson)
           LAST_MIN="${{ github.event.inputs.last_minutes }}"
           PLAT="${{ github.event.inputs.platform }}"
           CMT="${{ github.event.inputs.commit }}"

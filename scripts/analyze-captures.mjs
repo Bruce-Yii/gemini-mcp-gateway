@@ -14,7 +14,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
-  listR2Keys, readR2Envelope, readDirEnvelopes, aggregateEnvelopes, classifyError,
+  listR2Keys, readR2Envelope, readDirEnvelopes, readEnvelopeBundle, aggregateEnvelopes, classifyError,
   isTruncated, isModelTruncationSuspect, upstreamOf, digestSessions, digestProjects,
   clientPlatformOf, clientProfileOf, protocolVersionOf, executorOf,
   buildCommitOf, serversOf, evalModeOf, UNKNOWN_BUCKET,
@@ -787,6 +787,9 @@ async function main() {
   const arg = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : '');
   const date = arg('--date') || new Date().toISOString().slice(0, 10);
   const dir = arg('--dir');
+  // Single-read reuse: capture-digest already fetched these envelopes and wrote
+  // an NDJSON bundle; reading it here avoids a second R2 REST burst (1200/5min).
+  const bundle = arg('--bundle');
   const out = arg('--out') || join('work', 'analyzer');
   const dryRun = args.includes('--dry-run');
   const since = arg('--since');
@@ -802,7 +805,9 @@ async function main() {
   const { lastMinutes, commit, platform, evalMode } = filters;
 
   let envelopes;
-  if (dir) {
+  if (bundle) {
+    envelopes = await readEnvelopeBundle(bundle);
+  } else if (dir) {
     envelopes = await readDirEnvelopes(dir);
   } else if (lastMinutes > 0) {
     const now = new Date();
