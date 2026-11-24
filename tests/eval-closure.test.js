@@ -306,12 +306,16 @@ test('BADCASES: schema requires activeEvalId/regression columns; --strict reject
   const separator = '|---|---|---|---|---|---|---|---|---|---|---|';
   const linked = '| **BC-999** | `gemini` | `github` | 正文 | x | y | `3dd206f` | `未验证` | 待复验 | ae_20261124_abcdef12 | tests/x.test.js |';
   const legacy = '| **BC-998** | `gemini` | `github` | 正文 | x | y | `3dd206f` | `未验证` | 待复验 | — | — |';
+  const newNoLink = '| **BC-997** | `gemini` | `github` | 正文 | x | [active-eval](active-eval-2026-11-24-window1.json) | `3dd206f` | `未验证` | 待复验 | — | — |';
   const ok = validateBadcases([header, separator, linked].join('\n'));
   assert.equal(ok.ok, true, JSON.stringify(ok.errors));
   const warn = validateBadcases([header, separator, linked, legacy].join('\n'));
   assert.equal(warn.ok, true);
   assert.equal(warn.warnings.length, 2, 'legacy dashes are warnings by default');
-  const strict = validateBadcases([header, separator, linked, legacy].join('\n'), { strict: true });
-  assert.equal(strict.ok, false);
-  assert.ok(strict.errors.some((error) => /missing 关联 activeEvalId/.test(error)));
+  const strictLegacy = validateBadcases([header, separator, linked, legacy].join('\n'), { strict: true });
+  assert.equal(strictLegacy.ok, true, 'legacy rows without an active-eval source are exempt');
+  const strictNew = validateBadcases([header, separator, linked, newNoLink].join('\n'), { strict: true });
+  assert.equal(strictNew.ok, false);
+  assert.ok(strictNew.errors.some((error) => /missing 关联 activeEvalId/.test(error)));
 });
+

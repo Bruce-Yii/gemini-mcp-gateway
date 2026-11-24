@@ -1,0 +1,131 @@
+第二个如下，以下是基于刚才这几轮实际调用过程的真实复盘（未额外调用任何工具）：
+
+---
+
+### 0. 本次复盘的动作范围锚点
+
+* **涉及项目 / 仓库 / 上游**：`github:Bruce-Yii/recruitment-agent`（`dsh/dsh-recruitment` 插件与 `db/migrations`），经由 `Gemini Mcp Gateway`（`execute` / `execute_read`）调用 `github__*`、`codemode.*` 与 `github_actions_*` 助手。
+* **起始动作锚点**：加载网关工具后，读取 `test/cross-tenant-auth-isolation` 分支上的 `dsh/dsh-recruitment/test/integration/cross-tenant-auth-isolation.test.ts` 与 `dsh/dsh-recruitment/src/db/auth.ts`，修复 PR #105 的测试 SQL 报错。
+* **结束动作锚点**：调用 `codemode.github_actions_list_workflow_jobs` 与 `codemode.github_actions_get_job_logs` 排查 PR #107（run `45408951027` / job `138497205718`）全部 5 个 Job 在 2 秒内空失败的问题。
+* **期间碰过的关键标识**：
+* **PR**：`#105`（分支 `test/cross-tenant-auth-isolation`，squash-merge `faf0522e32eebc19250f369dbdfde7a42e8afa1d`）、`#106`（分支 `feat/eval-v2-l3-funnel-and-ci-gate`，squash-merge `c112fbe4907c5c5baec7574fe5d598ab30e383f3`）、`#107`（分支 `feat/eval-v2-pg-stage-capture`）。
+* **Commit SHA**：`cb624c1c`、`e50625f3`（PR #105）；`cddac8d4`、`4ca19e8e`、`fd59831c`（PR #106）；`7738dc37`、`8869f000`（PR #107）。
+* **CI Run / Job ID**：`45295677726` / `138115311447`；`45303891167` / `138142854621`；`45304693491` / `138145532235`；`45324733577` / `138211487242`；`45404415365` / `138481136435`；`45408951027` / `138497205718`。
+* **关键文件**：`cross-tenant-auth-isolation.test.ts`、`src/db/auth.ts`、`test/eval/run-eval-v2.mjs`、`v2-l3-runner.ts`、`v2-funnel-driver.ts`、`v2-funnel-driver.test.ts`、`v2-cli-wiring.test.ts`、`v2-pg-stage-extractor.ts`、`v2-pg-stage-extractor.test.ts`、`capture-real-inputs.mjs`、`evaluation-card.ts`、`.github/workflows/ci.yml`、`db/migrations/0001_init.sql` / `0002_seed.sql` / `0004_stage_catalog.sql` / `0007_decision_integrity.sql`。
+
+
+
+---
+
+### 1. 走弯路、重试、猜参数与重写写法的具体坑点
+
+1. **网关会话中途掉线导致 `unknown tool name`（被迫中断一轮）**
+* 在检查 PR #105 时，直接调用 `custom_mcp__7dc8c7dacb47bf7d000660b6db2abf2901bc1b17f4366331:execute` 报错 `unknown tool name`，紧接着调 `retriever:expand_tools` 也返回 `not-found`，必须由你重新 `@Gemini Mcp Gateway` 才恢复挂载。
+
+
+2. **返回值 ~20KB 整块截断（`--- TRUNCATED ---`），被迫连续多轮切片重读**
+* 读 `run-eval-v2.mjs`（21,672 chars）和 `.github/workflows/ci.yml`（52,166 chars）时，一次返回多个大字段会触发网关截断，导致我为了看 `run-eval-v2.mjs` 尾部和 `ci.yml` 的 `plugin` job 段落，连续多发了 2 次 `execute_read`（先 `slice(240)`，再 `slice(420)`）。
+* 同样在查 `0001_init.sql` 建表语句时，一次性返回 7 张表触发截断（21,658 chars），没看到 `resume_version` 后面 `ck_resume_version_status` 的约束枚举，后来在修 PR #107 报错时才专门补查一次 `ck_resume_version_status` 拿到 `'PARSED'`。
+
+
+3. **`codemode.grepSnippet` 的 `window` 单位与预期不符**
+* 我调用 `grepSnippet(l1Text, "L1_person_lifecycle_zero_violation", 15)` 本意是拿前后 15 行上下文，结果返回的是 `window: 20` 字符的碎片（`")\n  },\n\n  L1_person_"`），完全无法看清函数签名，下一轮只好自己在脚本里手写 `findBlock(lines, needle, 28)` 按行切片。
+
+
+4. **`github_actions_get_job_logs` 只有全量裸文本，直接 `slice(-3000)` 全是容器销毁噪音**
+* PR #106、#107 的 `dsh plugin` 失败后，`log.text` 末尾 3000 字符全被 PostgreSQL 容器 `checkpoint complete` 和 `docker rm` 清理日志占满，真正的 `✖` 测试失败行在更前面；被迫每次都要多跑一轮 `execute_read` 在沙箱里按 `✖ ` / `AssertionError` / `##[error]` 自己写循环捞上下文。
+
+
+5. **`steps: []` + 日志 404 时缺少失败原因诊断**
+* PR #107 最后一次 `45408951027` 全部 5 个 Job 在 2 秒内失败，`github_actions_list_workflow_jobs` 返回 `steps: []`，`github_actions_get_job_logs` 返回 `HTTP 404`。网关没有返回 workflow run 级别的 annotations / check-run `output.summary` 或 billing/quota 提示，只能先推测再让你去网页确认。
+
+
+6. **其他小摩擦**：
+* 第一轮用 `Promise.all` 并发 5 个 `github__get_file_contents` 时，因为 `run-eval-v2.mjs` 路径猜成 `scripts/` 而非 `test/eval/`，单个 404 直接拖垮整批返回，下一轮换用 `safeAll` 才保住其余结果；
+* `github__create_pull_request` 返回体结构仍需要用正则 `/\/pull\/(\d+)/` 从 `html_url` 兜底提 PR 号（沿用之前的防御写法）。
+
+
+
+---
+
+### 2. 有没有因为工具描述太长或没写清导致漏用内置能力？
+
+**有，而且很明显。** `execute` / `execute_read` 的工具描述是一整段接近 1,500 词、没有分段排版的纯文本大长文：
+
+1. **漏用 `codemode.sliceLines` / `readFileRange**`：虽然描述里写了 `sliceLines` 和 `readFileRange`，但因为大段文字里混杂了冷启动状态、Batch 11、GitHub Actions、Truncation 等十几个主题，写脚本时我下意识还是用原生 JS `text.split("\n").slice(...)`，没调用内置 `sliceLines`。
+2. **误用 `grepSnippet` 的 `window` 参数**：描述只写了 `grepSnippet(text, keyword, window)`，没写清 `window` 是**字符数**且有最小值/默认钳位，导致传入 `15` 后得到无用的 20 字符窗口。
+3. **没有用 `codemode.applyFilePatch**`：多文件修改时直接用 `github__get_file_contents` + JS `replace` + `github__create_or_update_file` / `github__push_files`，因为描述里 `applyFilePatch` 提到的 `patch` 格式没有给出具体示例（unified diff 还是 `{old, new}`），不如自己 `string.replace` 确定。
+
+---
+
+### 3. 返回结果：哪些冗余撑上下文，哪些关键字段缺失？
+
+* **冗余撑上下文的字段**：
+1. `waitForPrChecks` 的 `checkRuns[]`：哪怕只需要看状态，每条也带了完整 `html_url`、`details_url`、`started_at`、`completed_at`；我每次在返回前都手动 `.map(r => ({ name, status, conclusion, id }))` 裁剪。
+2. `github__create_or_update_file` / `github__push_files`：会返回整段 `content` 元数据、完整 author/committer/parents 对象，实际我只需要 `commit.sha` 和 `html_url`。
+3. `github_actions_get_job_logs`：一旦直接返回就是全量兆字节级日志，必须自己在沙箱里截断和过滤。
+
+
+* **缺失导致额外多查一轮的关键字段**：
+1. `waitForPrChecks` **顶层缺 `runId**`：失败后想调 `github_actions_list_workflow_jobs({ run_id })` 必须从 `checkRuns[0].html_url` 里肉眼/正则拆出 `45303891167`。
+2. `waitForPrChecks` / `github_actions_*` **缺失败步骤与失败摘要提取**：没有把失败 job 对应的 `failedStep` 和日志里匹配 `✖ ` / `Error:` / `##[error]` 的片段一并返回，导致每次 CI 红了都要「先看 checkRuns → 再查 logs → 再写正则过滤」多走 1–2 轮。
+3. **缺 GitHub Actions Run Annotations / Check Suite 错误摘要**：当 `steps: []` 且日志 404（例如私有库额度耗尽、workflow 语法/权限拒绝）时，目前没有任何助手能取回 GitHub 页面顶部的错误横幅。
+
+
+
+---
+
+### 4. 宿主体验：弹窗频率、响应速度与稳定性
+
+* **审批弹窗频率**：`execute_read`（只读）和 `execute`（写操作）拆分得比较合理。查文件、查 CI、看日志走 `execute_read` 基本无打扰；改文件、建分支、提 PR、合并走 `execute` 才触发写入，整体频率可控。
+* **响应速度**：单次 `execute_read` / `execute` 很快（通常 1–3 秒内完成）；但 `waitForPrChecks` 在等 4–5 分钟的 CI 时，单次 28 秒轮询窗口注定超时返回 `in_progress`，还是得依赖你回「继续」再查。
+* **多步连续调用稳定性**：
+* 沙箱内部连续执行多步 GitHub API（例如一个 `execute` 里连续做 `createBranchIfMissing` → `get_file_contents` → `push_files` → `create_pull_request`，8–10 个动作打包成 1 轮）**非常稳**，原子 `push_files` 一次性推 5 个文件没出现过并发冲突。
+* **主要不稳定点在宿主侧 MCP 挂载生命周期**：对话空闲或跨一段时间后，出现过一次连接直接掉线（`unknown tool name` 且 `expand_tools` 返回 `not-found`），需要用户手动 `@Gemini Mcp Gateway` 才能重新挂上。
+
+
+
+---
+
+### 5. Top 5 高 ROI 改进清单（按投入产出比从高到低）与版本对比
+
+#### Top 5 改进清单
+
+1. **新增/增强 `waitForPrChecks` 或 `github_actions_diagnose_failure` 一键诊断失败（ROI 最高）**
+* **具体改法**：在 `waitForPrChecks` 返回里直接加上顶层 `runId`；并在存在失败 Job 时（或提供 `diagnoseFailedCheck({ owner, repo, pullNumber })`），自动拉取失败 Job 的 `failedSteps`、Check Run `annotations`（解决 `steps: []` / 日志 404 问题），并用内置正则（`✖ `、`AssertionError`、`Error:`、`##[error]`、`SQLSTATE`）过滤掉 `docker rm` / `checkpoint` 噪音，返回精准的 50 行故障上下文。
+* **预期收益**：每次修 CI 红灯可省下 **1–2 轮**「捞失败步骤 → 过滤日志尾部噪音」的来回。
+
+
+2. **修复网关空闲掉线 / 支持 `expand_tools` 自动重连**
+* **具体改法**：当 `custom_mcp__*` 工具在会话中已声明过但通道断开时，宿主在 `expand_tools` 或工具路由层自动重拉 MCP 进程，而不是直接返回 `not-found` 逼用户手动 `@Gemini Mcp Gateway`。
+* **预期收益**：消除对话中断，每次掉线省下 **1 轮人工唤醒**。
+
+
+3. **升级 `grepSnippet` 支持按「行」切片，且默认窗口改大**
+* **具体改法**：给 `grepSnippet` 增加 `{ unit: 'lines' | 'chars', before, after }`（或直接默认按行取前后 15 行），并在 `execute_read` 接近 20KB 截断阈值时，给出具体的截断字段名和行号提示。
+* **预期收益**：读长代码文件（如 `ci.yml`、`0001_init.sql`、`run-eval-v2.mjs`）时省下 **1–2 轮**补读切片。
+
+
+4. **把 `execute` / `execute_read` 工具描述精简并结构化（加示例、删重复）**
+* **具体改法**：现在一段 1,500 词里有不少重复规则（比如 `unwrapBatch`、`Truncation`、`Batch contract` 各自重复讲了两遍）；压缩到 400 词以内分节列出，给 `applyFilePatch` 和 `grepSnippet` 各补 1 行真实参数示例。
+* **预期收益**：减少每次上下文 Token 占用，并让内置 helper 的实际命中率明显提高。
+
+
+5. **给 `waitForPrChecks` / 常用多文件读提供更明确的批处理默认保护**
+* **具体改法**：在文档首行用加粗提示「多文件读取优先 `safeAll`，不要用 `Promise.all`」，或提供 `readRepoFiles({ owner, repo, ref, paths })` 一次返回 `{ path, sha, content, error }`，单文件 404 不炸整批、超长文件自动带行号范围。
+* **预期收益**：避免因单个路径猜错导致整批并发读作废，省下 **1 轮重试**。
+
+
+
+#### 与之前版本的直观对比
+
+* **明显变好的地方**：
+* `fileResult(r).content` 终于彻底干掉了之前烦人的 `successfully downloaded text file (SHA: ...)\n` 前缀，拿出来就能直接改直接推，零清洗成本；
+* `github__get_file_contents` 的 `ref` 参数行为对齐了，不再和 `branch` 打架；
+* `github__push_files` 单次原子提交多个文件非常丝滑（这次 PR #106 一次推 5 个文件、PR #107 一次推 3 个文件零失误）；
+* `waitForPrChecks` 和 `github_actions_*` 助手把原本需要自己拼 4–5 个 GitHub REST 请求的流程压缩成了一次调用。
+
+
+* **变差或新暴露的短板**：
+* 工具描述随着功能堆叠变得越来越长、越来越像补丁合集（同一条规则重复出现），反而不利快速检索 helper 用法；
+* `execute_read` 的截断阈值对多字段返回偏保守，遇到大 SQL/YAML 文件很容易连环截断。

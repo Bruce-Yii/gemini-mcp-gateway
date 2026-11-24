@@ -1,0 +1,86 @@
+{
+  "schema": "active-eval.v1",
+  "activeEvalId": "ae_20261124_e20b7502",
+  "recordedAt": "2026-11-24T14:46:12.070Z",
+  "platform": "gemini",
+  "buildCommit": "3dd206f",
+  "window": {
+    "from": "2026-11-24T13:00:00.000Z",
+    "to": "2026-11-24T14:10:00.000Z"
+  },
+  "anchors": {
+    "repos": [
+      "github:Bruce-Yii/gemini-mcp-gateway",
+      "vercel:gemini-mcp-gateway"
+    ],
+    "prs": [
+      23
+    ],
+    "issues": [
+      12,
+      13,
+      14,
+      15
+    ],
+    "branches": [
+      "main"
+    ],
+    "files": [
+      "src/evidence/capture.js",
+      "docs/eval/EVAL-CLOSURE.md",
+      "scripts/record-active-eval.mjs",
+      "scripts/compare-active-passive.mjs",
+      "scripts/check-badcases.mjs",
+      "docs/eval/scorecard-2026-11-24.md"
+    ],
+    "startAction": "在生产 3dd206f 上 execute_read 同读 41,278B src/evidence/capture.js + github__list_commits + vercel__list_deployments（AT-XU-01）",
+    "endAction": "合并 PR #23（adf205d）并 execute_read 读取 main 上 EVAL-CLOSURE/record-active-eval/compare-active-passive/check-badcases"
+  },
+  "prompt": "金标样本 #1 — Gemini Web 主动在线评测复盘（gemini-mcp-gateway 窗口）\n0. 本次复盘的动作范围锚点（用于和网关日志精准对齐，不编造时间戳）\n\n涉及的项目 / 仓库 / 上游：github:Bruce-Yii/gemini-mcp-gateway、vercel:gemini-mcp-gateway（跨 github + vercel 双上游）\n\n当前测试构建：3dd206f（dpl_6MdJAy2eVD9Re4ZcqduXyh9jvQvD；本会话前半段旧构建 1481408 上的 PR #8–#22 与 Issue #12–#15 明确隔离，不跨构建混算）\n\n起始动作锚点：在生产 3dd206f 上调用 execute_read 同时读取 41,278 字节的 src/evidence/capture.js、github__list_commits 与 vercel__list_deployments（跨上游漂移核验 AT-XU-01）\n\n结束动作锚点：合并 PR #23（squash commit adf205d）并调用 execute_read 读取 main 上的 docs/eval/EVAL-CLOSURE.md、scripts/record-active-eval.mjs、scripts/compare-active-passive.mjs、scripts/check-badcases.mjs\n\n期间碰过的关键标识：PR #23（adf205d）、docs/eval/scorecard-2026-11-24.md、docs/eval/EVAL-CLOSURE.md、src/evidence/capture.js、scripts/record-active-eval.mjs、scripts/compare-active-passive.mjs、scripts/check-badcases.mjs、dpl_8J71rsV3hFbmAdVXWUAqvGZsqrdU、dpl_6MdJAy2eVD9Re4ZcqduXyh9jvQvD\n\n1. 实际调用链与踩坑 / 绕路明细\n\ncodemode.normalizeMerge(mergeRaw) 仍返回 number: null, url: null：合并 PR #23 时实际返回 { number: null, url: null, sha: \"adf205d1362daa68baf5fdde6174d97a17fe18f1\", raw: { sha, merged: true, message } }（对应 Issue #15 第 2 项尚未修）。\n\nvercel__list_deployments 返回结构双层嵌套：经 codemode.unwrap() 解包后，列表藏在 deployments.deployments 下，脚本不得不写防御分支 vcUnwrapped?.deployments?.deployments || vcUnwrapped?.deployments。\n\ngithub_actions_list_workflow_runs 与 github__list_commits 返回形状不统一：前者数据在 data.workflow_runs，后者直接是数组，每次写脚本都要写 val?.data?.workflow_runs || val?.workflow_runs。\n\n2. 工具描述与内置能力可发现性\n\nexecute / execute_read 的工具描述过长（大段连续文本），虽然把 safeAll / unwrapBatch / fileResult / prResult / writeFiles / waitForPrChecks 都写进去了，但信息密度过高，复杂任务里容易扫漏参数细节（例如本会话前半段误给 writeFiles 传了 files 而非 patches 且静默未推 commit）。\n\n3. 返回结果冗余与关键字段缺失\n\n冗余：vercel__list_deployments 默认带回 creator.uid、inspectorUrl、完整 meta 等大字段；normalizeMerge 返回里同时带 raw 和 rawUntrusted: \"untrusted-upstream-envelope\"，撑大返回。\n\n缺失：normalizeMerge 顶层 number / url 恒为 null；缺少对不同上游返回数组结构的统一轻量解包约定。\n\n4. 宿主体验（Gemini Web）\n\n在 3dd206f 上执行的多轮并发 execute_read（含跨 GitHub × Vercel 编排）与 execute（合并 PR #23）均一次性成功，无掉线重连、无 UI 截断、响应流畅；\n\n审批弹窗次数属于宿主前端 UI 行为，模型侧不可见，记为 unknown（由你补充实际弹窗感受）。\n\n5. Top 3 高性价比改进清单 & 前后对比（3dd206f vs 1481408）\n\n修完 Issue #15 剩余 2 项：清理 normalizeMerge 恒为 null 的字段（或支持透传 PR 号），以及给 writeFiles 误传 files / 默认 dryRun 增加显式提示或报错，消灭静默踩坑。\n\n统一高频上游列表工具的解包形状：对 vercel__list_deployments、github_actions_list_workflow_runs 这类双层嵌套返回提供一致提取，减少脚本防御性样板代码。\n\n精简 execute / execute_read 工具描述：把高频 helper 签名抽成紧凑速查块，降低长文本导致的误用。\n\n前后对比：\n\n✅ 显著变好：fileResult() 读 41,278 字节且正文含字面量 --- TRUNCATED --- 的 src/evidence/capture.js 返回 truncated: false、path: \"src/evidence/capture.js\"、正文完整到尾行（Issue #15 假阳性与 Issue #4 均已在生产根治）；跨 GitHub × Vercel 单轮并发非常顺畅；scorecard-2026-11-24.md 已准确分出 gemini 桶。\n\n⚠️ 未变：normalizeMerge 仍回 number/url: null；writeFiles 入参提示仍缺。\n\n✅ 无退化。",
+  "expected": {
+    "outcome": "跨 GitHub×Vercel 正常；fileResult 41,278B 不误报；normalizeMerge/writeFiles 仍有已知缺口",
+    "tools": [
+      "execute_read",
+      "execute",
+      "normalizeMerge",
+      "vercel__list_deployments",
+      "github__list_commits",
+      "github_actions_list_workflow_runs"
+    ],
+    "checks": [
+      "fileResult truncated:false",
+      "scorecard gemini bucket",
+      "normalizeMerge number/url null"
+    ]
+  },
+  "observed": {
+    "tools": [
+      "execute_read",
+      "execute"
+    ],
+    "results": [
+      "fileResult 41,278B truncated:false path ok",
+      "跨 GitHub×Vercel 单轮并发成功",
+      "normalizeMerge number:null url:null sha adf205d",
+      "vercel__list_deployments 双层 deployments.deployments",
+      "github_actions_list_workflow_runs data.workflow_runs vs github__list_commits array",
+      "writeFiles 传 files 而非 patches 静默未推",
+      "同窗 capture: 3 个 requestId 均在 3dd206f/gemini 窗口命中"
+    ],
+    "errors": [],
+    "requestIds": [
+      "03a21275-f6ac-4704-91c0-9b97fcee54b4",
+      "074fd58c-c9be-41a2-9249-0d9fb619e83c",
+      "03b09af2-3e0b-4148-80c4-320071112a29"
+    ],
+    "captureVerified": true,
+    "services": [],
+    "connectFailures": []
+  },
+  "source": {
+    "window": "Gemini web 主动窗口 #1（用户 2026-11-24T14:28Z 提供）",
+    "messageAt": "2026-11-24T14:28:45.000Z",
+    "rawTextSha256": "c8daa5220dafa474f21e63c9e01bfef409ea3960e07a45afafe225cd0be578fa",
+    "rawBytes": 4202
+  }
+}

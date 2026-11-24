@@ -1,0 +1,37 @@
+{
+  "schema": "active-passive-comparison.v1",
+  "activeEvalId": "ae_20261124_da4104fd",
+  "generatedAt": "2026-11-24T14:46:33.032Z",
+  "match": "unmatched",
+  "reasons": [
+    "no window/platform/build overlap, or passive data is missing",
+    "clientPlatform does not match the passive window"
+  ],
+  "checks": {
+    "build": "unknown",
+    "platform": "mismatch",
+    "window": "match",
+    "requestIds": "unknown"
+  },
+  "requestIds": {
+    "status": "unknown",
+    "matched": [],
+    "verified": [],
+    "unverified": [],
+    "missing": []
+  },
+  "coverage": [],
+  "missed": [],
+  "passive": {
+    "dataStatus": "HAS_DATA",
+    "requests": 12,
+    "platforms": [
+      "unknown"
+    ],
+    "buildCommits": [
+      "5039ac69d4e514bc11cdcc4fb2ce19d7dd5e234a"
+    ],
+    "serviceSnapshots": 0,
+    "connectFailures": 4
+  }
+}
