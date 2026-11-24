@@ -2,22 +2,22 @@
 
 | Metric | Value |
 |---|---|
-| Requests | 335 |
-| MCP POST requests | 335 |
+| Requests | 401 |
+| MCP POST requests | 401 |
 | Non-MCP routes | 0 |
-| Errors (HTTP >= 400) | 16 |
-| MCP errors | 16 |
-| p50 latency | 25 ms |
+| Errors (HTTP >= 400) | 18 |
+| MCP errors | 18 |
+| p50 latency | 26 ms |
 | p95 latency | 8455 ms |
-| Avg latency | 2082 ms |
-| Response bytes | 2187451 |
-| Truncated responses (gateway wire) | 2 |
+| Avg latency | 2007 ms |
+| Response bytes | 2739744 |
+| Truncated responses (gateway wire) | 3 |
 | Overflow captures (capture limit) | 0 |
-| Truncation rate | 0.006 |
+| Truncation rate | 0.0075 |
 | Overflow rate | 0 |
-| Model truncation suspects (silent) | 93 |
-| Model truncation rate | 0.2776 |
-| Overall error rate | 0.0478 |
+| Model truncation suspects (silent) | 110 |
+| Model truncation rate | 0.2743 |
+| Overall error rate | 0.0449 |
 
 ## By client platform (batch 13)
 > 每个平台的指标单独成行，绝不互相污染。`clientPlatform` 只接受显式且可识别的值；
@@ -27,8 +27,8 @@
 
 | Platform | Requests | MCP requests | Errors | Tool calls | Trunc suspects | Sessions | Projects | RequestId samples |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
-| gemini | 104 | 104 | 1 | 35 | 25 | 32 | 2 | `00c1d059-6d78-4c98-868f-a5d0fbaa5c82`, `03a21275-f6ac-4704-91c0-9b97fcee54b4`, `03b09af2-3e0b-4148-80c4-320071112a29`, `0442a80c-85a2-4fc1-a0fa-d8697ed42650`, `06b36205-bbd6-4df3-a619-741ffda52db9` |
-| chatgpt | 10 | 10 | 2 | 0 | 0 | 4 | 0 | `133571d5-73ca-4d25-8a3e-639d841332f4`, `5905c741-b982-41b4-8f20-42396bd7c31c`, `7486ed97-f666-4e1b-8661-644f6b1d93e9`, `7fbb79d6-9c37-4961-bdd9-af77814b4b48`, `841e0078-e70b-4ec8-8c37-99db4975fcf9` |
+| gemini | 161 | 161 | 3 | 60 | 42 | 42 | 2 | `00681e06-efa5-4e53-b605-275d57364349`, `00c1d059-6d78-4c98-868f-a5d0fbaa5c82`, `029529fb-078d-4f44-8e7e-4de3249fb826`, `03a21275-f6ac-4704-91c0-9b97fcee54b4`, `03b09af2-3e0b-4148-80c4-320071112a29` |
+| chatgpt | 19 | 19 | 2 | 8 | 1 | 5 | 1 | `0178810f-e0ec-4296-b9c3-298c569dbbcb`, `0a3d1091-980e-4d98-ac55-abe8fa2f4003`, `133571d5-73ca-4d25-8a3e-639d841332f4`, `276da6ce-0392-40e5-b0b1-8b54f40ec848`, `3cf07cb5-0ce4-4b0a-91c2-8fccc491ef16` |
 | unknown | 221 | 221 | 13 | 98 | 70 | 33 | 2 | `0271e7ca-d2dd-44d8-8902-ad38f2157743`, `04ea8e1f-65a1-42d6-922d-37dd8eb7044e`, `05623334-9d25-4299-ac8d-e52f1cd8c252`, `08d8bf5a-069e-4db5-ac53-32f975c809a3`, `0a820ad5-dd0f-44db-b91e-18b42c77ed46` |
 
 ## By protocol version (v1 / v2) — M4-A
@@ -37,14 +37,14 @@
 
 | Protocol | Executor | Requests | MCP requests | Errors | Tool calls | Trunc suspects |
 |---|---|---|---:|---:|---:|---:|
-| v1 | codemode | 335 | 335 | 16 | 133 | 95 |
+| v1 | codemode | 401 | 401 | 18 | 166 | 113 |
 
 ## By client profile — M4-A
 
 | Profile | Requests | MCP requests | Errors | Tool calls | Trunc suspects |
 |---|---|---:|---:|---:|---:|
-| gemini-text-json | 325 | 325 | 14 | 133 | 95 |
-| chatgpt-structured | 10 | 10 | 2 | 0 | 0 |
+| gemini-text-json | 382 | 382 | 16 | 158 | 112 |
+| chatgpt-structured | 19 | 19 | 2 | 8 | 1 |
 
 ## Four-dimension ledger — platform × protocol × profile × build (M4-A)
 > 每个桶独立统计；桶与桶之间不做硬比。`unknown` 是合法桶（旧 envelope / 缺字段）。
@@ -53,58 +53,63 @@
 |---|---|---|---|---:|---:|---:|---:|---:|---|---|---|
 | unknown | v1 | codemode | gemini-text-json | 5039ac69d4e514bc11cdcc4fb2ce19d7dd5e234a | 206 | 206 | 6 | 97 | 69 | unknown:206 | unknown | `0271e7ca-d2dd-44d8-8902-ad38f2157743`, `04ea8e1f-65a1-42d6-922d-37dd8eb7044e`, `05623334-9d25-4299-ac8d-e52f1cd8c252`, `08d8bf5a-069e-4db5-ac53-32f975c809a3`, `0a820ad5-dd0f-44db-b91e-18b42c77ed46` |
 | gemini | v1 | codemode | gemini-text-json | 3dd206f7238491e93f15c3ce39bce37c0e4bceba | 95 | 95 | 1 | 34 | 24 | unknown:95 | github, vercel, unknown, notion, linear, figma | `00c1d059-6d78-4c98-868f-a5d0fbaa5c82`, `03a21275-f6ac-4704-91c0-9b97fcee54b4`, `03b09af2-3e0b-4148-80c4-320071112a29`, `0442a80c-85a2-4fc1-a0fa-d8697ed42650`, `06b36205-bbd6-4df3-a619-741ffda52db9` |
+| gemini | v1 | codemode | gemini-text-json | f2002d9ca48e55292eb824faa10b85b39ea35440 | 59 | 59 | 2 | 24 | 16 | unknown:59 | unknown, github, notion, linear, vercel, figma | `00681e06-efa5-4e53-b605-275d57364349`, `029529fb-078d-4f44-8e7e-4de3249fb826`, `068de11b-c2e0-4e9d-9263-12fff614b558`, `082b9b4f-17a6-4559-bd54-09042822e203`, `0959012e-617f-4795-a7b1-00396a45b968` |
 | chatgpt | v1 | codemode | chatgpt-structured | 9eb0c7aa3d10d777d3066f858a67be39cc8303dd | 10 | 10 | 2 | 0 | 0 | unknown:10 | github, notion, vercel, linear, figma, unknown | `133571d5-73ca-4d25-8a3e-639d841332f4`, `5905c741-b982-41b4-8f20-42396bd7c31c`, `7486ed97-f666-4e1b-8661-644f6b1d93e9`, `7fbb79d6-9c37-4961-bdd9-af77814b4b48`, `841e0078-e70b-4ec8-8c37-99db4975fcf9` |
+| chatgpt | v1 | codemode | chatgpt-structured | 42caaf2b9b8d8ce2f894efb2124a4036bf58ce72 | 9 | 9 | 0 | 8 | 1 | unknown:9 | github, linear, notion, vercel, unknown | `0178810f-e0ec-4296-b9c3-298c569dbbcb`, `0a3d1091-980e-4d98-ac55-abe8fa2f4003`, `276da6ce-0392-40e5-b0b1-8b54f40ec848`, `3cf07cb5-0ce4-4b0a-91c2-8fccc491ef16`, `5327f5a2-d334-4eb6-9fdc-0924e9bce923` |
 | unknown | v1 | codemode | gemini-text-json | 3dd206f7238491e93f15c3ce39bce37c0e4bceba | 8 | 8 | 0 | 1 | 1 | unknown:8 | unknown, github, notion, vercel, figma, linear | `2494f7c3-2dc2-495c-a695-172014a69daf`, `31f79007-5823-441e-b0e7-378689e1e1e1`, `7a538363-ced2-4d10-87bb-ec871a5806b1`, `8390fdc8-2d28-4ede-b2a7-cb2cdb2d480f`, `b783b5c0-d830-48ac-8cc6-d0d7c7cb346b` |
-| gemini | v1 | codemode | gemini-text-json | f2002d9ca48e55292eb824faa10b85b39ea35440 | 7 | 7 | 0 | 1 | 1 | unknown:7 | unknown, notion, github, linear, vercel, figma | `0c9b2930-2bea-4f52-b176-725f7885a7b3`, `636aa5f3-6253-477a-997f-29a66204b7d0`, `6d8c94dd-489c-434f-8d03-76caa645aaf4`, `71e08fec-273c-4f38-bfcd-a126c36d8003`, `c44c5374-d468-4828-a4de-6a58e99d6db5` |
 | unknown | v1 | codemode | gemini-text-json | 9eb0c7aa3d10d777d3066f858a67be39cc8303dd | 7 | 7 | 7 | 0 | 0 | unknown:7 | unknown | `0b8671d5-4ee9-46bd-a550-0f106748396d`, `0dbba1c9-7c11-4c64-8655-bbbb2cf0b1f1`, `55cf0735-8b44-4cab-8296-bf360968652e`, `b3f8452d-1e7f-4cf8-8c85-9fdb2a0aec26`, `dba86fa1-ca03-42a7-8408-b731aca9cf31` |
+| gemini | v1 | codemode | gemini-text-json | 42caaf2b9b8d8ce2f894efb2124a4036bf58ce72 | 5 | 5 | 0 | 2 | 2 | unknown:5 | github, notion, unknown, linear, vercel, figma | `36ba515f-01d2-4163-a8eb-63c277314411`, `436b85df-f75c-4770-83d4-b73a2eaa0433`, `4f6d4089-a5f0-454d-882a-918c4b6e9dba`, `622e83d5-b9ad-4109-a529-62184a1a9e7d`, `77171d13-71f1-49b3-b213-2a618fb077b5` |
 | gemini | v1 | codemode | gemini-text-json | 5039ac69d4e514bc11cdcc4fb2ce19d7dd5e234a | 2 | 2 | 0 | 0 | 0 | unknown:2 | unknown | `b3283f6d-9b26-4044-982f-7b2ea1f59a1a`, `ca34bf94-5250-4db9-b045-1ac167a4b49c` |
 
 ## By servers[] (cross-upstream) — M4-A
 > 只读 capture 显式 `servers[]`；缺失记 `unknown`，不从工具名反推。
-> 一次请求串多个上游时，每个 server 各计一次；`multiServerRequests`=18。
+> 一次请求串多个上游时，每个 server 各计一次；`multiServerRequests`=21。
 
 | Server | Requests | MCP requests | Errors | Tool calls | Trunc suspects |
 |---|---|---:|---:|---:|---:|
-| unknown | 289 | 289 | 14 | 100 | 69 |
-| github | 46 | 46 | 2 | 33 | 26 |
-| vercel | 18 | 18 | 1 | 5 | 4 |
-| figma | 15 | 15 | 1 | 2 | 1 |
-| linear | 14 | 14 | 1 | 1 | 1 |
-| notion | 14 | 14 | 1 | 1 | 1 |
+| unknown | 328 | 328 | 15 | 107 | 69 |
+| github | 70 | 70 | 3 | 56 | 43 |
+| vercel | 21 | 21 | 1 | 7 | 5 |
+| linear | 18 | 18 | 1 | 4 | 2 |
+| notion | 17 | 17 | 1 | 3 | 3 |
+| figma | 16 | 16 | 1 | 2 | 1 |
 
 ## By eval mode (active / passive) — M4-A
 > `evalMode` 缺省/非法一律 `unknown`，绝不按时间或来源猜测。
 
 | Eval mode | Requests | MCP requests | Errors | Tool calls | Trunc suspects |
 |---|---|---:|---:|---:|---:|
-| unknown | 335 | 335 | 16 | 133 | 95 |
+| unknown | 401 | 401 | 18 | 166 | 113 |
 
 ## Tool calls (MCP method)
-- tools/call: 133
-- tools/list: 85
-- initialize: 55
-- notifications/initialized: 53
+- tools/call: 166
+- tools/list: 97
+- initialize: 66
+- notifications/initialized: 63
 - server/discover: 2
 
 ## Top upstream tools (legacy tally)
 | Tool | Calls |
 |---|---|
-| execute_read | 75 |
-| execute | 56 |
-| search | 2 |
+| execute_read | 89 |
+| execute | 70 |
+| search | 7 |
 
 ## Per-upstream stats (MCP tools/call)
 | Upstream | Calls | Errors | Error rate | p50 ms | p95 ms | Avg ms | Truncated | Overflow | ModelTrunc | Error classes |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| unknown | 203 | 3 | 0.0148 | 15 | 918 | 131 | 0 | 0 | 0 | upstream_4xx:2,auth:1 |
-| github | 125 | 6 | 0.048 | 2849 | 28720 | 5368 | 2 | 0 | 93 | upstream_4xx:5,auth:1 |
+| unknown | 243 | 4 | 0.0165 | 15 | 918 | 137 | 0 | 0 | 0 | upstream_4xx:3,auth:1 |
+| github | 148 | 7 | 0.0473 | 3012 | 24994 | 5199 | 3 | 0 | 109 | upstream_4xx:6,auth:1 |
+| linear | 1 | 0 | 0 | 512 | 512 | 512 | 0 | 0 | 0 | — |
+| notion | 1 | 0 | 0 | 409 | 409 | 409 | 0 | 0 | 1 | — |
+| vercel | 1 | 0 | 0 | 1118 | 1118 | 1118 | 0 | 0 | 0 | — |
 
 ## Per-MCP-tool stats
 | Tool | Calls | Errors | Error rate | p50 ms | p95 ms | Avg ms | Truncated | Overflow | ModelTrunc | Error classes |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| execute_read | 75 | 4 | 0.0533 | 1845 | 5656 | 2285 | 2 | 0 | 49 | upstream_4xx:3,auth:1 |
-| execute | 56 | 2 | 0.0357 | 3954 | 36630 | 9016 | 0 | 0 | 44 | upstream_4xx:2 |
-| search | 2 | 0 | 0 | 17 | 50 | 34 | 0 | 0 | 0 | — |
+| execute_read | 89 | 4 | 0.0449 | 1845 | 5656 | 2316 | 3 | 0 | 56 | upstream_4xx:3,auth:1 |
+| execute | 70 | 4 | 0.0571 | 3840 | 35539 | 8165 | 0 | 0 | 54 | upstream_4xx:4 |
+| search | 7 | 0 | 0 | 17 | 50 | 20 | 0 | 0 | 0 | — |
 
 ## Upstream connect failures (eval closure)
 > 来自结构化 capture 事件 `upstream_connect{ok:false}`，不读模型/正文；用于被动侧看见
@@ -112,8 +117,8 @@
 
 | Server | Failures | Error classes | RequestId samples |
 |---|---:|---|---|
+| linear | 22 | auth:21, connect:1 | `074fd58c-c9be-41a2-9249-0d9fb619e83c`, `0a820ad5-dd0f-44db-b91e-18b42c77ed46`, `133571d5-73ca-4d25-8a3e-639d841332f4`, `3555e6a6-3f5f-49e2-90e0-58c6c605451a`, `3fc0a201-aaab-4b25-93f4-abe6a303641f` |
 | notion | 22 | connect:22 | `074fd58c-c9be-41a2-9249-0d9fb619e83c`, `0a820ad5-dd0f-44db-b91e-18b42c77ed46`, `133571d5-73ca-4d25-8a3e-639d841332f4`, `3555e6a6-3f5f-49e2-90e0-58c6c605451a`, `3fc0a201-aaab-4b25-93f4-abe6a303641f` |
-| linear | 21 | auth:21 | `074fd58c-c9be-41a2-9249-0d9fb619e83c`, `0a820ad5-dd0f-44db-b91e-18b42c77ed46`, `133571d5-73ca-4d25-8a3e-639d841332f4`, `3555e6a6-3f5f-49e2-90e0-58c6c605451a`, `3fc0a201-aaab-4b25-93f4-abe6a303641f` |
 
 ## Service state snapshots (codemode.services())
 > 来自 `gateway_helper{helper:"services"}` 的冷启动快照（name/toolCount/status/online/needsReauth）；
@@ -121,14 +126,18 @@
 
 | Service | Snapshots | Tool count | Status counts | Latest | RequestId samples |
 |---|---:|---:|---|---|---|
-| — | 0 | 0 | — | — | — |
+| figma | 3 | 47 | observed:3 | observed | `36ba515f-01d2-4163-a8eb-63c277314411`, `54816eec-e672-4480-9176-332d90fc7ec2`, `b9b2fd35-0700-43ae-b504-a5939504ee3a` |
+| github | 3 | 42 | observed:3 | observed | `36ba515f-01d2-4163-a8eb-63c277314411`, `54816eec-e672-4480-9176-332d90fc7ec2`, `b9b2fd35-0700-43ae-b504-a5939504ee3a` |
+| linear | 3 | 27 | observed:3 | observed | `36ba515f-01d2-4163-a8eb-63c277314411`, `54816eec-e672-4480-9176-332d90fc7ec2`, `b9b2fd35-0700-43ae-b504-a5939504ee3a` |
+| notion | 3 | 53 | observed:2, offline:1 | observed | `36ba515f-01d2-4163-a8eb-63c277314411`, `54816eec-e672-4480-9176-332d90fc7ec2`, `b9b2fd35-0700-43ae-b504-a5939504ee3a` |
+| vercel | 3 | 73 | observed:3 | observed | `36ba515f-01d2-4163-a8eb-63c277314411`, `54816eec-e672-4480-9176-332d90fc7ec2`, `b9b2fd35-0700-43ae-b504-a5939504ee3a` |
 
 ## Gateway helper calls (eval closure)
 > 来自 `gateway_helper` 的全部 helper 调用（services / listTools / remainingCalls）。
 
 | Helper | Calls | Last payload |
 |---|---:|---|
-| — | 0 | — |
+| services | 3 | {"services":5} |
 
 ## Truncation / overflow
 > Three independent signals. "Model truncation suspects" is the silent case:
@@ -137,26 +146,29 @@
 
 | Signal | Count | Rate |
 |---|---:|---:|
-| Truncated responses (gateway wire) | 2 | 0.006 |
+| Truncated responses (gateway wire) | 3 | 0.0075 |
 | Overflow captures (capture limit) | 0 | 0 |
-| Model truncation suspects (silent, advisory) | 93 | 0.2776 |
+| Model truncation suspects (silent, advisory) | 110 | 0.2743 |
 
 ### Model truncation suspects by server
 | Server | Suspects |
 |---|---:|
-| github | 93 |
+| github | 109 |
+| notion | 1 |
 
 ### Model truncation suspects by tool
 | Tool | Suspects |
 |---|---:|
-| execute_read | 49 |
-| execute | 44 |
+| execute_read | 56 |
+| execute | 54 |
 
 ### Model truncation suspects by session
 | Session | Suspects |
 |---|---:|
 | 84fc53cf-c9c7-4207-96a8-e9c0dcd697b3 | 36 |
 | 2300fd1b-3d55-460e-9484-ad6babc559ac | 22 |
+| 90093089-4744-4073-b6ac-fcf159c3b10c | 11 |
+| 19ce3089-a7bf-4efa-a091-4dea724af835 | 7 |
 | 49939f51-7233-4858-a42e-18030de9ec4d | 7 |
 | 0fc836c7-42a3-4384-81f9-96ffd8fddd6f | 6 |
 | 8f67986d-f5ef-4e8d-8f38-dcbaccd471fb | 5 |
@@ -167,7 +179,6 @@
 | 57db68fa-c66a-4fd7-acbf-57bf43ec6d8d | 1 |
 | 79adf4b8-75c7-48af-a987-9f1e79a06fce | 1 |
 | 866f24c7-7d84-4eea-a206-562db8a5f2e8 | 1 |
-| 90093089-4744-4073-b6ac-fcf159c3b10c | 1 |
 | 92977021-89ce-4e6a-8796-c1047a1a30cb | 1 |
 | b2e272cc-ca29-4245-99fb-7169e0ecbc65 | 1 |
 | ef3d080d-6fe0-40f0-b2d0-5bde5e32d994 | 1 |
@@ -181,13 +192,13 @@
 
 | Project | Platforms | Requests | MCP requests | Errors | Tool calls | Trunc suspects | First ts | Last ts | SessionIds | RequestId samples |
 |---|---|---:|---:|---:|---:|---:|---|---|---|---|
-| github:Bruce-Yii/gemini-mcp-gateway | gemini, unknown | 73 | 73 | 5 | 73 | 57 | 2026-11-24T00:01:08.813Z | 2026-11-24T15:40:22.133Z | `033ebd44-57ac-4766-bbdb-7decb45ee3fb`, `84fc53cf-c9c7-4207-96a8-e9c0dcd697b3`, `49939f51-7233-4858-a42e-18030de9ec4d`, `99307365-3ce0-4769-8724-b0648281f5c2`, `ef3d080d-6fe0-40f0-b2d0-5bde5e32d994`, `92977021-89ce-4e6a-8796-c1047a1a30cb`, `866f24c7-7d84-4eea-a206-562db8a5f2e8`, `2f577e16-ca5d-4b28-991f-83fe48a8a654`, `99faf544-aef7-4bcf-8ab4-9404504c7cb7`, `b2e272cc-ca29-4245-99fb-7169e0ecbc65`, `2857ba2b-5cdb-4bd4-bd0e-9a456403fa34` | `00c1d059-6d78-4c98-868f-a5d0fbaa5c82`, `08d8bf5a-069e-4db5-ac53-32f975c809a3`, `0a8bd8ef-c934-4054-a1ef-87f0e7d15c97`, `0d0fc47b-347c-43b7-a627-63e1f30b76d8`, `0ec61a1a-1827-40fd-8f5d-4da717d78c69` |
-| github:Bruce-Yii/recruitment-agent | unknown, gemini | 57 | 57 | 1 | 57 | 38 | 2026-11-24T00:06:20.209Z | 2026-11-24T18:03:30.114Z | `2300fd1b-3d55-460e-9484-ad6babc559ac`, `0fc836c7-42a3-4384-81f9-96ffd8fddd6f`, `79adf4b8-75c7-48af-a987-9f1e79a06fce`, `8f67986d-f5ef-4e8d-8f38-dcbaccd471fb`, `57db68fa-c66a-4fd7-acbf-57bf43ec6d8d`, `90093089-4744-4073-b6ac-fcf159c3b10c` | `0271e7ca-d2dd-44d8-8902-ad38f2157743`, `03a21275-f6ac-4704-91c0-9b97fcee54b4`, `05623334-9d25-4299-ac8d-e52f1cd8c252`, `118148d9-d0f0-4139-af13-c4ae2f2116fc`, `132e35eb-5e4e-445d-9b8a-cbe6f2077429` |
+| github:Bruce-Yii/gemini-mcp-gateway | gemini, chatgpt, unknown | 82 | 82 | 5 | 82 | 64 | 2026-11-24T00:01:08.813Z | 2026-11-24T19:24:29.609Z | `033ebd44-57ac-4766-bbdb-7decb45ee3fb`, `84fc53cf-c9c7-4207-96a8-e9c0dcd697b3`, `49939f51-7233-4858-a42e-18030de9ec4d`, `99307365-3ce0-4769-8724-b0648281f5c2`, `ef3d080d-6fe0-40f0-b2d0-5bde5e32d994`, `19ce3089-a7bf-4efa-a091-4dea724af835`, `92977021-89ce-4e6a-8796-c1047a1a30cb`, `866f24c7-7d84-4eea-a206-562db8a5f2e8`, `2f577e16-ca5d-4b28-991f-83fe48a8a654`, `99faf544-aef7-4bcf-8ab4-9404504c7cb7`, `b2e272cc-ca29-4245-99fb-7169e0ecbc65`, `2857ba2b-5cdb-4bd4-bd0e-9a456403fa34` | `00c1d059-6d78-4c98-868f-a5d0fbaa5c82`, `0178810f-e0ec-4296-b9c3-298c569dbbcb`, `08d8bf5a-069e-4db5-ac53-32f975c809a3`, `0a8bd8ef-c934-4054-a1ef-87f0e7d15c97`, `0d0fc47b-347c-43b7-a627-63e1f30b76d8` |
+| github:Bruce-Yii/recruitment-agent | unknown, gemini | 73 | 73 | 3 | 73 | 48 | 2026-11-24T00:06:20.209Z | 2026-11-24T19:13:59.003Z | `2300fd1b-3d55-460e-9484-ad6babc559ac`, `0fc836c7-42a3-4384-81f9-96ffd8fddd6f`, `90093089-4744-4073-b6ac-fcf159c3b10c`, `79adf4b8-75c7-48af-a987-9f1e79a06fce`, `8f67986d-f5ef-4e8d-8f38-dcbaccd471fb`, `57db68fa-c66a-4fd7-acbf-57bf43ec6d8d` | `0271e7ca-d2dd-44d8-8902-ad38f2157743`, `03a21275-f6ac-4704-91c0-9b97fcee54b4`, `05623334-9d25-4299-ac8d-e52f1cd8c252`, `068de11b-c2e0-4e9d-9263-12fff614b558`, `0959012e-617f-4795-a7b1-00396a45b968` |
 
 ## Requests by day
 | Day | Requests |
 |---|---:|
-| 2026-11-24 | 335 |
+| 2026-11-24 | 401 |
 
 ## Requests by hour (UTC)
 | Hour | Requests |
@@ -204,18 +215,19 @@
 | 14:00 | 17 |
 | 15:00 | 14 |
 | 16:00 | 17 |
-| 18:00 | 7 |
+| 18:00 | 46 |
+| 19:00 | 27 |
 
 ## Non-MCP routes (kept separate)
 | Upstream | Calls | Errors | Error rate | p50 ms | p95 ms | Avg ms | Truncated | Overflow | ModelTrunc | Error classes |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| POST /mcp | 335 | 0 | 0 | 25 | 8455 | 2082 | 2 | 0 | 93 | — |
+| POST /mcp | 401 | 0 | 0 | 26 | 8455 | 2007 | 3 | 0 | 110 | — |
 
 ## Error classes (MCP only)
 | Class | Count |
 |---|---|
 | auth | 9 |
-| upstream_4xx | 7 |
+| upstream_4xx | 9 |
 
 ## Route errors (non-MCP)
 | Class | Count |
@@ -300,8 +312,20 @@
 | session:3f351671-0b35-4916-b876-22d14521b047 | sessionId | 3f351671-0b35-4916-b876-22d14521b047 | chatgpt | 1 | 0 | 0 | 0 | 2026-11-24T16:30:35.394Z | 2026-11-24T16:30:35.394Z | — | {"name":"openai-mcp","version":"1.0.0"} | `7486ed97-f666-4e1b-8661-644f6b1d93e9` |
 | session:c0ca46fb-dfb3-4dcf-9385-88127aa249cf | sessionId | c0ca46fb-dfb3-4dcf-9385-88127aa249cf | chatgpt | 3 | 0 | 0 | 0 | 2026-11-24T16:30:35.596Z | 2026-11-24T16:30:35.961Z | — | {"name":"openai-mcp","version":"1.0.0"} | `ddf36858-9be8-40c0-b61c-8a2d35e1c326`, `b476728b-3218-435f-b324-6ebd570670e4`, `5905c741-b982-41b4-8f20-42396bd7c31c` |
 | session:eafcceb9-c434-4d59-8250-866d608c5a27 | sessionId | eafcceb9-c434-4d59-8250-866d608c5a27 | gemini | 2 | 0 | 0 | 0 | 2026-11-24T18:03:12.562Z | 2026-11-24T18:03:13.974Z | — | {"name":"mcp","version":"0.1.0"} | `636aa5f3-6253-477a-997f-29a66204b7d0`, `71e08fec-273c-4f38-bfcd-a126c36d8003` |
-| session:ab75bc50-63b6-471a-84e6-e200c7b680a7 | sessionId | ab75bc50-63b6-471a-84e6-e200c7b680a7 | gemini | 2 | 0 | 0 | 0 | 2026-11-24T18:03:14.958Z | 2026-11-24T18:03:15.069Z | — | {"name":"mcp","version":"0.1.0"} | `f50bc57e-34f7-485d-a11c-8281bed7c4e7`, `6d8c94dd-489c-434f-8d03-76caa645aaf4` |
-| session:90093089-4744-4073-b6ac-fcf159c3b10c | sessionId | 90093089-4744-4073-b6ac-fcf159c3b10c | gemini | 3 | 0 | 1 | 1 | 2026-11-24T18:03:29.553Z | 2026-11-24T18:03:30.114Z | `github:Bruce-Yii/recruitment-agent` | {"name":"Gemini","version":"1.0.0"} | `dbcb9de2-b428-4954-8919-ba1f250aa372`, `0c9b2930-2bea-4f52-b176-725f7885a7b3`, `c44c5374-d468-4828-a4de-6a58e99d6db5` |
+| session:ab75bc50-63b6-471a-84e6-e200c7b680a7 | sessionId | ab75bc50-63b6-471a-84e6-e200c7b680a7 | gemini | 3 | 0 | 0 | 0 | 2026-11-24T18:03:14.958Z | 2026-11-24T18:16:47.164Z | — | {"name":"mcp","version":"0.1.0"} | `f50bc57e-34f7-485d-a11c-8281bed7c4e7`, `6d8c94dd-489c-434f-8d03-76caa645aaf4`, `f599de02-d718-430d-9d7e-0c8c05447849` |
+| session:90093089-4744-4073-b6ac-fcf159c3b10c | sessionId | 90093089-4744-4073-b6ac-fcf159c3b10c | gemini | 19 | 2 | 17 | 11 | 2026-11-24T18:03:29.553Z | 2026-11-24T19:13:59.003Z | `github:Bruce-Yii/recruitment-agent` | {"name":"Gemini","version":"1.0.0"} | `dbcb9de2-b428-4954-8919-ba1f250aa372`, `0c9b2930-2bea-4f52-b176-725f7885a7b3`, `c44c5374-d468-4828-a4de-6a58e99d6db5`, `d221a0a4-e522-43b7-8a9e-1c286b167edc`, `f0dd1e23-b859-4d86-bc7a-5c1d054cba69` |
+| session:dd74ef77-05a0-44e7-a9c2-13ac358701ed | sessionId | dd74ef77-05a0-44e7-a9c2-13ac358701ed | gemini | 2 | 0 | 0 | 0 | 2026-11-24T18:07:16.009Z | 2026-11-24T18:07:16.190Z | — | {"name":"mcp","version":"0.1.0"} | `60e3eb03-a9da-4dc6-bd40-f7e41809c228`, `029529fb-078d-4f44-8e7e-4de3249fb826` |
+| session:4170b4a3-9963-4816-b2d5-ea6db9e65a46 | sessionId | 4170b4a3-9963-4816-b2d5-ea6db9e65a46 | gemini | 3 | 0 | 0 | 0 | 2026-11-24T18:07:16.699Z | 2026-11-24T18:07:17.391Z | — | {"name":"mcp","version":"0.1.0"} | `301bc74c-1326-4e79-a2ca-319e066a8184`, `59cb24de-8772-4b18-aae4-de8a663876c0`, `0deb1b96-419f-4ee2-a226-d97b8c0dee41` |
+| session:b4bb7fdd-d28a-4894-840f-bd4293fcac56 | sessionId | b4bb7fdd-d28a-4894-840f-bd4293fcac56 | gemini | 3 | 0 | 0 | 0 | 2026-11-24T18:12:42.083Z | 2026-11-24T18:12:42.963Z | — | {"name":"mcp","version":"0.1.0"} | `a2c9e051-0b73-493f-a312-1e7c850e277a`, `10e1c288-08f5-45af-9060-7a17b33d19f4`, `fdc60d05-1140-4334-aeea-43debcd1965f` |
+| session:19ce3089-a7bf-4efa-a091-4dea724af835 | sessionId | 19ce3089-a7bf-4efa-a091-4dea724af835 | gemini | 11 | 0 | 9 | 7 | 2026-11-24T18:17:48.368Z | 2026-11-24T19:16:38.171Z | `github:Bruce-Yii/gemini-mcp-gateway` | {"name":"Gemini","version":"1.0.0"} | `32dbba1a-88d6-4fa4-b736-125a627615da`, `623ce3ab-2c34-4c95-89ea-4b4fa59a028a`, `54816eec-e672-4480-9176-332d90fc7ec2`, `e04abc31-edce-4f54-a7cd-53387dcfbdd1`, `3dfbc425-95ac-40b6-a822-c9fc2edb4371` |
+| session:ee28090e-c7b8-450a-ad85-8c74fc0dd169 | sessionId | ee28090e-c7b8-450a-ad85-8c74fc0dd169 | gemini | 4 | 0 | 0 | 0 | 2026-11-24T18:19:47.825Z | 2026-11-24T19:08:10.293Z | — | {"name":"mcp","version":"0.1.0"} | `93b8d682-e4ba-4f1c-9584-a9cefb613674`, `ab032896-141c-43fc-b181-b7ba35375992`, `5e4dfd1b-f0fb-445b-ad0f-635c3027e993`, `709fe2b7-41c4-4879-be7e-1573d0631ee0` |
+| session:1c378005-057f-416a-9a55-a1c3b0170759 | sessionId | 1c378005-057f-416a-9a55-a1c3b0170759 | gemini | 5 | 0 | 0 | 0 | 2026-11-24T18:23:26.988Z | 2026-11-24T18:39:05.296Z | — | {"name":"mcp","version":"0.1.0"} | `4d9c3def-2eab-432a-a284-78b9dd232642`, `6034bd87-ee64-4d48-9d77-0ccdb6b2dd8b`, `71f15f1c-f467-4354-863f-bc95a0cddf1b`, `5b6b200c-0b47-4404-8b94-1160f83025d5`, `81294245-faa6-4664-bfbe-6326a061b911` |
+| session:7ab72a97-9e13-445f-8e4e-94fbfab0582a | sessionId | 7ab72a97-9e13-445f-8e4e-94fbfab0582a | gemini | 4 | 0 | 0 | 0 | 2026-11-24T18:23:38.668Z | 2026-11-24T19:16:03.073Z | — | {"name":"mcp","version":"0.1.0"} | `169fafa2-9a98-4d57-af10-f659d3a95b3a`, `082b9b4f-17a6-4559-bd54-09042822e203`, `00681e06-efa5-4e53-b605-275d57364349`, `622e83d5-b9ad-4109-a529-62184a1a9e7d` |
+| session:ef559d8e-0cb2-418b-b8af-2130dd483667 | sessionId | ef559d8e-0cb2-418b-b8af-2130dd483667 | gemini | 2 | 0 | 0 | 0 | 2026-11-24T18:26:11.704Z | 2026-11-24T18:26:11.881Z | — | {"name":"mcp","version":"0.1.0"} | `df381f79-ff06-4fab-ae1a-421e102968c5`, `5b802caf-af92-459c-bb90-adb66173a672` |
+| session:bff9e299-21b5-4a16-a7cf-6d07ec72cbed | sessionId | bff9e299-21b5-4a16-a7cf-6d07ec72cbed | gemini | 4 | 0 | 0 | 0 | 2026-11-24T18:34:50.715Z | 2026-11-24T19:12:51.474Z | — | {"name":"mcp","version":"0.1.0"} | `cef6ad37-f733-41de-bd3e-cf27b8d00065`, `726d91fc-4331-4b29-8f7a-53cef21c9ec7`, `b764349a-7f07-45f2-a39d-bf728c8762c2`, `e8a82603-70e8-4705-8992-8fcc13161d3a` |
+| session:8caea874-1bd7-4e0d-9451-ccbb30806e49 | sessionId | 8caea874-1bd7-4e0d-9451-ccbb30806e49 | gemini | 2 | 0 | 0 | 0 | 2026-11-24T19:15:56.933Z | 2026-11-24T19:16:02.156Z | — | {"name":"mcp","version":"0.1.0"} | `77171d13-71f1-49b3-b213-2a618fb077b5`, `4f6d4089-a5f0-454d-882a-918c4b6e9dba` |
+| session:d71c2683-bf2a-446a-91e9-b3d888212dee | sessionId | d71c2683-bf2a-446a-91e9-b3d888212dee | chatgpt | 1 | 0 | 0 | 0 | 2026-11-24T19:23:31.497Z | 2026-11-24T19:23:31.497Z | — | {"name":"openai-mcp","version":"1.0.0"} | `5327f5a2-d334-4eb6-9fdc-0924e9bce923` |
+| window:003 | idle-gap | — | chatgpt | 8 | 0 | 8 | 1 | 2026-11-24T19:23:31.755Z | 2026-11-24T19:25:10.737Z | `github:Bruce-Yii/gemini-mcp-gateway` | {"ip":"9.129.50.4"} | `8896ea64-e533-4b5d-9efd-023803bc1331`, `0a3d1091-980e-4d98-ac55-abe8fa2f4003`, `776d37a5-9d10-4085-ab82-5ceadfcb618f`, `276da6ce-0392-40e5-b0b1-8b54f40ec848`, `b9b2fd35-0700-43ae-b504-a5939504ee3a` |
 
 ## Project timelines (batch 11, cross-session handoff)
 
@@ -312,19 +336,21 @@
 | Project | SessionId | Primary requests | Requests | MCP requests | Errors | Tool calls | Trunc suspects | First ts | Last ts | RequestId samples |
 |---|---|---:|---:|---:|---:|---:|---:|---|---|---|
 | github:Bruce-Yii/gemini-mcp-gateway | 033ebd44-57ac-4766-bbdb-7decb45ee3fb | 5 | 5 | 5 | 0 | 5 | 4 | 2026-11-24T12:57:27.664Z | 2026-11-24T13:32:47.607Z | `00c1d059-6d78-4c98-868f-a5d0fbaa5c82`, `1188c924-320a-47da-b866-07405561a5c1`, `5748cc52-d634-497f-b12d-7df1a94e7d08`, `598fceff-da8a-4123-8f26-bf68f3713ea8`, `d0443f7a-1721-4e2d-ba7f-18a3933bd359` |
+| github:Bruce-Yii/gemini-mcp-gateway | — | 2 | 2 | 2 | 0 | 2 | 1 | 2026-11-24T19:23:47.390Z | 2026-11-24T19:24:29.609Z | `0178810f-e0ec-4296-b9c3-298c569dbbcb`, `b9b2fd35-0700-43ae-b504-a5939504ee3a` |
 | github:Bruce-Yii/recruitment-agent | 2300fd1b-3d55-460e-9484-ad6babc559ac | 36 | 36 | 36 | 1 | 36 | 23 | 2026-11-24T00:06:20.209Z | 2026-11-24T01:37:04.437Z | `0271e7ca-d2dd-44d8-8902-ad38f2157743`, `05623334-9d25-4299-ac8d-e52f1cd8c252`, `118148d9-d0f0-4139-af13-c4ae2f2116fc`, `147bc3f0-87c9-445e-8806-8be7463126c7`, `1f124492-79fa-4b33-a9e4-3db257f78791` |
 | github:Bruce-Yii/recruitment-agent | 0fc836c7-42a3-4384-81f9-96ffd8fddd6f | 8 | 8 | 8 | 0 | 8 | 6 | 2026-11-24T13:31:01.783Z | 2026-11-24T13:58:11.135Z | `03a21275-f6ac-4704-91c0-9b97fcee54b4`, `132e35eb-5e4e-445d-9b8a-cbe6f2077429`, `17503da0-2341-4c92-bfce-8dde8fc90184`, `26c00056-24ab-471b-853f-a000fe5189db`, `421d123b-c186-4b8e-87cb-413c97512af0` |
+| github:Bruce-Yii/recruitment-agent | 90093089-4744-4073-b6ac-fcf159c3b10c | 17 | 17 | 17 | 2 | 17 | 11 | 2026-11-24T18:03:30.114Z | 2026-11-24T19:13:59.003Z | `068de11b-c2e0-4e9d-9263-12fff614b558`, `0959012e-617f-4795-a7b1-00396a45b968`, `16a098d6-0c12-4513-b2bf-3c156ff35be8`, `302592ed-46f5-42db-b9a3-cab512c90694`, `34914a0c-0cd3-41cb-9e54-2ac2740c761f` |
 | github:Bruce-Yii/gemini-mcp-gateway | 84fc53cf-c9c7-4207-96a8-e9c0dcd697b3 | 42 | 42 | 42 | 4 | 42 | 36 | 2026-11-24T02:07:30.122Z | 2026-11-24T05:50:29.018Z | `08d8bf5a-069e-4db5-ac53-32f975c809a3`, `0f000d24-c8e6-4e71-945b-b870c44e3b7e`, `12979d99-30a0-4aaf-94b0-e7ae1a8a52cd`, `18ce67bc-e6f0-4926-ac9a-71a07d821740`, `1e12f926-a72c-4cd9-a3bd-b8ba94fe8032` |
 | github:Bruce-Yii/gemini-mcp-gateway | 49939f51-7233-4858-a42e-18030de9ec4d | 8 | 8 | 8 | 1 | 8 | 7 | 2026-11-24T14:29:58.465Z | 2026-11-24T15:40:22.133Z | `0a8bd8ef-c934-4054-a1ef-87f0e7d15c97`, `4f513d7d-8d0b-486e-855e-166d9105f2f6`, `57769d49-504d-4a97-804b-20ba81ae18ca`, `8bac3e2a-7081-4b0c-9993-41c0f5533e4b`, `de5161f0-6c51-4b13-b618-724a412d4a1d` |
 | github:Bruce-Yii/gemini-mcp-gateway | 99307365-3ce0-4769-8724-b0648281f5c2 | 11 | 11 | 11 | 0 | 11 | 4 | 2026-11-24T00:01:08.813Z | 2026-11-24T01:21:40.853Z | `0d0fc47b-347c-43b7-a627-63e1f30b76d8`, `1902a8ef-0bbd-4ab7-814f-2f55e1121f29`, `3580a707-a452-48ea-8a0c-26b8ca11315c`, `48977585-ce3a-4356-8522-12d2499646f6`, `5fc8ede2-decc-4868-b325-3409e83df248` |
 | github:Bruce-Yii/gemini-mcp-gateway | ef3d080d-6fe0-40f0-b2d0-5bde5e32d994 | 1 | 1 | 1 | 0 | 1 | 1 | 2026-11-24T06:11:33.552Z | 2026-11-24T06:11:33.552Z | `0ec61a1a-1827-40fd-8f5d-4da717d78c69` |
 | github:Bruce-Yii/recruitment-agent | 79adf4b8-75c7-48af-a987-9f1e79a06fce | 4 | 4 | 4 | 0 | 4 | 1 | 2026-11-24T14:14:59.178Z | 2026-11-24T14:29:19.612Z | `1473964f-6f23-48e1-b877-b9e93ab88568`, `1a59ecc7-0d2c-4db8-adaa-d616d2cf503e`, `b4bb5487-0c72-4366-803d-e992d9af8a7c`, `cf337d84-4da7-439f-a7e8-367d323c8924` |
+| github:Bruce-Yii/gemini-mcp-gateway | 19ce3089-a7bf-4efa-a091-4dea724af835 | 7 | 7 | 7 | 0 | 7 | 6 | 2026-11-24T18:17:48.939Z | 2026-11-24T19:16:22.722Z | `36ba515f-01d2-4163-a8eb-63c277314411`, `3dfbc425-95ac-40b6-a822-c9fc2edb4371`, `4be1cd26-307f-4440-9dfc-855a63f9cd71`, `54816eec-e672-4480-9176-332d90fc7ec2`, `79ce6160-9cb6-4fde-bd92-e7e87038531c` |
 | github:Bruce-Yii/gemini-mcp-gateway | 92977021-89ce-4e6a-8796-c1047a1a30cb | 1 | 1 | 1 | 0 | 1 | 1 | 2026-11-24T06:11:40.042Z | 2026-11-24T06:11:40.042Z | `3f359350-75d1-4bcd-8640-82906609ea1a` |
 | github:Bruce-Yii/recruitment-agent | 8f67986d-f5ef-4e8d-8f38-dcbaccd471fb | 7 | 7 | 7 | 0 | 7 | 6 | 2026-11-24T04:08:44.794Z | 2026-11-24T04:12:04.875Z | `484ab881-9a96-469c-882f-0a06401041b6`, `52ddb460-9058-4366-89e5-3259c5f8654c`, `6b2de5d9-b80e-4b86-bf0e-dddd7debc8ab`, `7bd3ccca-e7cd-4d75-beed-651a51c2570a`, `ca4dc8a2-b3a9-44b1-90eb-23633ae4cc78` |
 | github:Bruce-Yii/gemini-mcp-gateway | 866f24c7-7d84-4eea-a206-562db8a5f2e8 | 1 | 1 | 1 | 0 | 1 | 1 | 2026-11-24T06:11:05.581Z | 2026-11-24T06:11:05.581Z | `4ae66103-34ca-407e-9ca5-91624b48e35a` |
 | github:Bruce-Yii/gemini-mcp-gateway | 2f577e16-ca5d-4b28-991f-83fe48a8a654 | 1 | 1 | 1 | 0 | 1 | 1 | 2026-11-24T06:14:37.463Z | 2026-11-24T06:14:37.463Z | `50394a1d-0c04-485e-9649-b5f489edd73a` |
 | github:Bruce-Yii/gemini-mcp-gateway | 99faf544-aef7-4bcf-8ab4-9404504c7cb7 | 1 | 1 | 1 | 0 | 1 | 0 | 2026-11-24T06:12:39.847Z | 2026-11-24T06:12:39.847Z | `77fbd01d-e9f1-42e6-887e-3ad3da0ca5d7` |
 | github:Bruce-Yii/recruitment-agent | 57db68fa-c66a-4fd7-acbf-57bf43ec6d8d | 1 | 1 | 1 | 0 | 1 | 1 | 2026-11-24T02:08:15.163Z | 2026-11-24T02:08:15.163Z | `7874fa78-93b5-462d-a54a-74d50fca58d1` |
-| github:Bruce-Yii/recruitment-agent | 90093089-4744-4073-b6ac-fcf159c3b10c | 1 | 1 | 1 | 0 | 1 | 1 | 2026-11-24T18:03:30.114Z | 2026-11-24T18:03:30.114Z | `c44c5374-d468-4828-a4de-6a58e99d6db5` |
 | github:Bruce-Yii/gemini-mcp-gateway | b2e272cc-ca29-4245-99fb-7169e0ecbc65 | 1 | 1 | 1 | 0 | 1 | 1 | 2026-11-24T06:14:28.441Z | 2026-11-24T06:14:28.441Z | `dee97ebd-5df2-43cc-bf91-e2b7d56197a4` |
 | github:Bruce-Yii/gemini-mcp-gateway | 2857ba2b-5cdb-4bd4-bd0e-9a456403fa34 | 1 | 1 | 1 | 0 | 1 | 1 | 2026-11-24T06:10:58.639Z | 2026-11-24T06:10:58.639Z | `e1754d59-18fe-4434-9f9d-d82fbcae5e40` |
