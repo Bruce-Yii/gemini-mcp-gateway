@@ -23,6 +23,8 @@
 
 | 2026-11-24 13:43 | `3dd206f` | CLI（手动，`vercel --prod`） | 合并 Issue #15 优先修复：`issue_write` 成功后 URL 兜底补齐顶层 `number` + `fileResult` 对完整 ~40KB 文件的 `truncated:true` 假阳性（tail-only 判定） | READY | `deploymentId=dpl_8J71rsV3hFbmAdVXWUAqvGZsqrdU`；healthz `commit=3dd206f7238491e93f15c3ce39bce37c0e4bceba` / `buildHash=25a35e6e250342fb25c22de01527dccc99765f9c` / `builtAt=2026-11-24T05:43:43.432Z`；`env=production`、`configLoaded=true`、`mode=codemode`；部署前全量 `npm test` 最终 1537/1531/0/6（前两次各现一例时间敏感抖动，定向复跑通过） |
 
+| 2026-11-24 14:02 | `3dd206f` | CLI（手动，同 commit redeploy） | 配置 production `CLIENT_PLATFORM_OAUTH_MAP`（`ALLOWED_CLIENT_ID` → `gemini`，1 key JSON；不打印值）后重新部署使 env 生效 | READY | `deploymentId=dpl_6MdJAy2eVD9Re4ZcqduXyh9jvQvD`；healthz `commit=3dd206f…` / `buildHash=25a35e6e…`（与上一行一致，docs/env-only 变更未改 buildHash） |
+
 ## 规则
 
 - 每次部署前过 [DEPLOY-POLICY.md](DEPLOY-POLICY.md) 检查；
