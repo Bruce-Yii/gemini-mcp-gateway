@@ -12,14 +12,14 @@
 
 ## 0. 当前真实状态（先读，防止把“代码已修”当“线上已生效”）
 
-- **生产已部署 `1481408`**（2026-11-24 02:57 手动部署）：`https://gemini-mcp-gateway.vercel.app` healthz 已核 `commit=1481408…` / `buildHash=c604c31a…`。
+- **生产已部署 `5039ac6`**（2026-11-24 07:45 手动部署）：`https://gemini-mcp-gateway.vercel.app` healthz 已核 `commit=5039ac69…` / `buildHash=c060691d…`。
   本次部署包含：owner 标记（未标记 grant 永不 refresh、legacy 例外删除）、入站 origin 一致性
   （issuer/resource/401/CIMD 跟随请求 host）、preview/production KV 隔离检查脚本。
   “部署成功”不等于验收通过：真实客户端、真实写回环 CI、授权生命周期、同任务在线复验仍未完成；不能写“线上已验收”。
 - **push 自动 production 部署仍关闭**（`git.deploymentEnabled.main=false`，`05f607c` 起已多次复核）；branch push 仍生成 preview。
 - 独立审查见 `docs/OPEN-SOURCE/INDEPENDENT-REVIEW-2026-11-24.md`。
 - **工作区全量测试以最近一次 lead 跑出的结果为准**；不要用其他 agent 的中间态。
-  当前基线：`1461 tests / 1455 pass / 0 fail / 6 todo`（2026-11-24 合并 #6/#7 后，lead 实跑）。
+  当前基线：`1518 tests / 1512 pass / 0 fail / 6 todo`（2026-11-24 feedback 修复后，lead 实跑；Node20 为 1511 pass，1 个 TS 用例按能力 skip）。
 - **不找用户反复要授权**：授权只有在 `docs/AUTH-READY.md` 全绿后才发起；
   当前明确 **NOT READY**。
 - **OSS 未公开**：只有 `work/oss-release-staging` / `work/oss-release-repo`
@@ -171,7 +171,7 @@ online-feedback.v1 记录
 - docs/tests-only、中间态修复、未过全量测试的改动一律不部署。
 - 部署前过 `docs/DEPLOY-POLICY.md`；部署后记录 `docs/DEPLOYMENTS.md`。
 - 能本地/回放验证就不要发 preview。
-- 当前生产：`1481408`（2026-11-24 手动部署 P0 fixes；A 门当前构建可追溯；B–G 未完成）；下次在有真实客户端/写回环证据时再部署。
+- 当前生产：`5039ac6`（2026-11-24 手动部署 PR80-101 feedback fixes；A 门当前构建可追溯；B–G 未完成）；下次在有真实客户端/写回环证据时再部署。
 
 ## 9. 当前不要做的事
 
