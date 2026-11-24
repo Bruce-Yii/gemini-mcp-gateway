@@ -25,6 +25,10 @@
 
 | 2026-11-24 14:02 | `3dd206f` | CLI（手动，同 commit redeploy） | 配置 production `CLIENT_PLATFORM_OAUTH_MAP`（`ALLOWED_CLIENT_ID` → `gemini`，1 key JSON；不打印值）后重新部署使 env 生效 | READY | `deploymentId=dpl_6MdJAy2eVD9Re4ZcqduXyh9jvQvD`；healthz `commit=3dd206f…` / `buildHash=25a35e6e…`（与上一行一致，docs/env-only 变更未改 buildHash） |
 
+| 2026-11-25 00:00 | `9eb0c7a` | CLI（手动，`vercel --prod`，带 `--build-env VERCEL_GIT_COMMIT_SHA`） | 部署 main `9eb0c7a`（PR #23 评测闭环工具层 + #24 双窗口证据 + #25 子代理编排 + #26 OAuth owner 审批口令保护）；production 新增 `OAUTH_APPROVE_PASSPHRASE`（Secret，值不记录），`ALLOW_DCR_FOR_CHATGPT` 已存在按跳过 | READY | `deploymentId=dpl_FHYvwXwtEmp1BP47noMUnAQkRB8U`；healthz `commit=9eb0c7aa3d10d777d3066f858a67be39cc8303dd` / `buildHash=7b594db7ce6cd9d1f8f7fad52464b1f8c8e7bd34` / `builtAt=2026-11-24T16:00:25.012Z`；`env=production`、`configLoaded=true`；部署前干净 worktree `npm test` 1560/1546/0/6 |
+
+> 注：同 commit 的前两次 CLI 部署因本地 worktree/clone 缺少 GitHub 远端元数据，healthz 落为 `commit=unknown`；已由本行带 `VERCEL_GIT_COMMIT_SHA` 的部署覆盖，生产只以 `dpl_FHYvwXwtEmp1BP47noMUnAQkRB8U` 为准。
+
 ## 规则
 
 - 每次部署前过 [DEPLOY-POLICY.md](DEPLOY-POLICY.md) 检查；
