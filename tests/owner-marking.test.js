@@ -236,4 +236,4 @@ test('migrate: refuses owner=gateway without explicit opt-in; refuses missing KV
     () => migrate({ store: null, servers: ['notion'], environment: 'production' }),
     /KV store is not configured/,
   );
-});`n
+});

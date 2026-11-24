@@ -309,4 +309,4 @@ test('linear config is static_bearer and no longer forwards obtainedAtEnv', asyn
   assert.equal(linear.authMode, 'static_bearer');
   assert.equal(linear.tokenEnv, 'LINEAR_PAT_STATIC');
   assert.equal(linear.obtainedAtEnv, undefined);
-});`n
+});
