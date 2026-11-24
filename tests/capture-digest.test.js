@@ -6,6 +6,7 @@ import {
 } from '../scripts/capture-digest.mjs';
 
 const envelope = (status, durationMs, raw = '{}', extra = {}) => ({
+  ...(extra.requestId ? { requestId: extra.requestId } : {}),
   request: {
     method: extra.method ?? 'POST', url: extra.url ?? '/mcp',
     raw: extra.raw ?? JSON.stringify({ jsonrpc: '2.0', method: extra.mcpMethod ?? 'tools/call', params: { name: extra.tool ?? 'github__get_file_contents' } }),
@@ -242,4 +243,58 @@ test('M4-A: scorecard renders the four new sections with unknown rows', () => {
   assert.match(md, /multiServerRequests`=1/);
   assert.match(md, /\| gemini \| v2 \| typed-plan \| gemini-text-json \| c1 \|/);
   assert.match(md, /\| active:1 \| github, vercel \|/);
+});
+
+// ── Eval closure: connect failures + services() snapshots are deterministic ──
+
+test('eval-closure: digest aggregates upstream_connect failures and services() state', () => {
+  const connectFail = (server, message) => [{
+    type: 'upstream_connect',
+    payload: { server, ok: false, error: { name: 'Error', message }, durationMs: 12 },
+  }];
+  const serviceEvent = (rows) => [{
+    type: 'gateway_helper',
+    payload: { helper: 'services', ok: true, services: rows },
+  }];
+  const metrics = aggregateEnvelopes([
+    envelope(200, 5, '{}', {
+      requestId: 'req-connect-auth',
+      events: connectFail('notion', '401 invalid_token: The access token is invalid or expired'),
+    }),
+    envelope(200, 5, '{}', {
+      requestId: 'req-connect-plain',
+      events: connectFail('linear', 'ECONNRESET'),
+    }),
+    envelope(200, 5, '{}', {
+      requestId: 'req-services',
+      events: serviceEvent([
+        { name: 'github', toolCount: 42, status: 'observed', online: true, needsReauth: false },
+        { name: 'notion', toolCount: 0, status: 'offline', online: false, needsReauth: true },
+        { name: 'linear', toolCount: 0, status: 'offline', online: false, needsReauth: true },
+        { name: 'vercel', toolCount: 73, status: 'stale', online: true },
+      ]),
+    }),
+  ]);
+  assert.equal(metrics.upstreamConnect.failures, 2);
+  const byServer = metrics.upstreamConnect.byServer;
+  assert.equal(byServer.notion.failures, 1);
+  assert.deepEqual(byServer.notion.errorClasses, { auth: 1 });
+  assert.deepEqual(byServer.notion.sampleRequestIds, ['req-connect-auth']);
+  assert.equal(byServer.linear.failures, 1);
+  assert.deepEqual(byServer.linear.errorClasses, { connect: 1 });
+
+  assert.equal(metrics.serviceState.snapshots, 1);
+  assert.equal(metrics.serviceState.byServer.notion.status, undefined);
+  assert.equal(metrics.serviceState.byServer.notion.statuses.offline, 1);
+  assert.equal(metrics.serviceState.byServer.notion.needsReauth, true);
+  assert.equal(metrics.serviceState.byServer.vercel.toolCount, 73);
+  assert.deepEqual(metrics.serviceState.offlineServers, ['linear', 'notion']);
+  assert.deepEqual(metrics.serviceState.staleServers, ['vercel']);
+  assert.deepEqual(metrics.serviceState.onlineServers, ['github']);
+
+  const md = renderScorecard('2026-11-24', metrics);
+  assert.match(md, /## Upstream connect failures \(eval closure\)/);
+  assert.match(md, /## Service state snapshots \(codemode\.services\(\)\)/);
+  assert.match(md, /\| notion \| 1 \| auth:1 \| `req-connect-auth` \|/);
+  assert.match(md, /\| notion \| 1 \| 0 \| offline:1 \| yes \| `req-services` \|/);
 });

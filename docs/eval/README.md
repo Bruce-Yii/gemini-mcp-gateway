@@ -12,6 +12,10 @@
 - [M4-A-FOUR-DIM.md](M4-A-FOUR-DIM.md) — platform × protocol(v1/v2) × profile × build 四维分账 + `--platform/--eval-mode` 过滤（含环境核验与边界）
 - [M4-C-FREQ-CLOSED-LOOP-2026-11-24.md](M4-C-FREQ-CLOSED-LOOP-2026-11-24.md) — 跨客户端防串伤规则落地 + 高频闭环实测（R2/analyzer 凭据不可用 → BLOCKED 记录，不伪造）
 
+## 闭环执行层（M5-E）
+
+- [EVAL-CLOSURE.md](EVAL-CLOSURE.md) — `active-eval.v1` 记录、同窗 active↔passive 对照、`EMPTY_WINDOW` 语义、状态漂移检查；配合 `AGENTS.md` §3.1.1 触发探针
+
 ## 在线反馈与 Scorecard 记录
 
 - [ONLINE-FEEDBACK.md](ONLINE-FEEDBACK.md) — `online-feedback.v1` schema 与对照规则

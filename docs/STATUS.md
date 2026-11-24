@@ -11,7 +11,7 @@
 | 维度 | 当前真实状态 | 证据 / 说明 |
 |---|---|---|
 | `main` HEAD | **评测闭环接线 PR #10（`2b04829`）**之后 | 已接通 `oauthClientId` 平台归因、`servers[]`、`evalMode` 与 `--last-minutes` 分析器（代码态已就绪，待随下一批功能部署到生产） |
-| 生产部署（Vercel） | **`1481408`**（2026-11-24 手动部署） | `main` 自动生产部署已关闭；含 P0 修复 `4de5341` |
+| 生产部署（Vercel） | **`3dd206f`**（2026-11-24 13:43 手动部署；14:02 env 同 commit 重部署） | `main` 自动生产部署已关闭；含 Issue #15 优先修复 |
 | CI 回归（PR #8 实跑） | Node 20.x / 24.x 全绿（`1518 tests`） | Node 22.x 有 1 例无关的 1ms 时钟抖动（`tests/capture-sink-fix.test.js:222`） |
 | V0 真实验收门（A–G） | **NOT ACCEPTED**（仅 A 当前构建可追溯） | B/D/E/G FAIL，C/F PARTIAL（见 [ACCEPTANCE.md](ACCEPTANCE.md)） |
 | 上游授权门禁 | **NOT READY** | 见 [AUTH-READY.md](AUTH-READY.md)，全绿前不向用户发起授权 |

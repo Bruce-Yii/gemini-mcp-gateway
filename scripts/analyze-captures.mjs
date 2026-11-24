@@ -68,6 +68,9 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
     } catch { return true; }
   });
   const metrics = aggregateEnvelopes(mcpOnly, { date });
+  // Eval closure: an empty filtered window is NOT "healthy". Distinguish it so
+  // the analyzer cannot report "0 issues" as if no data were the same thing.
+  const dataStatus = mcpOnly.length === 0 ? 'EMPTY_WINDOW' : 'HAS_DATA';
   const groups = new Map();
   const candidateSamples = [];
   for (const envelope of mcpOnly) {
@@ -256,8 +259,13 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
   return {
     schema: 'analyzer-input.v1',
     date,
+    dataStatus,
     filters: filters ?? null,
     dimensions,
+    // Eval closure: deterministic, non-model signals that make offline /
+    // needsReauth / connect failures visible to the passive lane.
+    connectFailures: metrics.upstreamConnect ?? { failures: 0, byServer: {} },
+    serviceState: metrics.serviceState ?? { snapshots: 0, byServer: {} },
     sessionWindows,
     sessionWindowsNote: 'Advisory clustering: sessionId when present, otherwise initialize / 15-min idle windows. windowId is analysis-only; cite requestId samples for replay. Do not treat cluster boundaries as verified client sessions.',
     // Project-level views (additive, advisory-only).
@@ -321,6 +329,7 @@ export function validateAnalyzerOutput(output, input) {
     policy: 'free-model-advisory-v1',
     advisoryOnly: true,
     requiresHumanReview: true,
+    dataStatus: input?.dataStatus ?? null,
     summary: truncate(output?.summary ?? '', 500),
     issues,
     ignored: Array.isArray(output?.ignored) ? output.ignored.slice(0, 20) : [],
@@ -393,6 +402,12 @@ function analyzerPrompt(input) {
   const dimensionHint = input.dimensions
     ? 'dimensions.byFourDimension / byProtocolVersion / byClientProfile / byBuildCommit / byEvalMode are INDEPENDENT buckets. Never compare metrics across buckets, and never hard-compare across builds (cross-build hard comparison is forbidden). Treat unknown as a real bucket, not as a missing value to be guessed.'
     : '';
+  const dataStatusHint = input.dataStatus === 'EMPTY_WINDOW'
+    ? 'dataStatus is EMPTY_WINDOW: the filter matched zero requests. Say exactly that and return no issues; an empty window is NOT evidence that the gateway is healthy (do not report "no problems" as a pass).'
+    : '';
+  const serviceStateHint = (input.connectFailures?.failures > 0 || input.serviceState?.snapshots > 0)
+    ? 'connectFailures and serviceState are DETERMINISTIC capture signals: upstream_connect{ok:false} means an upstream failed to connect, and serviceState rows with status=offline / needsReauth=true mean the gateway itself reported that service as unavailable. Cite these only with their requestId samples; do not treat a cold-start snapshot as a live health check.'
+    : '';
   return [
     {
       role: 'system',
@@ -405,6 +420,8 @@ function analyzerPrompt(input) {
         sessionHint,
         projectHint,
         dimensionHint,
+        dataStatusHint,
+        serviceStateHint,
         'Return ONLY strict JSON matching analyzer-output.v1:',
         '{"schema":"analyzer-output.v1","summary":"...","issues":[{"id":"issue-1","severity":"P0|P1|P2|P3","category":"gateway|upstream|model|data|unknown","title":"...","evidenceEventIds":["..."],"likelyCause":"...","suggestedFix":"...","confidence":0.0,"regressionTask":{"prompt":"...","expectedTool":"...","assertions":["..."]}}],"ignored":[{"clusterId":"c1","reason":"..."}]}',
         'Each issue MUST cite at least one evidenceEventIds from the input. If unsure, use ignored.',
@@ -591,7 +608,7 @@ async function main() {
       lastMinutes ? `lastMinutes=${lastMinutes}` : null,
       commit ? `commit=${commit}` : null,
     ].filter(Boolean).join(', ') || 'none';
-    console.log(`[analyze] dry-run: ${input.clusters.length} clusters, ${input.metrics.requests} requests, ${trend?.length ?? 0} days, filters=${filterText}`);
+    console.log(`[analyze] dry-run: dataStatus=${input.dataStatus} ${input.clusters.length} clusters, ${input.metrics.requests} requests, ${trend?.length ?? 0} days, filters=${filterText}`);
     return;
   }
   const raw = await callAnalyzer(input);

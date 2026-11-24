@@ -655,16 +655,62 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
     multiServerRequests: 0,
     byFourDimension: {},
     fourDimensionSummary: [],
+    // Eval closure (additive): structured connect failures + services() state.
+    upstreamConnect: { failures: 0, byServer: {} },
+    serviceState: { snapshots: 0, byServer: {}, offlineServers: [], staleServers: [], onlineServers: [] },
   };
   const upstreamGroups = new Map();
   const toolGroups = new Map();
   const routeGroups = new Map();
+  // Eval closure: deterministic aggregation of connection failures and
+  // `codemode.services()` snapshots. Both come from structured capture events
+  // (upstream_connect / gateway_helper), never from prose or model output.
+  const connectGroups = new Map();
+  const serviceGroups = new Map();
+  let serviceSnapshotCount = 0;
   // Per-platform accumulator. Every platform gets its own row so one client's
   // errors / tool calls / truncations can never inflate another's.
   const platformGroups = new Map();
 
   for (const envelope of envelopes) {
     const platform = clientPlatformOf(envelope);
+    const envelopeRequestId = String(envelope?.requestId ?? envelope?.request?.id ?? envelope?.id ?? 'unknown');
+    // ── Eval closure: structured connect failures + services() snapshots ──
+    for (const event of Array.isArray(envelope?.events) ? envelope.events : []) {
+      if (event?.type === 'upstream_connect' && event?.payload?.ok === false) {
+        const server = typeof event.payload.server === 'string' && event.payload.server
+          ? event.payload.server : 'unknown';
+        const message = String(event.payload?.error?.message ?? '');
+        const errorClass = /invalid_token|unauthorized|forbidden|401|reauth|invalid_grant/i.test(message)
+          ? 'auth' : 'connect';
+        const row = connectGroups.get(server) ?? { server, failures: 0, errorClasses: {}, sampleRequestIds: [] };
+        row.failures += 1;
+        row.errorClasses[errorClass] = (row.errorClasses[errorClass] ?? 0) + 1;
+        if (row.sampleRequestIds.length < 5 && !row.sampleRequestIds.includes(envelopeRequestId)) {
+          row.sampleRequestIds.push(envelopeRequestId);
+        }
+        connectGroups.set(server, row);
+      }
+      if (event?.type === 'gateway_helper' && event?.payload?.helper === 'services') {
+        serviceSnapshotCount += 1;
+        const rows = Array.isArray(event.payload.services) ? event.payload.services : [];
+        for (const service of rows) {
+          const name = typeof service?.name === 'string' && service.name ? service.name : 'unknown';
+          const status = typeof service?.status === 'string' && service.status ? service.status : 'unknown';
+          const row = serviceGroups.get(name) ?? {
+            name, snapshots: 0, toolCount: 0, statuses: {}, needsReauth: false, sampleRequestIds: [],
+          };
+          row.snapshots += 1;
+          row.toolCount = Number(service?.toolCount ?? 0) || 0;
+          row.statuses[status] = (row.statuses[status] ?? 0) + 1;
+          if (service?.needsReauth === true) row.needsReauth = true;
+          if (row.sampleRequestIds.length < 5 && !row.sampleRequestIds.includes(envelopeRequestId)) {
+            row.sampleRequestIds.push(envelopeRequestId);
+          }
+          serviceGroups.set(name, row);
+        }
+      }
+    }
     const platformRow = platformGroups.get(platform) ?? blankPlatformRow(platform);
     platformRow.requests += 1;
     // Count a requestId sample for evidence (bounded, stable insertion order).
@@ -933,6 +979,35 @@ export function aggregateEnvelopes(envelopes, { date = '' } = {}) {
       .sort(([a], [b]) => a.localeCompare(b)),
   );
 
+  // ── Eval closure: deterministic connect-failure + service-state summary ──
+  const connectRows = [...connectGroups.values()].map((row) => ({
+    server: row.server,
+    failures: row.failures,
+    errorClasses: Object.fromEntries(Object.entries(row.errorClasses).sort(([a], [b]) => a.localeCompare(b))),
+    sampleRequestIds: row.sampleRequestIds,
+  })).sort((a, b) => (b.failures - a.failures) || a.server.localeCompare(b.server));
+  const serviceRows = [...serviceGroups.values()].map((row) => ({
+    name: row.name,
+    snapshots: row.snapshots,
+    toolCount: row.toolCount,
+    statuses: Object.fromEntries(Object.entries(row.statuses).sort(([a], [b]) => a.localeCompare(b))),
+    needsReauth: row.needsReauth,
+    sampleRequestIds: row.sampleRequestIds,
+  })).sort((a, b) => a.name.localeCompare(b.name));
+  result.upstreamConnect = {
+    failures: connectRows.reduce((sum, row) => sum + row.failures, 0),
+    byServer: Object.fromEntries(connectRows.map((row) => [row.server, row])),
+  };
+  result.serviceState = {
+    snapshots: serviceSnapshotCount,
+    byServer: Object.fromEntries(serviceRows.map((row) => [row.name, row])),
+    offlineServers: serviceRows.filter((row) => row.needsReauth || (row.statuses.offline ?? 0) > 0).map((row) => row.name).sort(),
+    staleServers: serviceRows.filter((row) => (row.statuses.stale ?? 0) > 0).map((row) => row.name).sort(),
+    onlineServers: serviceRows
+      .filter((row) => !row.needsReauth && (row.statuses.offline ?? 0) === 0 && (row.statuses.stale ?? 0) === 0)
+      .map((row) => row.name).sort(),
+  };
+
   // Keep a stable, human-friendly order in JSON output.
   for (const key of ['byDay', 'byDayHour', 'byHour', 'statuses', 'errorClasses', 'routeErrors', 'upstreamStats', 'toolStats', 'byRoute', 'modelTruncationByServer', 'modelTruncationByTool', 'modelTruncationBySession', 'byClientPlatform']) {
     result[key] = Object.fromEntries(Object.entries(result[key]).sort(([a], [b]) => a.localeCompare(b)));
@@ -985,6 +1060,16 @@ export function renderScorecard(date, metrics) {
   }).join('\n') || '| — | — | — | — | — | 0 | 0 | 0 | 0 | 0 | — | — | — |';
   const serverTagRows = Object.values(metrics.byServerTag ?? {}).map((row) => `| ${row.server} | ${row.requests} | ${row.mcpRequests} | ${row.errors} | ${row.toolCalls} | ${row.truncationSuspects} |`).join('\n') || '| — | 0 | 0 | 0 | 0 | 0 |';
   const evalModeRows = Object.values(metrics.byEvalMode ?? {}).map((row) => `| ${row.evalMode} | ${row.requests} | ${row.mcpRequests} | ${row.errors} | ${row.toolCalls} | ${row.truncationSuspects} |`).join('\n') || '| — | 0 | 0 | 0 | 0 | 0 |';
+  const connectRowsMd = Object.values(metrics.upstreamConnect?.byServer ?? {}).map((row) => {
+    const ids = (row.sampleRequestIds ?? []).map((id) => `\`${id}\``).join(', ') || '—';
+    const classes = Object.entries(row.errorClasses ?? {}).map(([name, count]) => `${name}:${count}`).join(', ') || '—';
+    return `| ${row.server} | ${row.failures} | ${classes} | ${ids} |`;
+  }).join('\n') || '| — | 0 | — | — |';
+  const serviceRowsMd = Object.values(metrics.serviceState?.byServer ?? {}).map((row) => {
+    const ids = (row.sampleRequestIds ?? []).map((id) => `\`${id}\``).join(', ') || '—';
+    const statuses = Object.entries(row.statuses ?? {}).map(([name, count]) => `${name}:${count}`).join(', ') || '—';
+    return `| ${row.name} | ${row.snapshots} | ${row.toolCount} | ${statuses} | ${row.needsReauth ? 'yes' : 'no'} | ${ids} |`;
+  }).join('\n') || '| — | 0 | 0 | — | no | — |';
   return `# Capture Scorecard — ${date}
 
 | Metric | Value |
@@ -1065,6 +1150,22 @@ ${statTable(metrics.upstreamStats ?? {})}
 
 ## Per-MCP-tool stats
 ${statTable(metrics.toolStats ?? {}, { tool: true })}
+
+## Upstream connect failures (eval closure)
+> 来自结构化 capture 事件 \`upstream_connect{ok:false}\`，不读模型/正文；用于被动侧看见
+> “哪个上游连不上/需要重新授权”，而不是只看成功的 tools/call。
+
+| Server | Failures | Error classes | RequestId samples |
+|---|---:|---|---|
+${connectRowsMd}
+
+## Service state snapshots (codemode.services())
+> 来自 \`gateway_helper{helper:"services"}\` 的冷启动快照（name/toolCount/status/online/needsReauth）；
+> 它不是 live 健康检查，但能让被动侧看见 offline / needsReauth 状态。
+
+| Service | Snapshots | Tool count | Status counts | Needs reauth | RequestId samples |
+|---|---:|---:|---|---|---|
+${serviceRowsMd}
 
 ## Truncation / overflow
 > Three independent signals. "Model truncation suspects" is the silent case:

@@ -326,7 +326,7 @@ test('M4-A: CLI --dir composes filters; invalid args exit 1 with a clear error',
       ANALYZER_SCRIPT, '--dir', dir, '--out', out,
       '--platform', 'gemini', '--eval-mode', 'active', '--last-minutes', '60', '--dry-run',
     ], { encoding: 'utf8' });
-    assert.match(stdout, /dry-run: 0 clusters, 1 requests/);
+    assert.match(stdout, /dry-run: dataStatus=HAS_DATA 0 clusters, 1 requests/);
     assert.match(stdout, /filters=platform=gemini, evalMode=active, lastMinutes=60/);
 
     let failure;
@@ -339,4 +339,42 @@ test('M4-A: CLI --dir composes filters; invalid args exit 1 with a clear error',
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ── Eval closure: deterministic connect/service visibility + empty-window ────
+
+test('eval-closure: analyzer input carries connect/service state and EMPTY_WINDOW is explicit', () => {
+  const env = {
+    requestId: 'req-services',
+    ts: '2026-11-24T06:12:00.000Z',
+    clientPlatform: 'gemini',
+    evalMode: 'unknown',
+    deployment: { commit: '3dd206f' },
+    request: {
+      method: 'POST', url: '/mcp',
+      raw: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: 'execute_read', arguments: { code: 'async () => codemode.services()' } } }),
+    },
+    response: { status: 200, raw: '{"services":[]}', bytes: 14, durationMs: 20 },
+    events: [
+      { type: 'upstream_connect', payload: { server: 'notion', ok: false, error: { message: '401 invalid_token' } } },
+      { type: 'gateway_helper', payload: { helper: 'services', ok: true, services: [
+        { name: 'github', toolCount: 42, status: 'observed', online: true },
+        { name: 'notion', toolCount: 0, status: 'offline', online: false, needsReauth: true },
+      ] } },
+    ],
+  };
+  const withData = buildAnalyzerInput([env], { date: '2026-11-24' });
+  assert.equal(withData.dataStatus, 'HAS_DATA');
+  assert.equal(withData.connectFailures.failures, 1);
+  assert.equal(withData.connectFailures.byServer.notion.errorClasses.auth, 1);
+  assert.deepEqual(withData.serviceState.offlineServers, ['notion']);
+  assert.equal(withData.serviceState.byServer.notion.needsReauth, true);
+  assert.equal(validateAnalyzerOutput({ issues: [] }, withData).dataStatus, 'HAS_DATA');
+
+  const empty = buildAnalyzerInput([], { date: '2026-11-24', filters: { platform: 'gemini', evalMode: 'active', lastMinutes: 60, commit: '3dd206f' } });
+  assert.equal(empty.dataStatus, 'EMPTY_WINDOW');
+  assert.equal(empty.metrics.requests, 0);
+  assert.equal(empty.connectFailures.failures, 0);
+  assert.ok(Array.isArray(empty.serviceState.offlineServers));
+  assert.equal(validateAnalyzerOutput({ issues: [] }, empty).dataStatus, 'EMPTY_WINDOW');
 });
