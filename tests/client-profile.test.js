@@ -11,6 +11,9 @@ import {
   CLAUDE,
   CHATGPT,
   PROFILE_HEADER,
+  WIRE_TEXT_JSON,
+  DESCRIPTION_MODE_FULL,
+  DEFAULT_OUTPUT_BUDGET_CHARS,
 } from '../src/client-profile.js';
 
 const EMPTY_ENV = {}; // no env opt-ins
@@ -22,7 +25,14 @@ test('default: no signals -> gemini (legacy text-JSON)', () => {
   assert.equal(p.id, GEMINI);
   assert.equal(p.structuredContent, false);
   assert.equal(p.textJson, true);
-  assert.equal(p.annotations, true);
+  // M1 four-slot defaults: the legacy encoding flags are unchanged and the new
+  // slots resolve to the historical values (full description, global budget).
+  assert.equal(p.wireEncoding, WIRE_TEXT_JSON);
+  assert.equal(p.descriptionMode, DESCRIPTION_MODE_FULL);
+  assert.equal(p.outputBudgetChars, DEFAULT_OUTPUT_BUDGET_CHARS);
+  assert.deepEqual(p.annotations.search, { readOnlyHint: true, destructiveHint: false, openWorldHint: false });
+  assert.deepEqual(p.annotations.execute_read, { readOnlyHint: true, destructiveHint: false, openWorldHint: true });
+  assert.deepEqual(p.annotations.execute, { readOnlyHint: false, destructiveHint: true, openWorldHint: true });
 });
 
 test('explicit header: claude / chatgpt / gemini are recognized', () => {
