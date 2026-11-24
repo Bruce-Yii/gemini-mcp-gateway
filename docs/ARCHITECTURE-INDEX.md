@@ -1,409 +1,217 @@
-# ARCHITECTURE-INDEX — 全项目架构细化目录
+# ARCHITECTURE-INDEX — 唯一渐进式架构主目录
 
-> 用途：一个入口定位“某个模块/子模块/细小实现”在：
-> 设计文档 → 代码 → 测试 → 成熟度 → 缺口 → 下一步工作包。
->
-> 状态锚点：2026-11-24。
-> 权威顺序：`FRAMEWORK.md` → `FRAMEWORK-FULL.md` → 本文 → 审计报告。
-> 本文是目录，不替代设计文档。
+> **治理标记**：`[云端总控]` 收口版本（2026-11-24）。
+> **权威顺序**：[FRAMEWORK.md](FRAMEWORK.md)（用户原文与最高意图）→ [FRAMEWORK-FULL.md](FRAMEWORK-FULL.md)（目标态 S0–S5）→ **本文（唯一渐进式架构主目录）** → [MODULE-DECOMPOSITION.md](MODULE-DECOMPOSITION.md)（L2→L3 工作包派发）→ 审计报告。
+> **阅读方式（渐进式披露）**：**L0** 一屏看全景与不变量 → **L1** 看六模块边界与依赖红线 → **L2** 按需展开到子模块与细粒度组件（附局部横向闭环图）→ **L3** 落位到代码路径、活跃缺口与工作包。
+> **已收口文档**：原 `ARCHITECTURE.md`、`ARCHITECTURE-PROGRESSIVE.md` 核心内容已并入本文；`architecture-graph.json` 已冻结为实验性快照（不再手工双写）。
 
 ---
 
-## 0. 这不是书籍目录，是图谱
-
-本文件不是“章节一、章节二”的线性目录，而是**节点 + 边**的图谱入口。
-
-机器可读图谱：
-
-**[architecture-graph.json](architecture-graph.json)**
-
-### 0.0.1 节点类型
-
-| 类型 | 例子 | 用途 |
-|---|---|---|
-| `module` | `M4` Evidence & Eval | 六大模块 |
-| `submodule` | `M4.3` PassiveOnline | 能力边界 |
-| `component` | `M4.3.1` Capture | 可独立设计/测试 |
-| `crosscut` | `X2` StateIsolation | 横切平面 |
-| `workpackage` | `WP-E3` active-passive link | 可分配工作包 |
-| `gap` | `GAP-E` | 缺口/阻塞 |
-
-### 0.0.2 边类型
-
-| 边 | 含义 |
-|---|---|
-| `feeds_tools` | 客户端把 3 工具喂给执行层 |
-| `calls` | 执行层调用上游 |
-| `emits_events` | 上游/执行产生 capture 事件 |
-| `feedback_improves` | 评测反哺执行 |
-| `wraps` | 运行时包裹所有模块 |
-| `depends_on` | 开源依赖前五层 |
-| `selects` | 路由器选择执行器 |
-| `constrains` | 上下文预算约束执行 |
-| `labels` | 主动评测标注被动数据 |
-| `calibrates` | 主动标签校准被动规则 |
-| `blocks` | 缺口阻塞节点 |
-| `implements` | 工作包实现节点 |
-| `crosses` | 横切平面横跨模块 |
-
-### 0.0.3 主图谱
-
-```mermaid
-graph LR
-  M1[M1 Client] -->|feeds_tools| M2[M2 Execution]
-  M2 -->|calls| M3[M3 Upstream]
-  M3 -->|emits_events| M4[M4 Evidence/Eval]
-  M4 -->|feedback_improves| M2
-  M5[M5 Runtime] -.->|wraps| M1
-  M5 -.->|wraps| M2
-  M5 -.->|wraps| M3
-  M5 -.->|wraps| M4
-  M6[M6 Release] -.->|depends_on| M1
-  M6 -.->|depends_on| M2
-  M6 -.->|depends_on| M3
-  M6 -.->|depends_on| M4
-  M6 -.->|depends_on| M5
-  X1[X1 Mode/Capability] -.-> M1
-  X2[X2 State/Isolation] -.-> M1
-  X2 -.-> M3
-  X3[X3 Evidence/Truth] -.-> M4
-  X4[X4 Trust/Cost] -.-> M3
-  X4 -.-> M5
-  X5[X5 Approval/UX] -.-> M1
-```
-
-### 0.0.4 评测子图（示例）
-
-```mermaid
-graph LR
-  A[M4.2 ActiveOnline] -->|labels| L[M4.3.5 Link]
-  C1[M4.3.1 Capture] --> C2[M4.3.2 SinkQueue]
-  C2 --> C3[M4.3.3 Join]
-  C3 --> C4[M4.3.4 Analysis]
-  C4 --> R[M4.3.6 RuleFeedback]
-  L --> CAL[M4.4 Calibration]
-  R --> C4
-  CAL --> OPT[优化/减少主动频率]
-```
-
-这条子图说明：
-
-- 主动不是孤立，它给被动提供标签；
-- 被动不是孤立，它通过采集→归一→分析→规则反哺；
-- 校准是连接点，不是报告终点；
-- 优化才是终点。
-
-### 0.0.5 查询方式
-
-| 想找 | 从哪个节点进 |
-|---|---|
-| 客户端模式/profile | `M1.2` / `M1.4` |
-| 执行器选择 | `M2.1` |
-| Code Mode | `M2.2` |
-| 写路径 | `M2.8` / `M3.5` |
-| 上游授权 | `M3.3` |
-| 被动采集 | `M4.3.1` → `M4.3.2` |
-| 主动↔被动 | `M4.2` → `M4.3.5` → `M4.4` |
-| 运行时/部署 | `M5.1` / `M5.6` |
-| 开源门槛 | `M6` |
-| 缺口 | `GAP-*` |
-| 工作包 | `WP-E*` |
-
-### 0.0.6 下面表格怎么读
-
-- §1–§7 是**节点清单/成熟度**，不是章节顺序；
-- 先按图谱定位节点，再查表格；
-- 代码、测试、文档、缺口、工作包都挂在节点上；
-- 新增设计先加节点/边，再写代码。
-
----
-
-## 0.1 状态图例
+## 状态图例
 
 | 状态 | 含义 |
 |---|---|
-| L0 | 设计/文档，无实现 |
-| L1 | 原型/离线测试，不接生产 |
-| L2 | 已集成/flag-gated，可局部用 |
-| L3 | 真实客户端/真实上游/真实写验证过 |
-| L4 | 生产级/多租户/SLA（本项目非目标） |
+| `L0` | 设计/文档，无实现 |
+| `L1` | 原型/离线测试，未接生产 |
+| `L2` | 已集成或 flag-gated，可局部使用 |
+| `L3` | 真实客户端 / 真实上游 / 真实写入验证通过 |
+| `L4` | 多租户 / 生产级 SLA（本项目非目标） |
 
-**测试绿 ≠ L3。L3 必须有真实证据。**
+**硬规则：测试绿 ≠ L3；L3 必须有真实客户端/真实上游/真实写入证据。**
 
 ---
 
-## 1. 项目总览
+# L0 · 一屏全景与核心不变量
 
-```text
-Web 非代码客户端
-  → 3 tools
-  → 可替换执行底座
-  → 多上游
-  → capture/eval 闭环
-  → 多载体运行
-  → 开源
+> 一句话：**面向网页端非代码模式 AI 客户端的单 owner、可自托管 MCP 网关**——对外永远只暴露 3 个稳定工具（`search` / `execute_read` / `execute`），内部用可替换执行底座消化多步编排与上游大载荷，用“离线 + 主动线上 + 被动线上”评测闭环持续验证与反哺。
+
+### 六模块主链路与横向关系
+
+```mermaid
+graph LR
+  M1[M1 Client 客户端适配] -->|3 tools| M2[M2 Execution 可替换执行底座]
+  M2 -->|tool calls| M3[M3 Upstream 上游接入与授权]
+  M3 -->|events| M4[M4 Evidence & Eval 采集与评测]
+  M4 -->|反哺优化| M2
+  M5[M5 Runtime 运行时与部署] -.->|承载| M1
+  M5 -.->|承载| M2
+  M5 -.->|承载| M3
+  M5 -.->|承载| M4
+  M6[M6 Release 开源工程] -.->|依赖前五层| M5
 ```
 
-当前一句话：
+### 十条核心不变量
 
-> 代码原型强、测试多、架构清楚；真实客户端/真实写/真实授权仍未验收；开源 L1 未达。
+1. **三工具稳定面**：对外永远只有 `search` / `execute_read` / `execute`，名称与顺序不变。
+2. **工具面会话冻结**：Gemini 不消费 `notifications/tools/list_changed`，改 schema 必须走版本路径（如 `/mcp/v2`）。
+3. **读写强隔离**：`execute_read` 拒绝写操作；`execute` 写操作必须走 `dryRun` / host `approve` 与原子写路径，guest 不可自授权。
+4. **纯正文返回**：文件读取 `content` 必须是纯正文，SHA 与下载提示只放独立元数据。
+5. **PR 编号 URL 优先**：PR `number` 严格从 URL `/pull/(\d+)` 提取，永不用内部 `id`/`nodeId` 兜底。
+6. **禁止静默截断**：任何截断必须附带字段级元数据（field / total / tail / next）。
+7. **网关独立授权**：绝不与外部宿主（如 DSH）共享 rotating refresh token；v2 KV key 按 `gmcgw:v2:grant:<env>:<owner>:<server>` 隔离。
+8. **采集与安全分离**：capture 保持 full-fidelity 不做隐私过滤；模型可见错误必须对 token/secret 脱敏。
+9. **失败不留半成品**：多文件写优先原子提交（`push_files`）；非原子失败必须返回 `partial:true` 与补偿提示。
+10. **证据优先于测试数**：单测绿灯或 fake harness 通过只代表代码候选，不等于 V0 验收通过。
 
-| 指标 | 当前 |
+### 当前基线快照
+
+| 指标 | 当前状态 |
 |---|---|
-| main HEAD | `efcf2f0`（文档） |
-| 生产 | `1481408` |
-| 全量测试 | 1461 / 1455 pass / 0 fail / 6 todo |
-| 模块边界 | 0 new violations；9 legacy edges |
-| V0 验收 | NOT ACCEPTED（A PARTIAL，B–G 未过） |
-| 冻结点 | architecture / p0-fixes / modules |
+| 生产部署 | `1481408`（手动部署；`main` 自动生产部署已关闭） |
+| 全量测试基线 | `1461 tests / 1455 pass / 0 fail / 6 todo` |
+| 模块物理目录 | `src/` 已拆分为 6 目录（根目录保留兼容 shim） |
+| 模块边界门禁 | `0 new violations`；9 条 legacy 边待清 |
+| V0 验收 | **NOT ACCEPTED**（A 门当前构建可追溯，B–G 未过） |
+| 上游授权门禁 | [AUTH-READY.md](AUTH-READY.md) = **NOT READY** |
+| OSS 公开状态 | 未公开（仅本地 staging / release 产物） |
 
 ---
 
-## 2. 文档地图
+# L1 · 六模块卡片与依赖红线
 
-### 总纲/目标
+| 模块 | 一句话职责 | 核心接口 | 代码目录 | 当前成熟度 | 不负责 |
+|---|---|---|---|---|---|
+| **M1 Client** | 把不同 Web 非代码客户端适配成同一套 3 工具契约 | `ClientAdapter` | `src/client/` | L0–L2 | 业务编排、上游连接 |
+| **M2 Execution** | 3 工具 + 可替换执行器 + 沙箱 + 规范化与写安全闸 | `ExecutionAdapter` | `src/execution/` | L0–L3 | OAuth、上游生命周期 |
+| **M3 Upstream** | 连接真实 MCP、独立 grant 授权、目录与写事务 | `UpstreamAdapter` | `src/upstream/` | L0–L2 | 客户端编码 |
+| **M4 Evidence & Eval** | full-fidelity 采集、主动/被动评测与校准反哺 | `EvalHarness` | `src/evidence/` + `scripts/` | L0–L2 | 生产执行 |
+| **M5 Runtime** | HTTP 入口、配置、KV/R2、健康检查与手动部署 | `RuntimeAdapter` | `src/runtime/` + `src/shared/` | L0–L3 | 业务编排 |
+| **M6 Release** | allowlist 导出、安全中立化、模板与开源治理 | `ReleaseAdapter` | `scripts/export-oss.mjs` + `docs/OPEN-SOURCE/` | L0–L2 | 运行时能力 |
 
-- [FRAMEWORK.md](FRAMEWORK.md) — 用户原文 + 六模块 + 纠正 + 关联机制
-- [FRAMEWORK-FULL.md](FRAMEWORK-FULL.md) — 完全态 + S0–S5
-- [MODULE-DECOMPOSITION.md](MODULE-DECOMPOSITION.md) — 模块→子模块→组件→工作包
-- [ARCHITECTURE.md](ARCHITECTURE.md) / [ARCHITECTURE-PROGRESSIVE.md](ARCHITECTURE-PROGRESSIVE.md) — 结构参考
-- [REPO-MAP.md](REPO-MAP.md) / [REPO-STORAGE-PLAN.md](REPO-STORAGE-PLAN.md) — 文件/模块/迁移
-- [ACCEPTANCE.md](ACCEPTANCE.md) — V0 验收门
-- [EVALUATION.md](EVALUATION.md) — 评测架构
-- [AUTH-READY.md](AUTH-READY.md) — 授权门禁
-- [DEPLOY-POLICY.md](DEPLOY-POLICY.md) / [DEPLOYMENTS.md](DEPLOYMENTS.md)
+### 依赖红线
 
-### 审计
-
-- [architecture-audit/00-crosscut.md](architecture-audit/00-crosscut.md) — 跨模块
-- [architecture-audit/01-client.md](architecture-audit/01-client.md) … 06-oss
-- [architecture-audit/FULL-REPO-FINDINGS.md](architecture-audit/FULL-REPO-FINDINGS.md)
-- [OPEN-SOURCE/INDEPENDENT-REVIEW-2026-11-24.md](OPEN-SOURCE/INDEPENDENT-REVIEW-2026-11-24.md)
-- [OPEN-SOURCE/RESIDUAL-RISK-AUDIT.md](OPEN-SOURCE/RESIDUAL-RISK-AUDIT.md)
-- [OPEN-SOURCE/FINAL-HEALTH-AUDIT.md](OPEN-SOURCE/FINAL-HEALTH-AUDIT.md)
+- 禁止 `M1 Client` 直接依赖 `M3 Upstream`；
+- 禁止 `M3 Upstream` 反向依赖 `M1 Client`；
+- 禁止 `M4 Evidence & Eval` 反向控制生产执行；
+- 禁止 `M6 Release` 进入核心运行时；
+- 跨模块只通过接口与数据契约通信，不共享隐式全局状态。
 
 ---
 
-## 3. 代码地图
+# L2 · 六模块细粒度展开（渐进式目录）
 
-### 入口/运行时
+## M1 · Client（客户端适配）
 
-| 内容 | 路径 |
-|---|---|
-| Vercel entry | `api/index.js` |
-| Vercel app | `src/runtime/vercel-app.js` |
-| Node server | `src/runtime/server.js` |
-| Store | `src/shared/store.js` |
-| Config | `src/shared/config.js` |
-| Build info | `src/shared/build-info.js` |
+主战场为**网页端非代码模式**（Gemini / ChatGPT / Claude 等）；逐平台走 `接入 → 测试 → 优化 → 评测 → 回归`。
 
-### 客户端
+| 子模块 | 细粒度职责 | 设计文档 | 代码落位 | 成熟度 | 当前缺口 |
+|---|---|---|---|---|---|
+| **1.1 Registry** | 平台 / 模式 / 计划 / 能力注册 | [FRAMEWORK.md](FRAMEWORK.md) | 未实现 | L0 | 能力注册表 |
+| **1.2 ModeResolver** | 识别网页非代码模式 vs 代码模式与 fallback | [FRAMEWORK.md](FRAMEWORK.md) §11/13 | `src/client/client-platform.js`（部分） | L0–L1 | web-non-code 检测 |
+| **1.3 AuthAdapter** | 入站 OAuth / DCR / CIMD / locked client / origin 一致性 | [CONTRACT.md](../CONTRACT.md) | `src/client/oauth.js` | L2 | 真实客户端回归 |
+| **1.4 Profile** | schema / `structuredContent` / text JSON / annotations 编码 | [FRAMEWORK.md](FRAMEWORK.md) | `src/client/client-profile.js`、`src/shared/sanitize.js` | L2 | 真实窗口编码验收 |
+| **1.5 Onboarding** | 首次使用引导（部署 → 上游授权 → 客户端连接） | [FRAMEWORK.md](FRAMEWORK.md) | 文档 | L0 | 引导向导 |
+| **1.6 Approval** | 客户端权限优先；annotations 实验 profile（B+D） | [FRAMEWORK.md](FRAMEWORK.md) §14 | `src/client/client-profile.js` | L1 | Gemini 真实弹窗实验 |
 
-| 内容 | 路径 |
-|---|---|
-| 平台识别 | `src/client/client-platform.js` |
-| profile/编码/annotations | `src/client/client-profile.js` |
-| OAuth/DCR/CIMD | `src/client/oauth.js` |
-| schema sanitize | `src/shared/sanitize.js` |
+## M2 · Execution（可替换执行底座）
 
-### 执行
+执行底座按客户端能力替换（而非全局唯一）：Gemini 优先 Typed Plan（待 A/B 验证后切换）、强模型默认 Code Mode、宿主支持 tool search 时可扩展 Native / Hybrid。
 
-| 内容 | 路径 |
-|---|---|
-| Code Mode | `src/execution/codemode.js` |
-| v2 plan/code | `src/execution/codemode-v2.js` |
-| Typed Plan | `src/execution/typed-plan.js` |
-| tool 描述/错误 | `src/execution/tool-format.js` |
-| canonical | `src/execution/result-normalize.js` |
-| patch/write | `src/execution/file-write.js` |
-| GitHub helper | `src/execution/github-helpers.js` |
-| catalog | `src/shared/catalog.js` |
+| 子模块 | 细粒度职责 | 设计文档 | 代码落位 | 成熟度 | 当前缺口 |
+|---|---|---|---|---|---|
+| **2.1 Router** | 按客户端 profile / 任务选择执行器 | [FRAMEWORK-FULL.md](FRAMEWORK-FULL.md) | 未实现 | L0 | 路由层未建 |
+| **2.2 CodeMode** | QuickJS 自由 JS 沙箱、渐进 `search`、批量编排 | [FRAMEWORK.md](FRAMEWORK.md) | `src/execution/codemode.js`、`codemode-util.js` | L3（生产默认） | 真实客户端任务验收 |
+| **2.3 TypedPlan** | `/mcp/v2`（`ENABLE_MCP_V2=1`）类型化步骤执行 | [eval/TYPED-PLAN-TEST-PLAN.md](eval/TYPED-PLAN-TEST-PLAN.md) | `src/execution/typed-plan.js`、`codemode-v2.js` | L2（flag） | 真实模型 A/B |
+| **2.4 Native / Hybrid** | 宿主原生工具搜索 / plan+code 混合回退 | [FRAMEWORK-FULL.md](FRAMEWORK-FULL.md) | 未实现 | L0 | 原型未建 |
+| **2.5 ContextBudget** | 字段级截断元数据、续读、摘要与结果预算 | [FRAMEWORK.md](FRAMEWORK.md) §13.4 | `src/execution/codemode.js`（部分） | L1 | 顶层键字节/行数清单（OF-7） |
+| **2.6 ResultLifecycle** | raw → canonical（纯正文 / URL-first PR number）→ profile 编码 | [FRAMEWORK.md](FRAMEWORK.md) | `src/execution/result-normalize.js`、`tool-format.js` | L2 | Issue 创建幂等回查（OF-1）、`fileResult.path`（#4） |
+| **2.7 WriteGuard** | `dryRun` / host `approve` / 截断读拒写 / 原子写 / 写前预检 | [FRAMEWORK.md](FRAMEWORK.md) | `src/execution/file-write.js`、`github-helpers.js` | L2 | TS/TSX 语法预检（OF-4）、局部补丁契约（OF-6） |
 
-### 上游
+## M3 · Upstream（上游接入与授权）
 
-| 内容 | 路径 |
-|---|---|
-| 连接/调用 | `src/upstream/upstreams.js` |
-| grant/refresh | `src/upstream/upstream-auth.js` |
-| DCR/CIMD | `src/upstream/upstream-oauth.js` |
-| Figma guard | `src/upstream/figma-guard.js` |
+当前覆盖 GitHub / Notion / Linear / Vercel / Figma；后续候选 Cloudflare / Gmail / Firecrawl / Exa / Tavily。**授权体验排第一位**。
 
-### 证据
+| 子模块 | 细粒度职责 | 设计文档 | 代码落位 | 成熟度 | 当前缺口 |
+|---|---|---|---|---|---|
+| **3.1 Registry** | 上游清单、传输协议、allow/deny 策略与固定 SOP | [FRAMEWORK.md](FRAMEWORK.md) §5 | `src/upstream/upstreams.js`、`src/shared/catalog.js` | L2 | 标准化上游 SOP 模板 |
+| **3.2 ProviderAdapter** | 各上游参数别名（如 `branch→ref`）与特殊防护 | [eval/AUTH-PROVIDERS.md](eval/AUTH-PROVIDERS.md) | `src/upstream/upstreams.js`、`figma-guard.js` | L2 | Notion/Vercel 真实 401/tools |
+| **3.3 GrantBroker** | `owner` 标记、v2 KV key、static_bearer、Notion DCR、Vercel CIMD | [AUTH-READY.md](AUTH-READY.md) | `src/upstream/upstream-auth.js`、`upstream-oauth.js` | L2（代码） | 真实 owner 迁移、KV 环境隔离、72h 生命周期 |
+| **3.4 Canonical** | 统一 file / PR / issue / actions 返回结构 | [FRAMEWORK.md](FRAMEWORK.md) | `src/execution/result-normalize.js` | L2 | 真实生产形状复验（OF-2） |
+| **3.5 WriteTransaction** | patch / `push_files` 原子提交 / PR / CI 等待与重试 | [eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md](eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md) | `src/execution/file-write.js`、`github-helpers.js` | L2 | `rerunFailedJobs`（OF-5）、delete/rename（OF-8） |
+| **3.6 Health & Quota** | 上游健康探针；Firecrawl/Exa 等搜索 API 去重与查询预算 | [FRAMEWORK.md](FRAMEWORK.md) §13.5 | 部分 | L0–L1 | 限流与配额优化未实现 |
 
-| 内容 | 路径 |
-|---|---|
-| capture | `src/evidence/capture.js` |
-| queue | `src/evidence/capture-queue.js` |
-| project tag | `src/evidence/project-tag.js` |
+## M4 · Evidence & Eval（采集与评测闭环）
 
-### 评测/脚本
+评的是**工具级可核验真值**（参数契约、返回 schema、上游副作用、重放一致性），不是主观模型推理。核心机制是**主动反哺被动**，逐步降低主动评测频率与成本。
 
-| 内容 | 路径 |
-|---|---|
-| L1 runner | `scripts/run-l1-smoke.mjs` |
-| replay | `scripts/replay-online-session.mjs` |
-| eval cycle | `scripts/eval-cycle.mjs` |
-| online feedback | `scripts/record-online-feedback.mjs` |
-| link（设计） | 未实现 |
-| 官方任务 | `explore/tasks-*` |
+```mermaid
+graph LR
+  A[4.2 主动在线评测] -->|标注 active-eval.v1| L[4.4 主动↔被动关联]
+  C1[4.3.1 Capture 采集] --> C2[4.3.2 Sink/Queue]
+  C2 --> C3[4.3.3 session×project×task 交叉归一]
+  C3 --> C4[4.3.4 规则/免费模型分析]
+  C4 --> R[4.3.5 规则反哺]
+  L --> CAL[4.5 校准与一致率]
+  R --> C4
+  CAL --> OPT[降低主动评测频率与成本]
+```
 
-### 仓库门禁
+| 子模块 / 组件 | 细粒度职责 | 设计文档 | 代码落位 | 成熟度 | 当前缺口 |
+|---|---|---|---|---|---|
+| **4.1 Offline 离线基准** | 官方逐工具契约 + 权威任务集（L1 / G6 / N1–N9 / J1–J6） | [EVALUATION.md](EVALUATION.md) | `explore/tasks-*`、`scripts/run-l1-smoke.mjs` | L1–L2 | 官方逐工具全覆盖、online-gap baseline 冻结 |
+| **4.2 ActiveOnline 主动在线** | 真人在真实客户端提问、`active-eval.v1` 标注与任务指纹 | [eval/ONLINE-FEEDBACK.md](eval/ONLINE-FEEDBACK.md) | `scripts/record-online-feedback.mjs` | L1 | `active-eval.v1` 记录器（E1） |
+| **4.3.1 Capture 采集层** | full-fidelity 请求/响应信封采集 | [EVALUATION.md](EVALUATION.md) | `src/evidence/capture.js` | L2 | 补 `taskId` / `clientMode`（E2）、内部上游调用逐次计数 |
+| **4.3.2 Sink / Queue** | 文件 / R2 / HTTP 异步队列与 LRU 背压 | [EVALUATION.md](EVALUATION.md) | `src/evidence/capture-queue.js` | L2 | **R2 list 分页修复（OF-3，当前 20 条上限导致分母失真）** |
+| **4.3.3 Cross-Join 交叉归一** | `session × project × task × request` 交叉归因 | [MODULE-DECOMPOSITION.md](MODULE-DECOMPOSITION.md) | `src/evidence/project-tag.js` | L1 | 缺 `taskId` 串联（E2） |
+| **4.3.4 Analysis 分析层** | 契约/截断规则检查 + 免费模型 advisory 假设（非结论） | [AGENTS.md](../AGENTS.md) §1 | `scripts/analyze-captures.mjs` | L1 | 确定性被动检查器（E4） |
+| **4.4 Link 主动↔被动关联** | exact / likely / weak / unmatched 自动对齐 | [eval/ACTIVE-PASSIVE-CORRELATION.md](eval/ACTIVE-PASSIVE-CORRELATION.md) | 未实现 | L0 | `link-active-passive`（E3） |
+| **4.5 Calibration 校准反哺** | 用主动标签度量被动规则 precision/recall 并反哺规则 | [MODULE-DECOMPOSITION.md](MODULE-DECOMPOSITION.md) | 未实现 | L0 | 校准脚本（E5） |
+| **4.6 Orchestrator 编排** | `eval-cycle`、回放、baseline 对照与 scorecard | [eval/CONTINUOUS-EVAL.md](eval/CONTINUOUS-EVAL.md) | `scripts/eval-cycle.mjs`、`replay-online-session.mjs` | L1 | 真实数据基线与双构建同任务对照（E6） |
 
-| 内容 | 路径 |
-|---|---|
-| 模块边界 | `scripts/check-module-boundaries.mjs` |
-| 截断审计 | `scripts/audit-truncation.mjs` |
-| OSS export | `scripts/export-oss.mjs` |
-| CI | `.github/workflows/ci.yml` |
+## M5 · Runtime（运行时与部署）
+
+原则：**默认部署路径无意外扣费风险**；生产关闭自动发布，手动 promote 并核对 `/healthz` 的 `commit`/`buildHash`。
+
+| 子模块 | 细粒度职责 | 设计文档 | 代码落位 | 成熟度 | 当前缺口 |
+|---|---|---|---|---|---|
+| **5.1 HTTP 入口** | Vercel Serverless / 本地 Node HTTP 双入口 | [DEPLOY.md](../DEPLOY.md) | `api/index.js`、`src/runtime/vercel-app.js`、`server.js` | L3 | — |
+| **5.2 Config / Store** | 环境变量校验、KV / Redis / 文件存储、构建信息 | [DEPLOY.md](../DEPLOY.md) | `src/shared/config.js`、`store.js`、`build-info.js` | L2 | 真实 preview/prod KV 隔离实测 |
+| **5.3 Health & Deploy** | `/healthz`、手动部署台账、回滚策略 | [DEPLOY-POLICY.md](DEPLOY-POLICY.md)、[DEPLOYMENTS.md](DEPLOYMENTS.md) | `vercel.json`、`scripts/write-build-info.mjs` | L2 | 自动化回滚演练 |
+| **5.4 Docker / 多载体** | Docker 自托管、内网穿透、免费 PaaS RuntimeAdapter | [FRAMEWORK.md](FRAMEWORK.md) §6 | `Dockerfile`、`docker-compose.yml` | L0–L1 | Docker build / `npm audit` 未实跑；RuntimeAdapter / CostGuard 未建 |
+
+## M6 · Release（开源工程）
+
+优先级后置，强依赖前五层真实可用性验收；未获明确批准不公开、不建远端、不 push。
+
+| 子模块 | 细粒度职责 | 设计文档 | 代码落位 | 成熟度 | 当前缺口 |
+|---|---|---|---|---|---|
+| **6.1 Export & Safety** | allowlist 导出、身份/路径中立化、密钥与泄露扫描 | [OPEN-SOURCE/PUBLIC-SAFETY-AUDIT.md](OPEN-SOURCE/PUBLIC-SAFETY-AUDIT.md) | `scripts/export-oss.mjs`、`prepare-neutral-source.mjs` | L2 | 文档残留核查 |
+| **6.2 Templates & Docs** | 客户端/上游/部署引导模板、README 指标一致性 | [OPEN-SOURCE/RELEASE-LOCAL.md](OPEN-SOURCE/RELEASE-LOCAL.md) | `templates/`、`README*.md` | L1 | README 过期数字清理 |
+| **6.3 Governance** | 许可证、安全披露、贡献流程与发布门禁 | [OPEN-SOURCE/FINAL-HEALTH-AUDIT.md](OPEN-SOURCE/FINAL-HEALTH-AUDIT.md) | `SECURITY.md`、`CONTRIBUTING.md` | L0–L1 | 发布前人工核对清单 |
 
 ---
 
-## 4. 六模块细化与成熟度
+# L3 · 活跃缺口、文件定位与工作包入口
 
-### 模块 1：Client
+### 1. 活跃 P0 缺口（阻塞 V0 验收或证据链）
 
-| 子模块 | 设计 | 代码 | 测试 | 成熟度 | 缺口 |
-|---|---|---|---|---|---|
-| Registry | FRAMEWORK | 未实现 | — | L0 | 平台/模式/计划/能力注册 |
-| ModeResolver | FRAMEWORK §11/13 | 未实现 | — | L0 | web-non-code 检测/fallback |
-| AuthAdapter | CLIENTS/AUTH | oauth.js | 部分 | L2 | 真实客户端 |
-| Profile | ARCHITECTURE | client-profile.js | 21 conformance | L2 | 真实编码 |
-| Onboarding | FRAMEWORK | 文档 | — | L0 | 向导 |
-| Approval | FRAMEWORK §14 | annotations | 部分 | L1 | 实验 profile B+D |
+| ID | 缺口 | 所属模块 | 对应验收/工作包 |
+|---|---|---|---|
+| **GAP-A** | 真实 Gemini / ChatGPT / Claude 窗口任务未验收 | M1 / M2 | V0 验收门 B |
+| **GAP-B** | 真实写回环（含 CI 读取）与当前生产复验未闭环 | M2 / M3 | V0 验收门 C / `OF-2` |
+| **GAP-C** | 网关独立授权、owner 迁移、KV 环境隔离与 72h 观察未完成 | M3 / M5 | V0 验收门 D / [AUTH-READY.md](AUTH-READY.md) |
+| **GAP-D** | 被动采集 R2 单页 20 条上限导致分母失真；缺 `taskId`/`clientMode` | M4 | `OF-3` / `E2` |
+| **GAP-E** | 主动↔被动关联与校准反哺未实现 | M4 | `E1` / `E3` / `E5` |
+| **GAP-F** | 建 Issue 缺少幂等与回查（重复/空 number） | M2 / M3 | `OF-1` |
+| **GAP-G** | 真实上游 401 脱敏实测、Docker build、`npm audit` 未跑 | M5 / 安全 | V0 验收门 F |
+| **GAP-H** | OSS 发布前文档口径与门禁未过 | M6 | 暂缓，依赖前五层 |
 
-当前：L0–L2；真实 Gemini/ChatGPT/Claude 未验收。
+### 2. 快速定位表
 
-### 模块 2：Execution
-
-| 子模块 | 设计 | 代码 | 测试 | 成熟度 | 缺口 |
-|---|---|---|---|---|---|
-| CodeMode | FRAMEWORK | codemode.js | 强 | L3（生产默认） | 真实客户端 |
-| TypedPlan | TYPED-PLAN | typed-plan.js | 强 | L2（flag） | 默认/真实 A/B |
-| Router | FULL | 未实现 | — | L0 | 按客户端选 |
-| Native/Hybrid | FULL | 未实现 | — | L0 | 原型 |
-| ContextBudget | FULL | 部分 | 部分 | L1 | 策略化 |
-| ResultLifecycle | 文档 | code | 强 | L2 | 真实 profile |
-| WriteGuard | 文档 | code | 强 | L2 | 真实写 |
-
-### 模块 3：Upstream
-
-| 子模块 | 设计 | 代码 | 测试 | 成熟度 | 缺口 |
-|---|---|---|---|---|---|
-| Registry | UPSTREAMS | upstreams.js | 部分 | L2 | SOP/模板 |
-| Provider | AUTH-PROVIDERS | 5 上游 | 3/5 real tools | L2 | Notion/Vercel 401 |
-| GrantBroker | AUTH | auth/oauth | 强 fake | L2 | 真实 owner 迁移/KV |
-| Canonical | 文档 | result-normalize | 强 | L2 | 真实形状 |
-| WriteTransaction | 文档 | file-write | 强 | L2 | 真实写回环 |
-| Health | 文档 | 部分 | 部分 | L1 | 上游健康 |
-| Quota | FRAMEWORK | 未实现 | — | L0 | Firecrawl/Exa |
-
-### 模块 4：Evidence & Eval
-
-| 子模块 | 设计 | 代码 | 测试 | 成熟度 | 缺口 |
-|---|---|---|---|---|---|
-| Offline | EVALUATION | L1 | 部分 | L1–L2 | 官方全覆盖 |
-| Active online | FRAMEWORK §13 | 记录 schema | 部分 | L1 | link/标注 |
-| Passive capture | EVALUATION | capture* | 强 | L2 | taskId |
-| Join | MODULE-DECOMP | 部分 | 部分 | L1 | taskId |
-| Analysis | EVALUATION | scripts | 部分 | L1 | 免费模型 advisory |
-| Link | ACTIVE-PASSIVE | 未实现 | — | L0 | E3 |
-| Calibration | 文档 | 未实现 | — | L0 | E5 |
-| Cycle | CONTINUOUS-EVAL | eval-cycle | 19 | L1 | 真实数据 |
-
-### 模块 5：Runtime
-
-| 子模块 | 设计 | 代码 | 测试 | 成熟度 | 缺口 |
-|---|---|---|---|---|---|
-| HTTP | 文档 | vercel/server | 强 | L3 | — |
-| Config | 文档 | config | 强 | L2 | fail-fast |
-| Store | 文档 | store | 强 | L2 | 真实 KV |
-| Sink | 文档 | capture | 强 | L2 | 真实 R2 |
-| Health | 文档 | healthz | 强 | L2 | 上游健康 |
-| Deploy | DEPLOY | vercel.json | — | L2 | 手动 promote/回滚 |
-| CostGuard | FRAMEWORK | 未实现 | — | L0 | 免费额度 |
-| RuntimeAdapter | FULL | 未实现 | — | L0 | 多载体 |
-| Docker | DOCKER | scaffold | NOT-RUN | L1 | 实跑 |
-
-### 模块 6：Release
-
-| 子模块 | 设计 | 代码 | 测试 | 成熟度 | 缺口 |
-|---|---|---|---|---|---|
-| Export | OSS | export-oss | 强 | L2 | 发布 |
-| Safety | AUDIT | neutralizer | 强 | L2 | 文档残留 |
-| Templates | OSS | templates | 部分 | L1 | 可部署 |
-| Docs | OSS | docs | 部分 | L1 | 旧数字 |
-| Governance | READINESS | 部分 | — | L0 | LICENSE/安全/贡献 |
-| Release | READINESS | 本地 repo | — | L1 | 未公开 |
-
----
-
-## 5. 当前缺口登记
-
-### P0（阻塞真实可用/发布）
-
-| ID | 缺口 | 状态 |
-|---|---|---|
-| A | 真实 Gemini/ChatGPT/Claude 任务 | 未做 |
-| B | 真实写回环 | 未做 |
-| C | 网关独立授权/owner 迁移 | 未做 |
-| D | 多客户端隔离 + taskId | 未做 |
-| E | active/passive 字段与 link | 未做 |
-| F | Docker/npm audit | NOT-RUN |
-| G | OSS L1 | 未过 |
-
-### P1（架构完整度）
-
-| ID | 缺口 | 状态 |
-|---|---|---|
-| H | Native/Hybrid | L0 |
-| I | ExecutionRouter | L0 |
-| J | RuntimeAdapter | L0 |
-| K | 免费平台/CostGuard | L0 |
-| L | 官方逐工具全覆盖 | 部分 |
-| M | calibration | L0 |
-| N | 并发调度 | 未实现 |
-| O | 审批实验 profile | 未实现 |
-
-### 已修（代码层）
-
-- G-03 v2 plan IO；
-- G-04 allow/deny；
-- G-05 commitSha；
-- G-07 capture options；
-- G-13 queue LRU。
-
-### 遗留
-
-- 9 条 legacy 依赖边；
-- 25 个旧路径 shim（物理迁移已做，shim 待删）；
-- tests/scripts/docs 物理迁移未做。
-
----
-
-## 6. 定位表：想找什么去哪
-
-| 想定位 | 看 |
+| 你想查 / 你想做 | 直达文档 |
 |---|---|
-| 产品目标/六模块 | FRAMEWORK.md |
-| 完全态 | FRAMEWORK-FULL.md |
-| 模块→工作包 | MODULE-DECOMPOSITION.md |
-| 文件属于哪个模块 | REPO-MAP.md |
-| 为什么这样存储 | REPO-STORAGE-PLAN.md |
-| 客户端差异 | CLIENT-PROFILES/CLIENTS |
-| 授权 | AUTH-READY/AUTH-PROVIDERS/FRAMEWORK-FULL §Upstream |
-| 评测闭环 | EVALUATION/ACTIVE-PASSIVE-CORRELATION |
-| 验收门 | ACCEPTANCE |
-| 当前部署 | DEPLOYMENTS |
-| 全仓库审计 | architecture-audit/FULL-REPO-FINDINGS |
-| 安全 | CODEMODE-SECURITY-AUDIT/RESIDUAL-RISK |
-| 开源门槛 | OPEN-SOURCE/READINESS |
+| 用户原文、六模块口径、审批原则 | [FRAMEWORK.md](FRAMEWORK.md) |
+| 目标态与 S0–S5 演进路线 | [FRAMEWORK-FULL.md](FRAMEWORK-FULL.md) |
+| 把组件拆成可并行工作包（写作用域 + DAG） | [MODULE-DECOMPOSITION.md](MODULE-DECOMPOSITION.md) |
+| 仓库文件归属与物理迁移规范 | [REPO-MAP.md](REPO-MAP.md)、[REPO-STORAGE-PLAN.md](REPO-STORAGE-PLAN.md) |
+| V0 真实验收门（A–G） | [ACCEPTANCE.md](ACCEPTANCE.md) |
+| 何时能向用户发起上游授权（唯一门禁） | [AUTH-READY.md](AUTH-READY.md) |
+| 最新线上反馈与被动 scorecard 对照 | [eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md](eval/ONLINE-FEEDBACK-2026-11-24-PR80-101.md) |
+| 部署纪律与生产部署日志 | [DEPLOY-POLICY.md](DEPLOY-POLICY.md)、[DEPLOYMENTS.md](DEPLOYMENTS.md) |
+| 全仓库审计与安全审计 | [architecture-audit/FULL-REPO-FINDINGS.md](architecture-audit/FULL-REPO-FINDINGS.md)、[eval/CODEMODE-SECURITY-AUDIT.md](eval/CODEMODE-SECURITY-AUDIT.md) |
 
----
+### 3. 维护规则
 
-## 7. 维护规则
-
-- 新模块/子模块先加本目录，再加代码；
-- 成熟度变化必须更新本表；
-- 缺口关闭必须写证据；
-- 文档链接失效必须当天修；
-- 本目录不替代设计文档，只做定位。
+- 架构与模块边界变化只维护本文与 [FRAMEWORK.md](FRAMEWORK.md)，不再多头同步；
+- 新增子模块或工作包先在本文 L2/L3 落位，再到 [MODULE-DECOMPOSITION.md](MODULE-DECOMPOSITION.md) 拆写作用域与验收；
+- 缺口关闭必须附真实命令/证据或 `requestId`，不得仅凭单测通过划掉 L3 缺口。
