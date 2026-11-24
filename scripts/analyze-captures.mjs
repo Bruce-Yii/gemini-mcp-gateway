@@ -158,6 +158,34 @@ function subCallError(error) {
   return { name: null, message: truncate(String(error), MAX_SUBCALL_ERROR_MESSAGE) };
 }
 
+/**
+ * Wire shape actually emitted in the captured response body. This is the only
+ * deterministic proof of which client profile the RUNTIME used to encode a
+ * response: the capture-side `clientPlatform`/`clientProfile` labels come from
+ * the capture detector and can disagree with the runtime resolver (that exact
+ * drift is what the M1 OAuth->profile routing fixes). `structuredContent` is
+ * added only by the chatgpt profile, so its presence/absence is a direct
+ * encoding fingerprint. No body is inferred when the raw response is missing.
+ */
+function wireShapeOf(envelope) {
+  const raw = envelope?.response?.raw;
+  if (typeof raw !== 'string' || !raw) return 'unknown';
+  // Match the JSON key, tolerating whitespace before the colon.
+  return /"structuredContent"\s*:/.test(raw) ? 'structuredContent' : 'textJson';
+}
+
+/** Aggregate wire shapes per client platform (deterministic, not sampled). */
+function wireShapeSummary(rows) {
+  const byClientPlatform = {};
+  for (const row of rows) {
+    const platform = row.clientPlatform || 'unknown';
+    const bucket = byClientPlatform[platform] ?? { structuredContent: 0, textJson: 0, unknown: 0 };
+    bucket[row.wireShape] = (bucket[row.wireShape] ?? 0) + 1;
+    byClientPlatform[platform] = bucket;
+  }
+  return byClientPlatform;
+}
+
 /** Deterministic per-day rollup used as cross-day trend evidence. */
 export function dailyTrend(envelopes) {
   const byDate = new Map();
@@ -407,6 +435,9 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
       status: Number(envelope?.response?.status ?? 0),
       durationMs: Number(envelope?.response?.durationMs ?? 0),
       servers: serversOf(envelope),
+      // Runtime-encoding fingerprint (see wireShapeOf): proves which profile
+      // actually encoded this response, independent of the capture labels.
+      wireShape: wireShapeOf(envelope),
     };
   }).sort((a, b) => String(a.ts ?? '').localeCompare(String(b.ts ?? '')) || a.id.localeCompare(b.id));
 
@@ -415,8 +446,15 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
     date,
     dataStatus,
     filters: filters ?? null,
-    // Full-window request index (id/ts/platform/build/tool/servers). Not sampled.
+    // Full-window request index (id/ts/platform/build/tool/servers + wireShape).
     requestIndex,
+    // Runtime-encoding fingerprint per client platform. `structuredContent`
+    // only exists for the chatgpt profile, so this settles "which profile did
+    // the runtime actually use" without reading the capture labels.
+    wireShape: {
+      byClientPlatform: wireShapeSummary(requestIndex),
+      note: 'Deterministic from captured response bodies: structuredContent appears only when the runtime used the chatgpt profile. unknown = no raw body captured.',
+    },
     dimensions,
     // Eval closure: deterministic, non-model signals that make offline /
     // needsReauth / connect failures visible to the passive lane.

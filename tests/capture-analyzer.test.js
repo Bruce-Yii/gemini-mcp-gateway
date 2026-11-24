@@ -604,3 +604,38 @@ test('task-C: cluster sampleError redacts JSON key/value secrets too', () => {
   assert.ok(cluster);
   assert.equal(cluster.sampleError.includes('error-json-secret'), false);
 });
+
+// ── Wire shape: runtime-encoding fingerprint (M1 verification seam) ─────────
+
+test('wireShape: structuredContent in the captured body proves the chatgpt profile encoded it', () => {
+  const structured = JSON.stringify({
+    result: { content: [{ type: 'text', text: '{"ok":1}' }], structuredContent: { ok: 1 } },
+  });
+  const textOnly = JSON.stringify({ result: { content: [{ type: 'text', text: '{"ok":1}' }] } });
+  const input = buildAnalyzerInput([
+    envelope(200, structured, { requestId: 'req-gpt', ts: '2026-11-24T19:24:00.000Z' }),
+    envelope(200, textOnly, { requestId: 'req-gem', ts: '2026-11-24T19:23:00.000Z' }),
+    { ...envelope(200, textOnly, { requestId: 'req-rawless' }), response: { status: 200 } },
+  ], { date: '2026-11-24', platform: 'gemini' });
+  // platform filter is gemini, so only assert per-row wireShape here.
+  const byId = Object.fromEntries(input.requestIndex.map((row) => [row.id, row.wireShape]));
+  assert.equal(byId['req-gem'], 'textJson');
+  assert.equal(byId['req-rawless'], 'unknown');
+
+  const all = buildAnalyzerInput([
+    envelope(200, structured, { requestId: 'req-gpt', ts: '2026-11-24T19:24:00.000Z' }),
+    envelope(200, textOnly, { requestId: 'req-gem', ts: '2026-11-24T19:23:00.000Z' }),
+  ], { date: '2026-11-24' });
+  const rows = all.wireShape.byClientPlatform;
+  // No clientPlatform in these envelopes -> single unknown bucket, but the
+  // fingerprint itself must still be counted correctly.
+  assert.equal(rows.unknown.unknown, 0);
+  assert.equal(rows.unknown.structuredContent + rows.unknown.textJson, 2);
+  assert.match(all.wireShape.note, /captured response bodies/);
+});
+
+test('wireShape: tolerates whitespace before the structuredContent colon', () => {
+  const spaced = '{"result":{"structuredContent"  :{"a":1}}}';
+  const input = buildAnalyzerInput([envelope(200, spaced, { requestId: 'req-ws' })], { date: '2026-11-24' });
+  assert.equal(input.requestIndex[0].wireShape, 'structuredContent');
+});
