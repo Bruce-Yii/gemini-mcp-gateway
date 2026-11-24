@@ -26,6 +26,10 @@
 | **BC-004** | `gemini` | `cross-upstream` | 弹窗/宿主体验 | 客户端已设“允许”仍频繁弹确认框（`openWorldHint`/`destructiveHint`） | [FRAMEWORK.md](../FRAMEWORK.md) §14 | `1481408` | 待实验 profile B+D |
 | **BC-005** | `cross-client` | `github` | CI/轮询 | CI 失败缺少 `rerunFailedJobs` helper；合并后未默认清理源分支 | [PR80-101 反馈](ONLINE-FEEDBACK-2026-11-24-PR80-101.md) | `9ab0e57`（旧） | 待补 |
 | **BC-006** | `cross-client` | `cross-upstream` | 跨上游衔接 | 旧采集 `scorecard` 平台全 `unknown`，且未展开沙箱内部 `subCalls` 给分析器 | [scorecard-2026-11-23](scorecard-2026-11-23.md) | `1481408` | **代码已修（PR #10）待部署** |
+| **BC-007** | `cross-client` | `cross-upstream` | 跨上游衔接 | 单次 `execute_read` 跨 GitHub+Notion+Linear 11 步串行尾延迟 6.2s–14.5s，缺 per-step timing 优化 | [HISTORY-MINED](HISTORY-MINED-2026-11-24.md) §2.2 (`10c13554`) | `2026-11-22` | 待优化 |
+| **BC-008** | `cross-client` | `linear` | 参数/发现 | `list_projects` 触发 GraphQL 复杂度超限（19130 > 10000）与 `limit <= 50` 参数边界报错 | [HISTORY-MINED](HISTORY-MINED-2026-11-24.md) §2.3 (`F112/F116`) | `2026-11-22` | 待优化/提示约束 |
+| **BC-009** | `cross-client` | `notion` | 写路径/原子性 | `notion-update-page` 局部更新防整页覆盖；`validation_error 400` 与 Business 套餐门控需与网关 bug 区分 | [HISTORY-MINED](HISTORY-MINED-2026-11-24.md) §2.3/§3.3 (`F051/F060/F088`) | `2026-11-22` | 待回归 |
+| **BC-010** | `gemini` | `github` | 正文/契约 | 实测 `github__issue_write` 顶层 `number:null`、`normalizeMerge` `number/url:null`、`fileResult` 对 40KB 完整文件误标 `truncated:true`、`writeFiles` 误传 `files` 静默无报错 | Issue #15（云端总控 Gemini 实测） | `1481408` | 待复现修复 |
 
 ---
 
