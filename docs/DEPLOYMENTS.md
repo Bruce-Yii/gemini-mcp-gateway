@@ -21,6 +21,8 @@
 
 | 2026-11-24 07:45 | `5039ac6` | CLI（手动） | PR80-101 feedback 修复：GitHub/API、写前预检、结构化截断、feedback eval profile | READY | healthz `commit=5039ac69d4e514bc11cdcc4fb2ce19d7dd5e234a` / `buildHash=c060691d006e5f3d6c590740e560ae5e76ab3a42`；`deploymentId=dpl_Ao5R8WoDpZZfXQbjxEeLVFFMntZ3`；`/mcp` 401 |
 
+| 2026-11-24 13:43 | `3dd206f` | CLI（手动，`vercel --prod`） | 合并 Issue #15 优先修复：`issue_write` 成功后 URL 兜底补齐顶层 `number` + `fileResult` 对完整 ~40KB 文件的 `truncated:true` 假阳性（tail-only 判定） | READY | `deploymentId=dpl_8J71rsV3hFbmAdVXWUAqvGZsqrdU`；healthz `commit=3dd206f7238491e93f15c3ce39bce37c0e4bceba` / `buildHash=25a35e6e250342fb25c22de01527dccc99765f9c` / `builtAt=2026-11-24T05:43:43.432Z`；`env=production`、`configLoaded=true`、`mode=codemode`；部署前全量 `npm test` 最终 1537/1531/0/6（前两次各现一例时间敏感抖动，定向复跑通过） |
+
 ## 规则
 
 - 每次部署前过 [DEPLOY-POLICY.md](DEPLOY-POLICY.md) 检查；
