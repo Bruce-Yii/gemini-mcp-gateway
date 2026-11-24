@@ -314,14 +314,19 @@ function isClaudeClientRegistration(params, redirects) {
     str(params.token_endpoint_auth_method) === 'private_key_jwt';
 }
 
-function consentPage({ clientName, clientId, redirectUri, state, codeChallenge, scope, resource }) {
-  return [
+function consentPage({ clientName, clientId, redirectUri, state, codeChallenge, scope, resource, requirePassphrase = false, error = '' }) {
+  const fields = [
     '<!doctype html>',
     '<html lang="en"><head><meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     '<title>Authorize Gemini MCP Gateway</title></head><body>',
     '<h1>Authorize access</h1>',
     `<p>Client <strong>${escapeHtml(clientName || clientId)}</strong> requests access to the Gemini MCP gateway.</p>`,
+  ];
+  if (error) {
+    fields.push(`<p role="alert" class="error">${escapeHtml(error)}</p>`);
+  }
+  fields.push(
     '<form method="post" action="/oauth/authorize">',
     `<input type="hidden" name="client_id" value="${escapeHtml(clientId)}">`,
     `<input type="hidden" name="redirect_uri" value="${escapeHtml(redirectUri)}">`,
@@ -331,9 +336,30 @@ function consentPage({ clientName, clientId, redirectUri, state, codeChallenge, 
     `<input type="hidden" name="scope" value="${escapeHtml(scope)}">`,
     `<input type="hidden" name="resource" value="${escapeHtml(resource)}">`,
     '<input type="hidden" name="response_type" value="code">',
+  );
+  if (requirePassphrase) {
+    fields.push(
+      '<p><label for="approve-passphrase">Approval passphrase</label><br>',
+      '<input id="approve-passphrase" type="password" name="passphrase" required autocomplete="off">',
+      '</p>',
+    );
+  }
+  fields.push(
     '<button type="submit">Approve</button>',
     '</form></body></html>',
-  ].join('\n');
+  );
+  return fields.join('\n');
+}
+
+/**
+ * Constant-time approval-passphrase check. Both sides are hashed to a fixed
+ * 32-byte length first so timingSafeEqual never throws on length differences.
+ * The passphrase itself is never logged or included in error messages.
+ */
+function passphraseMatches(expected, provided) {
+  const expectedHash = createHash('sha256').update(String(expected ?? '')).digest();
+  const providedHash = createHash('sha256').update(String(provided ?? '')).digest();
+  return timingSafeEqual(expectedHash, providedHash);
 }
 
 function redirectPage(location) {
@@ -377,6 +403,14 @@ export function createOAuthHandlers(store, options = {}) {
   const ALLOW_DCR_FOR_CLAUDE = options.allowDcrForClaude ?? ['1', 'true', 'yes'].includes(
     String(process.env.ALLOW_DCR_FOR_CLAUDE ?? '').toLowerCase(),
   );
+  // Inbound approval gate: when set, the consent page requires this passphrase
+  // before any authorization code is issued. Empty keeps the legacy behaviour
+  // (needed for existing Gemini-only tests and deployments without DCR).
+  const APPROVE_PASSPHRASE = options.approvePassphrase ?? process.env.OAUTH_APPROVE_PASSPHRASE ?? '';
+  if (!APPROVE_PASSPHRASE && (ALLOW_DCR_FOR_CHATGPT || ALLOW_DCR_FOR_CLAUDE)) {
+    // One line, no secret: a known URL alone is enough to self-approve.
+    console.warn('[oauth] warning: DCR is enabled without OAUTH_APPROVE_PASSPHRASE; anyone with the consent URL can approve');
+  }
 
   function clientAllowed(clientId, clientSecret, checkSecret = false) {
     if (!LOCKED) return true;
@@ -626,9 +660,34 @@ export function createOAuthHandlers(store, options = {}) {
           codeChallenge,
           scope,
           resource: resourceParam,
+          requirePassphrase: Boolean(APPROVE_PASSPHRASE),
         }),
       );
       return;
+    }
+
+    if (APPROVE_PASSPHRASE) {
+      const provided = str(params.passphrase);
+      if (!passphraseMatches(APPROVE_PASSPHRASE, provided)) {
+        // Never log the value; only the fact that approval was rejected.
+        console.warn('[oauth] approve rejected: missing or incorrect passphrase');
+        sendHtml(
+          res,
+          403,
+          consentPage({
+            clientName: client.clientName ?? client.client_name,
+            clientId,
+            redirectUri,
+            state,
+            codeChallenge,
+            scope,
+            resource: resourceParam,
+            requirePassphrase: true,
+            error: 'The approval passphrase is missing or incorrect.',
+          }),
+        );
+        return;
+      }
     }
 
     const code = randomBytes(32).toString('base64url');
