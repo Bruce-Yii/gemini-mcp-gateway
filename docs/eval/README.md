@@ -39,6 +39,8 @@ node scripts/check-module-boundaries.mjs              # 模块边界门禁（0 n
 
 ## 核心评测资产（当前活跃）
 
+- [suites/RUNNER.md](suites/RUNNER.md) — 多客户端「一句话自举跑测」统一执行协议与交卷格式（配合 [suites/INDEX.json](suites/INDEX.json) 66 题总索引使用）
+- [R2-DISTILLATION-DESIGN.md](R2-DISTILLATION-DESIGN.md) — R2 真实流量四阶段自动蒸馏候选回归题框架设计（0 额外 R2 GET + 指纹去重脱敏 + 人工转正闸门）
 - [suites/mcpmark-gold.json](suites/mcpmark-gold.json)
 - [suites/universe-atlas-gold.json](suites/universe-atlas-gold.json)
 - [suites/vercel-linear-figma-gold.json](suites/vercel-linear-figma-gold.json)
