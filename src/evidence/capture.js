@@ -114,6 +114,34 @@ function platformBodyFromReq(req) {
  * an object; callers must only write it into an envelope that is actually
  * being persisted (never into a skipped/disabled capture).
  */
+function extractEnvelopeServers(events = []) {
+  const seen = new Set();
+  for (const event of events) {
+    if (!event || typeof event !== 'object') continue;
+    if (event.type === 'upstream' || event.type === 'upstream_http' || event.type === 'upstream_connect' || event.type === 'upstream_auth') {
+      const server = event.payload?.server;
+      if (typeof server === 'string' && server) {
+        seen.add(server);
+        continue;
+      }
+      const tool = event.payload?.tool;
+      if (typeof tool === 'string' && tool.includes('__')) {
+        const prefix = tool.slice(0, tool.indexOf('__'));
+        if (prefix) seen.add(prefix);
+      }
+    }
+  }
+  return [...seen];
+}
+
+function readEvalMode(req, options = {}) {
+  const explicit = options.evalMode ?? req?.__gatewayEvalMode;
+  const header = req?.headers?.['x-gateway-eval-mode'];
+  const raw = typeof explicit === 'string' ? explicit : (typeof header === 'string' ? header : '');
+  const norm = raw.trim().toLowerCase();
+  return norm === 'active' || norm === 'passive' ? norm : null;
+}
+
 function buildClientPlatformBlock(req, options = {}) {
   const oauthClientId = captureOAuthClientId(req);
   let result;
@@ -772,6 +800,8 @@ export function startCapture(req, res, options = {}) {
       // Additive B13 platform label. Observation/encoding only; no write-path
       // or idempotency semantics depend on these values.
       ...buildClientPlatformBlock(req, options),
+      evalMode: readEvalMode(req, options),
+      servers: extractEnvelopeServers(context.events),
       mode: cfg.mode,
       deployment: BUILD,
       request: {

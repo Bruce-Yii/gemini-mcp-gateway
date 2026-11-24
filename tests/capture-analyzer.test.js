@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  buildAnalyzerInput, validateAnalyzerOutput, dailyTrend, renderWeeklyReview, isoWeek,
+  buildAnalyzerInput, validateAnalyzerOutput, dailyTrend, renderWeeklyReview, isoWeek, filterEnvelopes,
 } from '../scripts/analyze-captures.mjs';
 import { aggregateEnvelopes } from '../scripts/capture-digest.mjs';
 
@@ -186,4 +186,45 @@ test('weekly review render lists candidates and evidence ids only, with no auto 
   assert.match(md, /no GitHub issues are created/);
   assert.match(md, /human review required/i);
   assert.ok(!/```/.test(md), 'no code patches in the report');
+});
+
+test('buildAnalyzerInput expands upstream subCalls and metadata in samples', () => {
+  const env = {
+    requestId: 'req-subcalls',
+    ts: '2026-11-24T02:00:00.000Z',
+    clientPlatform: 'gemini',
+    evalMode: 'active',
+    deployment: { commit: '1481408abcdef' },
+    servers: ['github', 'vercel'],
+    request: {
+      method: 'POST',
+      url: '/mcp',
+      raw: JSON.stringify({ jsonrpc: '2.0', method: 'tools/call', params: { name: 'execute', arguments: { code: 'async () => 1' } } }),
+    },
+    response: { status: 200, raw: 'ok', bytes: 2, durationMs: 320 },
+    events: [
+      { type: 'upstream', payload: { server: 'github', tool: 'github__get_file_contents', ok: true, durationMs: 110 } },
+      { type: 'upstream', payload: { server: 'vercel', tool: 'vercel__get_deployment', ok: false, durationMs: 200 } },
+    ],
+  };
+  const input = buildAnalyzerInput([env], { date: '2026-11-24' });
+  assert.equal(input.samples.length, 1);
+  assert.equal(input.samples[0].clientPlatform, 'gemini');
+  assert.equal(input.samples[0].evalMode, 'active');
+  assert.equal(input.samples[0].buildCommit, '1481408abcdef');
+  assert.deepEqual(input.samples[0].servers, ['github', 'vercel']);
+  assert.equal(input.samples[0].subCalls.length, 2);
+  assert.equal(input.samples[0].subCalls[1].tool, 'vercel__get_deployment');
+  assert.equal(input.samples[0].subCalls[1].ok, false);
+});
+
+test('filterEnvelopes filters by lastMinutes and buildCommit prefix', () => {
+  const nowMs = Date.parse('2026-11-24T02:00:00.000Z');
+  const list = [
+    { requestId: 'r1', ts: '2026-11-24T01:45:00.000Z', deployment: { commit: '1481408aaa' } },
+    { requestId: 'r2', ts: '2026-11-24T00:30:00.000Z', deployment: { commit: '1481408aaa' } },
+    { requestId: 'r3', ts: '2026-11-24T01:55:00.000Z', deployment: { commit: '9ab0e57bbb' } },
+  ];
+  const filtered = filterEnvelopes(list, { lastMinutes: 30, commit: '1481408', nowMs });
+  assert.deepEqual(filtered.map((x) => x.requestId), ['r1']);
 });

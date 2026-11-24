@@ -298,6 +298,9 @@ export function createAppHandler(options = {}) {
     if (Number(record.expiresAt) && Number(record.expiresAt) <= Date.now()) {
       return unauthorized(res, metadataUrl, 'expired_token');
     }
+    if (typeof record.clientId === 'string' && record.clientId) {
+      req.__gatewayOAuthClientId = record.clientId;
+    }
 
     // FALLTHROUGH: the MCP protocol itself is handled by server.js.
     const handler = await getMcpHandler();

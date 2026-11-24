@@ -67,23 +67,49 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
   });
   const metrics = aggregateEnvelopes(mcpOnly, { date });
   const groups = new Map();
-  const samples = [];
+  const candidateSamples = [];
   for (const envelope of mcpOnly) {
     const req = requestJson(envelope);
-    if (samples.length < 8 && req?.method === 'tools/call') {
+    if (req?.method === 'tools/call') {
       const sandbox = (envelope.events ?? []).find((event) => event.type === 'sandbox');
-      samples.push({
-        id: envelope.requestId,
-        tool: req.params?.name ?? null,
-        code: truncate(req.params?.arguments?.code ?? sandbox?.payload?.code, MAX_CODE),
-        status: Number(envelope?.response?.status ?? 0),
-        durationMs: Number(envelope?.response?.durationMs ?? 0),
-        bytes: Number(envelope?.response?.bytes ?? 0),
-        sandboxTools: sandbox?.payload?.output?.toolCalls?.length ?? 0,
-        truncated: isTruncated(envelope),
+      const upstreamEvents = (envelope.events ?? []).filter((event) => event?.type === 'upstream');
+      const subCalls = upstreamEvents.slice(0, 20).map((event) => ({
+        server: upstreamOf({ events: [event] }, event?.payload?.tool),
+        tool: event?.payload?.tool ?? null,
+        ok: event?.payload?.ok ?? null,
+        durationMs: Number(event?.payload?.durationMs ?? 0),
+      }));
+      const status = Number(envelope?.response?.status ?? 0);
+      const durationMs = Number(envelope?.response?.durationMs ?? 0);
+      const truncated = isTruncated(envelope);
+      const priority = (status >= 400 ? 1000 : 0) + (truncated ? 500 : 0) + (subCalls.length * 20) + Math.min(400, Math.floor(durationMs / 50));
+      candidateSamples.push({
+        priority,
+        sample: {
+          id: envelope.requestId,
+          ts: envelope.ts ?? null,
+          clientPlatform: envelope.clientPlatform ?? 'unknown',
+          evalMode: envelope.evalMode ?? null,
+          buildCommit: envelope.deployment?.commit ?? null,
+          servers: Array.isArray(envelope.servers) && envelope.servers.length
+            ? envelope.servers
+            : [...new Set(subCalls.map((c) => c.server).filter((s) => s && s !== 'unknown'))],
+          tool: req.params?.name ?? null,
+          code: truncate(req.params?.arguments?.code ?? sandbox?.payload?.code, MAX_CODE),
+          status,
+          durationMs,
+          bytes: Number(envelope?.response?.bytes ?? 0),
+          sandboxTools: sandbox?.payload?.output?.toolCalls?.length ?? subCalls.length,
+          subCalls,
+          truncated,
+        },
       });
     }
   }
+  const samples = candidateSamples
+    .sort((a, b) => b.priority - a.priority)
+    .slice(0, 15)
+    .map((entry) => entry.sample);
   // Per-upstream denominator comes from upstream EVENTS, not from MCP params.name
   // (execute_read / execute are gateway tools, not upstream servers). One MCP call
   // can touch several upstreams, so each event contributes one call.
@@ -401,6 +427,23 @@ export async function callAnalyzer(input, options = {}) {
   return JSON.parse(content.slice(start, end + 1));
 }
 
+export function filterEnvelopes(envelopes, { lastMinutes = 0, commit = '', nowMs = Date.now() } = {}) {
+  const mins = Number(lastMinutes);
+  const cutoff = Number.isFinite(mins) && mins > 0 ? nowMs - mins * 60 * 1000 : null;
+  const commitPrefix = typeof commit === 'string' ? commit.trim() : '';
+  return (Array.isArray(envelopes) ? envelopes : []).filter((env) => {
+    if (cutoff !== null) {
+      const t = Date.parse(env?.ts ?? env?.timestamp ?? '');
+      if (!Number.isFinite(t) || t < cutoff) return false;
+    }
+    if (commitPrefix) {
+      const c = String(env?.deployment?.commit ?? '');
+      if (!c.startsWith(commitPrefix)) return false;
+    }
+    return true;
+  });
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const arg = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : '');
@@ -410,10 +453,21 @@ async function main() {
   const dryRun = args.includes('--dry-run');
   const since = arg('--since');
   const days = Number(arg('--days') || 7);
+  const lastMinutes = Number(arg('--last-minutes') || 0);
+  const commit = arg('--commit') || '';
 
   let envelopes;
   if (dir) {
     envelopes = await readDirEnvelopes(dir);
+  } else if (lastMinutes > 0) {
+    const now = new Date();
+    const start = new Date(now.getTime() - lastMinutes * 60 * 1000);
+    const daySet = new Set([start.toISOString().slice(0, 10), now.toISOString().slice(0, 10)]);
+    const keys = [];
+    for (const d of daySet) {
+      keys.push(...await listR2Keys(`capture/${d}/`));
+    }
+    envelopes = await Promise.all(keys.map(readR2Envelope));
   } else if (since) {
     const start = new Date(`${since}T00:00:00.000Z`);
     if (Number.isNaN(start.getTime())) throw new Error(`invalid --since date: ${since}`);
@@ -427,8 +481,10 @@ async function main() {
     envelopes = await Promise.all((await listR2Keys(`capture/${date}/`)).map(readR2Envelope));
   }
 
+  envelopes = filterEnvelopes(envelopes, { lastMinutes, commit });
   const trend = since || dir ? dailyTrend(envelopes) : null;
-  const input = buildAnalyzerInput(envelopes, { date: since || date, maxClusters: 10, trend });
+  const labelSuffix = lastMinutes > 0 ? `last-${lastMinutes}m` : '';
+  const input = buildAnalyzerInput(envelopes, { date: since || (labelSuffix ? `${date}-${labelSuffix}` : date), maxClusters: 10, trend });
   await mkdir(out, { recursive: true });
   const label = since || date;
   await writeFile(join(out, `analyzer-input-${label}.json`), JSON.stringify(input, null, 2), 'utf8');
