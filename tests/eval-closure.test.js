@@ -4,11 +4,14 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import {
   ACTIVE_EVAL_SCHEMA, buildActiveEval, validateActiveEval,
 } from '../scripts/record-active-eval.mjs';
-import { compareActivePassive } from '../scripts/compare-active-passive.mjs';
+import { compareActivePassive, main as compareMain } from '../scripts/compare-active-passive.mjs';
 import {
   checkStatusDrift, parseDeploymentLog, parseStatusDoc,
 } from '../scripts/check-status-drift.mjs';
@@ -85,6 +88,33 @@ function passiveInput(overrides = {}) {
     },
     connectFailures: { failures: 1, byServer: { notion: { failures: 1, errorClasses: { auth: 1 } } } },
     ...overrides,
+  };
+}
+
+function activeWithFindings(findings, overrides = {}) {
+  const base = activeRecord(overrides);
+  return buildActiveEval(
+    { ...base, observed: { ...base.observed, findings } },
+    { now: '2026-11-24T06:21:00.000Z', rawText: '原始主动评测原文（逐字保存）' },
+  );
+}
+
+/** analyzer-output.v1 wrapper: issues live under `validated.issues`. */
+function analyzerOutput(input, issues) {
+  return {
+    schema: 'analyzer-output.v1',
+    input,
+    raw: null,
+    validated: {
+      schema: 'analyzer-output.v1',
+      policy: 'free-model-advisory-v1',
+      advisoryOnly: true,
+      requiresHumanReview: true,
+      dataStatus: input?.dataStatus ?? 'HAS_DATA',
+      summary: 'advisory',
+      issues,
+      ignored: [],
+    },
   };
 }
 
@@ -165,6 +195,127 @@ test('compare: service visible but status differs → missed with a reason', () 
   passive.connectFailures = { failures: 0, byServer: {} };
   const result = compareActivePassive(active, passive);
   assert.ok(result.missed.some((row) => row.subject === 'notion' && row.reason === 'passive-status-differs'));
+});
+
+// ── D: observed.findings must not be a false green ─────────────────────────
+
+const TRUNCATION_ISSUE = {
+  id: 'issue-7',
+  severity: 'P1',
+  category: 'gateway',
+  title: '大字段返回被整块截断但未标注 truncation 信息',
+  likelyCause: '截断分支没有写入 TRUNCATED 元数据',
+  suggestedFix: '补 field/total/tail/next 元数据',
+};
+
+test('D: active finding detected in validated.issues → covered, not missed', () => {
+  const active = activeWithFindings([
+    { id: 'f-truncation', title: '返回值截断缺少 TRUNCATED 标记', keywords: ['TRUNCATED'] },
+  ]);
+  const result = compareActivePassive(active, analyzerOutput(passiveInput(), [TRUNCATION_ISSUE]));
+  assert.equal(result.match, 'exact');
+  assert.deepEqual(result.findings, { total: 1, detected: 1, missed: 0 });
+  assert.equal(result.passive.issues, 1);
+  const row = result.coverage.find((item) => item.kind === 'finding');
+  assert.equal(row.subject, 'f-truncation');
+  assert.equal(row.covered, true);
+  assert.equal(row.passiveIssueId, 'issue-7');
+  assert.equal(row.reason, null);
+  assert.equal(result.missed.some((item) => item.kind === 'finding'), false);
+
+  // A bare `issues` array (no analyzer-output wrapper) is accepted too.
+  const bare = { ...passiveInput(), issues: [TRUNCATION_ISSUE] };
+  const bareResult = compareActivePassive(active, bare);
+  assert.deepEqual(bareResult.findings, { total: 1, detected: 1, missed: 0 });
+});
+
+test('D: passive issues empty → finding forced into missed with passive-not-detected', () => {
+  const active = activeWithFindings([
+    { id: 'f-drop', title: 'unknown tool name 会话中途掉线', keywords: ['unknown tool name'] },
+    { id: 'f-grep', title: 'grepSnippet window 单位不符', keywords: ['grepSnippet'] },
+  ]);
+  const result = compareActivePassive(active, analyzerOutput(passiveInput(), []));
+  // requestId matching is still exact — but exact must not read as "passive saw everything".
+  assert.equal(result.match, 'exact');
+  assert.deepEqual(result.findings, { total: 2, detected: 0, missed: 2 });
+  const missedFindings = result.missed.filter((item) => item.kind === 'finding');
+  assert.equal(missedFindings.length, 2);
+  assert.ok(missedFindings.every((item) => item.covered === false
+    && item.reason === 'passive-not-detected'
+    && item.passiveIssueId === null));
+  assert.deepEqual(missedFindings.map((item) => item.subject), ['f-drop', 'f-grep']);
+  assert.ok(result.reasons.some((reason) => /missed finding:f-drop \(passive-not-detected\)/.test(reason)));
+});
+
+test('D: empty keywords fall back to title; matching is case-insensitive over the three fields', () => {
+  const active = activeWithFindings([
+    { id: 'f-title', title: 'grepSnippet window 单位不符', keywords: [] },
+    { id: 'f-case', title: 'expand_tools 未自动重连', keywords: ['NOT-FOUND'] },
+  ]);
+  const result = compareActivePassive(active, analyzerOutput(passiveInput(), [
+    { id: 'issue-a', severity: 'P2', category: 'gateway', title: 'grepSnippet window 单位不符：window 按字符截断', likelyCause: '', suggestedFix: '' },
+    { id: 'issue-b', severity: 'P1', category: 'upstream', title: '会话掉线', likelyCause: 'expand_tools 返回 not-found 后无法恢复', suggestedFix: '' },
+  ]));
+  assert.deepEqual(result.findings, { total: 2, detected: 2, missed: 0 });
+  const rows = result.coverage.filter((item) => item.kind === 'finding');
+  assert.equal(rows.find((item) => item.subject === 'f-title').passiveIssueId, 'issue-a');
+  assert.equal(rows.find((item) => item.subject === 'f-title').matchedKeyword, 'grepSnippet window 单位不符');
+  assert.equal(rows.find((item) => item.subject === 'f-case').passiveIssueId, 'issue-b');
+  assert.equal(rows.find((item) => item.subject === 'f-case').matchedKeyword, 'NOT-FOUND');
+});
+
+test('D: record rejects malformed observed.findings (no silent drop)', () => {
+  const observed = { ...activeRecord().observed };
+  const findingsErrors = (findings) => validateActiveEval(activeRecord({ observed: { ...observed, findings } }));
+  assert.ok(findingsErrors('nope').some((error) => /findings must be an array/.test(error)));
+  assert.ok(findingsErrors({ id: 'f1' }).some((error) => /findings must be an array/.test(error)));
+  assert.ok(findingsErrors([null]).some((error) => /findings\[0\] must be an object/.test(error)));
+  assert.ok(findingsErrors([{ id: '', title: 'x', keywords: [] }]).some((error) => /findings\[0\]\.id/.test(error)));
+  assert.ok(findingsErrors([{ id: 'f1', title: '   ', keywords: [] }]).some((error) => /findings\[0\]\.title/.test(error)));
+  assert.ok(findingsErrors([{ id: 'f1', title: 'x', keywords: 'k' }]).some((error) => /keywords must be an array/.test(error)));
+  assert.ok(findingsErrors([{ id: 'f1', title: 'x', keywords: ['ok', 42] }]).some((error) => /keywords\[1\] must be a non-empty string/.test(error)));
+  assert.ok(findingsErrors([{ id: 'f1', title: 'x', keywords: [' '] }]).some((error) => /keywords\[0\] must be a non-empty string/.test(error)));
+  assert.deepEqual(findingsErrors([{ id: 'f1', title: 'ok' }]), [], 'keywords is optional (title fallback)');
+  assert.throws(
+    () => buildActiveEval(activeRecord({ observed: { ...observed, findings: [{ title: 'no id' }] } }), { rawText: 'raw' }),
+    /invalid active-eval record/,
+  );
+
+  const built = buildActiveEval(activeRecord({
+    observed: { ...observed, findings: [{ id: ' f1 ', title: ' x ', keywords: [' K ', 'k'] }] },
+  }), { now: '2026-11-24T06:21:00.000Z', rawText: '原始主动评测原文（逐字保存）' });
+  // Trimmed, case-insensitively deduped, and part of `observed` → part of the id.
+  assert.deepEqual(built.observed.findings, [{ id: 'f1', title: 'x', keywords: ['K'] }]);
+  const plain = buildActiveEval(activeRecord(), { now: '2026-11-24T06:21:00.000Z', rawText: '原始主动评测原文（逐字保存）' });
+  assert.notEqual(built.activeEvalId, plain.activeEvalId);
+  assert.equal(plain.observed.findings, undefined, 'records without findings keep their pre-D shape/id');
+});
+
+test('D: CLI exits non-zero on a missed finding even with match=exact; opt-out is explicit', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'eval-compare-d-'));
+  const quiet = { stdout: () => {}, stderr: () => {} };
+  try {
+    const activePath = join(dir, 'active.json');
+    const passivePath = join(dir, 'passive.json');
+    const activeNoFindingsPath = join(dir, 'active-no-findings.json');
+    writeFileSync(activePath, JSON.stringify(activeWithFindings([
+      { id: 'f-drop', title: 'unknown tool name 会话中途掉线', keywords: ['unknown tool name'] },
+    ])), 'utf8');
+    writeFileSync(activeNoFindingsPath, JSON.stringify(buildActiveEval(activeRecord(), {
+      now: '2026-11-24T06:21:00.000Z', rawText: '原始主动评测原文（逐字保存）',
+    })), 'utf8');
+    writeFileSync(passivePath, JSON.stringify(analyzerOutput(passiveInput(), [])), 'utf8');
+
+    assert.equal(await compareMain(['--active', activePath, '--passive', passivePath], quiet), 1,
+      'missed finding must not be green by default');
+    assert.equal(await compareMain(['--active', activePath, '--passive', passivePath, '--allow-missed-findings'], quiet), 0,
+      '--allow-missed-findings is the explicit opt-out');
+    assert.equal(await compareMain(['--active', activeNoFindingsPath, '--passive', passivePath], quiet), 0,
+      'no findings → pre-D green path preserved');
+    assert.equal(await compareMain(['--active', activePath], quiet), 2, 'missing --passive is a usage error');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 // ── status drift ───────────────────────────────────────────────────────────

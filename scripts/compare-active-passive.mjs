@@ -13,6 +13,11 @@
  * It never guesses a requestId, never treats EMPTY_WINDOW as a pass, and never
  * calls a model.
  *
+ * An active `observed.findings` entry that the passive analyzer issues do not
+ * mention is never a pass: it is forced into `missed[]` (`kind=finding`,
+ * `reason=passive-not-detected`) and the CLI exits non-zero by default, even
+ * when `match=exact`. `--allow-missed-findings` is the explicit opt-out.
+ *
  * Usage:
  *   node scripts/compare-active-passive.mjs \
  *     --active docs/eval/active-eval-2026-11-24.json \
@@ -28,12 +33,40 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const str = (value) => (typeof value === 'string' ? value : '');
 const arr = (value) => (Array.isArray(value) ? value : []);
 
+/**
+ * Normalize the passive analyzer's candidate issues. Both the
+ * `analyzer-output.v1` wrapper (`validated.issues`) and a bare `issues` array
+ * are accepted. The searchable text is exactly
+ * `title + likelyCause + suggestedFix` (case-insensitive).
+ */
+function normalizePassiveIssues(issues) {
+  return arr(issues)
+    .filter((issue) => issue && typeof issue === 'object')
+    .map((issue, index) => {
+      const title = str(issue.title).trim();
+      const likelyCause = str(issue.likelyCause).trim();
+      const suggestedFix = str(issue.suggestedFix).trim();
+      return {
+        id: str(issue.id).trim() || `issue-${index + 1}`,
+        title,
+        severity: str(issue.severity).trim() || null,
+        category: str(issue.category).trim() || null,
+        text: [title, likelyCause, suggestedFix].join('\n').toLowerCase(),
+      };
+    });
+}
+
 /** Unwrap analyzer-output ({input}) / analyzer-input into one passive view. */
 export function normalizePassive(passive) {
   const input = passive?.input ?? passive ?? {};
   const samples = arr(input.samples);
   const requestIndex = arr(input.requestIndex);
   const dimensions = input.dimensions ?? {};
+  // D: the passive lane's semantic findings can be wrapped (`validated.issues`
+  // from analyzer-output.v1) or passed directly (`issues`).
+  const issues = normalizePassiveIssues(
+    Array.isArray(passive?.validated?.issues) ? passive.validated.issues : passive?.issues,
+  );
   const ids = new Set();
   const tsById = new Map();
   const idsFromRows = (rows) => {
@@ -85,6 +118,7 @@ export function normalizePassive(passive) {
     timestamps,
     serviceState: input.serviceState ?? { snapshots: 0, byServer: {}, offlineServers: [] },
     connectFailures: input.connectFailures ?? { failures: 0, byServer: {} },
+    issues,
   };
 }
 
@@ -171,6 +205,46 @@ function connectChecks(expectedServers, passive) {
 }
 
 /**
+ * D: every ACTIVE `observed.findings` entry must be visible in the passive
+ * analyzer issues, otherwise the passive lane did not detect it and the
+ * comparison must not look green. Matching is a case-insensitive substring
+ * test over `title + likelyCause + suggestedFix`; `keywords` are OR-ed, and an
+ * empty keyword list falls back to the finding title.
+ */
+function findingChecks(findings, passiveIssues) {
+  return arr(findings).map((finding, index) => {
+    const id = str(finding?.id).trim() || `finding-${index + 1}`;
+    const title = str(finding?.title).trim();
+    const keywords = arr(finding?.keywords).map((keyword) => str(keyword).trim()).filter(Boolean);
+    const needles = (keywords.length ? keywords : [title])
+      .map((value) => ({ value, needle: value.toLowerCase() }))
+      .filter((needle) => needle.needle);
+    let hit = null;
+    let matchedKeyword = null;
+    for (const needle of needles) {
+      const issue = passiveIssues.find((row) => row.text.includes(needle.needle));
+      if (issue) {
+        hit = issue;
+        matchedKeyword = needle.value;
+        break;
+      }
+    }
+    const covered = Boolean(hit);
+    return {
+      kind: 'finding',
+      subject: id,
+      title,
+      expected: 'passive-issue-detected',
+      covered,
+      passiveStatus: covered ? `issue-detected:${hit.id}` : 'not-detected',
+      passiveIssueId: hit ? hit.id : null,
+      matchedKeyword,
+      reason: covered ? null : 'passive-not-detected',
+    };
+  });
+}
+
+/**
  * Pure comparison. `active` is an active-eval.v1 object; `passive` is an
  * analyzer-input/analyzer-output object (or their wrapper).
  */
@@ -191,8 +265,14 @@ export function compareActivePassive(active, passive) {
 
   const serviceResults = serviceChecks(active?.observed?.services, view);
   const connectResults = connectChecks(active?.observed?.connectFailures, view);
-  const coverage = [...serviceResults, ...connectResults];
+  const findingResults = findingChecks(active?.observed?.findings, view.issues);
+  const coverage = [...serviceResults, ...connectResults, ...findingResults];
   const missed = coverage.filter((row) => !row.covered);
+  const findings = {
+    total: findingResults.length,
+    detected: findingResults.filter((row) => row.covered).length,
+    missed: findingResults.filter((row) => !row.covered).length,
+  };
 
   let match;
   const reasons = [];
@@ -235,6 +315,7 @@ export function compareActivePassive(active, passive) {
     },
     coverage,
     missed,
+    findings,
     passive: {
       dataStatus: view.dataStatus,
       requests: view.requests,
@@ -242,6 +323,7 @@ export function compareActivePassive(active, passive) {
       buildCommits: [...view.commits].sort(),
       serviceSnapshots: Number(view.serviceState?.snapshots ?? 0),
       connectFailures: Number(view.connectFailures?.failures ?? 0),
+      issues: view.issues.length,
     },
   };
 }
@@ -252,7 +334,7 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   const activePath = arg('--active');
   const passivePath = arg('--passive');
   if (!activePath || !passivePath) {
-    stderr('usage: compare-active-passive.mjs --active <active-eval.json> --passive <analyzer-input|output.json> [--request-index <full-index.json>] [--out <file>] [--json] [--require-match] [--allow-unmatched]');
+    stderr('usage: compare-active-passive.mjs --active <active-eval.json> --passive <analyzer-input|output.json> [--request-index <full-index.json>] [--out <file>] [--json] [--require-match] [--allow-unmatched] [--allow-missed-findings]');
     return 2;
   }
   let active;
@@ -279,12 +361,15 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
     stdout(`[compare] wrote ${out}`);
   }
   if (argv.includes('--json')) stdout(JSON.stringify(result, null, 2));
-  else stdout(`[compare] ${result.activeEvalId}: match=${result.match} missed=${result.missed.length} dataStatus=${result.passive.dataStatus}`);
+  else stdout(`[compare] ${result.activeEvalId}: match=${result.match} missed=${result.missed.length} findings=${result.findings.missed}/${result.findings.total} dataStatus=${result.passive.dataStatus}`);
   if (argv.includes('--require-match') && result.match !== 'exact' && result.match !== 'likely') return 1;
   // G4: empty/unmatched must not be green by default; explicit --allow-unmatched
   // is required for deliberate "we know this window is empty" runs.
   if (!argv.includes('--allow-unmatched')
     && (result.match === 'unmatched' || result.passive.dataStatus === 'EMPTY_WINDOW')) return 1;
+  // D: a missed active finding is never green by default — not even when
+  // match=exact. --allow-missed-findings is the explicit, auditable opt-out.
+  if (result.findings.missed > 0 && !argv.includes('--allow-missed-findings')) return 1;
   return 0;
 }
 

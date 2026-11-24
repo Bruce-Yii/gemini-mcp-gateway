@@ -19,9 +19,35 @@ import {
   clientPlatformOf, clientProfileOf, protocolVersionOf, executorOf,
   buildCommitOf, serversOf, evalModeOf, UNKNOWN_BUCKET,
 } from './capture-digest.mjs';
+import { redactSecrets } from '../src/execution/tool-format.js';
+
+// `redactSecrets` handles unquoted `key=value` and token families, but JSON
+// bodies use `"key":"value"` (a quote sits between the key and ':'). The
+// analyzer previews/sample errors are model-visible, so close that gap here.
+const JSON_SECRET_KEY_VALUE = /("(?:access[_-]?token|refresh[_-]?token|client[_-]?secret|api[_-]?key|apikey|token|secret|password|passwd|pwd|authorization|cookie|private[_-]?key|notion[_-]?token|linear[_-]?token|github[_-]?token)"\s*:\s*")[^"]*(")/gi;
+
+function redactAnalyzerText(text) {
+  return redactSecrets(text).replace(JSON_SECRET_KEY_VALUE, '$1[REDACTED]$2');
+}
+
+function stringForAnalyzer(value, fallback = '') {
+  if (typeof value === 'string') return value;
+  if (value === undefined || value === null) return fallback;
+  try { return JSON.stringify(value); } catch { return String(value); }
+}
 
 const MAX_CODE = 2000;
 const MAX_ERROR = 1000;
+// Success-state blind spot: the analyzer used to see only code/status/subCalls,
+// so HTTP-200 semantic friction (number:null, double nesting, silent no-op
+// writes) was invisible. These caps keep the additive response outline small
+// and deterministic: a bounded preview plus a one-level structural outline.
+const MAX_RESPONSE_PREVIEW = 500;
+const MAX_SHAPE_KEYS = 10;
+const MAX_NESTED_KEYS = 8;
+const MAX_SHAPE_ENTRIES = 10;
+const MAX_SUBCALL_ERROR_NAME = 80;
+const MAX_SUBCALL_ERROR_MESSAGE = 300;
 
 function truncate(value, limit) {
   const text = typeof value === 'string' ? value : JSON.stringify(value);
@@ -31,6 +57,105 @@ function truncate(value, limit) {
 
 function requestJson(envelope) {
   try { return JSON.parse(String(envelope?.request?.raw ?? '')); } catch { return null; }
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
+ * Lightweight, deterministic structural outline of a parsed JSON value.
+ *
+ * It deliberately exposes COUNTS and KEY NAMES only (never values): top-level
+ * keys, top-level null fields, top-level array lengths and ONE level of child
+ * keys for top-level objects / arrays-of-objects. Bounded by the MAX_* caps so
+ * a large upstream payload cannot bloat the analyzer prompt.
+ */
+function shapeOf(value) {
+  if (value === null || value === undefined) return null;
+  if (Array.isArray(value)) {
+    const first = value.length && isPlainObject(value[0]) ? value[0] : null;
+    return {
+      kind: 'array',
+      length: value.length,
+      itemKeys: first ? Object.keys(first).slice(0, MAX_NESTED_KEYS) : [],
+    };
+  }
+  if (typeof value !== 'object') {
+    return typeof value === 'string' ? { kind: 'string', length: value.length } : { kind: typeof value };
+  }
+  const keys = Object.keys(value);
+  const nullKeys = [];
+  const arrays = {};
+  const nested = {};
+  let arrayEntries = 0;
+  let nestedEntries = 0;
+  for (const key of keys) {
+    const item = value[key];
+    if (item === null) {
+      if (nullKeys.length < MAX_SHAPE_ENTRIES) nullKeys.push(key);
+      continue;
+    }
+    if (Array.isArray(item)) {
+      if (arrayEntries < MAX_SHAPE_ENTRIES) {
+        arrays[key] = item.length;
+        arrayEntries += 1;
+      }
+      const first = item.length && isPlainObject(item[0]) ? item[0] : null;
+      if (first && nestedEntries < MAX_NESTED_KEYS) {
+        nested[key] = Object.keys(first).slice(0, MAX_NESTED_KEYS);
+        nestedEntries += 1;
+      }
+      continue;
+    }
+    if (isPlainObject(item) && nestedEntries < MAX_NESTED_KEYS) {
+      nested[key] = Object.keys(item).slice(0, MAX_NESTED_KEYS);
+      nestedEntries += 1;
+    }
+  }
+  return {
+    topLevelKeys: keys.slice(0, MAX_SHAPE_KEYS),
+    keyCount: keys.length,
+    nullKeys,
+    arrays,
+    nested,
+  };
+}
+
+/**
+ * Bounded preview of the captured success response body plus its parsed
+ * outline. Parse failures keep only the preview (no inference from a partial
+ * body). `preview` is capped at MAX_RESPONSE_PREVIEW characters and carries the
+ * existing explicit truncation marker, so it is never a silent cut.
+ */
+function responsePreviewOf(envelope) {
+  const raw = envelope?.response?.raw;
+  const original = typeof raw === 'string' ? raw : '';
+  if (!original) return { preview: null };
+  // This preview is model-visible. Keep the same secret-shape redaction as
+  // model-facing errors even though the HTTP status was 200.
+  const preview = truncate(redactAnalyzerText(original), MAX_RESPONSE_PREVIEW);
+  let parsed;
+  try { parsed = JSON.parse(original); } catch { return { preview, parseError: true }; }
+  return { preview, ...(shapeOf(parsed) ?? {}) };
+}
+
+/** Sub-call error keeps only name/message (stack and raw text are dropped). */
+function subCallError(error) {
+  if (typeof error === 'string') {
+    return { name: null, message: truncate(redactAnalyzerText(error), MAX_SUBCALL_ERROR_MESSAGE) };
+  }
+  if (error && typeof error === 'object') {
+    return {
+      name: typeof error.name === 'string' && error.name.trim()
+        ? truncate(redactAnalyzerText(error.name), MAX_SUBCALL_ERROR_NAME)
+        : null,
+      message: typeof error.message === 'string' && error.message.trim()
+        ? truncate(redactAnalyzerText(error.message), MAX_SUBCALL_ERROR_MESSAGE)
+        : null,
+    };
+  }
+  return { name: null, message: truncate(String(error), MAX_SUBCALL_ERROR_MESSAGE) };
 }
 
 /** Deterministic per-day rollup used as cross-day trend evidence. */
@@ -83,6 +208,10 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
         tool: event?.payload?.tool ?? null,
         ok: event?.payload?.ok ?? null,
         durationMs: Number(event?.payload?.durationMs ?? 0),
+        // Additive: success-state shape of the upstream result (keys/counts only)
+        // and the name/message of a failed sub-call. Both stay bounded.
+        error: event?.payload?.error == null ? null : subCallError(event.payload.error),
+        resultShape: event?.payload?.result === undefined ? null : shapeOf(event.payload.result),
       }));
       const status = Number(envelope?.response?.status ?? 0);
       const durationMs = Number(envelope?.response?.durationMs ?? 0);
@@ -109,6 +238,7 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
           bytes: Number(envelope?.response?.bytes ?? 0),
           sandboxTools: sandbox?.payload?.output?.toolCalls?.length ?? subCalls.length,
           subCalls,
+          responsePreview: responsePreviewOf(envelope),
           truncated,
         },
       });
@@ -158,7 +288,10 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
       id: `c${groups.size + 1}`,
       errorClass, server, tool, count: 0,
       sampleEventIds: [], sampleCode: null,
-      sampleError: truncate(raw || sandbox?.payload?.output || `HTTP ${status}`, MAX_ERROR),
+      sampleError: truncate(
+        redactAnalyzerText(stringForAnalyzer(raw || sandbox?.payload?.output, `HTTP ${status}`)),
+        MAX_ERROR,
+      ),
       durationMs: [],
     };
     group.count += 1;
@@ -364,6 +497,16 @@ export function validateAnalyzerOutput(output, input) {
       likelyCause: truncate(issue.likelyCause ?? '', 800),
       suggestedFix: truncate(issue.suggestedFix ?? '', 1200),
       confidence: Number.isFinite(Number(issue.confidence)) ? Number(issue.confidence) : null,
+      // Optional attribution (blind-spot fix). Unknown types are dropped, never
+      // a reason to discard the issue: missing attribution becomes null / [].
+      clientPlatform: typeof issue.clientPlatform === 'string' && issue.clientPlatform.trim()
+        ? truncate(issue.clientPlatform.trim(), 40)
+        : null,
+      servers: Array.isArray(issue.servers)
+        ? [...new Set(issue.servers
+          .filter((server) => typeof server === 'string' && server.trim())
+          .map((server) => truncate(server.trim(), 60)))].slice(0, 8)
+        : [],
       regressionTask: issue.regressionTask ?? null,
     });
     if (issues.length >= (input.limits?.maxIssues ?? 5)) break;
@@ -430,7 +573,7 @@ ${candidateRows}
 `;
 }
 
-function analyzerPrompt(input) {
+export function analyzerPrompt(input) {
   const trendHint = Array.isArray(input.trend) && input.trend.length > 1
     ? 'Cross-day trend and per-upstream error rates are included; only flag a trend if the evidence ids support it.'
     : '';
@@ -452,6 +595,11 @@ function analyzerPrompt(input) {
   const serviceStateHint = (input.connectFailures?.failures > 0 || input.serviceState?.snapshots > 0)
     ? 'connectFailures and serviceState are DETERMINISTIC capture signals: upstream_connect{ok:false} means an upstream failed to connect, and serviceState rows with latest.status=offline / latest.needsReauth=true mean the gateway itself reported that service as unavailable (latest is the last snapshot; statuses counts are historical). Cite these only with their requestId samples; do not treat a cold-start snapshot as a live health check.'
     : '';
+  // Blind-spot fix: samples now carry the success-response outline, so the model
+  // can reason about HTTP-200 semantic friction that no error cluster shows.
+  const responsePreviewHint = Array.isArray(input.samples) && input.samples.length
+    ? 'Each sample also carries responsePreview: a bounded preview (first characters, with an explicit truncation marker) of the captured HTTP response body plus a parsed outline (topLevelKeys / nullKeys / arrays / nested one-level keys) and subCalls[] entries may carry error{name,message} or resultShape. Combine responsePreview + subCalls + clientPlatform + servers[] to look for HTTP-200 SUCCESS-STATE semantic friction that error clusters cannot show: (a) null fields on success (a key field such as number:null where a PR/issue number was expected), (b) double-layer nesting where the real payload is buried inside result.content[0].text as an escaped JSON string, (c) false-positive / mistaken truncation (a complete successful body treated as truncated) and reverse cases, (d) cross-upstream handoff redundancy (the same unwrap/parse/format repeated between github / vercel / notion calls), and (e) repeated defensive parsing or re-wrapping that the gateway or the client keeps doing on every successful call. responsePreview is BOUNDED: absence of a field inside the preview is not proof that it is absent from the full body — say so instead of over-claiming. Attribute each such issue with clientPlatform and servers.'
+    : '';
   return [
     {
       role: 'system',
@@ -466,9 +614,11 @@ function analyzerPrompt(input) {
         dimensionHint,
         dataStatusHint,
         serviceStateHint,
+        responsePreviewHint,
         'Return ONLY strict JSON matching analyzer-output.v1:',
-        '{"schema":"analyzer-output.v1","summary":"...","issues":[{"id":"issue-1","severity":"P0|P1|P2|P3","category":"gateway|upstream|model|data|unknown","title":"...","evidenceEventIds":["..."],"likelyCause":"...","suggestedFix":"...","confidence":0.0,"regressionTask":{"prompt":"...","expectedTool":"...","assertions":["..."]}}],"ignored":[{"clusterId":"c1","reason":"..."}]}',
+        '{"schema":"analyzer-output.v1","summary":"...","issues":[{"id":"issue-1","severity":"P0|P1|P2|P3","category":"gateway|upstream|model|data|unknown","title":"...","evidenceEventIds":["..."],"likelyCause":"...","suggestedFix":"...","confidence":0.0,"clientPlatform":"gemini|chatgpt|claude|unknown|null","servers":["github"],"regressionTask":{"prompt":"...","expectedTool":"...","assertions":["..."]}}],"ignored":[{"clusterId":"c1","reason":"..."}]}',
         'Each issue MUST cite at least one evidenceEventIds from the input. If unsure, use ignored.',
+        'Attribution is optional: set "clientPlatform" (string or null) and "servers" (array of upstream server names). Use null / [] when the evidence does not support an attribution. Never drop an issue just because attribution is unknown.',
         'Also inspect successful samples: propose issues for real friction (wrong arg types, repeated unwrap/casting, slow tool chains, missing helpers) even when there is no error cluster.',
         'No markdown, no code fences, no extra text.',
       ].filter(Boolean).join('\n'),

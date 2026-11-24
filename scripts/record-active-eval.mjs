@@ -16,7 +16,8 @@
  *                   "startAction": "...", "endAction": "..." },
  *     "prompt": "...", "expected": { "outcome": "...", "tools": [], "checks": [] },
  *     "observed": { "tools": [], "results": [], "errors": [], "requestIds": [],
- *                    "captureVerified": false, "services": [], "connectFailures": [] },
+ *                    "captureVerified": false, "services": [], "connectFailures": [],
+ *                    "findings": [{ "id": "f1", "title": "...", "keywords": ["..."] }] },
  *     "source": { "window": "...", "messageAt": ISO }
  *   }
  *
@@ -68,6 +69,63 @@ function normalizeServices(list) {
   }).filter((row) => row.name);
 }
 
+/**
+ * `observed.findings[]` — the semantic problems the active window itself
+ * reported. Shape: `{ id, title, keywords[] }`; `keywords` may be missing or
+ * empty, in which case the comparison falls back to `title`. A finding that is
+ * not spelled out here can never be checked against the passive lane, so an
+ * invalid entry is an error (exit 2), never silently dropped.
+ */
+function validateFindings(value) {
+  const errors = [];
+  if (value === undefined) return errors;
+  if (!Array.isArray(value)) {
+    errors.push('observed.findings must be an array of {id,title,keywords}');
+    return errors;
+  }
+  value.forEach((finding, index) => {
+    const at = `observed.findings[${index}]`;
+    if (!finding || typeof finding !== 'object' || Array.isArray(finding)) {
+      errors.push(`${at} must be an object with id/title/keywords`);
+      return;
+    }
+    if (!str(finding.id).trim()) errors.push(`${at}.id must be a non-empty string`);
+    if (!str(finding.title).trim()) errors.push(`${at}.title must be a non-empty string`);
+    if (finding.keywords !== undefined) {
+      if (!Array.isArray(finding.keywords)) {
+        errors.push(`${at}.keywords must be an array of strings`);
+      } else {
+        finding.keywords.forEach((keyword, keyIndex) => {
+          if (typeof keyword !== 'string' || !keyword.trim()) {
+            errors.push(`${at}.keywords[${keyIndex}] must be a non-empty string`);
+          }
+        });
+      }
+    }
+  });
+  return errors;
+}
+
+/** Trim/dedupe findings (keywords are case-insensitively deduped, order kept). */
+function normalizeFindings(list) {
+  return arr(list).map((finding) => {
+    const keywords = [];
+    const seen = new Set();
+    for (const raw of arr(finding?.keywords)) {
+      const keyword = str(raw).trim();
+      const key = keyword.toLowerCase();
+      if (!keyword || seen.has(key)) continue;
+      seen.add(key);
+      keywords.push(keyword);
+    }
+    return {
+      id: str(finding?.id).trim(),
+      title: str(finding?.title).trim(),
+      keywords,
+    };
+  }).filter((finding) => finding.id && finding.title);
+}
+
 /** Validate the caller-supplied record; returns a list of human-readable errors. */
 export function validateActiveEval(record) {
   const errors = [];
@@ -102,6 +160,7 @@ export function validateActiveEval(record) {
   } catch (error) {
     errors.push(error.message);
   }
+  errors.push(...validateFindings(record?.observed?.findings));
   return errors;
 }
 
@@ -131,6 +190,7 @@ export function buildActiveEval(record, { now = new Date().toISOString(), rawTex
   const anchors = record.anchors ?? {};
   const expected = record.expected ?? {};
   const observed = record.observed ?? {};
+  const findings = normalizeFindings(observed.findings);
   const normalized = {
     platform: record.platform,
     buildCommit: str(record.buildCommit).trim(),
@@ -158,6 +218,9 @@ export function buildActiveEval(record, { now = new Date().toISOString(), rawTex
       captureVerified: observed.captureVerified === true,
       services: normalizeServices(observed.services),
       connectFailures: arr(observed.connectFailures).map(str).filter(Boolean),
+      // Findings are part of `observed`, so the activeEvalId hash covers them.
+      // Omitted when empty, which keeps ids of records that predate findings.
+      ...(findings.length ? { findings } : {}),
     },
     source: {
       window: str(record?.source?.window).trim() || 'dev lead window',

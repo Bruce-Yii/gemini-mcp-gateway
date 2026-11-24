@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   buildAnalyzerInput, validateAnalyzerOutput, dailyTrend, renderWeeklyReview, isoWeek, filterEnvelopes,
-  parseCliFilters, buildEmptyWindowAnalyzerOutput,
+  parseCliFilters, buildEmptyWindowAnalyzerOutput, analyzerPrompt,
 } from '../scripts/analyze-captures.mjs';
 import { aggregateEnvelopes } from '../scripts/capture-digest.mjs';
 
@@ -404,4 +404,203 @@ test('G3/G4: analyzer input has a full unsampled requestIndex and empty-window o
   assert.equal(out.advisoryOnly, true);
   assert.deepEqual(out.issues, []);
   assert.match(out.summary, /NOT_ENOUGH/);
+});
+
+// ── Task C: success-response outline (HTTP-200 blind spot) ──────────────────
+
+/** Successful tools/call capture with an explicit response body (null = overflow). */
+function successEnvelope(raw, extra = {}) {
+  const body = typeof raw === 'string' ? raw : null;
+  return {
+    requestId: extra.requestId ?? 'req-success-preview',
+    clientPlatform: extra.clientPlatform ?? 'gemini',
+    servers: extra.servers ?? ['vercel'],
+    request: {
+      method: 'POST',
+      url: '/mcp',
+      raw: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'tools/call',
+        params: { name: extra.tool ?? 'execute_read', arguments: { code: 'async () => 1' } },
+      }),
+    },
+    response: { status: 200, raw: body, bytes: body ? body.length : 0, durationMs: 20 },
+    events: extra.events ?? [],
+  };
+}
+
+test('task-C: successful sample carries a bounded responsePreview with nullKeys and nested outline', () => {
+  const body = JSON.stringify({
+    jsonrpc: '2.0',
+    id: null,
+    result: {
+      number: null,
+      deployments: [{ id: 1 }, { id: 2 }],
+      meta: { page: 1, hasMore: false },
+    },
+  });
+  const input = buildAnalyzerInput([successEnvelope(body)], { date: '2026-11-24' });
+  assert.equal(input.samples.length, 1);
+  const preview = input.samples[0].responsePreview;
+  assert.equal(typeof preview.preview, 'string');
+  assert.deepEqual(preview.topLevelKeys, ['jsonrpc', 'id', 'result']);
+  assert.equal(preview.keyCount, 3);
+  assert.deepEqual(preview.nullKeys, ['id']);
+  assert.deepEqual(preview.arrays, {});
+  assert.deepEqual(preview.nested.result, ['number', 'deployments', 'meta']);
+  assert.equal(preview.parseError, undefined);
+});
+
+test('task-C: responsePreview is bounded and parse failures keep only the preview', () => {
+  const large = JSON.stringify({ big: 'z'.repeat(5000), number: null });
+  const largePreview = buildAnalyzerInput(
+    [successEnvelope(large, { requestId: 'req-large' })],
+    { date: '2026-11-24' },
+  ).samples[0].responsePreview;
+  assert.match(largePreview.preview, /\[truncated \d+\]/);
+  assert.ok(largePreview.preview.length < 560, `preview must stay bounded, got ${largePreview.preview.length}`);
+  assert.deepEqual(largePreview.topLevelKeys, ['big', 'number']);
+  assert.deepEqual(largePreview.nullKeys, ['number']);
+
+  const broken = buildAnalyzerInput(
+    [successEnvelope('ok', { requestId: 'req-broken' })],
+    { date: '2026-11-24' },
+  ).samples[0].responsePreview;
+  assert.deepEqual(broken, { preview: 'ok', parseError: true });
+
+  const absent = buildAnalyzerInput(
+    [successEnvelope(null, { requestId: 'req-absent' })],
+    { date: '2026-11-24' },
+  ).samples[0].responsePreview;
+  assert.deepEqual(absent, { preview: null });
+});
+
+test('task-C: subCalls carry resultShape on success and truncated name/message on error', () => {
+  const events = [
+    {
+      type: 'upstream',
+      payload: {
+        server: 'vercel',
+        tool: 'vercel__list_deployments',
+        result: { number: null, deployments: [{ id: 1, state: 'READY' }, { id: 2, state: 'ERROR' }] },
+        durationMs: 12,
+      },
+    },
+    {
+      type: 'upstream',
+      payload: {
+        server: 'github',
+        tool: 'github__create_issue',
+        error: { name: 'UpstreamError', message: 'boom '.repeat(100), stack: 'SECRET-STACK' },
+        durationMs: 8,
+      },
+    },
+  ];
+  const sample = buildAnalyzerInput(
+    [successEnvelope('{"result":{"content":[]}}', { requestId: 'req-subcalls-shape', events })],
+    { date: '2026-11-24' },
+  ).samples[0];
+
+  assert.equal(sample.subCalls.length, 2);
+  const [successCall, errorCall] = sample.subCalls;
+  // Existing sub-call fields are preserved.
+  assert.equal(successCall.server, 'vercel');
+  assert.equal(successCall.tool, 'vercel__list_deployments');
+  assert.equal(successCall.durationMs, 12);
+  // Success: structure only, no invented error.
+  assert.equal(successCall.error, null);
+  assert.deepEqual(successCall.resultShape.topLevelKeys, ['number', 'deployments']);
+  assert.deepEqual(successCall.resultShape.nullKeys, ['number']);
+  assert.deepEqual(successCall.resultShape.arrays, { deployments: 2 });
+  assert.deepEqual(successCall.resultShape.nested.deployments, ['id', 'state']);
+  // Error: name/message only (truncated), stack and raw text never leak.
+  assert.equal(errorCall.resultShape, null);
+  assert.equal(errorCall.error.name, 'UpstreamError');
+  assert.match(errorCall.error.message, /\[truncated \d+\]/);
+  assert.ok(errorCall.error.message.length < 400, 'sub-call error message must stay bounded');
+  assert.ok(!('stack' in errorCall.error), 'stack must be dropped');
+  assert.ok(!JSON.stringify(sample.subCalls).includes('SECRET-STACK'));
+});
+
+test('task-C: analyzer prompt asks for HTTP-200 semantic friction and attribution', () => {
+  const input = buildAnalyzerInput(
+    [successEnvelope('{"result":{"number":null}}')],
+    { date: '2026-11-24' },
+  );
+  const messages = analyzerPrompt(input);
+  assert.equal(messages.length, 2);
+  assert.equal(messages[0].role, 'system');
+  const system = messages[0].content;
+  for (const term of ['responsePreview', 'subCalls', 'clientPlatform', 'servers', 'HTTP-200']) {
+    assert.match(system, new RegExp(term), `prompt must mention ${term}`);
+  }
+  assert.match(system, /null field/i);
+  assert.match(system, /double-layer nesting/);
+  assert.match(system, /cross-upstream/);
+  assert.match(system, /BOUNDED/);
+
+  // The advertised return schema itself must list the two attribution fields.
+  const schemaLine = system.split('\n').find((line) => line.startsWith('{"schema":"analyzer-output.v1"'));
+  assert.ok(schemaLine, 'prompt must embed the analyzer-output.v1 schema');
+  const schema = JSON.parse(schemaLine);
+  assert.ok('clientPlatform' in schema.issues[0], 'schema must advertise clientPlatform');
+  assert.ok(Array.isArray(schema.issues[0].servers), 'schema must advertise servers[]');
+
+  // The constructed sample data itself reaches the model in the user message.
+  assert.match(messages[1].content, /"responsePreview"/);
+  assert.match(messages[1].content, /"subCalls"/);
+});
+
+test('task-C: validateAnalyzerOutput keeps clientPlatform/servers and strips unknown types', () => {
+  const input = { clusters: [{ id: 'c1', sampleEventIds: ['req-a', 'req-b', 'req-c', 'req-d'] }], limits: { maxIssues: 5 } };
+  const output = validateAnalyzerOutput({
+    summary: 'summary',
+    issues: [
+      {
+        severity: 'P2', category: 'gateway', title: 'with attribution', evidenceEventIds: ['req-a'],
+        clientPlatform: ' gemini ', servers: ['github', 'github', ' vercel ', 42, null, { name: 'x' }, ''],
+      },
+      { severity: 'P3', category: 'upstream', title: 'no attribution', evidenceEventIds: ['req-b'] },
+      {
+        severity: 'P2', category: 'data', title: 'bad attribution types', evidenceEventIds: ['req-c'],
+        clientPlatform: 42, servers: 'github',
+      },
+      {
+        severity: 'P3', category: 'model', title: 'capped attribution', evidenceEventIds: ['req-d'],
+        clientPlatform: 'p'.repeat(200), servers: Array.from({ length: 12 }, (_, i) => `server-${i}`),
+      },
+    ],
+  }, input);
+
+  assert.equal(output.issues.length, 4, 'missing/unknown attribution must never drop an issue');
+  assert.equal(output.issues[0].clientPlatform, 'gemini');
+  assert.deepEqual(output.issues[0].servers, ['github', 'vercel']);
+  assert.equal(output.issues[1].clientPlatform, null);
+  assert.deepEqual(output.issues[1].servers, []);
+  assert.equal(output.issues[2].clientPlatform, null);
+  assert.deepEqual(output.issues[2].servers, []);
+  assert.match(output.issues[3].clientPlatform, /\[truncated \d+\]/);
+  assert.ok(output.issues[3].clientPlatform.length < 80, 'clientPlatform must stay bounded');
+  assert.equal(output.issues[3].servers.length, 8, 'servers are capped at eight entries');
+});
+
+test('task-C: responsePreview and subCallError redact secret-shaped tokens', () => {
+  const token = `ghp_${'a'.repeat(36)}`;
+  const env = envelope(200, JSON.stringify({ token, access_token: 'json-secret-value', nested: { authorization: 'Bearer top-secret-value' } }), {
+    requestId: 'req-secret-preview',
+    events: [{ type: 'upstream', payload: { server: 'github', tool: 'github__x', ok: false, error: { name: 'Error', message: 'Bearer top-secret-value' } } }],
+  });
+  const sample = buildAnalyzerInput([env], { date: '2026-11-24' }).samples[0];
+  assert.equal(sample.responsePreview.preview.includes(token), false);
+  assert.equal(sample.responsePreview.preview.includes('top-secret-value'), false);
+  assert.equal(sample.responsePreview.preview.includes('json-secret-value'), false);
+  assert.equal(sample.subCalls[0].error.message.includes('top-secret-value'), false);
+});
+
+
+test('task-C: cluster sampleError redacts JSON key/value secrets too', () => {
+  const env = envelope(500, JSON.stringify({ error: 'upstream failed', access_token: 'error-json-secret' }), { requestId: 'req-error-secret' });
+  const cluster = buildAnalyzerInput([env], { date: '2026-11-24' }).clusters.find((row) => row.sampleEventIds.includes('req-error-secret'));
+  assert.ok(cluster);
+  assert.equal(cluster.sampleError.includes('error-json-secret'), false);
 });
