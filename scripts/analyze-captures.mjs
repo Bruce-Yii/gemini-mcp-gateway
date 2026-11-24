@@ -21,6 +21,21 @@ import {
 } from './capture-digest.mjs';
 import { redactSecrets } from '../src/execution/tool-format.js';
 
+// `redactSecrets` handles unquoted `key=value` and token families, but JSON
+// bodies use `"key":"value"` (a quote sits between the key and ':'). The
+// analyzer previews/sample errors are model-visible, so close that gap here.
+const JSON_SECRET_KEY_VALUE = /("(?:access[_-]?token|refresh[_-]?token|client[_-]?secret|api[_-]?key|apikey|token|secret|password|passwd|pwd|authorization|cookie|private[_-]?key|notion[_-]?token|linear[_-]?token|github[_-]?token)"\s*:\s*")[^"]*(")/gi;
+
+function redactAnalyzerText(text) {
+  return redactSecrets(text).replace(JSON_SECRET_KEY_VALUE, '$1[REDACTED]$2');
+}
+
+function stringForAnalyzer(value, fallback = '') {
+  if (typeof value === 'string') return value;
+  if (value === undefined || value === null) return fallback;
+  try { return JSON.stringify(value); } catch { return String(value); }
+}
+
 const MAX_CODE = 2000;
 const MAX_ERROR = 1000;
 // Success-state blind spot: the analyzer used to see only code/status/subCalls,
@@ -119,7 +134,7 @@ function responsePreviewOf(envelope) {
   if (!original) return { preview: null };
   // This preview is model-visible. Keep the same secret-shape redaction as
   // model-facing errors even though the HTTP status was 200.
-  const preview = truncate(redactSecrets(original), MAX_RESPONSE_PREVIEW);
+  const preview = truncate(redactAnalyzerText(original), MAX_RESPONSE_PREVIEW);
   let parsed;
   try { parsed = JSON.parse(original); } catch { return { preview, parseError: true }; }
   return { preview, ...(shapeOf(parsed) ?? {}) };
@@ -128,15 +143,15 @@ function responsePreviewOf(envelope) {
 /** Sub-call error keeps only name/message (stack and raw text are dropped). */
 function subCallError(error) {
   if (typeof error === 'string') {
-    return { name: null, message: truncate(redactSecrets(error), MAX_SUBCALL_ERROR_MESSAGE) };
+    return { name: null, message: truncate(redactAnalyzerText(error), MAX_SUBCALL_ERROR_MESSAGE) };
   }
   if (error && typeof error === 'object') {
     return {
       name: typeof error.name === 'string' && error.name.trim()
-        ? truncate(redactSecrets(error.name), MAX_SUBCALL_ERROR_NAME)
+        ? truncate(redactAnalyzerText(error.name), MAX_SUBCALL_ERROR_NAME)
         : null,
       message: typeof error.message === 'string' && error.message.trim()
-        ? truncate(redactSecrets(error.message), MAX_SUBCALL_ERROR_MESSAGE)
+        ? truncate(redactAnalyzerText(error.message), MAX_SUBCALL_ERROR_MESSAGE)
         : null,
     };
   }
@@ -273,7 +288,10 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
       id: `c${groups.size + 1}`,
       errorClass, server, tool, count: 0,
       sampleEventIds: [], sampleCode: null,
-      sampleError: truncate(raw || sandbox?.payload?.output || `HTTP ${status}`, MAX_ERROR),
+      sampleError: truncate(
+        redactAnalyzerText(stringForAnalyzer(raw || sandbox?.payload?.output, `HTTP ${status}`)),
+        MAX_ERROR,
+      ),
       durationMs: [],
     };
     group.count += 1;

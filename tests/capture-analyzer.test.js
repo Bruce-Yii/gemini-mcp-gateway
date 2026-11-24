@@ -586,12 +586,21 @@ test('task-C: validateAnalyzerOutput keeps clientPlatform/servers and strips unk
 
 test('task-C: responsePreview and subCallError redact secret-shaped tokens', () => {
   const token = `ghp_${'a'.repeat(36)}`;
-  const env = envelope(200, JSON.stringify({ token, nested: { authorization: 'Bearer top-secret-value' } }), {
+  const env = envelope(200, JSON.stringify({ token, access_token: 'json-secret-value', nested: { authorization: 'Bearer top-secret-value' } }), {
     requestId: 'req-secret-preview',
     events: [{ type: 'upstream', payload: { server: 'github', tool: 'github__x', ok: false, error: { name: 'Error', message: 'Bearer top-secret-value' } } }],
   });
   const sample = buildAnalyzerInput([env], { date: '2026-11-24' }).samples[0];
   assert.equal(sample.responsePreview.preview.includes(token), false);
   assert.equal(sample.responsePreview.preview.includes('top-secret-value'), false);
+  assert.equal(sample.responsePreview.preview.includes('json-secret-value'), false);
   assert.equal(sample.subCalls[0].error.message.includes('top-secret-value'), false);
+});
+
+
+test('task-C: cluster sampleError redacts JSON key/value secrets too', () => {
+  const env = envelope(500, JSON.stringify({ error: 'upstream failed', access_token: 'error-json-secret' }), { requestId: 'req-error-secret' });
+  const cluster = buildAnalyzerInput([env], { date: '2026-11-24' }).clusters.find((row) => row.sampleEventIds.includes('req-error-secret'));
+  assert.ok(cluster);
+  assert.equal(cluster.sampleError.includes('error-json-secret'), false);
 });
