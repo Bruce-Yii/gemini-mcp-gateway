@@ -74,6 +74,29 @@ jobs:
             ARGS+=(--commit "$CMT")
           fi
           node scripts/analyze-captures.mjs "${ARGS[@]}"
+      - name: Reject EMPTY_WINDOW (manual runs fail, scheduled runs warn)
+        if: always()
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          OUT="$(ls work/analyzer/analyzer-output-*.json 2>/dev/null | tail -n 1 || true)"
+          if [ -z "$OUT" ]; then
+            if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+              echo "::error::no analyzer-output produced (analysis did not complete)"
+              exit 1
+            fi
+            echo "::warning::no analyzer-output produced"
+            exit 0
+          fi
+          STATUS="$(node -e "const fs=require('fs');const j=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));console.log(j.validated?.dataStatus ?? j.input?.dataStatus ?? 'unknown')" "$OUT")"
+          echo "analyzer dataStatus=$STATUS"
+          if [ "$STATUS" != "HAS_DATA" ]; then
+            if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+              echo "::error::dataStatus=$STATUS (EMPTY_WINDOW/NOT_ENOUGH is not a pass)"
+              exit 1
+            fi
+            echo "::warning::dataStatus=$STATUS (EMPTY_WINDOW/NOT_ENOUGH is not a pass)"
+          fi
       - name: Keep scorecard in the repo
         run: |
           mkdir -p docs/eval

@@ -23,7 +23,7 @@
 - [ ] 部署记录可查；
 - [ ] 不是旧构建、不是本地 loopback。
 
-**当前：PASS（2026-11-24 02:57 手动部署 `d1f36ba`；healthz `commit=d1f36ba…` / `buildHash=a1002d86…` 与本地计算一致；DEPLOYMENTS 已登记 `dpl_7qGruKcZ8ffE7rri6erS6ZaiqiNS`。历史 40 次自动部署仍不可追溯，不影响当前构建判定）**
+**当前：PASS（2026-11-24 13:43 手动部署 `3dd206f`；14:02 因 env 同 commit 重部署；healthz `commit=3dd206f…` / `buildHash=25a35e6e…` 与本地计算一致；DEPLOYMENTS 已登记。历史 40 次自动部署仍不可追溯，不影响当前构建判定）**
 
 ### B. 真实客户端任务
 
@@ -80,7 +80,7 @@
 - [ ] 不跨构建硬比；
 - [ ] 数据不足标 `NOT_ENOUGH`，不判通过。
 
-**当前：FAIL（未部署；baseline=none）**
+**当前：FAIL（生产已部署 `3dd206f`，但 baseline 未冻结；没有同任务旧/新构建对照）**
 
 ### F. 真实安全结果
 

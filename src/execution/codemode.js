@@ -1369,7 +1369,20 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
       }
       const entries = list.map(listSummary);
       // brief:true -> name + service only; default -> name/service/readOnly/summary.
-      return opts.brief ? entries.map(({ name, service }) => ({ name, service })) : entries;
+      const result = opts.brief ? entries.map(({ name, service }) => ({ name, service })) : entries;
+      // Eval closure: expose a compact, secret-free snapshot of the tool surface
+      // to capture so passive analysis can see "which services were mounted"
+      // without reading the full response body. Best-effort; never changes the
+      // guest-visible return value.
+      try {
+        captureEvent('gateway_helper', {
+          helper: 'listTools',
+          ok: true,
+          count: result.length,
+          services: [...new Set(result.map((entry) => entry?.service).filter(Boolean))].slice(0, 30),
+        });
+      } catch { /* capture is best-effort */ }
+      return result;
     },
     // (#42) Return a plain object: run-js-v1 drops named props on arrays, so
     // the guest prelude rebuilds the array-with-named-props shape.
@@ -1382,11 +1395,37 @@ export function runInSandbox({ code, tools, callTool, maxCalls = DEFAULT_MAX_CAL
         hint,
       };
     },
-    remainingCalls: () => Math.max(0, maxCalls - calls),
+    remainingCalls: () => {
+      const remaining = Math.max(0, maxCalls - calls);
+      try {
+        captureEvent('gateway_helper', { helper: 'remainingCalls', ok: true, remaining });
+      } catch { /* capture is best-effort */ }
+      return remaining;
+    },
     // Gemini new feedback #3: the snapshot is computed on the host from local
     // upstream state only; a getter (when provided) keeps it fresh even if the
     // manager was populated after createCodeModeTools() ran.
-    services: () => (typeof servicesInfo === 'function' ? servicesInfo() : servicesInfo),
+    services: () => {
+      const snapshot = typeof servicesInfo === 'function' ? servicesInfo() : servicesInfo;
+      // Eval closure: mirror the cold-start service state into capture so the
+      // passive lane can see offline/needsReauth upstreams. Only identity/state
+      // fields cross (no tokens, no notes).
+      try {
+        const rows = Array.isArray(snapshot?.services) ? snapshot.services : [];
+        captureEvent('gateway_helper', {
+          helper: 'services',
+          ok: true,
+          services: rows.slice(0, 50).map((row) => ({
+            name: row?.name ?? null,
+            toolCount: Number(row?.toolCount ?? 0) || 0,
+            status: row?.status ?? null,
+            online: row?.online === true,
+            needsReauth: Boolean(row?.needsReauth),
+          })),
+        });
+      } catch { /* capture is best-effort */ }
+      return snapshot;
+    },
     // B14 · sandbox-only typed-plan helper. `typedPlanReadOnly` (set by the
     // execute_read handler) is forced on here so a guest cannot opt out; the
     // dryRun default is applied host-side too. Errors never cross the bridge.

@@ -12,14 +12,13 @@
 
 ## 0. 当前真实状态（先读，防止把“代码已修”当“线上已生效”）
 
-- **生产已部署 `5039ac6`**（2026-11-24 07:45 手动部署）：`https://gemini-mcp-gateway.vercel.app` healthz 已核 `commit=5039ac69…` / `buildHash=c060691d…`。
-  本次部署包含：owner 标记（未标记 grant 永不 refresh、legacy 例外删除）、入站 origin 一致性
-  （issuer/resource/401/CIMD 跟随请求 host）、preview/production KV 隔离检查脚本。
+- **生产已部署 `3dd206f`**（2026-11-24 13:43 手动部署；14:02 为 `CLIENT_PLATFORM_OAUTH_MAP` 同 commit 重部署）：`https://gemini-mcp-gateway.vercel.app` healthz 已核 `commit=3dd206f…` / `buildHash=25a35e6e…`。
+  本次包含 Issue #15 优先修复（issue_write URL 兜底 number、40KB 文件截断假阳性）与 M4-A/M4-C 之前已合入的评测接线。
   “部署成功”不等于验收通过：真实客户端、真实写回环 CI、授权生命周期、同任务在线复验仍未完成；不能写“线上已验收”。
 - **push 自动 production 部署仍关闭**（`git.deploymentEnabled.main=false`，`05f607c` 起已多次复核）；branch push 仍生成 preview。
 - 独立审查见 `docs/OPEN-SOURCE/INDEPENDENT-REVIEW-2026-11-24.md`。
 - **工作区全量测试以最近一次 lead 跑出的结果为准**；不要用其他 agent 的中间态。
-  当前基线：`1518 tests / 1512 pass / 0 fail / 6 todo`（2026-11-24 feedback 修复后，lead 实跑；Node20 为 1511 pass，1 个 TS 用例按能力 skip）。
+  当前基线：`1555 tests / 1549 pass / 0 fail / 6 todo`（2026-11-24 评测闭环工具层修复后，lead 实跑；Node20/22/24 CI 全绿）。
 - **不找用户反复要授权**：授权只有在 `docs/AUTH-READY.md` 全绿后才发起；
   当前明确 **NOT READY**。
 - **OSS 未公开**：只有 `work/oss-release-staging` / `work/oss-release-repo`
@@ -109,6 +108,31 @@ online-feedback.v1 记录
 4. **派单复现修复**：换受控测试仓库复现动作并修复，高频核心问题同步补进离线确定性测试；
 5. **被动反哺核对**：顺手确认“为什么刚才被动分析没抓到/有没有抓到”，若漏抓则补采集字段或调优分析提示词。
 
+### 3.1.1 主动评测触发探针（开发窗口必跑，M5-E 定型 2026-11-24）
+
+当用户在本窗口粘贴**主动评测结果 / 真实会话反馈**（任何形式、语言），必须按以下顺序执行，缺一不可：
+
+1. **原文落盘 + 生成 active-eval**：
+   - 把原文（不转述、不删减）、`buildCommit`、动作范围锚点、expected/observed 写进
+     `work/active-<date>.json`（字段见 [docs/eval/EVAL-CLOSURE.md](docs/eval/EVAL-CLOSURE.md) §1）；
+   - `node scripts/record-active-eval.mjs --input work/active-<date>.json --raw work/active-<date>.txt --out docs/eval/active-eval-<date>.json`；`--raw` 是逐字原文，缺它直接失败（不存摘要）；
+   - 校验失败（退出码 2）先补字段，**不得跳过**；`requestId` 没有就写 `unknown`，不编造。
+2. **拉同窗口被动**：
+   - 本地有 R2：`node scripts/analyze-captures.mjs --last-minutes 60 --commit <build> [--platform <p>] --dry-run --out work/analyzer`；
+   - 本地没有 R2（当前常态）：`gh workflow run capture-daily.yml -f last_minutes=60 -f commit=<build>`，
+     完成后 `gh run download <run-id> -n capture-digest -D work/run-<run-id>`。
+3. **同窗对照**：
+   `node scripts/compare-active-passive.mjs --active docs/eval/active-eval-<date>.json --passive work/run-<run-id>/analyzer/analyzer-output-*.json --out docs/eval/active-passive-<date>.json --json`
+   - 结果必须含 `match`（exact/likely/weak/unmatched）、`missed[]`、`dataStatus`；
+   - `EMPTY_WINDOW` 表示“没有数据”，不是通过；`unmatched` 要写原因，不硬配。
+4. **登记与分类**：新真问题按 `客户端 × 上游 × 类别` 写进 [docs/eval/BADCASES.md](docs/eval/BADCASES.md)，
+   带 `activeEvalId`/`requestId`/`buildCommit`/回归任务；`node scripts/check-badcases.mjs --strict`
+   要求新条目两个字段非空；`missed` 项必须落到“补采集字段/补提示词/补确定性测试”之一。
+5. **反哺 + 重跑**：改完后用同一条 active 记录重跑第 2/3 步；`missed` 清零才算反哺生效；
+   否则写 `NOT_ENOUGH` + 原因，不更新 baseline/不宣称修复。
+
+禁止：只写“已记录/已分析”就结束；编造 requestId；跨构建硬比；把免费模型输出当结论；未复验就写“修好”。
+
 ### 3.2 公共层 vs 平台隔离层 — 跨客户端防串伤规则（`[云端总控]` M4-C 定型）
 
 同一个网关服务多个客户端，**公共层**（tool 描述、返回结构、截断规则、helper 契约、执行底座默认参数）的优化不能只在一个客户端验证就宣称“修好”。
@@ -191,9 +215,10 @@ online-feedback.v1 记录
 
 - 不设固定部署次数；没有值得部署的进展就不部署，有明确进展/必须实测就部署。
 - docs/tests-only、中间态修复、未过全量测试的改动一律不部署。
-- 部署前过 `docs/DEPLOY-POLICY.md`；部署后记录 `docs/DEPLOYMENTS.md`。
+- 部署前过 `docs/DEPLOY-POLICY.md`；部署后记录 `docs/DEPLOYMENTS.md`，并跑
+  `node scripts/check-status-drift.mjs --expected <deployed-commit>` 确认 AGENTS/STATUS 没有旧 build 引用。
 - 能本地/回放验证就不要发 preview。
-- 当前生产：`5039ac6`（2026-11-24 手动部署 PR80-101 feedback fixes；A 门当前构建可追溯；B–G 未完成）；下次在有真实客户端/写回环证据时再部署。
+- 当前生产：`3dd206f`（2026-11-24 手动部署；A 门当前构建可追溯；B–G 未完成）；下次在有真实客户端/写回环证据时再部署。
 
 ## 9. 当前不要做的事
 
@@ -222,3 +247,5 @@ online-feedback.v1 记录
 8. `docs/ACCEPTANCE.md`（V0 真实验收门；测试绿 ≠ 验收）
 9. `docs/DEPLOY-POLICY.md`（少部署/批量部署）
 10. `docs/DEPLOYMENTS.md`（部署日志）
+
+
