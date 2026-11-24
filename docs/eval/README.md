@@ -18,6 +18,8 @@
 
 ## 在线反馈与 Scorecard 记录
 
+- 2026-11-24 真实窗口 #1/#2（Gemini）：[active-eval window1](active-eval-2026-11-24-window1.json) / [window2](active-eval-2026-11-24-window2.json)；同窗对照 [window1](active-passive-2026-11-24-window1.json) / [window2](active-passive-2026-11-24-window2.json)
+
 - [ONLINE-FEEDBACK.md](ONLINE-FEEDBACK.md) — `online-feedback.v1` schema 与对照规则
 - [ONLINE-FEEDBACK-2026-11-24-PR80-101.md](ONLINE-FEEDBACK-2026-11-24-PR80-101.md) — PR #80–#101 真实使用反馈
 - [online-feedback-2026-11-23-gemini.md](online-feedback-2026-11-23-gemini.md) / [online-feedback-2026-11-23-chatgpt.md](online-feedback-2026-11-23-chatgpt.md)
@@ -34,3 +36,4 @@
 ## 历史半在线归档（不再新增碎片编号）
 
 - [SEMI-ONLINE-GAPS.md](SEMI-ONLINE-GAPS.md) / [ONLINE-SEMIONLINE-JOIN-2026-11-23.md](ONLINE-SEMIONLINE-JOIN-2026-11-23.md) / [FEEDBACK-2026-11-24-MATRIX.md](FEEDBACK-2026-11-24-MATRIX.md) / [CONTINUOUS-EVAL.md](CONTINUOUS-EVAL.md)
+

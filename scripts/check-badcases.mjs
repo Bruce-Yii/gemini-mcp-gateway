@@ -64,12 +64,16 @@ export function validateBadcases(text, { strict = false } = {}) {
     if (!(row.cells[indexOf('状态')] ?? '').trim()) errors.push(`line ${row.line}: empty status`);
     const active = (row.cells[indexOf('关联 activeEvalId')] ?? '').trim();
     const test = (row.cells[indexOf('回归测试/任务')] ?? '').trim();
+    const sourceCell = row.cells[indexOf('来源原文')] ?? '';
+    // Legacy rows predate the linkage columns and are exempt from --strict;
+    // a NEW row (source cites an active-eval) must carry both links.
+    const legacy = !/active-eval/i.test(sourceCell) && active === '—' && test === '—';
     if (!active || active === '—') {
-      if (strict) errors.push(`line ${row.line}: missing 关联 activeEvalId`);
+      if (strict && !legacy) errors.push(`line ${row.line}: missing 关联 activeEvalId`);
       else warnings.push(`line ${row.line}: legacy row has no activeEvalId`);
     }
     if (!test || test === '—') {
-      if (strict) errors.push(`line ${row.line}: missing 回归测试/任务`);
+      if (strict && !legacy) errors.push(`line ${row.line}: missing 回归测试/任务`);
       else warnings.push(`line ${row.line}: legacy row has no regression task`);
     }
   }

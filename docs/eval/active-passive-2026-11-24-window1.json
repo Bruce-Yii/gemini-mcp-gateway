@@ -1,0 +1,47 @@
+{
+  "schema": "active-passive-comparison.v1",
+  "activeEvalId": "ae_20261124_e20b7502",
+  "generatedAt": "2026-11-24T14:46:12.931Z",
+  "match": "exact",
+  "reasons": [
+    "matched requestIds inside the active window: 03a21275-f6ac-4704-91c0-9b97fcee54b4, 074fd58c-c9be-41a2-9249-0d9fb619e83c, 03b09af2-3e0b-4148-80c4-320071112a29"
+  ],
+  "checks": {
+    "build": "match",
+    "platform": "match",
+    "window": "match",
+    "requestIds": "exact"
+  },
+  "requestIds": {
+    "status": "exact",
+    "matched": [
+      "03a21275-f6ac-4704-91c0-9b97fcee54b4",
+      "074fd58c-c9be-41a2-9249-0d9fb619e83c",
+      "03b09af2-3e0b-4148-80c4-320071112a29"
+    ],
+    "verified": [
+      "03a21275-f6ac-4704-91c0-9b97fcee54b4",
+      "074fd58c-c9be-41a2-9249-0d9fb619e83c",
+      "03b09af2-3e0b-4148-80c4-320071112a29"
+    ],
+    "unverified": [],
+    "missing": []
+  },
+  "coverage": [],
+  "missed": [],
+  "passive": {
+    "dataStatus": "HAS_DATA",
+    "requests": 22,
+    "platforms": [
+      "gemini",
+      "unknown"
+    ],
+    "buildCommits": [
+      "1481408b403b4e263d5d2fdfd30713cee246f549",
+      "3dd206f7238491e93f15c3ce39bce37c0e4bceba",
+      "5039ac69d4e514bc11cdcc4fb2ce19d7dd5e234a"
+    ],
+    "serviceSnapshots": 0,
+    "connectFailures": 4
+  }
+}
