@@ -41,7 +41,8 @@ node scripts/check-module-boundaries.mjs              # 模块边界门禁（0 n
 
 - [suites/mcpmark-gold.json](suites/mcpmark-gold.json)
 - [suites/universe-atlas-gold.json](suites/universe-atlas-gold.json)
-- [suites/vercel-linear-figma-gold.json](suites/vercel-linear-figma-gold.json) — 批次 3 精挖金标题库（源自官方 MCP 文档与 `explore/` 金矿，18 道全只读顶配精题：Vercel 6 + Linear 6 + Figma 6，专补外部基准三大上游空白） — 批次 2 精挖金标题库（源自 MCP-Universe 与 MCP-Atlas，16 道长程多步 + 零工具名直跑精题，内置 11 类失败模式诊断标签与 Claim 覆盖阈值） — 批次 1 精挖金标题库（源自 MCPMark 真实 `description.md`，16 道可直跑顶配精题：GitHub 9 + Notion 7，每题含完整 `userPrompt` / `trap` / 二元 `verifiableClaims` / `efficiencyBaseline`）
+- [suites/vercel-linear-figma-gold.json](suites/vercel-linear-figma-gold.json)
+- [suites/adversarial-client-gold.json](suites/adversarial-client-gold.json) — 批次 4 精挖金标题库（16 道：对抗性边界压力 8 + 多客户端隔离与专属雷区探针 8；与前 3 批合计 **66 道**全规格直跑精题） — 批次 3 精挖金标题库（源自官方 MCP 文档与 `explore/` 金矿，18 道全只读顶配精题：Vercel 6 + Linear 6 + Figma 6，专补外部基准三大上游空白） — 批次 2 精挖金标题库（源自 MCP-Universe 与 MCP-Atlas，16 道长程多步 + 零工具名直跑精题，内置 11 类失败模式诊断标签与 Claim 覆盖阈值） — 批次 1 精挖金标题库（源自 MCPMark 真实 `description.md`，16 道可直跑顶配精题：GitHub 9 + Notion 7，每题含完整 `userPrompt` / `trap` / 二元 `verifiableClaims` / `efficiencyBaseline`）
 - [suite.json](suite.json) — 机器可读权威评测题库真源（`authoritative-suite.v2`，72 条：单上游高频工作流 44 + 跨上游/长链条 10 + 对抗性边界 8 + 客户端隔离探针 10，含 T0/T1/T2/T3 四档套餐与跨客户端状态）
 - [AUTHORITATIVE-SUITE.md](AUTHORITATIVE-SUITE.md) — 高复用「单上游 + 跨上游」核心权威任务集（19 条，源自真实历史资产；含 AT-GH-01 / AT-LN-01 / AT-XU-01 等）+ 两套深度客户端投喂模板
 - [BADCASES.md](BADCASES.md) — 分类 Badcase 库（`客户端 × 上游(含跨上游) × 问题类别`）；含 PR #28 五根因回填、BC-015 复现记录、R2 429 条目与 ChatGPT `server/discover` 观察项
