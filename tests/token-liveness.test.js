@@ -303,20 +303,10 @@ test('seed() honours obtainedAt and never fabricates a future expiry', async () 
   assert.equal(JSON.parse(store._data.get(KEY)).expires_at, 0, 'no obtainedAt -> unknown, not now+expiresIn');
 });
 
-test('obtainedAtEnv is declared for linear and forwarded into getAccessToken', async () => {
+test('linear config is static_bearer and no longer forwards obtainedAtEnv', async () => {
   const config = JSON.parse(readFileSync(new URL('../config.example.json', import.meta.url), 'utf8'));
   const linear = config.servers.find((s) => s.name === 'linear');
-  assert.equal(linear.obtainedAtEnv, 'LINEAR_OBTAINED_AT');
-
-  setEnv();
-  process.env[ENV.obtainedAtEnv] = '1700000000000';
-  let seen;
-  const auth = {
-    getAccessToken: async (server, env) => { seen = { server, env }; return 'AT'; },
-  };
-  const mgr = new UpstreamManager([linearConfig()], { auth });
-  await mgr._resolveToken(mgr.configs[0]);
-  assert.equal(seen.server, 'linear');
-  assert.equal(seen.env.envObtainedAt, 1700000000000);
-  clearEnv();
+  assert.equal(linear.authMode, 'static_bearer');
+  assert.equal(linear.tokenEnv, 'LINEAR_API_KEY');
+  assert.equal(linear.obtainedAtEnv, undefined);
 });
