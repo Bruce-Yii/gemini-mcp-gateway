@@ -339,8 +339,32 @@ const R2_LIST_MAX_PAGES = 50;
  * Non-2xx responses and unparseable JSON throw, exactly like the previous
  * single-request implementation.
  */
+const R2_RETRY_STATUSES = new Set([429, 502, 503, 504]);
+
+function retryDelayMs(response, attempt) {
+  const header = Number(response?.headers?.get?.('retry-after'));
+  if (Number.isFinite(header) && header > 0) return Math.min(5000, header * 1000);
+  return Math.min(5000, 250 * (2 ** attempt));
+}
+
+/**
+ * R2 HTTP with bounded retries for transient 429/5xx. Sequential GETs across a
+ * 7-day weekly review can trip the R2 API rate limit; a hard failure there made
+ * the whole evidence workflow red even after the digest had succeeded.
+ */
+async function fetchR2(url, options, { fetchImpl = fetch, maxAttempts = 4 } = {}) {
+  let response;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    response = await fetchImpl(url, options);
+    if (response.ok || !R2_RETRY_STATUSES.has(response.status) || attempt === maxAttempts - 1) return response;
+    await new Promise((resolve) => setTimeout(resolve, retryDelayMs(response, attempt)));
+  }
+  return response;
+}
+
 export async function listR2Keys(prefix, options = {}) {
   const fetchImpl = options.fetchImpl ?? fetch;
+  const maxAttempts = Number(options.maxAttempts) > 0 ? Math.floor(Number(options.maxAttempts)) : 4;
   const requestedPages = Number(options.maxPages);
   const maxPages = Number.isFinite(requestedPages) && requestedPages >= 1
     ? Math.floor(requestedPages)
@@ -354,7 +378,7 @@ export async function listR2Keys(prefix, options = {}) {
   while (pages < maxPages) {
     const params = new URLSearchParams({ prefix, per_page: String(R2_LIST_PER_PAGE) });
     if (cursor) params.set('cursor', cursor);
-    const response = await fetchImpl(`${r2Endpoint()}?${params.toString()}`, { headers: r2AuthHeaders() });
+    const response = await fetchR2(`${r2Endpoint()}?${params.toString()}`, { headers: r2AuthHeaders() }, { fetchImpl, maxAttempts });
     if (!response.ok) throw new Error(`R2 list failed: ${response.status}`);
     const body = await response.json();
     pages += 1;
@@ -381,8 +405,10 @@ export async function listR2Keys(prefix, options = {}) {
   return keys;
 }
 
-export async function readR2Envelope(key) {
-  const response = await fetch(r2Endpoint(key), { headers: r2AuthHeaders() });
+export async function readR2Envelope(key, options = {}) {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const maxAttempts = Number(options.maxAttempts) > 0 ? Math.floor(Number(options.maxAttempts)) : 4;
+  const response = await fetchR2(r2Endpoint(key), { headers: r2AuthHeaders() }, { fetchImpl, maxAttempts });
   if (!response.ok) throw new Error(`R2 get failed: ${response.status}`);
   const buffer = Buffer.from(await response.arrayBuffer());
   try {

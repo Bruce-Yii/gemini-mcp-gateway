@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   aggregateEnvelopes, classifyError, renderScorecard, isTruncated,
   protocolVersionOf, executorOf, serversOf, evalModeOf, fourDimensionKeyOf,
-  listR2Keys,
+  listR2Keys, readR2Envelope,
 } from '../scripts/capture-digest.mjs';
 
 const envelope = (status, durationMs, raw = '{}', extra = {}) => ({
@@ -435,3 +435,26 @@ test('isTruncated: wire markers count only inside the trailing 256 chars', () =>
   assert.equal(isTruncated({ response: { error: '--- TRUNCATED ---' } }), false);
 });
 
+
+
+test('R2 retries transient 429/5xx for list and get', async () => {
+  let listCalls = 0;
+  const listFetch = async () => {
+    listCalls += 1;
+    if (listCalls < 3) return new Response('', { status: listCalls === 1 ? 429 : 503, headers: { 'retry-after': '0' } });
+    return new Response(JSON.stringify({ result: [{ key: 'capture/a.json.gz' }], result_info: {} }), { status: 200 });
+  };
+  const keys = await listR2Keys('capture/', { fetchImpl: listFetch, maxAttempts: 3, maxPages: 2 });
+  assert.deepEqual([...keys], ['capture/a.json.gz']);
+  assert.equal(listCalls, 3);
+
+  let getCalls = 0;
+  const getFetch = async () => {
+    getCalls += 1;
+    if (getCalls < 3) return new Response('', { status: getCalls === 1 ? 429 : 502, headers: { 'retry-after': '0' } });
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  };
+  const env = await readR2Envelope('capture/a.json.gz', { fetchImpl: getFetch, maxAttempts: 3 });
+  assert.deepEqual(env, { ok: true });
+  assert.equal(getCalls, 3);
+});
