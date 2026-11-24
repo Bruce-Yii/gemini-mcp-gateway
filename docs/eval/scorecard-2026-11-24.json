@@ -1,186 +1,550 @@
 {
   "date": "2026-11-24",
   "metrics": {
-    "requests": 20,
-    "mcpRequests": 20,
+    "requests": 335,
+    "mcpRequests": 335,
     "nonMcpRequests": 0,
-    "errors": 2,
-    "mcpErrors": 2,
+    "errors": 16,
+    "mcpErrors": 16,
     "statuses": {
-      "200": 16,
-      "202": 2,
-      "401": 2
+      "200": 272,
+      "202": 53,
+      "400": 2,
+      "401": 8
     },
     "errorClasses": {
-      "auth": 2
+      "auth": 9,
+      "upstream_4xx": 7
     },
     "routeErrors": {},
     "tools": {
-      "tools/call": 8,
-      "tools/list": 5,
-      "notifications/initialized": 2,
-      "initialize": 3
+      "tools/call": 133,
+      "tools/list": 85,
+      "notifications/initialized": 53,
+      "initialize": 55,
+      "server/discover": 2
     },
     "upstreams": {
-      "execute_read": 5,
-      "execute": 3
+      "execute_read": 75,
+      "execute": 56,
+      "search": 2
     },
     "durations": [
+      0,
+      1,
+      1,
+      1,
+      1,
       1,
       1,
       4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
+      4,
       5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      5,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      7,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      9,
+      9,
       11,
+      12,
+      12,
+      12,
+      12,
+      13,
+      13,
+      13,
+      13,
+      14,
+      14,
+      14,
+      14,
       15,
+      15,
+      15,
+      15,
+      15,
+      15,
+      15,
+      15,
+      15,
+      15,
+      15,
+      15,
+      15,
+      15,
+      15,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
+      16,
       17,
       17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      17,
+      18,
+      18,
+      18,
+      18,
+      18,
+      18,
+      18,
+      18,
+      19,
+      19,
+      19,
+      19,
+      19,
+      19,
+      19,
+      19,
+      20,
+      20,
+      20,
+      20,
+      21,
+      23,
+      23,
+      24,
+      24,
+      24,
       24,
       25,
+      25,
+      25,
+      25,
+      25,
+      26,
+      28,
+      28,
+      28,
+      29,
+      29,
+      33,
+      37,
+      38,
+      40,
+      41,
+      50,
+      55,
+      58,
+      59,
+      61,
+      86,
+      587,
       590,
+      591,
+      644,
+      657,
       710,
+      753,
+      758,
+      773,
+      774,
+      777,
+      778,
+      780,
+      808,
+      818,
+      819,
+      836,
+      837,
+      859,
+      877,
+      894,
       904,
+      912,
+      918,
+      919,
+      937,
+      944,
+      954,
+      1010,
+      1101,
+      1163,
+      1200,
+      1258,
+      1267,
+      1281,
+      1300,
+      1331,
+      1343,
+      1377,
+      1394,
+      1401,
+      1462,
+      1467,
+      1468,
+      1476,
+      1485,
+      1524,
+      1543,
+      1561,
+      1570,
+      1573,
+      1584,
+      1636,
+      1652,
+      1664,
+      1670,
+      1706,
+      1738,
       1744,
+      1782,
       1845,
+      1845,
+      2040,
+      2105,
+      2108,
+      2169,
+      2175,
+      2188,
+      2198,
+      2321,
+      2334,
+      2390,
+      2417,
+      2420,
+      2498,
+      2537,
       2578,
+      2680,
+      2684,
+      2725,
+      2728,
+      2751,
+      2756,
+      2766,
+      2789,
+      2800,
+      2817,
       2849,
       2906,
+      2919,
+      3012,
+      3054,
+      3058,
+      3065,
+      3123,
+      3131,
+      3181,
+      3185,
+      3267,
+      3271,
+      3338,
+      3345,
+      3370,
+      3423,
+      3452,
+      3463,
+      3482,
+      3487,
+      3508,
+      3531,
+      3541,
       3662,
-      9469
+      3799,
+      3840,
+      3954,
+      4046,
+      4157,
+      4545,
+      4609,
+      4660,
+      4716,
+      4822,
+      5272,
+      5555,
+      5656,
+      5800,
+      5825,
+      6043,
+      6432,
+      6775,
+      7495,
+      7607,
+      7968,
+      8455,
+      8685,
+      9292,
+      9452,
+      9469,
+      9501,
+      11172,
+      15034,
+      19381,
+      24994,
+      28720,
+      28777,
+      35006,
+      35539,
+      36630,
+      37206,
+      37700
     ],
-    "bytes": 139846,
-    "truncated": 5,
+    "bytes": 2187451,
+    "truncated": 2,
     "overflow": 0,
-    "truncationRate": 0.25,
+    "truncationRate": 0.006,
     "overflowRate": 0,
-    "errorRate": 0.1,
+    "errorRate": 0.0478,
     "byDay": {
-      "2026-11-24": 20
+      "2026-11-24": 335
     },
     "byHour": {
-      "12": 1,
-      "13": 3,
-      "15": 1,
-      "16": 2,
-      "00": 4,
-      "01": 2,
-      "02": 2,
-      "03": 1,
-      "04": 1,
-      "06": 3
+      "12": 9,
+      "13": 28,
+      "14": 17,
+      "15": 14,
+      "16": 17,
+      "18": 7,
+      "00": 42,
+      "01": 41,
+      "02": 62,
+      "03": 10,
+      "04": 45,
+      "05": 16,
+      "06": 27
     },
     "byDayHour": {
-      "2026-11-24T00": 4,
-      "2026-11-24T01": 2,
-      "2026-11-24T02": 2,
-      "2026-11-24T03": 1,
-      "2026-11-24T04": 1,
-      "2026-11-24T06": 3,
-      "2026-11-24T12": 1,
-      "2026-11-24T13": 3,
-      "2026-11-24T15": 1,
-      "2026-11-24T16": 2
+      "2026-11-24T00": 42,
+      "2026-11-24T01": 41,
+      "2026-11-24T02": 62,
+      "2026-11-24T03": 10,
+      "2026-11-24T04": 45,
+      "2026-11-24T05": 16,
+      "2026-11-24T06": 27,
+      "2026-11-24T12": 9,
+      "2026-11-24T13": 28,
+      "2026-11-24T14": 17,
+      "2026-11-24T15": 14,
+      "2026-11-24T16": 17,
+      "2026-11-24T18": 7
     },
     "byRoute": {
       "POST /mcp": {
-        "calls": 20,
+        "calls": 335,
         "errors": 0,
         "errorRate": 0,
         "p50Ms": 25,
-        "p95Ms": 3662,
-        "avgMs": 1369,
+        "p95Ms": 8455,
+        "avgMs": 2082,
         "errorClasses": {},
-        "truncated": 5,
+        "truncated": 2,
         "overflow": 0,
-        "modelTruncationSuspects": 6
+        "modelTruncationSuspects": 93
       }
     },
     "upstreamStats": {
       "github": {
-        "calls": 8,
-        "errors": 0,
-        "errorRate": 0,
-        "p50Ms": 2578,
-        "p95Ms": 9469,
-        "avgMs": 3220,
-        "errorClasses": {},
-        "truncated": 0,
+        "calls": 125,
+        "errors": 6,
+        "errorRate": 0.048,
+        "p50Ms": 2849,
+        "p95Ms": 28720,
+        "avgMs": 5368,
+        "errorClasses": {
+          "upstream_4xx": 5,
+          "auth": 1
+        },
+        "truncated": 2,
         "overflow": 0,
-        "modelTruncationSuspects": 6
+        "modelTruncationSuspects": 93
       },
       "unknown": {
-        "calls": 10,
-        "errors": 0,
-        "errorRate": 0,
-        "p50Ms": 17,
-        "p95Ms": 904,
-        "avgMs": 161,
-        "errorClasses": {},
-        "truncated": 5,
+        "calls": 203,
+        "errors": 3,
+        "errorRate": 0.0148,
+        "p50Ms": 15,
+        "p95Ms": 918,
+        "avgMs": 131,
+        "errorClasses": {
+          "upstream_4xx": 2,
+          "auth": 1
+        },
+        "truncated": 0,
         "overflow": 0,
         "modelTruncationSuspects": 0
       }
     },
     "toolStats": {
       "execute": {
-        "calls": 3,
-        "errors": 0,
-        "errorRate": 0,
-        "p50Ms": 2849,
-        "p95Ms": 9469,
-        "avgMs": 4687,
-        "errorClasses": {},
+        "calls": 56,
+        "errors": 2,
+        "errorRate": 0.0357,
+        "p50Ms": 3954,
+        "p95Ms": 36630,
+        "avgMs": 9016,
+        "errorClasses": {
+          "upstream_4xx": 2
+        },
         "truncated": 0,
         "overflow": 0,
-        "modelTruncationSuspects": 2
+        "modelTruncationSuspects": 44
       },
       "execute_read": {
-        "calls": 5,
+        "calls": 75,
+        "errors": 4,
+        "errorRate": 0.0533,
+        "p50Ms": 1845,
+        "p95Ms": 5656,
+        "avgMs": 2285,
+        "errorClasses": {
+          "upstream_4xx": 3,
+          "auth": 1
+        },
+        "truncated": 2,
+        "overflow": 0,
+        "modelTruncationSuspects": 49
+      },
+      "search": {
+        "calls": 2,
         "errors": 0,
         "errorRate": 0,
-        "p50Ms": 2578,
-        "p95Ms": 3662,
-        "avgMs": 2340,
+        "p50Ms": 17,
+        "p95Ms": 50,
+        "avgMs": 34,
         "errorClasses": {},
         "truncated": 0,
         "overflow": 0,
-        "modelTruncationSuspects": 4
+        "modelTruncationSuspects": 0
       }
     },
-    "model_truncation_suspects": 6,
-    "modelTruncationRate": 0.3,
+    "model_truncation_suspects": 93,
+    "modelTruncationRate": 0.2776,
     "modelTruncationByServer": {
-      "github": 6
+      "github": 93
     },
     "modelTruncationByTool": {
-      "execute": 2,
-      "execute_read": 4
+      "execute": 44,
+      "execute_read": 49
     },
     "modelTruncationBySession": {
-      "033ebd44-57ac-4766-bbdb-7decb45ee3fb": 1,
-      "0fc836c7-42a3-4384-81f9-96ffd8fddd6f": 1,
-      "2300fd1b-3d55-460e-9484-ad6babc559ac": 1,
-      "49939f51-7233-4858-a42e-18030de9ec4d": 1,
-      "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3": 1,
+      "033ebd44-57ac-4766-bbdb-7decb45ee3fb": 4,
+      "0fc836c7-42a3-4384-81f9-96ffd8fddd6f": 6,
+      "2300fd1b-3d55-460e-9484-ad6babc559ac": 22,
+      "2857ba2b-5cdb-4bd4-bd0e-9a456403fa34": 1,
+      "2f577e16-ca5d-4b28-991f-83fe48a8a654": 1,
+      "49939f51-7233-4858-a42e-18030de9ec4d": 7,
+      "57db68fa-c66a-4fd7-acbf-57bf43ec6d8d": 1,
+      "79adf4b8-75c7-48af-a987-9f1e79a06fce": 1,
+      "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3": 36,
+      "866f24c7-7d84-4eea-a206-562db8a5f2e8": 1,
+      "8f67986d-f5ef-4e8d-8f38-dcbaccd471fb": 5,
+      "90093089-4744-4073-b6ac-fcf159c3b10c": 1,
+      "92977021-89ce-4e6a-8796-c1047a1a30cb": 1,
+      "99307365-3ce0-4769-8724-b0648281f5c2": 4,
+      "b2e272cc-ca29-4245-99fb-7169e0ecbc65": 1,
       "ef3d080d-6fe0-40f0-b2d0-5bde5e32d994": 1
     },
     "byProject": {
       "github:Bruce-Yii/gemini-mcp-gateway": {
         "key": "github:Bruce-Yii/gemini-mcp-gateway",
-        "requests": 5,
-        "mcpRequests": 5,
-        "errors": 0,
-        "toolCalls": 5,
-        "truncationSuspects": 4,
-        "firstTs": "2026-11-24T00:02:01.572Z",
+        "requests": 73,
+        "mcpRequests": 73,
+        "errors": 5,
+        "toolCalls": 73,
+        "truncationSuspects": 57,
+        "firstTs": "2026-11-24T00:01:08.813Z",
         "lastTs": "2026-11-24T15:40:22.133Z",
-        "firstTsRaw": "2026-11-24T00:02:01.572Z",
+        "firstTsRaw": "2026-11-24T00:01:08.813Z",
         "lastTsRaw": "2026-11-24T15:40:22.133Z",
         "sessionIds": [
           "033ebd44-57ac-4766-bbdb-7decb45ee3fb",
           "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
           "49939f51-7233-4858-a42e-18030de9ec4d",
           "99307365-3ce0-4769-8724-b0648281f5c2",
-          "ef3d080d-6fe0-40f0-b2d0-5bde5e32d994"
+          "ef3d080d-6fe0-40f0-b2d0-5bde5e32d994",
+          "92977021-89ce-4e6a-8796-c1047a1a30cb",
+          "866f24c7-7d84-4eea-a206-562db8a5f2e8",
+          "2f577e16-ca5d-4b28-991f-83fe48a8a654",
+          "99faf544-aef7-4bcf-8ab4-9404504c7cb7",
+          "b2e272cc-ca29-4245-99fb-7169e0ecbc65",
+          "2857ba2b-5cdb-4bd4-bd0e-9a456403fa34"
         ],
         "clientPlatforms": [
           "gemini",
@@ -196,18 +560,22 @@
       },
       "github:Bruce-Yii/recruitment-agent": {
         "key": "github:Bruce-Yii/recruitment-agent",
-        "requests": 3,
-        "mcpRequests": 3,
-        "errors": 0,
-        "toolCalls": 3,
-        "truncationSuspects": 2,
-        "firstTs": "2026-11-24T00:07:42.356Z",
-        "lastTs": "2026-11-24T13:31:16.312Z",
-        "firstTsRaw": "2026-11-24T00:07:42.356Z",
-        "lastTsRaw": "2026-11-24T13:31:16.312Z",
+        "requests": 57,
+        "mcpRequests": 57,
+        "errors": 1,
+        "toolCalls": 57,
+        "truncationSuspects": 38,
+        "firstTs": "2026-11-24T00:06:20.209Z",
+        "lastTs": "2026-11-24T18:03:30.114Z",
+        "firstTsRaw": "2026-11-24T00:06:20.209Z",
+        "lastTsRaw": "2026-11-24T18:03:30.114Z",
         "sessionIds": [
           "2300fd1b-3d55-460e-9484-ad6babc559ac",
-          "0fc836c7-42a3-4384-81f9-96ffd8fddd6f"
+          "0fc836c7-42a3-4384-81f9-96ffd8fddd6f",
+          "79adf4b8-75c7-48af-a987-9f1e79a06fce",
+          "8f67986d-f5ef-4e8d-8f38-dcbaccd471fb",
+          "57db68fa-c66a-4fd7-acbf-57bf43ec6d8d",
+          "90093089-4744-4073-b6ac-fcf159c3b10c"
         ],
         "clientPlatforms": [
           "unknown",
@@ -216,7 +584,9 @@
         "requestIdSamples": [
           "0271e7ca-d2dd-44d8-8902-ad38f2157743",
           "03a21275-f6ac-4704-91c0-9b97fcee54b4",
-          "05623334-9d25-4299-ac8d-e52f1cd8c252"
+          "05623334-9d25-4299-ac8d-e52f1cd8c252",
+          "118148d9-d0f0-4139-af13-c4ae2f2116fc",
+          "132e35eb-5e4e-445d-9b8a-cbe6f2077429"
         ]
       }
     },
@@ -224,19 +594,23 @@
       {
         "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
         "sessionId": "033ebd44-57ac-4766-bbdb-7decb45ee3fb",
-        "requests": 1,
-        "mcpRequests": 1,
+        "requests": 5,
+        "mcpRequests": 5,
         "errors": 0,
-        "toolCalls": 1,
-        "truncationSuspects": 1,
-        "firstTs": "2026-11-24T12:57:27.829Z",
-        "lastTs": "2026-11-24T12:57:27.829Z",
-        "firstTsRaw": "2026-11-24T12:57:27.829Z",
-        "lastTsRaw": "2026-11-24T12:57:27.829Z",
+        "toolCalls": 5,
+        "truncationSuspects": 4,
+        "firstTs": "2026-11-24T12:57:27.664Z",
+        "lastTs": "2026-11-24T13:32:47.607Z",
+        "firstTsRaw": "2026-11-24T12:57:27.664Z",
+        "lastTsRaw": "2026-11-24T13:32:47.607Z",
         "requestIdSamples": [
-          "00c1d059-6d78-4c98-868f-a5d0fbaa5c82"
+          "00c1d059-6d78-4c98-868f-a5d0fbaa5c82",
+          "1188c924-320a-47da-b866-07405561a5c1",
+          "5748cc52-d634-497f-b12d-7df1a94e7d08",
+          "598fceff-da8a-4123-8f26-bf68f3713ea8",
+          "d0443f7a-1721-4e2d-ba7f-18a3933bd359"
         ],
-        "primaryProjectRequests": 1,
+        "primaryProjectRequests": 5,
         "clientPlatforms": [
           "gemini"
         ]
@@ -244,20 +618,23 @@
       {
         "projectKey": "github:Bruce-Yii/recruitment-agent",
         "sessionId": "2300fd1b-3d55-460e-9484-ad6babc559ac",
-        "requests": 2,
-        "mcpRequests": 2,
-        "errors": 0,
-        "toolCalls": 2,
-        "truncationSuspects": 1,
-        "firstTs": "2026-11-24T00:07:42.356Z",
-        "lastTs": "2026-11-24T01:23:06.097Z",
-        "firstTsRaw": "2026-11-24T00:07:42.356Z",
-        "lastTsRaw": "2026-11-24T01:23:06.097Z",
+        "requests": 36,
+        "mcpRequests": 36,
+        "errors": 1,
+        "toolCalls": 36,
+        "truncationSuspects": 23,
+        "firstTs": "2026-11-24T00:06:20.209Z",
+        "lastTs": "2026-11-24T01:37:04.437Z",
+        "firstTsRaw": "2026-11-24T00:06:20.209Z",
+        "lastTsRaw": "2026-11-24T01:37:04.437Z",
         "requestIdSamples": [
           "0271e7ca-d2dd-44d8-8902-ad38f2157743",
-          "05623334-9d25-4299-ac8d-e52f1cd8c252"
+          "05623334-9d25-4299-ac8d-e52f1cd8c252",
+          "118148d9-d0f0-4139-af13-c4ae2f2116fc",
+          "147bc3f0-87c9-445e-8806-8be7463126c7",
+          "1f124492-79fa-4b33-a9e4-3db257f78791"
         ],
-        "primaryProjectRequests": 2,
+        "primaryProjectRequests": 36,
         "clientPlatforms": [
           "unknown"
         ]
@@ -265,19 +642,23 @@
       {
         "projectKey": "github:Bruce-Yii/recruitment-agent",
         "sessionId": "0fc836c7-42a3-4384-81f9-96ffd8fddd6f",
-        "requests": 1,
-        "mcpRequests": 1,
+        "requests": 8,
+        "mcpRequests": 8,
         "errors": 0,
-        "toolCalls": 1,
-        "truncationSuspects": 1,
-        "firstTs": "2026-11-24T13:31:16.312Z",
-        "lastTs": "2026-11-24T13:31:16.312Z",
-        "firstTsRaw": "2026-11-24T13:31:16.312Z",
-        "lastTsRaw": "2026-11-24T13:31:16.312Z",
+        "toolCalls": 8,
+        "truncationSuspects": 6,
+        "firstTs": "2026-11-24T13:31:01.783Z",
+        "lastTs": "2026-11-24T13:58:11.135Z",
+        "firstTsRaw": "2026-11-24T13:31:01.783Z",
+        "lastTsRaw": "2026-11-24T13:58:11.135Z",
         "requestIdSamples": [
-          "03a21275-f6ac-4704-91c0-9b97fcee54b4"
+          "03a21275-f6ac-4704-91c0-9b97fcee54b4",
+          "132e35eb-5e4e-445d-9b8a-cbe6f2077429",
+          "17503da0-2341-4c92-bfce-8dde8fc90184",
+          "26c00056-24ab-471b-853f-a000fe5189db",
+          "421d123b-c186-4b8e-87cb-413c97512af0"
         ],
-        "primaryProjectRequests": 1,
+        "primaryProjectRequests": 8,
         "clientPlatforms": [
           "gemini"
         ]
@@ -285,19 +666,23 @@
       {
         "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
         "sessionId": "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
-        "requests": 1,
-        "mcpRequests": 1,
-        "errors": 0,
-        "toolCalls": 1,
-        "truncationSuspects": 1,
-        "firstTs": "2026-11-24T03:10:10.854Z",
-        "lastTs": "2026-11-24T03:10:10.854Z",
-        "firstTsRaw": "2026-11-24T03:10:10.854Z",
-        "lastTsRaw": "2026-11-24T03:10:10.854Z",
+        "requests": 42,
+        "mcpRequests": 42,
+        "errors": 4,
+        "toolCalls": 42,
+        "truncationSuspects": 36,
+        "firstTs": "2026-11-24T02:07:30.122Z",
+        "lastTs": "2026-11-24T05:50:29.018Z",
+        "firstTsRaw": "2026-11-24T02:07:30.122Z",
+        "lastTsRaw": "2026-11-24T05:50:29.018Z",
         "requestIdSamples": [
-          "08d8bf5a-069e-4db5-ac53-32f975c809a3"
+          "08d8bf5a-069e-4db5-ac53-32f975c809a3",
+          "0f000d24-c8e6-4e71-945b-b870c44e3b7e",
+          "12979d99-30a0-4aaf-94b0-e7ae1a8a52cd",
+          "18ce67bc-e6f0-4926-ac9a-71a07d821740",
+          "1e12f926-a72c-4cd9-a3bd-b8ba94fe8032"
         ],
-        "primaryProjectRequests": 1,
+        "primaryProjectRequests": 42,
         "clientPlatforms": [
           "unknown"
         ]
@@ -305,19 +690,23 @@
       {
         "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
         "sessionId": "49939f51-7233-4858-a42e-18030de9ec4d",
-        "requests": 1,
-        "mcpRequests": 1,
-        "errors": 0,
-        "toolCalls": 1,
-        "truncationSuspects": 1,
-        "firstTs": "2026-11-24T15:40:22.133Z",
+        "requests": 8,
+        "mcpRequests": 8,
+        "errors": 1,
+        "toolCalls": 8,
+        "truncationSuspects": 7,
+        "firstTs": "2026-11-24T14:29:58.465Z",
         "lastTs": "2026-11-24T15:40:22.133Z",
-        "firstTsRaw": "2026-11-24T15:40:22.133Z",
+        "firstTsRaw": "2026-11-24T14:29:58.465Z",
         "lastTsRaw": "2026-11-24T15:40:22.133Z",
         "requestIdSamples": [
-          "0a8bd8ef-c934-4054-a1ef-87f0e7d15c97"
+          "0a8bd8ef-c934-4054-a1ef-87f0e7d15c97",
+          "4f513d7d-8d0b-486e-855e-166d9105f2f6",
+          "57769d49-504d-4a97-804b-20ba81ae18ca",
+          "8bac3e2a-7081-4b0c-9993-41c0f5533e4b",
+          "de5161f0-6c51-4b13-b618-724a412d4a1d"
         ],
-        "primaryProjectRequests": 1,
+        "primaryProjectRequests": 8,
         "clientPlatforms": [
           "gemini"
         ]
@@ -325,19 +714,23 @@
       {
         "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
         "sessionId": "99307365-3ce0-4769-8724-b0648281f5c2",
-        "requests": 1,
-        "mcpRequests": 1,
+        "requests": 11,
+        "mcpRequests": 11,
         "errors": 0,
-        "toolCalls": 1,
-        "truncationSuspects": 0,
-        "firstTs": "2026-11-24T00:02:01.572Z",
-        "lastTs": "2026-11-24T00:02:01.572Z",
-        "firstTsRaw": "2026-11-24T00:02:01.572Z",
-        "lastTsRaw": "2026-11-24T00:02:01.572Z",
+        "toolCalls": 11,
+        "truncationSuspects": 4,
+        "firstTs": "2026-11-24T00:01:08.813Z",
+        "lastTs": "2026-11-24T01:21:40.853Z",
+        "firstTsRaw": "2026-11-24T00:01:08.813Z",
+        "lastTsRaw": "2026-11-24T01:21:40.853Z",
         "requestIdSamples": [
-          "0d0fc47b-347c-43b7-a627-63e1f30b76d8"
+          "0d0fc47b-347c-43b7-a627-63e1f30b76d8",
+          "1902a8ef-0bbd-4ab7-814f-2f55e1121f29",
+          "3580a707-a452-48ea-8a0c-26b8ca11315c",
+          "48977585-ce3a-4356-8522-12d2499646f6",
+          "5fc8ede2-decc-4868-b325-3409e83df248"
         ],
-        "primaryProjectRequests": 1,
+        "primaryProjectRequests": 11,
         "clientPlatforms": [
           "unknown"
         ]
@@ -361,17 +754,251 @@
         "clientPlatforms": [
           "gemini"
         ]
+      },
+      {
+        "projectKey": "github:Bruce-Yii/recruitment-agent",
+        "sessionId": "79adf4b8-75c7-48af-a987-9f1e79a06fce",
+        "requests": 4,
+        "mcpRequests": 4,
+        "errors": 0,
+        "toolCalls": 4,
+        "truncationSuspects": 1,
+        "firstTs": "2026-11-24T14:14:59.178Z",
+        "lastTs": "2026-11-24T14:29:19.612Z",
+        "firstTsRaw": "2026-11-24T14:14:59.178Z",
+        "lastTsRaw": "2026-11-24T14:29:19.612Z",
+        "requestIdSamples": [
+          "1473964f-6f23-48e1-b877-b9e93ab88568",
+          "1a59ecc7-0d2c-4db8-adaa-d616d2cf503e",
+          "b4bb5487-0c72-4366-803d-e992d9af8a7c",
+          "cf337d84-4da7-439f-a7e8-367d323c8924"
+        ],
+        "primaryProjectRequests": 4,
+        "clientPlatforms": [
+          "gemini"
+        ]
+      },
+      {
+        "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
+        "sessionId": "92977021-89ce-4e6a-8796-c1047a1a30cb",
+        "requests": 1,
+        "mcpRequests": 1,
+        "errors": 0,
+        "toolCalls": 1,
+        "truncationSuspects": 1,
+        "firstTs": "2026-11-24T06:11:40.042Z",
+        "lastTs": "2026-11-24T06:11:40.042Z",
+        "firstTsRaw": "2026-11-24T06:11:40.042Z",
+        "lastTsRaw": "2026-11-24T06:11:40.042Z",
+        "requestIdSamples": [
+          "3f359350-75d1-4bcd-8640-82906609ea1a"
+        ],
+        "primaryProjectRequests": 1,
+        "clientPlatforms": [
+          "gemini"
+        ]
+      },
+      {
+        "projectKey": "github:Bruce-Yii/recruitment-agent",
+        "sessionId": "8f67986d-f5ef-4e8d-8f38-dcbaccd471fb",
+        "requests": 7,
+        "mcpRequests": 7,
+        "errors": 0,
+        "toolCalls": 7,
+        "truncationSuspects": 6,
+        "firstTs": "2026-11-24T04:08:44.794Z",
+        "lastTs": "2026-11-24T04:12:04.875Z",
+        "firstTsRaw": "2026-11-24T04:08:44.794Z",
+        "lastTsRaw": "2026-11-24T04:12:04.875Z",
+        "requestIdSamples": [
+          "484ab881-9a96-469c-882f-0a06401041b6",
+          "52ddb460-9058-4366-89e5-3259c5f8654c",
+          "6b2de5d9-b80e-4b86-bf0e-dddd7debc8ab",
+          "7bd3ccca-e7cd-4d75-beed-651a51c2570a",
+          "ca4dc8a2-b3a9-44b1-90eb-23633ae4cc78"
+        ],
+        "primaryProjectRequests": 7,
+        "clientPlatforms": [
+          "unknown"
+        ]
+      },
+      {
+        "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
+        "sessionId": "866f24c7-7d84-4eea-a206-562db8a5f2e8",
+        "requests": 1,
+        "mcpRequests": 1,
+        "errors": 0,
+        "toolCalls": 1,
+        "truncationSuspects": 1,
+        "firstTs": "2026-11-24T06:11:05.581Z",
+        "lastTs": "2026-11-24T06:11:05.581Z",
+        "firstTsRaw": "2026-11-24T06:11:05.581Z",
+        "lastTsRaw": "2026-11-24T06:11:05.581Z",
+        "requestIdSamples": [
+          "4ae66103-34ca-407e-9ca5-91624b48e35a"
+        ],
+        "primaryProjectRequests": 1,
+        "clientPlatforms": [
+          "gemini"
+        ]
+      },
+      {
+        "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
+        "sessionId": "2f577e16-ca5d-4b28-991f-83fe48a8a654",
+        "requests": 1,
+        "mcpRequests": 1,
+        "errors": 0,
+        "toolCalls": 1,
+        "truncationSuspects": 1,
+        "firstTs": "2026-11-24T06:14:37.463Z",
+        "lastTs": "2026-11-24T06:14:37.463Z",
+        "firstTsRaw": "2026-11-24T06:14:37.463Z",
+        "lastTsRaw": "2026-11-24T06:14:37.463Z",
+        "requestIdSamples": [
+          "50394a1d-0c04-485e-9649-b5f489edd73a"
+        ],
+        "primaryProjectRequests": 1,
+        "clientPlatforms": [
+          "gemini"
+        ]
+      },
+      {
+        "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
+        "sessionId": "99faf544-aef7-4bcf-8ab4-9404504c7cb7",
+        "requests": 1,
+        "mcpRequests": 1,
+        "errors": 0,
+        "toolCalls": 1,
+        "truncationSuspects": 0,
+        "firstTs": "2026-11-24T06:12:39.847Z",
+        "lastTs": "2026-11-24T06:12:39.847Z",
+        "firstTsRaw": "2026-11-24T06:12:39.847Z",
+        "lastTsRaw": "2026-11-24T06:12:39.847Z",
+        "requestIdSamples": [
+          "77fbd01d-e9f1-42e6-887e-3ad3da0ca5d7"
+        ],
+        "primaryProjectRequests": 1,
+        "clientPlatforms": [
+          "gemini"
+        ]
+      },
+      {
+        "projectKey": "github:Bruce-Yii/recruitment-agent",
+        "sessionId": "57db68fa-c66a-4fd7-acbf-57bf43ec6d8d",
+        "requests": 1,
+        "mcpRequests": 1,
+        "errors": 0,
+        "toolCalls": 1,
+        "truncationSuspects": 1,
+        "firstTs": "2026-11-24T02:08:15.163Z",
+        "lastTs": "2026-11-24T02:08:15.163Z",
+        "firstTsRaw": "2026-11-24T02:08:15.163Z",
+        "lastTsRaw": "2026-11-24T02:08:15.163Z",
+        "requestIdSamples": [
+          "7874fa78-93b5-462d-a54a-74d50fca58d1"
+        ],
+        "primaryProjectRequests": 1,
+        "clientPlatforms": [
+          "unknown"
+        ]
+      },
+      {
+        "projectKey": "github:Bruce-Yii/recruitment-agent",
+        "sessionId": "90093089-4744-4073-b6ac-fcf159c3b10c",
+        "requests": 1,
+        "mcpRequests": 1,
+        "errors": 0,
+        "toolCalls": 1,
+        "truncationSuspects": 1,
+        "firstTs": "2026-11-24T18:03:30.114Z",
+        "lastTs": "2026-11-24T18:03:30.114Z",
+        "firstTsRaw": "2026-11-24T18:03:30.114Z",
+        "lastTsRaw": "2026-11-24T18:03:30.114Z",
+        "requestIdSamples": [
+          "c44c5374-d468-4828-a4de-6a58e99d6db5"
+        ],
+        "primaryProjectRequests": 1,
+        "clientPlatforms": [
+          "gemini"
+        ]
+      },
+      {
+        "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
+        "sessionId": "b2e272cc-ca29-4245-99fb-7169e0ecbc65",
+        "requests": 1,
+        "mcpRequests": 1,
+        "errors": 0,
+        "toolCalls": 1,
+        "truncationSuspects": 1,
+        "firstTs": "2026-11-24T06:14:28.441Z",
+        "lastTs": "2026-11-24T06:14:28.441Z",
+        "firstTsRaw": "2026-11-24T06:14:28.441Z",
+        "lastTsRaw": "2026-11-24T06:14:28.441Z",
+        "requestIdSamples": [
+          "dee97ebd-5df2-43cc-bf91-e2b7d56197a4"
+        ],
+        "primaryProjectRequests": 1,
+        "clientPlatforms": [
+          "gemini"
+        ]
+      },
+      {
+        "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
+        "sessionId": "2857ba2b-5cdb-4bd4-bd0e-9a456403fa34",
+        "requests": 1,
+        "mcpRequests": 1,
+        "errors": 0,
+        "toolCalls": 1,
+        "truncationSuspects": 1,
+        "firstTs": "2026-11-24T06:10:58.639Z",
+        "lastTs": "2026-11-24T06:10:58.639Z",
+        "firstTsRaw": "2026-11-24T06:10:58.639Z",
+        "lastTsRaw": "2026-11-24T06:10:58.639Z",
+        "requestIdSamples": [
+          "e1754d59-18fe-4434-9f9d-d82fbcae5e40"
+        ],
+        "primaryProjectRequests": 1,
+        "clientPlatforms": [
+          "gemini"
+        ]
       }
     ],
     "byClientPlatform": {
+      "chatgpt": {
+        "platform": "chatgpt",
+        "requests": 10,
+        "mcpRequests": 10,
+        "errors": 2,
+        "toolCalls": 0,
+        "truncationSuspects": 0,
+        "sessions": 4,
+        "projects": 0,
+        "sessionIds": [
+          "cc3bb33e-c9ca-4005-993b-874a5f7e3aef",
+          "c0ca46fb-dfb3-4dcf-9385-88127aa249cf",
+          "3f351671-0b35-4916-b876-22d14521b047",
+          "b7287346-72fd-4fb7-a872-5247345f8970"
+        ],
+        "projectKeys": [],
+        "requestIdSamples": [
+          "133571d5-73ca-4d25-8a3e-639d841332f4",
+          "5905c741-b982-41b4-8f20-42396bd7c31c",
+          "7486ed97-f666-4e1b-8661-644f6b1d93e9",
+          "7fbb79d6-9c37-4961-bdd9-af77814b4b48",
+          "841e0078-e70b-4ec8-8c37-99db4975fcf9"
+        ],
+        "clientPlatforms": [
+          "chatgpt"
+        ]
+      },
       "gemini": {
         "platform": "gemini",
-        "requests": 8,
-        "mcpRequests": 8,
-        "errors": 0,
-        "toolCalls": 4,
-        "truncationSuspects": 5,
-        "sessions": 7,
+        "requests": 104,
+        "mcpRequests": 104,
+        "errors": 1,
+        "toolCalls": 35,
+        "truncationSuspects": 25,
+        "sessions": 32,
         "projects": 2,
         "sessionIds": [
           "033ebd44-57ac-4766-bbdb-7decb45ee3fb",
@@ -380,7 +1007,32 @@
           "73d9b270-c9b2-4f95-b8c9-7388e3f8fdf1",
           "2857ba2b-5cdb-4bd4-bd0e-9a456403fa34",
           "49939f51-7233-4858-a42e-18030de9ec4d",
-          "ef3d080d-6fe0-40f0-b2d0-5bde5e32d994"
+          "90093089-4744-4073-b6ac-fcf159c3b10c",
+          "ef3d080d-6fe0-40f0-b2d0-5bde5e32d994",
+          "79adf4b8-75c7-48af-a987-9f1e79a06fce",
+          "0a3ed876-2f0c-489e-b36d-43c99970e00f",
+          "9106530e-da8b-417a-a4b4-5ee156c861b7",
+          "f59a15a1-6338-444c-bcd6-483e5f0ff38f",
+          "954ed69f-3f87-4b60-a507-b30525837622",
+          "30f09474-d542-4c4f-8d91-bd4fe9f4acdc",
+          "92977021-89ce-4e6a-8796-c1047a1a30cb",
+          "96b1cd8a-64ea-45ef-9828-0a5b1ffd8ff5",
+          "b8acdf13-fa82-4077-8ebf-737d779fd814",
+          "866f24c7-7d84-4eea-a206-562db8a5f2e8",
+          "2f577e16-ca5d-4b28-991f-83fe48a8a654",
+          "b2e272cc-ca29-4245-99fb-7169e0ecbc65",
+          "eafcceb9-c434-4d59-8250-866d608c5a27",
+          "ab75bc50-63b6-471a-84e6-e200c7b680a7",
+          "99faf544-aef7-4bcf-8ab4-9404504c7cb7",
+          "380f1ba5-913e-4156-a4d8-74e58de3a32c",
+          "bb8eb767-2116-4bc5-80f2-d3cc647f1c4d",
+          "44eb287d-0b29-4e38-8a66-fe006d21ed00",
+          "49568b86-7344-427b-9908-e6d7308b0fc2",
+          "85f30751-9069-4ca2-93f2-93b7a07aefd6",
+          "8f67986d-f5ef-4e8d-8f38-dcbaccd471fb",
+          "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
+          "f8164caf-1073-40a8-8c36-828918850894",
+          "60849da6-8e6f-4f82-bedb-dd91d8339ec3"
         ],
         "projectKeys": [
           "github:Bruce-Yii/gemini-mcp-gateway",
@@ -399,12 +1051,12 @@
       },
       "unknown": {
         "platform": "unknown",
-        "requests": 12,
-        "mcpRequests": 12,
-        "errors": 2,
-        "toolCalls": 4,
-        "truncationSuspects": 6,
-        "sessions": 9,
+        "requests": 221,
+        "mcpRequests": 221,
+        "errors": 13,
+        "toolCalls": 98,
+        "truncationSuspects": 70,
+        "sessions": 33,
         "projects": 2,
         "sessionIds": [
           "2300fd1b-3d55-460e-9484-ad6babc559ac",
@@ -415,7 +1067,31 @@
           "3ae56079-12b5-4911-9713-b336f4aabd32",
           "99307365-3ce0-4769-8724-b0648281f5c2",
           "76f7f704-997b-4d43-935c-921aafd396ee",
-          "a078abd9-7de2-48ee-b7d9-89285dea2130"
+          "a078abd9-7de2-48ee-b7d9-89285dea2130",
+          "60849da6-8e6f-4f82-bedb-dd91d8339ec3",
+          "f43c6605-dbc9-4fc9-8f36-4a49e051dce8",
+          "0e76fdd0-b84a-43c6-ab4a-f6accec445f6",
+          "89fd8e62-7144-4e9c-b0a5-68062e31eaff",
+          "57db68fa-c66a-4fd7-acbf-57bf43ec6d8d",
+          "3783f14d-9c3f-421b-bd28-538500e8cdd2",
+          "6cb5f17e-8e43-4c22-bcdf-e38cf9a190e6",
+          "36c86ad6-83f0-47f2-9386-fee07d569313",
+          "ba016a7d-30e1-49c5-8f65-5f990c1f4a7b",
+          "9acd273c-49b9-4a4d-8090-db92753faf72",
+          "a65d036c-bc30-4a74-9c88-d2064ec3759c",
+          "49556553-b299-457e-a827-b33f5e845a16",
+          "fd43f584-6eb1-4c93-b414-3f3ed763a48a",
+          "68b0625e-dd75-4c32-9944-733e9bae2160",
+          "8f67986d-f5ef-4e8d-8f38-dcbaccd471fb",
+          "65950bad-422c-4a72-859a-0630a809accb",
+          "4046c198-c08a-4bfd-96e4-2090e410060e",
+          "fbee14af-c6c4-49a1-bd16-ccdf8f6b1782",
+          "3b3d49c4-60c7-4ef5-86c9-10b5ef93c9e3",
+          "7b4d5527-4fb9-4aba-a5c3-4e6074030a44",
+          "bcaf8ce3-474b-4c80-be2d-4e0b64a4b82c",
+          "5ffc600f-cabe-4b5b-82f3-83be76af3ea8",
+          "85f30751-9069-4ca2-93f2-93b7a07aefd6",
+          "9b91bbbf-e5d7-4b42-97e1-66ce05194632"
         ],
         "projectKeys": [
           "github:Bruce-Yii/recruitment-agent",
@@ -436,12 +1112,12 @@
     "platformSummary": [
       {
         "platform": "gemini",
-        "requests": 8,
-        "mcpRequests": 8,
-        "errors": 0,
-        "toolCalls": 4,
-        "truncationSuspects": 5,
-        "sessions": 7,
+        "requests": 104,
+        "mcpRequests": 104,
+        "errors": 1,
+        "toolCalls": 35,
+        "truncationSuspects": 25,
+        "sessions": 32,
         "projects": 2,
         "requestIdSamples": [
           "00c1d059-6d78-4c98-868f-a5d0fbaa5c82",
@@ -452,13 +1128,30 @@
         ]
       },
       {
-        "platform": "unknown",
-        "requests": 12,
-        "mcpRequests": 12,
+        "platform": "chatgpt",
+        "requests": 10,
+        "mcpRequests": 10,
         "errors": 2,
-        "toolCalls": 4,
-        "truncationSuspects": 6,
-        "sessions": 9,
+        "toolCalls": 0,
+        "truncationSuspects": 0,
+        "sessions": 4,
+        "projects": 0,
+        "requestIdSamples": [
+          "133571d5-73ca-4d25-8a3e-639d841332f4",
+          "5905c741-b982-41b4-8f20-42396bd7c31c",
+          "7486ed97-f666-4e1b-8661-644f6b1d93e9",
+          "7fbb79d6-9c37-4961-bdd9-af77814b4b48",
+          "841e0078-e70b-4ec8-8c37-99db4975fcf9"
+        ]
+      },
+      {
+        "platform": "unknown",
+        "requests": 221,
+        "mcpRequests": 221,
+        "errors": 13,
+        "toolCalls": 98,
+        "truncationSuspects": 70,
+        "sessions": 33,
         "projects": 2,
         "requestIdSamples": [
           "0271e7ca-d2dd-44d8-8902-ad38f2157743",
@@ -473,133 +1166,185 @@
       "v1": {
         "protocolVersion": "v1",
         "executor": "codemode",
-        "requests": 20,
-        "mcpRequests": 20,
-        "errors": 2,
-        "toolCalls": 8,
-        "truncationSuspects": 11
+        "requests": 335,
+        "mcpRequests": 335,
+        "errors": 16,
+        "toolCalls": 133,
+        "truncationSuspects": 95
       }
     },
     "byClientProfile": {
       "gemini-text-json": {
         "clientProfile": "gemini-text-json",
-        "requests": 20,
-        "mcpRequests": 20,
+        "requests": 325,
+        "mcpRequests": 325,
+        "errors": 14,
+        "toolCalls": 133,
+        "truncationSuspects": 95
+      },
+      "chatgpt-structured": {
+        "clientProfile": "chatgpt-structured",
+        "requests": 10,
+        "mcpRequests": 10,
         "errors": 2,
-        "toolCalls": 8,
-        "truncationSuspects": 11
+        "toolCalls": 0,
+        "truncationSuspects": 0
       }
     },
     "byBuildCommit": {
       "5039ac69d4e514bc11cdcc4fb2ce19d7dd5e234a": {
         "buildCommit": "5039ac69d4e514bc11cdcc4fb2ce19d7dd5e234a",
         "clientPlatforms": [
-          "unknown"
+          "unknown",
+          "gemini"
         ],
-        "requests": 10,
-        "mcpRequests": 10,
-        "errors": 0,
-        "toolCalls": 4,
-        "truncationSuspects": 6
+        "requests": 208,
+        "mcpRequests": 208,
+        "errors": 6,
+        "toolCalls": 97,
+        "truncationSuspects": 69
       },
       "3dd206f7238491e93f15c3ce39bce37c0e4bceba": {
         "buildCommit": "3dd206f7238491e93f15c3ce39bce37c0e4bceba",
         "clientPlatforms": [
-          "gemini"
+          "gemini",
+          "unknown"
         ],
-        "requests": 8,
-        "mcpRequests": 8,
-        "errors": 0,
-        "toolCalls": 4,
-        "truncationSuspects": 5
+        "requests": 103,
+        "mcpRequests": 103,
+        "errors": 1,
+        "toolCalls": 35,
+        "truncationSuspects": 25
       },
       "9eb0c7aa3d10d777d3066f858a67be39cc8303dd": {
         "buildCommit": "9eb0c7aa3d10d777d3066f858a67be39cc8303dd",
         "clientPlatforms": [
-          "unknown"
+          "unknown",
+          "chatgpt"
         ],
-        "requests": 2,
-        "mcpRequests": 2,
-        "errors": 2,
+        "requests": 17,
+        "mcpRequests": 17,
+        "errors": 9,
         "toolCalls": 0,
         "truncationSuspects": 0
+      },
+      "f2002d9ca48e55292eb824faa10b85b39ea35440": {
+        "buildCommit": "f2002d9ca48e55292eb824faa10b85b39ea35440",
+        "clientPlatforms": [
+          "gemini"
+        ],
+        "requests": 7,
+        "mcpRequests": 7,
+        "errors": 0,
+        "toolCalls": 1,
+        "truncationSuspects": 1
       }
     },
     "byEvalMode": {
       "unknown": {
         "evalMode": "unknown",
-        "requests": 20,
-        "mcpRequests": 20,
-        "errors": 2,
-        "toolCalls": 8,
-        "truncationSuspects": 11
+        "requests": 335,
+        "mcpRequests": 335,
+        "errors": 16,
+        "toolCalls": 133,
+        "truncationSuspects": 95
       }
     },
     "byServerTag": {
       "unknown": {
         "server": "unknown",
-        "requests": 15,
-        "mcpRequests": 15,
-        "errors": 2,
-        "toolCalls": 4,
-        "truncationSuspects": 7
+        "requests": 289,
+        "mcpRequests": 289,
+        "errors": 14,
+        "toolCalls": 100,
+        "truncationSuspects": 69
       },
       "github": {
         "server": "github",
-        "requests": 5,
-        "mcpRequests": 5,
-        "errors": 0,
-        "toolCalls": 4,
-        "truncationSuspects": 4
+        "requests": 46,
+        "mcpRequests": 46,
+        "errors": 2,
+        "toolCalls": 33,
+        "truncationSuspects": 26
       },
       "vercel": {
         "server": "vercel",
-        "requests": 2,
-        "mcpRequests": 2,
-        "errors": 0,
-        "toolCalls": 1,
-        "truncationSuspects": 1
+        "requests": 18,
+        "mcpRequests": 18,
+        "errors": 1,
+        "toolCalls": 5,
+        "truncationSuspects": 4
       },
       "figma": {
         "server": "figma",
-        "requests": 1,
-        "mcpRequests": 1,
-        "errors": 0,
-        "toolCalls": 0,
-        "truncationSuspects": 0
+        "requests": 15,
+        "mcpRequests": 15,
+        "errors": 1,
+        "toolCalls": 2,
+        "truncationSuspects": 1
       },
       "linear": {
         "server": "linear",
-        "requests": 1,
-        "mcpRequests": 1,
-        "errors": 0,
-        "toolCalls": 0,
-        "truncationSuspects": 0
+        "requests": 14,
+        "mcpRequests": 14,
+        "errors": 1,
+        "toolCalls": 1,
+        "truncationSuspects": 1
       },
       "notion": {
         "server": "notion",
-        "requests": 1,
-        "mcpRequests": 1,
-        "errors": 0,
-        "toolCalls": 0,
-        "truncationSuspects": 0
+        "requests": 14,
+        "mcpRequests": 14,
+        "errors": 1,
+        "toolCalls": 1,
+        "truncationSuspects": 1
       }
     },
-    "multiServerRequests": 2,
+    "multiServerRequests": 18,
     "byFourDimension": {
+      "chatgpt|v1|chatgpt-structured|9eb0c7aa3d10d777d3066f858a67be39cc8303dd": {
+        "clientPlatform": "chatgpt",
+        "protocolVersion": "v1",
+        "executor": "codemode",
+        "clientProfile": "chatgpt-structured",
+        "buildCommit": "9eb0c7aa3d10d777d3066f858a67be39cc8303dd",
+        "requests": 10,
+        "mcpRequests": 10,
+        "errors": 2,
+        "toolCalls": 0,
+        "truncationSuspects": 0,
+        "evalModes": {
+          "unknown": 10
+        },
+        "servers": [
+          "github",
+          "notion",
+          "vercel",
+          "linear",
+          "figma",
+          "unknown"
+        ],
+        "requestIdSamples": [
+          "133571d5-73ca-4d25-8a3e-639d841332f4",
+          "5905c741-b982-41b4-8f20-42396bd7c31c",
+          "7486ed97-f666-4e1b-8661-644f6b1d93e9",
+          "7fbb79d6-9c37-4961-bdd9-af77814b4b48",
+          "841e0078-e70b-4ec8-8c37-99db4975fcf9"
+        ]
+      },
       "gemini|v1|gemini-text-json|3dd206f7238491e93f15c3ce39bce37c0e4bceba": {
         "clientPlatform": "gemini",
         "protocolVersion": "v1",
         "executor": "codemode",
         "clientProfile": "gemini-text-json",
         "buildCommit": "3dd206f7238491e93f15c3ce39bce37c0e4bceba",
-        "requests": 8,
-        "mcpRequests": 8,
-        "errors": 0,
-        "toolCalls": 4,
-        "truncationSuspects": 5,
+        "requests": 95,
+        "mcpRequests": 95,
+        "errors": 1,
+        "toolCalls": 34,
+        "truncationSuspects": 24,
         "evalModes": {
-          "unknown": 8
+          "unknown": 95
         },
         "servers": [
           "github",
@@ -617,19 +1362,101 @@
           "06b36205-bbd6-4df3-a619-741ffda52db9"
         ]
       },
+      "gemini|v1|gemini-text-json|5039ac69d4e514bc11cdcc4fb2ce19d7dd5e234a": {
+        "clientPlatform": "gemini",
+        "protocolVersion": "v1",
+        "executor": "codemode",
+        "clientProfile": "gemini-text-json",
+        "buildCommit": "5039ac69d4e514bc11cdcc4fb2ce19d7dd5e234a",
+        "requests": 2,
+        "mcpRequests": 2,
+        "errors": 0,
+        "toolCalls": 0,
+        "truncationSuspects": 0,
+        "evalModes": {
+          "unknown": 2
+        },
+        "servers": [
+          "unknown"
+        ],
+        "requestIdSamples": [
+          "b3283f6d-9b26-4044-982f-7b2ea1f59a1a",
+          "ca34bf94-5250-4db9-b045-1ac167a4b49c"
+        ]
+      },
+      "gemini|v1|gemini-text-json|f2002d9ca48e55292eb824faa10b85b39ea35440": {
+        "clientPlatform": "gemini",
+        "protocolVersion": "v1",
+        "executor": "codemode",
+        "clientProfile": "gemini-text-json",
+        "buildCommit": "f2002d9ca48e55292eb824faa10b85b39ea35440",
+        "requests": 7,
+        "mcpRequests": 7,
+        "errors": 0,
+        "toolCalls": 1,
+        "truncationSuspects": 1,
+        "evalModes": {
+          "unknown": 7
+        },
+        "servers": [
+          "unknown",
+          "notion",
+          "github",
+          "linear",
+          "vercel",
+          "figma"
+        ],
+        "requestIdSamples": [
+          "0c9b2930-2bea-4f52-b176-725f7885a7b3",
+          "636aa5f3-6253-477a-997f-29a66204b7d0",
+          "6d8c94dd-489c-434f-8d03-76caa645aaf4",
+          "71e08fec-273c-4f38-bfcd-a126c36d8003",
+          "c44c5374-d468-4828-a4de-6a58e99d6db5"
+        ]
+      },
+      "unknown|v1|gemini-text-json|3dd206f7238491e93f15c3ce39bce37c0e4bceba": {
+        "clientPlatform": "unknown",
+        "protocolVersion": "v1",
+        "executor": "codemode",
+        "clientProfile": "gemini-text-json",
+        "buildCommit": "3dd206f7238491e93f15c3ce39bce37c0e4bceba",
+        "requests": 8,
+        "mcpRequests": 8,
+        "errors": 0,
+        "toolCalls": 1,
+        "truncationSuspects": 1,
+        "evalModes": {
+          "unknown": 8
+        },
+        "servers": [
+          "unknown",
+          "github",
+          "notion",
+          "vercel",
+          "figma",
+          "linear"
+        ],
+        "requestIdSamples": [
+          "2494f7c3-2dc2-495c-a695-172014a69daf",
+          "31f79007-5823-441e-b0e7-378689e1e1e1",
+          "7a538363-ced2-4d10-87bb-ec871a5806b1",
+          "8390fdc8-2d28-4ede-b2a7-cb2cdb2d480f",
+          "b783b5c0-d830-48ac-8cc6-d0d7c7cb346b"
+        ]
+      },
       "unknown|v1|gemini-text-json|5039ac69d4e514bc11cdcc4fb2ce19d7dd5e234a": {
         "clientPlatform": "unknown",
         "protocolVersion": "v1",
         "executor": "codemode",
         "clientProfile": "gemini-text-json",
         "buildCommit": "5039ac69d4e514bc11cdcc4fb2ce19d7dd5e234a",
-        "requests": 10,
-        "mcpRequests": 10,
-        "errors": 0,
-        "toolCalls": 4,
-        "truncationSuspects": 6,
+        "requests": 206,
+        "mcpRequests": 206,
+        "errors": 6,
+        "toolCalls": 97,
+        "truncationSuspects": 69,
         "evalModes": {
-          "unknown": 10
+          "unknown": 206
         },
         "servers": [
           "unknown"
@@ -648,20 +1475,23 @@
         "executor": "codemode",
         "clientProfile": "gemini-text-json",
         "buildCommit": "9eb0c7aa3d10d777d3066f858a67be39cc8303dd",
-        "requests": 2,
-        "mcpRequests": 2,
-        "errors": 2,
+        "requests": 7,
+        "mcpRequests": 7,
+        "errors": 7,
         "toolCalls": 0,
         "truncationSuspects": 0,
         "evalModes": {
-          "unknown": 2
+          "unknown": 7
         },
         "servers": [
           "unknown"
         ],
         "requestIdSamples": [
           "0b8671d5-4ee9-46bd-a550-0f106748396d",
-          "0dbba1c9-7c11-4c64-8655-bbbb2cf0b1f1"
+          "0dbba1c9-7c11-4c64-8655-bbbb2cf0b1f1",
+          "55cf0735-8b44-4cab-8296-bf360968652e",
+          "b3f8452d-1e7f-4cf8-8c85-9fdb2a0aec26",
+          "dba86fa1-ca03-42a7-8408-b731aca9cf31"
         ]
       }
     },
@@ -672,13 +1502,13 @@
         "executor": "codemode",
         "clientProfile": "gemini-text-json",
         "buildCommit": "5039ac69d4e514bc11cdcc4fb2ce19d7dd5e234a",
-        "requests": 10,
-        "mcpRequests": 10,
-        "errors": 0,
-        "toolCalls": 4,
-        "truncationSuspects": 6,
+        "requests": 206,
+        "mcpRequests": 206,
+        "errors": 6,
+        "toolCalls": 97,
+        "truncationSuspects": 69,
         "evalModes": {
-          "unknown": 10
+          "unknown": 206
         },
         "servers": [
           "unknown"
@@ -697,13 +1527,13 @@
         "executor": "codemode",
         "clientProfile": "gemini-text-json",
         "buildCommit": "3dd206f7238491e93f15c3ce39bce37c0e4bceba",
-        "requests": 8,
-        "mcpRequests": 8,
-        "errors": 0,
-        "toolCalls": 4,
-        "truncationSuspects": 5,
+        "requests": 95,
+        "mcpRequests": 95,
+        "errors": 1,
+        "toolCalls": 34,
+        "truncationSuspects": 24,
         "evalModes": {
-          "unknown": 8
+          "unknown": 95
         },
         "servers": [
           "github",
@@ -722,14 +1552,129 @@
         ]
       },
       {
+        "clientPlatform": "chatgpt",
+        "protocolVersion": "v1",
+        "executor": "codemode",
+        "clientProfile": "chatgpt-structured",
+        "buildCommit": "9eb0c7aa3d10d777d3066f858a67be39cc8303dd",
+        "requests": 10,
+        "mcpRequests": 10,
+        "errors": 2,
+        "toolCalls": 0,
+        "truncationSuspects": 0,
+        "evalModes": {
+          "unknown": 10
+        },
+        "servers": [
+          "github",
+          "notion",
+          "vercel",
+          "linear",
+          "figma",
+          "unknown"
+        ],
+        "requestIdSamples": [
+          "133571d5-73ca-4d25-8a3e-639d841332f4",
+          "5905c741-b982-41b4-8f20-42396bd7c31c",
+          "7486ed97-f666-4e1b-8661-644f6b1d93e9",
+          "7fbb79d6-9c37-4961-bdd9-af77814b4b48",
+          "841e0078-e70b-4ec8-8c37-99db4975fcf9"
+        ]
+      },
+      {
+        "clientPlatform": "unknown",
+        "protocolVersion": "v1",
+        "executor": "codemode",
+        "clientProfile": "gemini-text-json",
+        "buildCommit": "3dd206f7238491e93f15c3ce39bce37c0e4bceba",
+        "requests": 8,
+        "mcpRequests": 8,
+        "errors": 0,
+        "toolCalls": 1,
+        "truncationSuspects": 1,
+        "evalModes": {
+          "unknown": 8
+        },
+        "servers": [
+          "unknown",
+          "github",
+          "notion",
+          "vercel",
+          "figma",
+          "linear"
+        ],
+        "requestIdSamples": [
+          "2494f7c3-2dc2-495c-a695-172014a69daf",
+          "31f79007-5823-441e-b0e7-378689e1e1e1",
+          "7a538363-ced2-4d10-87bb-ec871a5806b1",
+          "8390fdc8-2d28-4ede-b2a7-cb2cdb2d480f",
+          "b783b5c0-d830-48ac-8cc6-d0d7c7cb346b"
+        ]
+      },
+      {
+        "clientPlatform": "gemini",
+        "protocolVersion": "v1",
+        "executor": "codemode",
+        "clientProfile": "gemini-text-json",
+        "buildCommit": "f2002d9ca48e55292eb824faa10b85b39ea35440",
+        "requests": 7,
+        "mcpRequests": 7,
+        "errors": 0,
+        "toolCalls": 1,
+        "truncationSuspects": 1,
+        "evalModes": {
+          "unknown": 7
+        },
+        "servers": [
+          "unknown",
+          "notion",
+          "github",
+          "linear",
+          "vercel",
+          "figma"
+        ],
+        "requestIdSamples": [
+          "0c9b2930-2bea-4f52-b176-725f7885a7b3",
+          "636aa5f3-6253-477a-997f-29a66204b7d0",
+          "6d8c94dd-489c-434f-8d03-76caa645aaf4",
+          "71e08fec-273c-4f38-bfcd-a126c36d8003",
+          "c44c5374-d468-4828-a4de-6a58e99d6db5"
+        ]
+      },
+      {
         "clientPlatform": "unknown",
         "protocolVersion": "v1",
         "executor": "codemode",
         "clientProfile": "gemini-text-json",
         "buildCommit": "9eb0c7aa3d10d777d3066f858a67be39cc8303dd",
+        "requests": 7,
+        "mcpRequests": 7,
+        "errors": 7,
+        "toolCalls": 0,
+        "truncationSuspects": 0,
+        "evalModes": {
+          "unknown": 7
+        },
+        "servers": [
+          "unknown"
+        ],
+        "requestIdSamples": [
+          "0b8671d5-4ee9-46bd-a550-0f106748396d",
+          "0dbba1c9-7c11-4c64-8655-bbbb2cf0b1f1",
+          "55cf0735-8b44-4cab-8296-bf360968652e",
+          "b3f8452d-1e7f-4cf8-8c85-9fdb2a0aec26",
+          "dba86fa1-ca03-42a7-8408-b731aca9cf31"
+        ]
+      },
+      {
+        "clientPlatform": "gemini",
+        "protocolVersion": "v1",
+        "executor": "codemode",
+        "clientProfile": "gemini-text-json",
+        "buildCommit": "5039ac69d4e514bc11cdcc4fb2ce19d7dd5e234a",
         "requests": 2,
         "mcpRequests": 2,
-        "errors": 2,
+        "errors": 0,
         "toolCalls": 0,
         "truncationSuspects": 0,
         "evalModes": {
@@ -739,34 +1684,40 @@
           "unknown"
         ],
         "requestIdSamples": [
-          "0b8671d5-4ee9-46bd-a550-0f106748396d",
-          "0dbba1c9-7c11-4c64-8655-bbbb2cf0b1f1"
+          "b3283f6d-9b26-4044-982f-7b2ea1f59a1a",
+          "ca34bf94-5250-4db9-b045-1ac167a4b49c"
         ]
       }
     ],
     "upstreamConnect": {
-      "failures": 4,
+      "failures": 43,
       "byServer": {
-        "linear": {
-          "server": "linear",
-          "failures": 2,
-          "errorClasses": {
-            "auth": 2
-          },
-          "sampleRequestIds": [
-            "074fd58c-c9be-41a2-9249-0d9fb619e83c",
-            "0a820ad5-dd0f-44db-b91e-18b42c77ed46"
-          ]
-        },
         "notion": {
           "server": "notion",
-          "failures": 2,
+          "failures": 22,
           "errorClasses": {
-            "connect": 2
+            "connect": 22
           },
           "sampleRequestIds": [
             "074fd58c-c9be-41a2-9249-0d9fb619e83c",
-            "0a820ad5-dd0f-44db-b91e-18b42c77ed46"
+            "0a820ad5-dd0f-44db-b91e-18b42c77ed46",
+            "133571d5-73ca-4d25-8a3e-639d841332f4",
+            "3555e6a6-3f5f-49e2-90e0-58c6c605451a",
+            "3fc0a201-aaab-4b25-93f4-abe6a303641f"
+          ]
+        },
+        "linear": {
+          "server": "linear",
+          "failures": 21,
+          "errorClasses": {
+            "auth": 21
+          },
+          "sampleRequestIds": [
+            "074fd58c-c9be-41a2-9249-0d9fb619e83c",
+            "0a820ad5-dd0f-44db-b91e-18b42c77ed46",
+            "133571d5-73ca-4d25-8a3e-639d841332f4",
+            "3555e6a6-3f5f-49e2-90e0-58c6c605451a",
+            "3fc0a201-aaab-4b25-93f4-abe6a303641f"
           ]
         }
       }
@@ -781,33 +1732,72 @@
     },
     "helperStats": [],
     "p50Ms": 25,
-    "p95Ms": 3662,
-    "avgMs": 1369,
+    "p95Ms": 8455,
+    "avgMs": 2082,
     "date": "2026-11-24"
   },
   "sessions": [
+    {
+      "windowId": "session:8c0d61df-9626-4fa7-99fc-45850ceba802",
+      "strategy": "sessionId",
+      "sessionId": "8c0d61df-9626-4fa7-99fc-45850ceba802",
+      "taskId": null,
+      "requests": 4,
+      "mcpRequests": 4,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T00:00:04.281Z",
+      "lastTs": "2026-11-24T01:33:42.689Z",
+      "firstTsRaw": "2026-11-24T00:00:04.281Z",
+      "lastTsRaw": "2026-11-24T01:33:42.689Z",
+      "clientInfo": {
+        "ip": "192.178.10.74"
+      },
+      "requestIdSamples": [
+        "8a1d5292-4773-43e9-967f-9d2741199dad",
+        "d9b4ad3a-c062-4b9c-adb4-7c2bd32165cb",
+        "04ea8e1f-65a1-42d6-922d-37dd8eb7044e",
+        "b1cd0751-a567-44fe-9192-c313d1291015"
+      ],
+      "methods": {
+        "tools/list": 4
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 4
+      }
+    },
     {
       "windowId": "session:99307365-3ce0-4769-8724-b0648281f5c2",
       "strategy": "sessionId",
       "sessionId": "99307365-3ce0-4769-8724-b0648281f5c2",
       "taskId": null,
-      "requests": 1,
-      "mcpRequests": 1,
+      "requests": 12,
+      "mcpRequests": 12,
       "mcpErrors": 0,
-      "toolCalls": 1,
-      "truncationSuspects": 0,
-      "firstTs": "2026-11-24T00:02:01.572Z",
-      "lastTs": "2026-11-24T00:02:01.572Z",
-      "firstTsRaw": "2026-11-24T00:02:01.572Z",
-      "lastTsRaw": "2026-11-24T00:02:01.572Z",
+      "toolCalls": 12,
+      "truncationSuspects": 4,
+      "firstTs": "2026-11-24T00:00:11.709Z",
+      "lastTs": "2026-11-24T01:21:40.853Z",
+      "firstTsRaw": "2026-11-24T00:00:11.709Z",
+      "lastTsRaw": "2026-11-24T01:21:40.853Z",
       "clientInfo": {
-        "ip": "192.178.23.34"
+        "ip": "108.177.68.131"
       },
       "requestIdSamples": [
-        "0d0fc47b-347c-43b7-a627-63e1f30b76d8"
+        "cd98c610-1dd3-4792-820b-a2ecbfe5f397",
+        "fad7392a-190a-491c-91e6-db10a5488325",
+        "0d0fc47b-347c-43b7-a627-63e1f30b76d8",
+        "1902a8ef-0bbd-4ab7-814f-2f55e1121f29",
+        "48977585-ce3a-4356-8522-12d2499646f6"
       ],
       "methods": {
-        "tools/call": 1
+        "tools/call": 12
       },
       "projects": [
         {
@@ -817,7 +1807,7 @@
           "key": "github:Bruce-Yii/gemini-mcp-gateway",
           "confidence": "medium",
           "source": "code-literal",
-          "requests": 1
+          "requests": 11
         }
       ],
       "primaryProjects": [
@@ -827,7 +1817,43 @@
         "unknown"
       ],
       "requestsByClientPlatform": {
-        "unknown": 1
+        "unknown": 12
+      }
+    },
+    {
+      "windowId": "session:3ae56079-12b5-4911-9713-b336f4aabd32",
+      "strategy": "sessionId",
+      "sessionId": "3ae56079-12b5-4911-9713-b336f4aabd32",
+      "taskId": null,
+      "requests": 10,
+      "mcpRequests": 10,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T00:00:16.421Z",
+      "lastTs": "2026-11-24T01:53:14.586Z",
+      "firstTsRaw": "2026-11-24T00:00:16.421Z",
+      "lastTsRaw": "2026-11-24T01:53:14.586Z",
+      "clientInfo": {
+        "ip": "66.249.83.37"
+      },
+      "requestIdSamples": [
+        "d6c4af52-8b02-422c-9922-e6e45fd063f1",
+        "da852bec-b154-45d3-ab97-1132dc2f6030",
+        "6d4f90e7-054e-4435-8f01-0abc3ecdd9b2",
+        "0ccce2ce-f2f6-4cee-ac85-ee83d7432477",
+        "b828418e-d6c7-4ed1-815c-3f63aa01f48f"
+      ],
+      "methods": {
+        "tools/list": 10
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 10
       }
     },
     {
@@ -835,24 +1861,27 @@
       "strategy": "sessionId",
       "sessionId": "2300fd1b-3d55-460e-9484-ad6babc559ac",
       "taskId": null,
-      "requests": 2,
-      "mcpRequests": 2,
-      "mcpErrors": 0,
-      "toolCalls": 2,
-      "truncationSuspects": 1,
-      "firstTs": "2026-11-24T00:07:42.356Z",
-      "lastTs": "2026-11-24T01:23:06.097Z",
-      "firstTsRaw": "2026-11-24T00:07:42.356Z",
-      "lastTsRaw": "2026-11-24T01:23:06.097Z",
+      "requests": 36,
+      "mcpRequests": 36,
+      "mcpErrors": 1,
+      "toolCalls": 36,
+      "truncationSuspects": 23,
+      "firstTs": "2026-11-24T00:06:20.209Z",
+      "lastTs": "2026-11-24T01:37:04.437Z",
+      "firstTsRaw": "2026-11-24T00:06:20.209Z",
+      "lastTsRaw": "2026-11-24T01:37:04.437Z",
       "clientInfo": {
-        "ip": "192.178.23.34"
+        "ip": "192.178.23.33"
       },
       "requestIdSamples": [
+        "91fbd978-b40b-4158-8feb-d9dcbe8c8cde",
         "05623334-9d25-4299-ac8d-e52f1cd8c252",
-        "0271e7ca-d2dd-44d8-8902-ad38f2157743"
+        "690ed74b-3ced-4145-a264-5fed6e605347",
+        "f6ef11cc-9749-4c09-90f8-71d9d448382e",
+        "84e2ab9a-0a82-43dc-aee5-7edf59eccf6b"
       ],
       "methods": {
-        "tools/call": 2
+        "tools/call": 36
       },
       "projects": [
         {
@@ -862,7 +1891,456 @@
           "key": "github:Bruce-Yii/recruitment-agent",
           "confidence": "medium",
           "source": "code-literal",
-          "requests": 2
+          "requests": 36
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/recruitment-agent"
+      ],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 36
+      }
+    },
+    {
+      "windowId": "session:65950bad-422c-4a72-859a-0630a809accb",
+      "strategy": "sessionId",
+      "sessionId": "65950bad-422c-4a72-859a-0630a809accb",
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T00:07:19.559Z",
+      "lastTs": "2026-11-24T01:15:57.315Z",
+      "firstTsRaw": "2026-11-24T00:07:19.559Z",
+      "lastTsRaw": "2026-11-24T01:15:57.315Z",
+      "clientInfo": {
+        "ip": "192.178.10.74"
+      },
+      "requestIdSamples": [
+        "4abd519a-2ce8-4f73-b67d-170861433754",
+        "4419bc2e-2b72-4998-b383-8f6d3006c4fe"
+      ],
+      "methods": {
+        "tools/list": 2
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 2
+      }
+    },
+    {
+      "windowId": "window:001",
+      "strategy": "initialize",
+      "sessionId": null,
+      "taskId": null,
+      "requests": 1,
+      "mcpRequests": 1,
+      "mcpErrors": 1,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T00:08:10.136Z",
+      "lastTs": "2026-11-24T00:08:10.136Z",
+      "firstTsRaw": "2026-11-24T00:08:10.136Z",
+      "lastTsRaw": "2026-11-24T00:08:10.136Z",
+      "clientInfo": {
+        "ip": "128.242.114.87"
+      },
+      "requestIdSamples": [
+        "b287b6b0-2e0b-454b-8f67-8736039d1677"
+      ],
+      "methods": {
+        "initialize": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 1
+      }
+    },
+    {
+      "windowId": "session:a65d036c-bc30-4a74-9c88-d2064ec3759c",
+      "strategy": "sessionId",
+      "sessionId": "a65d036c-bc30-4a74-9c88-d2064ec3759c",
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T00:20:37.635Z",
+      "lastTs": "2026-11-24T02:04:23.916Z",
+      "firstTsRaw": "2026-11-24T00:20:37.635Z",
+      "lastTsRaw": "2026-11-24T02:04:23.916Z",
+      "clientInfo": {
+        "ip": "192.178.10.77"
+      },
+      "requestIdSamples": [
+        "682e201a-81f5-4b0f-a0a5-b25dbe811eb3",
+        "30d74401-c975-40c4-8e9d-f2a2e6eda34a"
+      ],
+      "methods": {
+        "tools/list": 2
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 2
+      }
+    },
+    {
+      "windowId": "session:a078abd9-7de2-48ee-b7d9-89285dea2130",
+      "strategy": "sessionId",
+      "sessionId": "a078abd9-7de2-48ee-b7d9-89285dea2130",
+      "taskId": null,
+      "requests": 5,
+      "mcpRequests": 5,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T00:57:06.443Z",
+      "lastTs": "2026-11-24T01:58:09.065Z",
+      "firstTsRaw": "2026-11-24T00:57:06.443Z",
+      "lastTsRaw": "2026-11-24T01:58:09.065Z",
+      "clientInfo": {
+        "ip": "192.178.10.73"
+      },
+      "requestIdSamples": [
+        "cc2f8f46-6efe-4fdc-b8aa-45d44a032101",
+        "471dcdad-166d-4669-8281-d50484ef697a",
+        "c465e11c-b334-49a8-b080-f9e280d59a9b",
+        "0da73587-8601-481a-87f3-f0224db297e4",
+        "20e5bf15-10cc-404d-a845-1a529208eac4"
+      ],
+      "methods": {
+        "tools/list": 5
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 5
+      }
+    },
+    {
+      "windowId": "session:4046c198-c08a-4bfd-96e4-2090e410060e",
+      "strategy": "sessionId",
+      "sessionId": "4046c198-c08a-4bfd-96e4-2090e410060e",
+      "taskId": null,
+      "requests": 5,
+      "mcpRequests": 5,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T01:14:10.885Z",
+      "lastTs": "2026-11-24T02:09:48.838Z",
+      "firstTsRaw": "2026-11-24T01:14:10.885Z",
+      "lastTsRaw": "2026-11-24T02:09:48.838Z",
+      "clientInfo": {
+        "ip": "192.178.10.72"
+      },
+      "requestIdSamples": [
+        "ae618c8c-48df-4301-8ddc-cda20087793f",
+        "4570d548-2e9d-4061-837e-786b1caccd34",
+        "bd0ac684-7ea6-4bea-9227-3b2088a72390",
+        "955b6f0b-f834-499a-a3ba-c0a40ad8b32a",
+        "5035fd73-31a2-4149-9872-d56def6a2899"
+      ],
+      "methods": {
+        "tools/list": 5
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 5
+      }
+    },
+    {
+      "windowId": "session:3783f14d-9c3f-421b-bd28-538500e8cdd2",
+      "strategy": "sessionId",
+      "sessionId": "3783f14d-9c3f-421b-bd28-538500e8cdd2",
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T01:20:35.479Z",
+      "lastTs": "2026-11-24T02:11:14.192Z",
+      "firstTsRaw": "2026-11-24T01:20:35.479Z",
+      "lastTsRaw": "2026-11-24T02:11:14.192Z",
+      "clientInfo": {
+        "ip": "192.178.10.64"
+      },
+      "requestIdSamples": [
+        "6bd550bf-9cb3-4a7d-a6b4-30660704e99a",
+        "2377ad64-b185-45c2-902f-c7ab34d7dcee"
+      ],
+      "methods": {
+        "tools/list": 2
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 2
+      }
+    },
+    {
+      "windowId": "session:5ffc600f-cabe-4b5b-82f3-83be76af3ea8",
+      "strategy": "sessionId",
+      "sessionId": "5ffc600f-cabe-4b5b-82f3-83be76af3ea8",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T01:24:05.518Z",
+      "lastTs": "2026-11-24T01:53:02.558Z",
+      "firstTsRaw": "2026-11-24T01:24:05.518Z",
+      "lastTsRaw": "2026-11-24T01:53:02.558Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "b80187c5-4a65-4ea8-a0a5-8aa557afb10b",
+        "9d1875f1-f9a3-4c21-9339-989d6ca3dadc",
+        "6e5d695f-ffab-4122-89ad-2e2fc6d5fb28"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 3
+      }
+    },
+    {
+      "windowId": "session:9acd273c-49b9-4a4d-8090-db92753faf72",
+      "strategy": "sessionId",
+      "sessionId": "9acd273c-49b9-4a4d-8090-db92753faf72",
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T01:24:06.268Z",
+      "lastTs": "2026-11-24T01:27:26.840Z",
+      "firstTsRaw": "2026-11-24T01:24:06.268Z",
+      "lastTsRaw": "2026-11-24T01:27:26.840Z",
+      "clientInfo": {
+        "ip": "192.178.10.69"
+      },
+      "requestIdSamples": [
+        "2e818e34-182b-4628-a4b3-aeab17b4a6db",
+        "830dd14a-1a63-4280-b2ed-70bd6b0711b2"
+      ],
+      "methods": {
+        "tools/list": 2
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 2
+      }
+    },
+    {
+      "windowId": "session:bcaf8ce3-474b-4c80-be2d-4e0b64a4b82c",
+      "strategy": "sessionId",
+      "sessionId": "bcaf8ce3-474b-4c80-be2d-4e0b64a4b82c",
+      "taskId": null,
+      "requests": 4,
+      "mcpRequests": 4,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T01:46:55.118Z",
+      "lastTs": "2026-11-24T02:16:08.430Z",
+      "firstTsRaw": "2026-11-24T01:46:55.118Z",
+      "lastTsRaw": "2026-11-24T02:16:08.430Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "72acbf59-d99b-43f6-9214-f70c755c4a9a",
+        "690dab85-16b7-41d3-aa62-845096c2e0fe",
+        "c40054d9-7103-4e70-af29-cdfc363d580b",
+        "e034158f-0c38-4dac-a655-358a46ba500e"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 2
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 4
+      }
+    },
+    {
+      "windowId": "session:848f1c58-d557-49c2-a0e9-9d68a5c3caad",
+      "strategy": "sessionId",
+      "sessionId": "848f1c58-d557-49c2-a0e9-9d68a5c3caad",
+      "taskId": null,
+      "requests": 18,
+      "mcpRequests": 18,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T02:05:18.382Z",
+      "lastTs": "2026-11-24T05:49:50.265Z",
+      "firstTsRaw": "2026-11-24T02:05:18.382Z",
+      "lastTsRaw": "2026-11-24T05:49:50.265Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "d9cb38dd-b915-40b3-8aa5-2215460c69be",
+        "656362ef-8150-44aa-a728-0bc2a8e3a3a3",
+        "7717d4fb-64af-4869-a44e-04c0b60f28b0",
+        "c2876dcf-8b29-4837-85f1-b1c2f7b0c758",
+        "ed7a8b30-6541-46a3-aa05-1c6b4850a9b0"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 16
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 18
+      }
+    },
+    {
+      "windowId": "session:84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
+      "strategy": "sessionId",
+      "sessionId": "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
+      "taskId": null,
+      "requests": 44,
+      "mcpRequests": 44,
+      "mcpErrors": 4,
+      "toolCalls": 42,
+      "truncationSuspects": 36,
+      "firstTs": "2026-11-24T02:07:29.557Z",
+      "lastTs": "2026-11-24T05:50:29.018Z",
+      "firstTsRaw": "2026-11-24T02:07:29.557Z",
+      "lastTsRaw": "2026-11-24T05:50:29.018Z",
+      "clientInfo": {
+        "name": "Gemini",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "ca34bf94-5250-4db9-b045-1ac167a4b49c",
+        "aab18f49-cef8-4fe4-ab6f-388da79db8a3",
+        "dab2fb8b-eb5a-4641-bbcb-cc86d969b468",
+        "6ba07b4b-1453-4ef0-b7f7-77dbf46abf4e",
+        "78337679-55d1-4af6-9b0e-2913f18812fb"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/call": 42
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "gemini-mcp-gateway",
+          "key": "github:Bruce-Yii/gemini-mcp-gateway",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 42
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/gemini-mcp-gateway"
+      ],
+      "clientPlatforms": [
+        "gemini",
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 1,
+        "unknown": 43
+      }
+    },
+    {
+      "windowId": "session:57db68fa-c66a-4fd7-acbf-57bf43ec6d8d",
+      "strategy": "sessionId",
+      "sessionId": "57db68fa-c66a-4fd7-acbf-57bf43ec6d8d",
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T02:08:14.581Z",
+      "lastTs": "2026-11-24T02:08:15.163Z",
+      "firstTsRaw": "2026-11-24T02:08:14.581Z",
+      "lastTsRaw": "2026-11-24T02:08:15.163Z",
+      "clientInfo": {
+        "ip": "108.177.68.35"
+      },
+      "requestIdSamples": [
+        "22de3e4e-4731-48b4-ad95-e1f4c048d351",
+        "7874fa78-93b5-462d-a54a-74d50fca58d1"
+      ],
+      "methods": {
+        "notifications/initialized": 1,
+        "tools/call": 1
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "recruitment-agent",
+          "key": "github:Bruce-Yii/recruitment-agent",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 1
         }
       ],
       "primaryProjects": [
@@ -876,124 +2354,33 @@
       }
     },
     {
-      "windowId": "session:3ae56079-12b5-4911-9713-b336f4aabd32",
-      "strategy": "sessionId",
-      "sessionId": "3ae56079-12b5-4911-9713-b336f4aabd32",
-      "taskId": null,
-      "requests": 1,
-      "mcpRequests": 1,
-      "mcpErrors": 0,
-      "toolCalls": 0,
-      "truncationSuspects": 1,
-      "firstTs": "2026-11-24T00:57:24.088Z",
-      "lastTs": "2026-11-24T00:57:24.088Z",
-      "firstTsRaw": "2026-11-24T00:57:24.088Z",
-      "lastTsRaw": "2026-11-24T00:57:24.088Z",
-      "clientInfo": {
-        "ip": "66.249.83.225"
-      },
-      "requestIdSamples": [
-        "0ccce2ce-f2f6-4cee-ac85-ee83d7432477"
-      ],
-      "methods": {
-        "tools/list": 1
-      },
-      "projects": [],
-      "primaryProjects": [],
-      "clientPlatforms": [
-        "unknown"
-      ],
-      "requestsByClientPlatform": {
-        "unknown": 1
-      }
-    },
-    {
-      "windowId": "session:8c0d61df-9626-4fa7-99fc-45850ceba802",
-      "strategy": "sessionId",
-      "sessionId": "8c0d61df-9626-4fa7-99fc-45850ceba802",
-      "taskId": null,
-      "requests": 1,
-      "mcpRequests": 1,
-      "mcpErrors": 0,
-      "toolCalls": 0,
-      "truncationSuspects": 1,
-      "firstTs": "2026-11-24T00:58:34.272Z",
-      "lastTs": "2026-11-24T00:58:34.272Z",
-      "firstTsRaw": "2026-11-24T00:58:34.272Z",
-      "lastTsRaw": "2026-11-24T00:58:34.272Z",
-      "clientInfo": {
-        "ip": "192.178.10.75"
-      },
-      "requestIdSamples": [
-        "04ea8e1f-65a1-42d6-922d-37dd8eb7044e"
-      ],
-      "methods": {
-        "tools/list": 1
-      },
-      "projects": [],
-      "primaryProjects": [],
-      "clientPlatforms": [
-        "unknown"
-      ],
-      "requestsByClientPlatform": {
-        "unknown": 1
-      }
-    },
-    {
-      "windowId": "session:a078abd9-7de2-48ee-b7d9-89285dea2130",
-      "strategy": "sessionId",
-      "sessionId": "a078abd9-7de2-48ee-b7d9-89285dea2130",
-      "taskId": null,
-      "requests": 1,
-      "mcpRequests": 1,
-      "mcpErrors": 0,
-      "toolCalls": 0,
-      "truncationSuspects": 1,
-      "firstTs": "2026-11-24T01:54:47.650Z",
-      "lastTs": "2026-11-24T01:54:47.650Z",
-      "firstTsRaw": "2026-11-24T01:54:47.650Z",
-      "lastTsRaw": "2026-11-24T01:54:47.650Z",
-      "clientInfo": {
-        "ip": "192.178.10.69"
-      },
-      "requestIdSamples": [
-        "0da73587-8601-481a-87f3-f0224db297e4"
-      ],
-      "methods": {
-        "tools/list": 1
-      },
-      "projects": [],
-      "primaryProjects": [],
-      "clientPlatforms": [
-        "unknown"
-      ],
-      "requestsByClientPlatform": {
-        "unknown": 1
-      }
-    },
-    {
       "windowId": "session:96612174-3e1d-4a87-ac18-bbe1ced3c177",
       "strategy": "sessionId",
       "sessionId": "96612174-3e1d-4a87-ac18-bbe1ced3c177",
       "taskId": null,
-      "requests": 1,
-      "mcpRequests": 1,
+      "requests": 4,
+      "mcpRequests": 4,
       "mcpErrors": 0,
       "toolCalls": 0,
       "truncationSuspects": 0,
       "firstTs": "2026-11-24T02:40:00.115Z",
-      "lastTs": "2026-11-24T02:40:00.115Z",
+      "lastTs": "2026-11-24T02:42:11.420Z",
       "firstTsRaw": "2026-11-24T02:40:00.115Z",
-      "lastTsRaw": "2026-11-24T02:40:00.115Z",
+      "lastTsRaw": "2026-11-24T02:42:11.420Z",
       "clientInfo": {
         "name": "mcp",
         "version": "0.1.0"
       },
       "requestIdSamples": [
-        "0a820ad5-dd0f-44db-b91e-18b42c77ed46"
+        "0a820ad5-dd0f-44db-b91e-18b42c77ed46",
+        "2b865287-39b8-4d70-adc4-2df1e7b8bbdd",
+        "50e4bd23-56f8-4c6a-a4b3-c765fb74f629",
+        "d6bd68f2-4d54-43cb-a1ce-1ca88466fe5f"
       ],
       "methods": {
-        "initialize": 1
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 2
       },
       "projects": [],
       "primaryProjects": [],
@@ -1001,30 +2388,112 @@
         "unknown"
       ],
       "requestsByClientPlatform": {
-        "unknown": 1
+        "unknown": 4
       }
     },
     {
-      "windowId": "session:848f1c58-d557-49c2-a0e9-9d68a5c3caad",
+      "windowId": "session:0e76fdd0-b84a-43c6-ab4a-f6accec445f6",
       "strategy": "sessionId",
-      "sessionId": "848f1c58-d557-49c2-a0e9-9d68a5c3caad",
+      "sessionId": "0e76fdd0-b84a-43c6-ab4a-f6accec445f6",
       "taskId": null,
-      "requests": 1,
-      "mcpRequests": 1,
+      "requests": 6,
+      "mcpRequests": 6,
       "mcpErrors": 0,
       "toolCalls": 0,
-      "truncationSuspects": 1,
-      "firstTs": "2026-11-24T02:41:22.589Z",
-      "lastTs": "2026-11-24T02:41:22.589Z",
-      "firstTsRaw": "2026-11-24T02:41:22.589Z",
-      "lastTsRaw": "2026-11-24T02:41:22.589Z",
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T02:43:14.200Z",
+      "lastTs": "2026-11-24T04:42:35.166Z",
+      "firstTsRaw": "2026-11-24T02:43:14.200Z",
+      "lastTsRaw": "2026-11-24T04:42:35.166Z",
       "clientInfo": {
-        "ip": "66.249.83.110"
+        "name": "mcp",
+        "version": "0.1.0"
       },
       "requestIdSamples": [
-        "0b19b65f-9631-41e3-90e9-db5c992efbb5"
+        "8ccfa50d-9b87-4a42-8e67-771760c0120e",
+        "5ce9b728-cb43-4010-8947-966a02f2a535",
+        "1da520f5-6efb-45dc-9ebd-f80e92143975",
+        "4a302061-6e40-4067-ae07-fa7decc46c48",
+        "86569ae9-23af-4a68-9365-51f8be8a141f"
       ],
       "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 4
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 6
+      }
+    },
+    {
+      "windowId": "session:fbee14af-c6c4-49a1-bd16-ccdf8f6b1782",
+      "strategy": "sessionId",
+      "sessionId": "fbee14af-c6c4-49a1-bd16-ccdf8f6b1782",
+      "taskId": null,
+      "requests": 4,
+      "mcpRequests": 4,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T02:43:15.005Z",
+      "lastTs": "2026-11-24T04:07:10.876Z",
+      "firstTsRaw": "2026-11-24T02:43:15.005Z",
+      "lastTsRaw": "2026-11-24T04:07:10.876Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "d371cc1a-4c2e-4b13-9ed2-9370ecddfc5f",
+        "d7e62a52-f839-4331-9934-e5dc6ad3c712",
+        "a029f82f-fc84-4999-b9cf-63fdaa0d810d",
+        "460728d7-df91-45ad-9a2b-56c52b5a64a0"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 2
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 4
+      }
+    },
+    {
+      "windowId": "session:36c86ad6-83f0-47f2-9386-fee07d569313",
+      "strategy": "sessionId",
+      "sessionId": "36c86ad6-83f0-47f2-9386-fee07d569313",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T02:50:21.953Z",
+      "lastTs": "2026-11-24T02:53:37.234Z",
+      "firstTsRaw": "2026-11-24T02:50:21.953Z",
+      "lastTsRaw": "2026-11-24T02:53:37.234Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "e78cedab-2ebe-4bd5-adf1-aaaa27cb1040",
+        "29a1527f-b400-4377-9d17-62edc16af289",
+        "82543a07-49e5-461d-a91e-010ccef79794"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
         "tools/list": 1
       },
       "projects": [],
@@ -1033,261 +2502,260 @@
         "unknown"
       ],
       "requestsByClientPlatform": {
-        "unknown": 1
+        "unknown": 3
       }
     },
     {
-      "windowId": "session:84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
+      "windowId": "session:68b0625e-dd75-4c32-9944-733e9bae2160",
       "strategy": "sessionId",
-      "sessionId": "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
+      "sessionId": "68b0625e-dd75-4c32-9944-733e9bae2160",
       "taskId": null,
-      "requests": 1,
-      "mcpRequests": 1,
-      "mcpErrors": 0,
-      "toolCalls": 1,
-      "truncationSuspects": 1,
-      "firstTs": "2026-11-24T03:10:10.854Z",
-      "lastTs": "2026-11-24T03:10:10.854Z",
-      "firstTsRaw": "2026-11-24T03:10:10.854Z",
-      "lastTsRaw": "2026-11-24T03:10:10.854Z",
-      "clientInfo": {
-        "ip": "108.177.68.101"
-      },
-      "requestIdSamples": [
-        "08d8bf5a-069e-4db5-ac53-32f975c809a3"
-      ],
-      "methods": {
-        "tools/call": 1
-      },
-      "projects": [
-        {
-          "server": "github",
-          "owner": "Bruce-Yii",
-          "repo": "gemini-mcp-gateway",
-          "key": "github:Bruce-Yii/gemini-mcp-gateway",
-          "confidence": "medium",
-          "source": "code-literal",
-          "requests": 1
-        }
-      ],
-      "primaryProjects": [
-        "github:Bruce-Yii/gemini-mcp-gateway"
-      ],
-      "clientPlatforms": [
-        "unknown"
-      ],
-      "requestsByClientPlatform": {
-        "unknown": 1
-      }
-    },
-    {
-      "windowId": "session:76f7f704-997b-4d43-935c-921aafd396ee",
-      "strategy": "sessionId",
-      "sessionId": "76f7f704-997b-4d43-935c-921aafd396ee",
-      "taskId": null,
-      "requests": 1,
-      "mcpRequests": 1,
+      "requests": 2,
+      "mcpRequests": 2,
       "mcpErrors": 0,
       "toolCalls": 0,
       "truncationSuspects": 0,
-      "firstTs": "2026-11-24T04:32:31.849Z",
-      "lastTs": "2026-11-24T04:32:31.849Z",
-      "firstTsRaw": "2026-11-24T04:32:31.849Z",
-      "lastTsRaw": "2026-11-24T04:32:31.849Z",
+      "firstTs": "2026-11-24T02:50:22.711Z",
+      "lastTs": "2026-11-24T02:50:22.790Z",
+      "firstTsRaw": "2026-11-24T02:50:22.711Z",
+      "lastTsRaw": "2026-11-24T02:50:22.790Z",
       "clientInfo": {
         "name": "mcp",
         "version": "0.1.0"
       },
       "requestIdSamples": [
-        "0d3f197c-ae64-49cd-b7f7-a17017acdd1c"
+        "394e5ef8-a219-46d9-b979-9635f0c918b5",
+        "45c1116a-8cbd-42d8-ba48-52b5ed3e53c2"
       ],
       "methods": {
-        "initialize": 1
-      },
-      "projects": [],
-      "primaryProjects": [],
-      "clientPlatforms": [
-        "unknown"
-      ],
-      "requestsByClientPlatform": {
-        "unknown": 1
-      }
-    },
-    {
-      "windowId": "session:73d9b270-c9b2-4f95-b8c9-7388e3f8fdf1",
-      "strategy": "sessionId",
-      "sessionId": "73d9b270-c9b2-4f95-b8c9-7388e3f8fdf1",
-      "taskId": null,
-      "requests": 1,
-      "mcpRequests": 1,
-      "mcpErrors": 0,
-      "toolCalls": 0,
-      "truncationSuspects": 0,
-      "firstTs": "2026-11-24T06:10:52.107Z",
-      "lastTs": "2026-11-24T06:10:52.107Z",
-      "firstTsRaw": "2026-11-24T06:10:52.107Z",
-      "lastTsRaw": "2026-11-24T06:10:52.107Z",
-      "clientInfo": {
-        "ip": "192.178.10.70"
-      },
-      "requestIdSamples": [
-        "0442a80c-85a2-4fc1-a0fa-d8697ed42650"
-      ],
-      "methods": {
+        "initialize": 1,
         "notifications/initialized": 1
       },
       "projects": [],
       "primaryProjects": [],
       "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 2
+      }
+    },
+    {
+      "windowId": "session:ba016a7d-30e1-49c5-8f65-5f990c1f4a7b",
+      "strategy": "sessionId",
+      "sessionId": "ba016a7d-30e1-49c5-8f65-5f990c1f4a7b",
+      "taskId": null,
+      "requests": 4,
+      "mcpRequests": 4,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T02:53:08.306Z",
+      "lastTs": "2026-11-24T04:46:33.650Z",
+      "firstTsRaw": "2026-11-24T02:53:08.306Z",
+      "lastTsRaw": "2026-11-24T04:46:33.650Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "b58448aa-29e2-4e02-aa4a-c17782f1a50a",
+        "2bbe949a-c566-4c09-ad98-63a20a623ff1",
+        "99cc45dd-410e-4f09-9d8b-fe82498c0aea",
+        "a8046759-c8c1-4e54-b3cb-b9ff9d29f210"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 2
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 4
+      }
+    },
+    {
+      "windowId": "session:f43c6605-dbc9-4fc9-8f36-4a49e051dce8",
+      "strategy": "sessionId",
+      "sessionId": "f43c6605-dbc9-4fc9-8f36-4a49e051dce8",
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T02:53:36.490Z",
+      "lastTs": "2026-11-24T02:53:36.655Z",
+      "firstTsRaw": "2026-11-24T02:53:36.490Z",
+      "lastTsRaw": "2026-11-24T02:53:36.655Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "25165795-09d7-4d94-b19f-a07898e3a80e",
+        "1a56c344-6f89-47f2-9c1f-6e3929b3abf6"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 2
+      }
+    },
+    {
+      "windowId": "session:6cb5f17e-8e43-4c22-bcdf-e38cf9a190e6",
+      "strategy": "sessionId",
+      "sessionId": "6cb5f17e-8e43-4c22-bcdf-e38cf9a190e6",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T03:07:45.070Z",
+      "lastTs": "2026-11-24T03:07:45.702Z",
+      "firstTsRaw": "2026-11-24T03:07:45.070Z",
+      "lastTsRaw": "2026-11-24T03:07:45.702Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "d69c1c8c-d697-47e2-af6d-1e2ff3c8000a",
+        "27c33298-dc82-4516-a8fb-70baa17685ec",
+        "a1f0047e-cf1e-4702-9262-e353566b62e2"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 3
+      }
+    },
+    {
+      "windowId": "session:7b4d5527-4fb9-4aba-a5c3-4e6074030a44",
+      "strategy": "sessionId",
+      "sessionId": "7b4d5527-4fb9-4aba-a5c3-4e6074030a44",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T04:07:09.300Z",
+      "lastTs": "2026-11-24T04:33:48.695Z",
+      "firstTsRaw": "2026-11-24T04:07:09.300Z",
+      "lastTsRaw": "2026-11-24T04:33:48.695Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "5cfebb04-29ad-4969-9207-312f023595bb",
+        "6dfa4b76-e907-4f78-87e5-61d19e9f6fb5",
+        "e2f03ea8-e42b-4882-ab0a-cf926a937d62"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 3
+      }
+    },
+    {
+      "windowId": "session:60849da6-8e6f-4f82-bedb-dd91d8339ec3",
+      "strategy": "sessionId",
+      "sessionId": "60849da6-8e6f-4f82-bedb-dd91d8339ec3",
+      "taskId": null,
+      "requests": 4,
+      "mcpRequests": 4,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T04:07:34.349Z",
+      "lastTs": "2026-11-24T06:10:52.728Z",
+      "firstTsRaw": "2026-11-24T04:07:34.349Z",
+      "lastTsRaw": "2026-11-24T06:10:52.728Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "1920e2c6-f3e9-499f-9cc5-53ba17804446",
+        "3a677c64-3f35-4e62-a8b4-265a80fd7a36",
+        "3fc0a201-aaab-4b25-93f4-abe6a303641f",
+        "d0c1be27-4c0c-4a6a-a78a-0a39d4038ead"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 2
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown",
         "gemini"
       ],
       "requestsByClientPlatform": {
+        "unknown": 3,
         "gemini": 1
       }
     },
     {
-      "windowId": "session:2857ba2b-5cdb-4bd4-bd0e-9a456403fa34",
+      "windowId": "session:8f67986d-f5ef-4e8d-8f38-dcbaccd471fb",
       "strategy": "sessionId",
-      "sessionId": "2857ba2b-5cdb-4bd4-bd0e-9a456403fa34",
+      "sessionId": "8f67986d-f5ef-4e8d-8f38-dcbaccd471fb",
       "taskId": null,
-      "requests": 1,
-      "mcpRequests": 1,
+      "requests": 9,
+      "mcpRequests": 9,
       "mcpErrors": 0,
-      "toolCalls": 0,
-      "truncationSuspects": 0,
-      "firstTs": "2026-11-24T06:10:58.006Z",
-      "lastTs": "2026-11-24T06:10:58.006Z",
-      "firstTsRaw": "2026-11-24T06:10:58.006Z",
-      "lastTsRaw": "2026-11-24T06:10:58.006Z",
+      "toolCalls": 7,
+      "truncationSuspects": 6,
+      "firstTs": "2026-11-24T04:08:44.239Z",
+      "lastTs": "2026-11-24T04:12:04.875Z",
+      "firstTsRaw": "2026-11-24T04:08:44.239Z",
+      "lastTsRaw": "2026-11-24T04:12:04.875Z",
       "clientInfo": {
         "name": "Gemini",
         "version": "1.0.0"
       },
       "requestIdSamples": [
-        "06b36205-bbd6-4df3-a619-741ffda52db9"
+        "b3283f6d-9b26-4044-982f-7b2ea1f59a1a",
+        "3af3a739-cffa-439e-9afa-9eeae1563348",
+        "f0277e7b-ae29-4d88-bd40-5bc06ffe6f87",
+        "e5cd5f03-4bac-40ae-87f3-df4bcfabcfdb",
+        "484ab881-9a96-469c-882f-0a06401041b6"
       ],
       "methods": {
-        "initialize": 1
-      },
-      "projects": [],
-      "primaryProjects": [],
-      "clientPlatforms": [
-        "gemini"
-      ],
-      "requestsByClientPlatform": {
-        "gemini": 1
-      }
-    },
-    {
-      "windowId": "session:ef3d080d-6fe0-40f0-b2d0-5bde5e32d994",
-      "strategy": "sessionId",
-      "sessionId": "ef3d080d-6fe0-40f0-b2d0-5bde5e32d994",
-      "taskId": null,
-      "requests": 1,
-      "mcpRequests": 1,
-      "mcpErrors": 0,
-      "toolCalls": 1,
-      "truncationSuspects": 1,
-      "firstTs": "2026-11-24T06:11:33.552Z",
-      "lastTs": "2026-11-24T06:11:33.552Z",
-      "firstTsRaw": "2026-11-24T06:11:33.552Z",
-      "lastTsRaw": "2026-11-24T06:11:33.552Z",
-      "clientInfo": {
-        "ip": "108.177.68.36"
-      },
-      "requestIdSamples": [
-        "0ec61a1a-1827-40fd-8f5d-4da717d78c69"
-      ],
-      "methods": {
-        "tools/call": 1
-      },
-      "projects": [
-        {
-          "server": "github",
-          "owner": "Bruce-Yii",
-          "repo": "gemini-mcp-gateway",
-          "key": "github:Bruce-Yii/gemini-mcp-gateway",
-          "confidence": "medium",
-          "source": "code-literal",
-          "requests": 1
-        }
-      ],
-      "primaryProjects": [
-        "github:Bruce-Yii/gemini-mcp-gateway"
-      ],
-      "clientPlatforms": [
-        "gemini"
-      ],
-      "requestsByClientPlatform": {
-        "gemini": 1
-      }
-    },
-    {
-      "windowId": "session:033ebd44-57ac-4766-bbdb-7decb45ee3fb",
-      "strategy": "sessionId",
-      "sessionId": "033ebd44-57ac-4766-bbdb-7decb45ee3fb",
-      "taskId": null,
-      "requests": 1,
-      "mcpRequests": 1,
-      "mcpErrors": 0,
-      "toolCalls": 1,
-      "truncationSuspects": 1,
-      "firstTs": "2026-11-24T12:57:27.829Z",
-      "lastTs": "2026-11-24T12:57:27.829Z",
-      "firstTsRaw": "2026-11-24T12:57:27.829Z",
-      "lastTsRaw": "2026-11-24T12:57:27.829Z",
-      "clientInfo": {
-        "ip": "192.178.23.37"
-      },
-      "requestIdSamples": [
-        "00c1d059-6d78-4c98-868f-a5d0fbaa5c82"
-      ],
-      "methods": {
-        "tools/call": 1
-      },
-      "projects": [
-        {
-          "server": "github",
-          "owner": "Bruce-Yii",
-          "repo": "gemini-mcp-gateway",
-          "key": "github:Bruce-Yii/gemini-mcp-gateway",
-          "confidence": "medium",
-          "source": "code-literal",
-          "requests": 1
-        }
-      ],
-      "primaryProjects": [
-        "github:Bruce-Yii/gemini-mcp-gateway"
-      ],
-      "clientPlatforms": [
-        "gemini"
-      ],
-      "requestsByClientPlatform": {
-        "gemini": 1
-      }
-    },
-    {
-      "windowId": "session:0fc836c7-42a3-4384-81f9-96ffd8fddd6f",
-      "strategy": "sessionId",
-      "sessionId": "0fc836c7-42a3-4384-81f9-96ffd8fddd6f",
-      "taskId": null,
-      "requests": 1,
-      "mcpRequests": 1,
-      "mcpErrors": 0,
-      "toolCalls": 1,
-      "truncationSuspects": 1,
-      "firstTs": "2026-11-24T13:31:16.312Z",
-      "lastTs": "2026-11-24T13:31:16.312Z",
-      "firstTsRaw": "2026-11-24T13:31:16.312Z",
-      "lastTsRaw": "2026-11-24T13:31:16.312Z",
-      "clientInfo": {
-        "ip": "192.178.23.38"
-      },
-      "requestIdSamples": [
-        "03a21275-f6ac-4704-91c0-9b97fcee54b4"
-      ],
-      "methods": {
-        "tools/call": 1
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/call": 7
       },
       "projects": [
         {
@@ -1297,43 +2765,306 @@
           "key": "github:Bruce-Yii/recruitment-agent",
           "confidence": "medium",
           "source": "code-literal",
-          "requests": 1
+          "requests": 7
         }
       ],
       "primaryProjects": [
         "github:Bruce-Yii/recruitment-agent"
       ],
       "clientPlatforms": [
-        "gemini"
+        "gemini",
+        "unknown"
       ],
       "requestsByClientPlatform": {
-        "gemini": 1
+        "gemini": 1,
+        "unknown": 8
       }
     },
     {
-      "windowId": "session:73ea6fb7-d680-4b09-96f4-14894887182a",
+      "windowId": "session:3b3d49c4-60c7-4ef5-86c9-10b5ef93c9e3",
       "strategy": "sessionId",
-      "sessionId": "73ea6fb7-d680-4b09-96f4-14894887182a",
+      "sessionId": "3b3d49c4-60c7-4ef5-86c9-10b5ef93c9e3",
+      "taskId": null,
+      "requests": 4,
+      "mcpRequests": 4,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T04:19:30.200Z",
+      "lastTs": "2026-11-24T05:11:24.476Z",
+      "firstTsRaw": "2026-11-24T04:19:30.200Z",
+      "lastTsRaw": "2026-11-24T05:11:24.476Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "ae21150c-91da-443b-a211-03a65f19d6a8",
+        "4959658c-a64f-4309-be17-b7421f210044",
+        "6cb5e58e-963a-4648-baac-9b4debcbcea0",
+        "7064829d-2096-4855-82a2-3d55f3176dfa"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 2
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 4
+      }
+    },
+    {
+      "windowId": "session:9b91bbbf-e5d7-4b42-97e1-66ce05194632",
+      "strategy": "sessionId",
+      "sessionId": "9b91bbbf-e5d7-4b42-97e1-66ce05194632",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T04:21:07.363Z",
+      "lastTs": "2026-11-24T05:54:07.514Z",
+      "firstTsRaw": "2026-11-24T04:21:07.363Z",
+      "lastTsRaw": "2026-11-24T05:54:07.514Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "9e010bbd-f109-46cc-ab0f-fd6317bcdf40",
+        "f5d19adc-e6e6-40d6-aa53-5b26b8c191e8",
+        "8390fdc8-2d28-4ede-b2a7-cb2cdb2d480f"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 3
+      }
+    },
+    {
+      "windowId": "session:89fd8e62-7144-4e9c-b0a5-68062e31eaff",
+      "strategy": "sessionId",
+      "sessionId": "89fd8e62-7144-4e9c-b0a5-68062e31eaff",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T04:21:08.366Z",
+      "lastTs": "2026-11-24T04:21:09.041Z",
+      "firstTsRaw": "2026-11-24T04:21:08.366Z",
+      "lastTsRaw": "2026-11-24T04:21:09.041Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "3a06a467-8e84-4ef3-a10e-3c1ff0ec50b4",
+        "2d6c4f42-4706-46d7-a5c0-6d5a96c1bdaf",
+        "1ed6a7e2-6b8a-4241-a4ff-ae8a55b2ca36"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 3
+      }
+    },
+    {
+      "windowId": "session:76f7f704-997b-4d43-935c-921aafd396ee",
+      "strategy": "sessionId",
+      "sessionId": "76f7f704-997b-4d43-935c-921aafd396ee",
+      "taskId": null,
+      "requests": 4,
+      "mcpRequests": 4,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T04:32:31.849Z",
+      "lastTs": "2026-11-24T05:01:26.759Z",
+      "firstTsRaw": "2026-11-24T04:32:31.849Z",
+      "lastTsRaw": "2026-11-24T05:01:26.759Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "0d3f197c-ae64-49cd-b7f7-a17017acdd1c",
+        "cf9691d5-ae11-4293-aa42-b69005d4e4ca",
+        "4c6f159d-adc5-4a0f-891f-d3c04c877d0b",
+        "9f875233-32eb-4a4e-a5de-4e4c60626360"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 2
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 4
+      }
+    },
+    {
+      "windowId": "session:fd43f584-6eb1-4c93-b414-3f3ed763a48a",
+      "strategy": "sessionId",
+      "sessionId": "fd43f584-6eb1-4c93-b414-3f3ed763a48a",
       "taskId": null,
       "requests": 2,
       "mcpRequests": 2,
       "mcpErrors": 0,
       "toolCalls": 0,
-      "truncationSuspects": 1,
-      "firstTs": "2026-11-24T13:55:19.751Z",
-      "lastTs": "2026-11-24T13:55:20.946Z",
-      "firstTsRaw": "2026-11-24T13:55:19.751Z",
-      "lastTsRaw": "2026-11-24T13:55:20.946Z",
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T04:42:34.460Z",
+      "lastTs": "2026-11-24T04:42:34.584Z",
+      "firstTsRaw": "2026-11-24T04:42:34.460Z",
+      "lastTsRaw": "2026-11-24T04:42:34.584Z",
       "clientInfo": {
-        "ip": "192.178.10.68"
+        "name": "mcp",
+        "version": "0.1.0"
       },
       "requestIdSamples": [
-        "074fd58c-c9be-41a2-9249-0d9fb619e83c",
-        "03b09af2-3e0b-4148-80c4-320071112a29"
+        "37b0217e-8e19-456f-8172-116a30ab589b",
+        "9c21b5ef-5b8a-4b34-8f09-2d6673803684"
       ],
       "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 2
+      }
+    },
+    {
+      "windowId": "session:85f30751-9069-4ca2-93f2-93b7a07aefd6",
+      "strategy": "sessionId",
+      "sessionId": "85f30751-9069-4ca2-93f2-93b7a07aefd6",
+      "taskId": null,
+      "requests": 4,
+      "mcpRequests": 4,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T05:49:39.944Z",
+      "lastTs": "2026-11-24T06:10:39.703Z",
+      "firstTsRaw": "2026-11-24T05:49:39.944Z",
+      "lastTsRaw": "2026-11-24T06:10:39.703Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "b783b5c0-d830-48ac-8cc6-d0d7c7cb346b",
+        "7a538363-ced2-4d10-87bb-ec871a5806b1",
+        "d93deb1c-dd5e-4b11-93e4-81e4d764eb88",
+        "aa0c8069-2f72-489d-82c9-8ebaf24e0b00"
+      ],
+      "methods": {
+        "initialize": 1,
         "notifications/initialized": 1,
-        "tools/list": 1
+        "tools/list": 2
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown",
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 3,
+        "gemini": 1
+      }
+    },
+    {
+      "windowId": "session:49556553-b299-457e-a827-b33f5e845a16",
+      "strategy": "sessionId",
+      "sessionId": "49556553-b299-457e-a827-b33f5e845a16",
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T05:54:06.678Z",
+      "lastTs": "2026-11-24T05:54:06.863Z",
+      "firstTsRaw": "2026-11-24T05:54:06.678Z",
+      "lastTsRaw": "2026-11-24T05:54:06.863Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "31f79007-5823-441e-b0e7-378689e1e1e1",
+        "df5c614a-23f5-4a6d-9153-87fa430a8a82"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "unknown"
+      ],
+      "requestsByClientPlatform": {
+        "unknown": 2
+      }
+    },
+    {
+      "windowId": "session:954ed69f-3f87-4b60-a507-b30525837622",
+      "strategy": "sessionId",
+      "sessionId": "954ed69f-3f87-4b60-a507-b30525837622",
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T06:10:37.642Z",
+      "lastTs": "2026-11-24T06:10:38.805Z",
+      "firstTsRaw": "2026-11-24T06:10:37.642Z",
+      "lastTsRaw": "2026-11-24T06:10:38.805Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "f0ecf1e6-8fd6-4bb2-ba08-53f7e607afc6",
+        "2c9f556d-9138-48a8-86c6-abb4f615127f"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1
       },
       "projects": [],
       "primaryProjects": [],
@@ -1345,26 +3076,66 @@
       }
     },
     {
-      "windowId": "session:49939f51-7233-4858-a42e-18030de9ec4d",
+      "windowId": "session:73d9b270-c9b2-4f95-b8c9-7388e3f8fdf1",
       "strategy": "sessionId",
-      "sessionId": "49939f51-7233-4858-a42e-18030de9ec4d",
+      "sessionId": "73d9b270-c9b2-4f95-b8c9-7388e3f8fdf1",
       "taskId": null,
-      "requests": 1,
-      "mcpRequests": 1,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T06:10:52.007Z",
+      "lastTs": "2026-11-24T06:10:52.107Z",
+      "firstTsRaw": "2026-11-24T06:10:52.007Z",
+      "lastTsRaw": "2026-11-24T06:10:52.107Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "fa1fad28-1d5e-4efa-9138-a86c4aa3e663",
+        "0442a80c-85a2-4fc1-a0fa-d8697ed42650"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 2
+      }
+    },
+    {
+      "windowId": "session:2857ba2b-5cdb-4bd4-bd0e-9a456403fa34",
+      "strategy": "sessionId",
+      "sessionId": "2857ba2b-5cdb-4bd4-bd0e-9a456403fa34",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
       "mcpErrors": 0,
       "toolCalls": 1,
       "truncationSuspects": 1,
-      "firstTs": "2026-11-24T15:40:22.133Z",
-      "lastTs": "2026-11-24T15:40:22.133Z",
-      "firstTsRaw": "2026-11-24T15:40:22.133Z",
-      "lastTsRaw": "2026-11-24T15:40:22.133Z",
+      "firstTs": "2026-11-24T06:10:58.006Z",
+      "lastTs": "2026-11-24T06:10:58.639Z",
+      "firstTsRaw": "2026-11-24T06:10:58.006Z",
+      "lastTsRaw": "2026-11-24T06:10:58.639Z",
       "clientInfo": {
-        "ip": "192.178.23.32"
+        "name": "Gemini",
+        "version": "1.0.0"
       },
       "requestIdSamples": [
-        "0a8bd8ef-c934-4054-a1ef-87f0e7d15c97"
+        "06b36205-bbd6-4df3-a619-741ffda52db9",
+        "2c0f834e-f1cd-4440-ac63-4ba14d8c3c87",
+        "e1754d59-18fe-4434-9f9d-d82fbcae5e40"
       ],
       "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
         "tools/call": 1
       },
       "projects": [
@@ -1385,59 +3156,1266 @@
         "gemini"
       ],
       "requestsByClientPlatform": {
-        "gemini": 1
+        "gemini": 3
       }
     },
     {
-      "windowId": "window:001",
-      "strategy": "first-request",
-      "sessionId": null,
+      "windowId": "session:866f24c7-7d84-4eea-a206-562db8a5f2e8",
+      "strategy": "sessionId",
+      "sessionId": "866f24c7-7d84-4eea-a206-562db8a5f2e8",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T06:11:05.029Z",
+      "lastTs": "2026-11-24T06:11:05.581Z",
+      "firstTsRaw": "2026-11-24T06:11:05.029Z",
+      "lastTsRaw": "2026-11-24T06:11:05.581Z",
+      "clientInfo": {
+        "name": "Gemini",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "5a475198-e1a7-4731-aab1-15947f1fc0c1",
+        "f5a4a100-502e-4b97-908d-4b3d47b7a60f",
+        "4ae66103-34ca-407e-9ca5-91624b48e35a"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/call": 1
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "gemini-mcp-gateway",
+          "key": "github:Bruce-Yii/gemini-mcp-gateway",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 1
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/gemini-mcp-gateway"
+      ],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 3
+      }
+    },
+    {
+      "windowId": "session:ef3d080d-6fe0-40f0-b2d0-5bde5e32d994",
+      "strategy": "sessionId",
+      "sessionId": "ef3d080d-6fe0-40f0-b2d0-5bde5e32d994",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T06:11:32.890Z",
+      "lastTs": "2026-11-24T06:11:33.552Z",
+      "firstTsRaw": "2026-11-24T06:11:32.890Z",
+      "lastTsRaw": "2026-11-24T06:11:33.552Z",
+      "clientInfo": {
+        "name": "Gemini",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "5110f9a9-fb60-4dbf-90cd-06b0cfda0622",
+        "266f1a49-343b-4419-9959-b0cc69c774d7",
+        "0ec61a1a-1827-40fd-8f5d-4da717d78c69"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/call": 1
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "gemini-mcp-gateway",
+          "key": "github:Bruce-Yii/gemini-mcp-gateway",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 1
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/gemini-mcp-gateway"
+      ],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 3
+      }
+    },
+    {
+      "windowId": "session:92977021-89ce-4e6a-8796-c1047a1a30cb",
+      "strategy": "sessionId",
+      "sessionId": "92977021-89ce-4e6a-8796-c1047a1a30cb",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T06:11:39.472Z",
+      "lastTs": "2026-11-24T06:11:40.042Z",
+      "firstTsRaw": "2026-11-24T06:11:39.472Z",
+      "lastTsRaw": "2026-11-24T06:11:40.042Z",
+      "clientInfo": {
+        "name": "Gemini",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "cc3157e3-bd5d-42a1-93f1-37aa198fd81b",
+        "3ce5cdc2-384e-4374-a620-f79a023aed36",
+        "3f359350-75d1-4bcd-8640-82906609ea1a"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/call": 1
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "gemini-mcp-gateway",
+          "key": "github:Bruce-Yii/gemini-mcp-gateway",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 1
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/gemini-mcp-gateway"
+      ],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 3
+      }
+    },
+    {
+      "windowId": "session:99faf544-aef7-4bcf-8ab4-9404504c7cb7",
+      "strategy": "sessionId",
+      "sessionId": "99faf544-aef7-4bcf-8ab4-9404504c7cb7",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T06:12:39.148Z",
+      "lastTs": "2026-11-24T06:12:39.847Z",
+      "firstTsRaw": "2026-11-24T06:12:39.148Z",
+      "lastTsRaw": "2026-11-24T06:12:39.847Z",
+      "clientInfo": {
+        "name": "Gemini",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "e1580575-159a-44ee-8407-503a5c5ace0c",
+        "ea43e2a1-e85b-41c2-9b8f-00749b57a4ed",
+        "77fbd01d-e9f1-42e6-887e-3ad3da0ca5d7"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/call": 1
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "gemini-mcp-gateway",
+          "key": "github:Bruce-Yii/gemini-mcp-gateway",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 1
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/gemini-mcp-gateway"
+      ],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 3
+      }
+    },
+    {
+      "windowId": "session:b2e272cc-ca29-4245-99fb-7169e0ecbc65",
+      "strategy": "sessionId",
+      "sessionId": "b2e272cc-ca29-4245-99fb-7169e0ecbc65",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T06:14:27.782Z",
+      "lastTs": "2026-11-24T06:14:28.441Z",
+      "firstTsRaw": "2026-11-24T06:14:27.782Z",
+      "lastTsRaw": "2026-11-24T06:14:28.441Z",
+      "clientInfo": {
+        "name": "Gemini",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "516aca32-0713-4761-af42-5e02c9ae0e2a",
+        "878cd0c9-98c6-4fe8-ab80-c8d297b21792",
+        "dee97ebd-5df2-43cc-bf91-e2b7d56197a4"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/call": 1
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "gemini-mcp-gateway",
+          "key": "github:Bruce-Yii/gemini-mcp-gateway",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 1
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/gemini-mcp-gateway"
+      ],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 3
+      }
+    },
+    {
+      "windowId": "session:2f577e16-ca5d-4b28-991f-83fe48a8a654",
+      "strategy": "sessionId",
+      "sessionId": "2f577e16-ca5d-4b28-991f-83fe48a8a654",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T06:14:36.866Z",
+      "lastTs": "2026-11-24T06:14:37.463Z",
+      "firstTsRaw": "2026-11-24T06:14:36.866Z",
+      "lastTsRaw": "2026-11-24T06:14:37.463Z",
+      "clientInfo": {
+        "name": "Gemini",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "6c9f8d3d-54c0-47f1-bc1d-a2a0e7280226",
+        "6e96378e-4744-46ff-b168-64becc5ed144",
+        "50394a1d-0c04-485e-9649-b5f489edd73a"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/call": 1
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "gemini-mcp-gateway",
+          "key": "github:Bruce-Yii/gemini-mcp-gateway",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 1
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/gemini-mcp-gateway"
+      ],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 3
+      }
+    },
+    {
+      "windowId": "session:f8164caf-1073-40a8-8c36-828918850894",
+      "strategy": "sessionId",
+      "sessionId": "f8164caf-1073-40a8-8c36-828918850894",
       "taskId": null,
       "requests": 2,
-      "mcpRequests": 0,
-      "mcpErrors": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T12:56:57.369Z",
+      "lastTs": "2026-11-24T12:56:58.754Z",
+      "firstTsRaw": "2026-11-24T12:56:57.369Z",
+      "lastTsRaw": "2026-11-24T12:56:58.754Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "cb534c7a-4455-4f72-82d6-cfc913e9f411",
+        "fb14a356-99f3-4f19-a338-0c344a7145e2"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 2
+      }
+    },
+    {
+      "windowId": "session:30f09474-d542-4c4f-8d91-bd4fe9f4acdc",
+      "strategy": "sessionId",
+      "sessionId": "30f09474-d542-4c4f-8d91-bd4fe9f4acdc",
+      "taskId": null,
+      "requests": 4,
+      "mcpRequests": 4,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T12:56:59.306Z",
+      "lastTs": "2026-11-24T14:28:40.752Z",
+      "firstTsRaw": "2026-11-24T12:56:59.306Z",
+      "lastTsRaw": "2026-11-24T14:28:40.752Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "b23fe024-4c66-4929-ad3d-e3f1407d2ee2",
+        "92590b1e-0049-445c-923b-8f61c3a47147",
+        "c3728af9-6973-4f62-903a-691784487f70",
+        "38b972c7-6892-4ae1-bbc0-356dfdf7f67b"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 2
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 4
+      }
+    },
+    {
+      "windowId": "session:033ebd44-57ac-4766-bbdb-7decb45ee3fb",
+      "strategy": "sessionId",
+      "sessionId": "033ebd44-57ac-4766-bbdb-7decb45ee3fb",
+      "taskId": null,
+      "requests": 7,
+      "mcpRequests": 7,
+      "mcpErrors": 0,
+      "toolCalls": 5,
+      "truncationSuspects": 4,
+      "firstTs": "2026-11-24T12:57:27.040Z",
+      "lastTs": "2026-11-24T13:32:47.607Z",
+      "firstTsRaw": "2026-11-24T12:57:27.040Z",
+      "lastTsRaw": "2026-11-24T13:32:47.607Z",
+      "clientInfo": {
+        "name": "Gemini",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "5720b295-b199-4ccb-ad11-338d7a965317",
+        "8bf2d79d-aa1c-4078-854b-964f897da4c3",
+        "1188c924-320a-47da-b866-07405561a5c1",
+        "00c1d059-6d78-4c98-868f-a5d0fbaa5c82",
+        "598fceff-da8a-4123-8f26-bf68f3713ea8"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/call": 5
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "gemini-mcp-gateway",
+          "key": "github:Bruce-Yii/gemini-mcp-gateway",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 5
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/gemini-mcp-gateway"
+      ],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 7
+      }
+    },
+    {
+      "windowId": "session:9106530e-da8b-417a-a4b4-5ee156c861b7",
+      "strategy": "sessionId",
+      "sessionId": "9106530e-da8b-417a-a4b4-5ee156c861b7",
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T13:29:45.310Z",
+      "lastTs": "2026-11-24T13:29:46.361Z",
+      "firstTsRaw": "2026-11-24T13:29:45.310Z",
+      "lastTsRaw": "2026-11-24T13:29:46.361Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "3555e6a6-3f5f-49e2-90e0-58c6c605451a",
+        "23ef9c5c-4638-447b-9fd1-d59c01616817"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 2
+      }
+    },
+    {
+      "windowId": "session:44eb287d-0b29-4e38-8a66-fe006d21ed00",
+      "strategy": "sessionId",
+      "sessionId": "44eb287d-0b29-4e38-8a66-fe006d21ed00",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T13:29:46.997Z",
+      "lastTs": "2026-11-24T13:29:47.618Z",
+      "firstTsRaw": "2026-11-24T13:29:46.997Z",
+      "lastTsRaw": "2026-11-24T13:29:47.618Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "c82318b5-221c-42ad-a355-a142631ffb79",
+        "93d981b6-9b30-4fc8-8455-00913aca8773",
+        "b06bf4a4-5687-43e1-a04b-551a6e024f20"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 3
+      }
+    },
+    {
+      "windowId": "session:f59a15a1-6338-444c-bcd6-483e5f0ff38f",
+      "strategy": "sessionId",
+      "sessionId": "f59a15a1-6338-444c-bcd6-483e5f0ff38f",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T13:30:57.604Z",
+      "lastTs": "2026-11-24T13:30:58.232Z",
+      "firstTsRaw": "2026-11-24T13:30:57.604Z",
+      "lastTsRaw": "2026-11-24T13:30:58.232Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "2544b5e3-92e1-4362-9b0e-dbba693008b9",
+        "8a6d57af-1d20-4bcd-9d42-905b84a807bc",
+        "e03ccbc4-d5c1-4a3b-82e3-6fd394759b2e"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 3
+      }
+    },
+    {
+      "windowId": "session:0fc836c7-42a3-4384-81f9-96ffd8fddd6f",
+      "strategy": "sessionId",
+      "sessionId": "0fc836c7-42a3-4384-81f9-96ffd8fddd6f",
+      "taskId": null,
+      "requests": 10,
+      "mcpRequests": 10,
+      "mcpErrors": 0,
+      "toolCalls": 8,
+      "truncationSuspects": 6,
+      "firstTs": "2026-11-24T13:31:00.903Z",
+      "lastTs": "2026-11-24T13:58:11.135Z",
+      "firstTsRaw": "2026-11-24T13:31:00.903Z",
+      "lastTsRaw": "2026-11-24T13:58:11.135Z",
+      "clientInfo": {
+        "name": "Gemini",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "2976dbf4-2f4b-4474-bedb-8348b5f00f80",
+        "c875fa7a-8f23-4550-a135-2deda646da49",
+        "17503da0-2341-4c92-bfce-8dde8fc90184",
+        "03a21275-f6ac-4704-91c0-9b97fcee54b4",
+        "f062cabf-aacf-4b5f-966e-eb7e9948d450"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/call": 8
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "recruitment-agent",
+          "key": "github:Bruce-Yii/recruitment-agent",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 8
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/recruitment-agent"
+      ],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 10
+      }
+    },
+    {
+      "windowId": "session:0a3ed876-2f0c-489e-b36d-43c99970e00f",
+      "strategy": "sessionId",
+      "sessionId": "0a3ed876-2f0c-489e-b36d-43c99970e00f",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T13:31:58.085Z",
+      "lastTs": "2026-11-24T13:31:58.864Z",
+      "firstTsRaw": "2026-11-24T13:31:58.085Z",
+      "lastTsRaw": "2026-11-24T13:31:58.864Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "53e9e583-3a13-46ed-ad25-ecdfcdaa98e4",
+        "1cdf9439-8ac6-47e2-86b6-335f02c4d28d",
+        "6f7755a0-221a-4c97-ae70-08217cc658ac"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 3
+      }
+    },
+    {
+      "windowId": "session:96b1cd8a-64ea-45ef-9828-0a5b1ffd8ff5",
+      "strategy": "sessionId",
+      "sessionId": "96b1cd8a-64ea-45ef-9828-0a5b1ffd8ff5",
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T13:55:17.503Z",
+      "lastTs": "2026-11-24T13:55:18.740Z",
+      "firstTsRaw": "2026-11-24T13:55:17.503Z",
+      "lastTsRaw": "2026-11-24T13:55:18.740Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "7c3361fe-e7f4-4372-b585-5699729f3083",
+        "42b0bb77-9706-4105-9cd8-f0d89e9b2b82"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 2
+      }
+    },
+    {
+      "windowId": "session:73ea6fb7-d680-4b09-96f4-14894887182a",
+      "strategy": "sessionId",
+      "sessionId": "73ea6fb7-d680-4b09-96f4-14894887182a",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T13:55:19.650Z",
+      "lastTs": "2026-11-24T13:55:20.946Z",
+      "firstTsRaw": "2026-11-24T13:55:19.650Z",
+      "lastTsRaw": "2026-11-24T13:55:20.946Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "4c143eaa-eea6-43d2-983f-d63564ca73ff",
+        "074fd58c-c9be-41a2-9249-0d9fb619e83c",
+        "03b09af2-3e0b-4148-80c4-320071112a29"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 3
+      }
+    },
+    {
+      "windowId": "session:49568b86-7344-427b-9908-e6d7308b0fc2",
+      "strategy": "sessionId",
+      "sessionId": "49568b86-7344-427b-9908-e6d7308b0fc2",
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T14:14:33.415Z",
+      "lastTs": "2026-11-24T14:14:34.560Z",
+      "firstTsRaw": "2026-11-24T14:14:33.415Z",
+      "lastTsRaw": "2026-11-24T14:14:34.560Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "9c10b422-3607-431e-9ac6-1b3dd9be7284",
+        "9d73912c-4018-48be-8191-0aaa83b971be"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 2
+      }
+    },
+    {
+      "windowId": "session:79adf4b8-75c7-48af-a987-9f1e79a06fce",
+      "strategy": "sessionId",
+      "sessionId": "79adf4b8-75c7-48af-a987-9f1e79a06fce",
+      "taskId": null,
+      "requests": 6,
+      "mcpRequests": 6,
+      "mcpErrors": 0,
+      "toolCalls": 4,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T14:14:58.607Z",
+      "lastTs": "2026-11-24T14:29:19.612Z",
+      "firstTsRaw": "2026-11-24T14:14:58.607Z",
+      "lastTsRaw": "2026-11-24T14:29:19.612Z",
+      "clientInfo": {
+        "name": "Gemini",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "ed078f88-0e2f-420c-8ce1-10875fd62cec",
+        "5710f5d8-2e24-4f94-8ca5-4783eedfec46",
+        "1473964f-6f23-48e1-b877-b9e93ab88568",
+        "1a59ecc7-0d2c-4db8-adaa-d616d2cf503e",
+        "b4bb5487-0c72-4366-803d-e992d9af8a7c"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/call": 4
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "recruitment-agent",
+          "key": "github:Bruce-Yii/recruitment-agent",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 4
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/recruitment-agent"
+      ],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 6
+      }
+    },
+    {
+      "windowId": "session:380f1ba5-913e-4156-a4d8-74e58de3a32c",
+      "strategy": "sessionId",
+      "sessionId": "380f1ba5-913e-4156-a4d8-74e58de3a32c",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T14:28:38.986Z",
+      "lastTs": "2026-11-24T14:29:29.685Z",
+      "firstTsRaw": "2026-11-24T14:28:38.986Z",
+      "lastTsRaw": "2026-11-24T14:29:29.685Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "f6a2bd0e-a13a-4a96-b0b9-6e8615fa9992",
+        "796f07ae-9c3f-4833-b6e7-d56bcc8ac4ac",
+        "f8ae77a3-425f-451b-9e57-d40f40e44e82"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 3
+      }
+    },
+    {
+      "windowId": "session:49939f51-7233-4858-a42e-18030de9ec4d",
+      "strategy": "sessionId",
+      "sessionId": "49939f51-7233-4858-a42e-18030de9ec4d",
+      "taskId": null,
+      "requests": 12,
+      "mcpRequests": 12,
+      "mcpErrors": 1,
+      "toolCalls": 10,
+      "truncationSuspects": 7,
+      "firstTs": "2026-11-24T14:29:57.630Z",
+      "lastTs": "2026-11-24T15:50:13.183Z",
+      "firstTsRaw": "2026-11-24T14:29:57.630Z",
+      "lastTsRaw": "2026-11-24T15:50:13.183Z",
+      "clientInfo": {
+        "name": "Gemini",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "3d1aa30d-b850-44ba-9734-325c136a8f14",
+        "4f075f65-5518-492f-8a2f-aeb1b57228d2",
+        "4f513d7d-8d0b-486e-855e-166d9105f2f6",
+        "57769d49-504d-4a97-804b-20ba81ae18ca",
+        "8bac3e2a-7081-4b0c-9993-41c0f5533e4b"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/call": 10
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "gemini-mcp-gateway",
+          "key": "github:Bruce-Yii/gemini-mcp-gateway",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 8
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/gemini-mcp-gateway"
+      ],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 12
+      }
+    },
+    {
+      "windowId": "session:bb8eb767-2116-4bc5-80f2-d3cc647f1c4d",
+      "strategy": "sessionId",
+      "sessionId": "bb8eb767-2116-4bc5-80f2-d3cc647f1c4d",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T15:02:24.355Z",
+      "lastTs": "2026-11-24T15:02:26.084Z",
+      "firstTsRaw": "2026-11-24T15:02:24.355Z",
+      "lastTsRaw": "2026-11-24T15:02:26.084Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "9118b82a-968b-4682-b4d1-f0b165d55545",
+        "f78877ff-ba44-49e7-8e34-b7b5665c41fe",
+        "d51f6f0c-0056-4c09-890d-131040504bdf"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 3
+      }
+    },
+    {
+      "windowId": "session:b8acdf13-fa82-4077-8ebf-737d779fd814",
+      "strategy": "sessionId",
+      "sessionId": "b8acdf13-fa82-4077-8ebf-737d779fd814",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T15:49:40.600Z",
+      "lastTs": "2026-11-24T15:49:42.761Z",
+      "firstTsRaw": "2026-11-24T15:49:40.600Z",
+      "lastTsRaw": "2026-11-24T15:49:42.761Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "9cd851cc-9520-4c1b-87b5-bb52c346ee74",
+        "7d360131-dae9-4cae-821c-70322b91e2d9",
+        "43966331-b302-439b-bb84-4981e8a84ae1"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 3
+      }
+    },
+    {
+      "windowId": "window:002",
+      "strategy": "idle-gap",
+      "sessionId": null,
+      "taskId": null,
+      "requests": 9,
+      "mcpRequests": 2,
+      "mcpErrors": 9,
       "toolCalls": 0,
       "truncationSuspects": 0,
       "firstTs": "2026-11-24T16:19:17.781Z",
-      "lastTs": "2026-11-24T16:29:20.793Z",
+      "lastTs": "2026-11-24T16:30:35.251Z",
       "firstTsRaw": "2026-11-24T16:19:17.781Z",
-      "lastTsRaw": "2026-11-24T16:29:20.793Z",
+      "lastTsRaw": "2026-11-24T16:30:35.251Z",
       "clientInfo": {
         "ip": "9.129.50.15"
       },
       "requestIdSamples": [
         "0b8671d5-4ee9-46bd-a550-0f106748396d",
-        "0dbba1c9-7c11-4c64-8655-bbbb2cf0b1f1"
+        "b3f8452d-1e7f-4cf8-8c85-9fdb2a0aec26",
+        "0dbba1c9-7c11-4c64-8655-bbbb2cf0b1f1",
+        "eca77a1a-70a6-4684-ab32-fc49d9b3a3b1",
+        "55cf0735-8b44-4cab-8296-bf360968652e"
       ],
-      "methods": {},
+      "methods": {
+        "server/discover": 2
+      },
       "projects": [],
       "primaryProjects": [],
       "clientPlatforms": [
-        "unknown"
+        "unknown",
+        "chatgpt"
       ],
       "requestsByClientPlatform": {
-        "unknown": 2
+        "unknown": 7,
+        "chatgpt": 2
+      }
+    },
+    {
+      "windowId": "session:cc3bb33e-c9ca-4005-993b-874a5f7e3aef",
+      "strategy": "sessionId",
+      "sessionId": "cc3bb33e-c9ca-4005-993b-874a5f7e3aef",
+      "taskId": null,
+      "requests": 1,
+      "mcpRequests": 1,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T16:30:00.377Z",
+      "lastTs": "2026-11-24T16:30:00.377Z",
+      "firstTsRaw": "2026-11-24T16:30:00.377Z",
+      "lastTsRaw": "2026-11-24T16:30:00.377Z",
+      "clientInfo": {
+        "name": "openai-mcp",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "133571d5-73ca-4d25-8a3e-639d841332f4"
+      ],
+      "methods": {
+        "initialize": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "chatgpt"
+      ],
+      "requestsByClientPlatform": {
+        "chatgpt": 1
+      }
+    },
+    {
+      "windowId": "session:b7287346-72fd-4fb7-a872-5247345f8970",
+      "strategy": "sessionId",
+      "sessionId": "b7287346-72fd-4fb7-a872-5247345f8970",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T16:30:01.242Z",
+      "lastTs": "2026-11-24T16:30:01.664Z",
+      "firstTsRaw": "2026-11-24T16:30:01.242Z",
+      "lastTsRaw": "2026-11-24T16:30:01.664Z",
+      "clientInfo": {
+        "name": "openai-mcp",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "b198ce3c-a694-4d8c-97d3-2a19f102a3ba",
+        "841e0078-e70b-4ec8-8c37-99db4975fcf9",
+        "7fbb79d6-9c37-4961-bdd9-af77814b4b48"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "chatgpt"
+      ],
+      "requestsByClientPlatform": {
+        "chatgpt": 3
+      }
+    },
+    {
+      "windowId": "session:3f351671-0b35-4916-b876-22d14521b047",
+      "strategy": "sessionId",
+      "sessionId": "3f351671-0b35-4916-b876-22d14521b047",
+      "taskId": null,
+      "requests": 1,
+      "mcpRequests": 1,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T16:30:35.394Z",
+      "lastTs": "2026-11-24T16:30:35.394Z",
+      "firstTsRaw": "2026-11-24T16:30:35.394Z",
+      "lastTsRaw": "2026-11-24T16:30:35.394Z",
+      "clientInfo": {
+        "name": "openai-mcp",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "7486ed97-f666-4e1b-8661-644f6b1d93e9"
+      ],
+      "methods": {
+        "initialize": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "chatgpt"
+      ],
+      "requestsByClientPlatform": {
+        "chatgpt": 1
+      }
+    },
+    {
+      "windowId": "session:c0ca46fb-dfb3-4dcf-9385-88127aa249cf",
+      "strategy": "sessionId",
+      "sessionId": "c0ca46fb-dfb3-4dcf-9385-88127aa249cf",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T16:30:35.596Z",
+      "lastTs": "2026-11-24T16:30:35.961Z",
+      "firstTsRaw": "2026-11-24T16:30:35.596Z",
+      "lastTsRaw": "2026-11-24T16:30:35.961Z",
+      "clientInfo": {
+        "name": "openai-mcp",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "ddf36858-9be8-40c0-b61c-8a2d35e1c326",
+        "b476728b-3218-435f-b324-6ebd570670e4",
+        "5905c741-b982-41b4-8f20-42396bd7c31c"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/list": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "chatgpt"
+      ],
+      "requestsByClientPlatform": {
+        "chatgpt": 3
+      }
+    },
+    {
+      "windowId": "session:eafcceb9-c434-4d59-8250-866d608c5a27",
+      "strategy": "sessionId",
+      "sessionId": "eafcceb9-c434-4d59-8250-866d608c5a27",
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T18:03:12.562Z",
+      "lastTs": "2026-11-24T18:03:13.974Z",
+      "firstTsRaw": "2026-11-24T18:03:12.562Z",
+      "lastTsRaw": "2026-11-24T18:03:13.974Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "636aa5f3-6253-477a-997f-29a66204b7d0",
+        "71e08fec-273c-4f38-bfcd-a126c36d8003"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 2
+      }
+    },
+    {
+      "windowId": "session:ab75bc50-63b6-471a-84e6-e200c7b680a7",
+      "strategy": "sessionId",
+      "sessionId": "ab75bc50-63b6-471a-84e6-e200c7b680a7",
+      "taskId": null,
+      "requests": 2,
+      "mcpRequests": 2,
+      "mcpErrors": 0,
+      "toolCalls": 0,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T18:03:14.958Z",
+      "lastTs": "2026-11-24T18:03:15.069Z",
+      "firstTsRaw": "2026-11-24T18:03:14.958Z",
+      "lastTsRaw": "2026-11-24T18:03:15.069Z",
+      "clientInfo": {
+        "name": "mcp",
+        "version": "0.1.0"
+      },
+      "requestIdSamples": [
+        "f50bc57e-34f7-485d-a11c-8281bed7c4e7",
+        "6d8c94dd-489c-434f-8d03-76caa645aaf4"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1
+      },
+      "projects": [],
+      "primaryProjects": [],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 2
+      }
+    },
+    {
+      "windowId": "session:90093089-4744-4073-b6ac-fcf159c3b10c",
+      "strategy": "sessionId",
+      "sessionId": "90093089-4744-4073-b6ac-fcf159c3b10c",
+      "taskId": null,
+      "requests": 3,
+      "mcpRequests": 3,
+      "mcpErrors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T18:03:29.553Z",
+      "lastTs": "2026-11-24T18:03:30.114Z",
+      "firstTsRaw": "2026-11-24T18:03:29.553Z",
+      "lastTsRaw": "2026-11-24T18:03:30.114Z",
+      "clientInfo": {
+        "name": "Gemini",
+        "version": "1.0.0"
+      },
+      "requestIdSamples": [
+        "dbcb9de2-b428-4954-8919-ba1f250aa372",
+        "0c9b2930-2bea-4f52-b176-725f7885a7b3",
+        "c44c5374-d468-4828-a4de-6a58e99d6db5"
+      ],
+      "methods": {
+        "initialize": 1,
+        "notifications/initialized": 1,
+        "tools/call": 1
+      },
+      "projects": [
+        {
+          "server": "github",
+          "owner": "Bruce-Yii",
+          "repo": "recruitment-agent",
+          "key": "github:Bruce-Yii/recruitment-agent",
+          "confidence": "medium",
+          "source": "code-literal",
+          "requests": 1
+        }
+      ],
+      "primaryProjects": [
+        "github:Bruce-Yii/recruitment-agent"
+      ],
+      "clientPlatforms": [
+        "gemini"
+      ],
+      "requestsByClientPlatform": {
+        "gemini": 3
       }
     }
   ],
   "byProject": {
     "github:Bruce-Yii/gemini-mcp-gateway": {
       "key": "github:Bruce-Yii/gemini-mcp-gateway",
-      "requests": 5,
-      "mcpRequests": 5,
-      "errors": 0,
-      "toolCalls": 5,
-      "truncationSuspects": 4,
-      "firstTs": "2026-11-24T00:02:01.572Z",
+      "requests": 73,
+      "mcpRequests": 73,
+      "errors": 5,
+      "toolCalls": 73,
+      "truncationSuspects": 57,
+      "firstTs": "2026-11-24T00:01:08.813Z",
       "lastTs": "2026-11-24T15:40:22.133Z",
-      "firstTsRaw": "2026-11-24T00:02:01.572Z",
+      "firstTsRaw": "2026-11-24T00:01:08.813Z",
       "lastTsRaw": "2026-11-24T15:40:22.133Z",
       "sessionIds": [
         "033ebd44-57ac-4766-bbdb-7decb45ee3fb",
         "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
         "49939f51-7233-4858-a42e-18030de9ec4d",
         "99307365-3ce0-4769-8724-b0648281f5c2",
-        "ef3d080d-6fe0-40f0-b2d0-5bde5e32d994"
+        "ef3d080d-6fe0-40f0-b2d0-5bde5e32d994",
+        "92977021-89ce-4e6a-8796-c1047a1a30cb",
+        "866f24c7-7d84-4eea-a206-562db8a5f2e8",
+        "2f577e16-ca5d-4b28-991f-83fe48a8a654",
+        "99faf544-aef7-4bcf-8ab4-9404504c7cb7",
+        "b2e272cc-ca29-4245-99fb-7169e0ecbc65",
+        "2857ba2b-5cdb-4bd4-bd0e-9a456403fa34"
       ],
       "clientPlatforms": [
         "gemini",
@@ -1453,18 +4431,22 @@
     },
     "github:Bruce-Yii/recruitment-agent": {
       "key": "github:Bruce-Yii/recruitment-agent",
-      "requests": 3,
-      "mcpRequests": 3,
-      "errors": 0,
-      "toolCalls": 3,
-      "truncationSuspects": 2,
-      "firstTs": "2026-11-24T00:07:42.356Z",
-      "lastTs": "2026-11-24T13:31:16.312Z",
-      "firstTsRaw": "2026-11-24T00:07:42.356Z",
-      "lastTsRaw": "2026-11-24T13:31:16.312Z",
+      "requests": 57,
+      "mcpRequests": 57,
+      "errors": 1,
+      "toolCalls": 57,
+      "truncationSuspects": 38,
+      "firstTs": "2026-11-24T00:06:20.209Z",
+      "lastTs": "2026-11-24T18:03:30.114Z",
+      "firstTsRaw": "2026-11-24T00:06:20.209Z",
+      "lastTsRaw": "2026-11-24T18:03:30.114Z",
       "sessionIds": [
         "2300fd1b-3d55-460e-9484-ad6babc559ac",
-        "0fc836c7-42a3-4384-81f9-96ffd8fddd6f"
+        "0fc836c7-42a3-4384-81f9-96ffd8fddd6f",
+        "79adf4b8-75c7-48af-a987-9f1e79a06fce",
+        "8f67986d-f5ef-4e8d-8f38-dcbaccd471fb",
+        "57db68fa-c66a-4fd7-acbf-57bf43ec6d8d",
+        "90093089-4744-4073-b6ac-fcf159c3b10c"
       ],
       "clientPlatforms": [
         "unknown",
@@ -1473,7 +4455,9 @@
       "requestIdSamples": [
         "0271e7ca-d2dd-44d8-8902-ad38f2157743",
         "03a21275-f6ac-4704-91c0-9b97fcee54b4",
-        "05623334-9d25-4299-ac8d-e52f1cd8c252"
+        "05623334-9d25-4299-ac8d-e52f1cd8c252",
+        "118148d9-d0f0-4139-af13-c4ae2f2116fc",
+        "132e35eb-5e4e-445d-9b8a-cbe6f2077429"
       ]
     }
   },
@@ -1481,19 +4465,23 @@
     {
       "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
       "sessionId": "033ebd44-57ac-4766-bbdb-7decb45ee3fb",
-      "requests": 1,
-      "mcpRequests": 1,
+      "requests": 5,
+      "mcpRequests": 5,
       "errors": 0,
-      "toolCalls": 1,
-      "truncationSuspects": 1,
-      "firstTs": "2026-11-24T12:57:27.829Z",
-      "lastTs": "2026-11-24T12:57:27.829Z",
-      "firstTsRaw": "2026-11-24T12:57:27.829Z",
-      "lastTsRaw": "2026-11-24T12:57:27.829Z",
+      "toolCalls": 5,
+      "truncationSuspects": 4,
+      "firstTs": "2026-11-24T12:57:27.664Z",
+      "lastTs": "2026-11-24T13:32:47.607Z",
+      "firstTsRaw": "2026-11-24T12:57:27.664Z",
+      "lastTsRaw": "2026-11-24T13:32:47.607Z",
       "requestIdSamples": [
-        "00c1d059-6d78-4c98-868f-a5d0fbaa5c82"
+        "00c1d059-6d78-4c98-868f-a5d0fbaa5c82",
+        "1188c924-320a-47da-b866-07405561a5c1",
+        "5748cc52-d634-497f-b12d-7df1a94e7d08",
+        "598fceff-da8a-4123-8f26-bf68f3713ea8",
+        "d0443f7a-1721-4e2d-ba7f-18a3933bd359"
       ],
-      "primaryProjectRequests": 1,
+      "primaryProjectRequests": 5,
       "clientPlatforms": [
         "gemini"
       ]
@@ -1501,20 +4489,23 @@
     {
       "projectKey": "github:Bruce-Yii/recruitment-agent",
       "sessionId": "2300fd1b-3d55-460e-9484-ad6babc559ac",
-      "requests": 2,
-      "mcpRequests": 2,
-      "errors": 0,
-      "toolCalls": 2,
-      "truncationSuspects": 1,
-      "firstTs": "2026-11-24T00:07:42.356Z",
-      "lastTs": "2026-11-24T01:23:06.097Z",
-      "firstTsRaw": "2026-11-24T00:07:42.356Z",
-      "lastTsRaw": "2026-11-24T01:23:06.097Z",
+      "requests": 36,
+      "mcpRequests": 36,
+      "errors": 1,
+      "toolCalls": 36,
+      "truncationSuspects": 23,
+      "firstTs": "2026-11-24T00:06:20.209Z",
+      "lastTs": "2026-11-24T01:37:04.437Z",
+      "firstTsRaw": "2026-11-24T00:06:20.209Z",
+      "lastTsRaw": "2026-11-24T01:37:04.437Z",
       "requestIdSamples": [
         "0271e7ca-d2dd-44d8-8902-ad38f2157743",
-        "05623334-9d25-4299-ac8d-e52f1cd8c252"
+        "05623334-9d25-4299-ac8d-e52f1cd8c252",
+        "118148d9-d0f0-4139-af13-c4ae2f2116fc",
+        "147bc3f0-87c9-445e-8806-8be7463126c7",
+        "1f124492-79fa-4b33-a9e4-3db257f78791"
       ],
-      "primaryProjectRequests": 2,
+      "primaryProjectRequests": 36,
       "clientPlatforms": [
         "unknown"
       ]
@@ -1522,19 +4513,23 @@
     {
       "projectKey": "github:Bruce-Yii/recruitment-agent",
       "sessionId": "0fc836c7-42a3-4384-81f9-96ffd8fddd6f",
-      "requests": 1,
-      "mcpRequests": 1,
+      "requests": 8,
+      "mcpRequests": 8,
       "errors": 0,
-      "toolCalls": 1,
-      "truncationSuspects": 1,
-      "firstTs": "2026-11-24T13:31:16.312Z",
-      "lastTs": "2026-11-24T13:31:16.312Z",
-      "firstTsRaw": "2026-11-24T13:31:16.312Z",
-      "lastTsRaw": "2026-11-24T13:31:16.312Z",
+      "toolCalls": 8,
+      "truncationSuspects": 6,
+      "firstTs": "2026-11-24T13:31:01.783Z",
+      "lastTs": "2026-11-24T13:58:11.135Z",
+      "firstTsRaw": "2026-11-24T13:31:01.783Z",
+      "lastTsRaw": "2026-11-24T13:58:11.135Z",
       "requestIdSamples": [
-        "03a21275-f6ac-4704-91c0-9b97fcee54b4"
+        "03a21275-f6ac-4704-91c0-9b97fcee54b4",
+        "132e35eb-5e4e-445d-9b8a-cbe6f2077429",
+        "17503da0-2341-4c92-bfce-8dde8fc90184",
+        "26c00056-24ab-471b-853f-a000fe5189db",
+        "421d123b-c186-4b8e-87cb-413c97512af0"
       ],
-      "primaryProjectRequests": 1,
+      "primaryProjectRequests": 8,
       "clientPlatforms": [
         "gemini"
       ]
@@ -1542,19 +4537,23 @@
     {
       "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
       "sessionId": "84fc53cf-c9c7-4207-96a8-e9c0dcd697b3",
-      "requests": 1,
-      "mcpRequests": 1,
-      "errors": 0,
-      "toolCalls": 1,
-      "truncationSuspects": 1,
-      "firstTs": "2026-11-24T03:10:10.854Z",
-      "lastTs": "2026-11-24T03:10:10.854Z",
-      "firstTsRaw": "2026-11-24T03:10:10.854Z",
-      "lastTsRaw": "2026-11-24T03:10:10.854Z",
+      "requests": 42,
+      "mcpRequests": 42,
+      "errors": 4,
+      "toolCalls": 42,
+      "truncationSuspects": 36,
+      "firstTs": "2026-11-24T02:07:30.122Z",
+      "lastTs": "2026-11-24T05:50:29.018Z",
+      "firstTsRaw": "2026-11-24T02:07:30.122Z",
+      "lastTsRaw": "2026-11-24T05:50:29.018Z",
       "requestIdSamples": [
-        "08d8bf5a-069e-4db5-ac53-32f975c809a3"
+        "08d8bf5a-069e-4db5-ac53-32f975c809a3",
+        "0f000d24-c8e6-4e71-945b-b870c44e3b7e",
+        "12979d99-30a0-4aaf-94b0-e7ae1a8a52cd",
+        "18ce67bc-e6f0-4926-ac9a-71a07d821740",
+        "1e12f926-a72c-4cd9-a3bd-b8ba94fe8032"
       ],
-      "primaryProjectRequests": 1,
+      "primaryProjectRequests": 42,
       "clientPlatforms": [
         "unknown"
       ]
@@ -1562,19 +4561,23 @@
     {
       "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
       "sessionId": "49939f51-7233-4858-a42e-18030de9ec4d",
-      "requests": 1,
-      "mcpRequests": 1,
-      "errors": 0,
-      "toolCalls": 1,
-      "truncationSuspects": 1,
-      "firstTs": "2026-11-24T15:40:22.133Z",
+      "requests": 8,
+      "mcpRequests": 8,
+      "errors": 1,
+      "toolCalls": 8,
+      "truncationSuspects": 7,
+      "firstTs": "2026-11-24T14:29:58.465Z",
       "lastTs": "2026-11-24T15:40:22.133Z",
-      "firstTsRaw": "2026-11-24T15:40:22.133Z",
+      "firstTsRaw": "2026-11-24T14:29:58.465Z",
       "lastTsRaw": "2026-11-24T15:40:22.133Z",
       "requestIdSamples": [
-        "0a8bd8ef-c934-4054-a1ef-87f0e7d15c97"
+        "0a8bd8ef-c934-4054-a1ef-87f0e7d15c97",
+        "4f513d7d-8d0b-486e-855e-166d9105f2f6",
+        "57769d49-504d-4a97-804b-20ba81ae18ca",
+        "8bac3e2a-7081-4b0c-9993-41c0f5533e4b",
+        "de5161f0-6c51-4b13-b618-724a412d4a1d"
       ],
-      "primaryProjectRequests": 1,
+      "primaryProjectRequests": 8,
       "clientPlatforms": [
         "gemini"
       ]
@@ -1582,19 +4585,23 @@
     {
       "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
       "sessionId": "99307365-3ce0-4769-8724-b0648281f5c2",
-      "requests": 1,
-      "mcpRequests": 1,
+      "requests": 11,
+      "mcpRequests": 11,
       "errors": 0,
-      "toolCalls": 1,
-      "truncationSuspects": 0,
-      "firstTs": "2026-11-24T00:02:01.572Z",
-      "lastTs": "2026-11-24T00:02:01.572Z",
-      "firstTsRaw": "2026-11-24T00:02:01.572Z",
-      "lastTsRaw": "2026-11-24T00:02:01.572Z",
+      "toolCalls": 11,
+      "truncationSuspects": 4,
+      "firstTs": "2026-11-24T00:01:08.813Z",
+      "lastTs": "2026-11-24T01:21:40.853Z",
+      "firstTsRaw": "2026-11-24T00:01:08.813Z",
+      "lastTsRaw": "2026-11-24T01:21:40.853Z",
       "requestIdSamples": [
-        "0d0fc47b-347c-43b7-a627-63e1f30b76d8"
+        "0d0fc47b-347c-43b7-a627-63e1f30b76d8",
+        "1902a8ef-0bbd-4ab7-814f-2f55e1121f29",
+        "3580a707-a452-48ea-8a0c-26b8ca11315c",
+        "48977585-ce3a-4356-8522-12d2499646f6",
+        "5fc8ede2-decc-4868-b325-3409e83df248"
       ],
-      "primaryProjectRequests": 1,
+      "primaryProjectRequests": 11,
       "clientPlatforms": [
         "unknown"
       ]
@@ -1613,6 +4620,213 @@
       "lastTsRaw": "2026-11-24T06:11:33.552Z",
       "requestIdSamples": [
         "0ec61a1a-1827-40fd-8f5d-4da717d78c69"
+      ],
+      "primaryProjectRequests": 1,
+      "clientPlatforms": [
+        "gemini"
+      ]
+    },
+    {
+      "projectKey": "github:Bruce-Yii/recruitment-agent",
+      "sessionId": "79adf4b8-75c7-48af-a987-9f1e79a06fce",
+      "requests": 4,
+      "mcpRequests": 4,
+      "errors": 0,
+      "toolCalls": 4,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T14:14:59.178Z",
+      "lastTs": "2026-11-24T14:29:19.612Z",
+      "firstTsRaw": "2026-11-24T14:14:59.178Z",
+      "lastTsRaw": "2026-11-24T14:29:19.612Z",
+      "requestIdSamples": [
+        "1473964f-6f23-48e1-b877-b9e93ab88568",
+        "1a59ecc7-0d2c-4db8-adaa-d616d2cf503e",
+        "b4bb5487-0c72-4366-803d-e992d9af8a7c",
+        "cf337d84-4da7-439f-a7e8-367d323c8924"
+      ],
+      "primaryProjectRequests": 4,
+      "clientPlatforms": [
+        "gemini"
+      ]
+    },
+    {
+      "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
+      "sessionId": "92977021-89ce-4e6a-8796-c1047a1a30cb",
+      "requests": 1,
+      "mcpRequests": 1,
+      "errors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T06:11:40.042Z",
+      "lastTs": "2026-11-24T06:11:40.042Z",
+      "firstTsRaw": "2026-11-24T06:11:40.042Z",
+      "lastTsRaw": "2026-11-24T06:11:40.042Z",
+      "requestIdSamples": [
+        "3f359350-75d1-4bcd-8640-82906609ea1a"
+      ],
+      "primaryProjectRequests": 1,
+      "clientPlatforms": [
+        "gemini"
+      ]
+    },
+    {
+      "projectKey": "github:Bruce-Yii/recruitment-agent",
+      "sessionId": "8f67986d-f5ef-4e8d-8f38-dcbaccd471fb",
+      "requests": 7,
+      "mcpRequests": 7,
+      "errors": 0,
+      "toolCalls": 7,
+      "truncationSuspects": 6,
+      "firstTs": "2026-11-24T04:08:44.794Z",
+      "lastTs": "2026-11-24T04:12:04.875Z",
+      "firstTsRaw": "2026-11-24T04:08:44.794Z",
+      "lastTsRaw": "2026-11-24T04:12:04.875Z",
+      "requestIdSamples": [
+        "484ab881-9a96-469c-882f-0a06401041b6",
+        "52ddb460-9058-4366-89e5-3259c5f8654c",
+        "6b2de5d9-b80e-4b86-bf0e-dddd7debc8ab",
+        "7bd3ccca-e7cd-4d75-beed-651a51c2570a",
+        "ca4dc8a2-b3a9-44b1-90eb-23633ae4cc78"
+      ],
+      "primaryProjectRequests": 7,
+      "clientPlatforms": [
+        "unknown"
+      ]
+    },
+    {
+      "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
+      "sessionId": "866f24c7-7d84-4eea-a206-562db8a5f2e8",
+      "requests": 1,
+      "mcpRequests": 1,
+      "errors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T06:11:05.581Z",
+      "lastTs": "2026-11-24T06:11:05.581Z",
+      "firstTsRaw": "2026-11-24T06:11:05.581Z",
+      "lastTsRaw": "2026-11-24T06:11:05.581Z",
+      "requestIdSamples": [
+        "4ae66103-34ca-407e-9ca5-91624b48e35a"
+      ],
+      "primaryProjectRequests": 1,
+      "clientPlatforms": [
+        "gemini"
+      ]
+    },
+    {
+      "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
+      "sessionId": "2f577e16-ca5d-4b28-991f-83fe48a8a654",
+      "requests": 1,
+      "mcpRequests": 1,
+      "errors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T06:14:37.463Z",
+      "lastTs": "2026-11-24T06:14:37.463Z",
+      "firstTsRaw": "2026-11-24T06:14:37.463Z",
+      "lastTsRaw": "2026-11-24T06:14:37.463Z",
+      "requestIdSamples": [
+        "50394a1d-0c04-485e-9649-b5f489edd73a"
+      ],
+      "primaryProjectRequests": 1,
+      "clientPlatforms": [
+        "gemini"
+      ]
+    },
+    {
+      "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
+      "sessionId": "99faf544-aef7-4bcf-8ab4-9404504c7cb7",
+      "requests": 1,
+      "mcpRequests": 1,
+      "errors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 0,
+      "firstTs": "2026-11-24T06:12:39.847Z",
+      "lastTs": "2026-11-24T06:12:39.847Z",
+      "firstTsRaw": "2026-11-24T06:12:39.847Z",
+      "lastTsRaw": "2026-11-24T06:12:39.847Z",
+      "requestIdSamples": [
+        "77fbd01d-e9f1-42e6-887e-3ad3da0ca5d7"
+      ],
+      "primaryProjectRequests": 1,
+      "clientPlatforms": [
+        "gemini"
+      ]
+    },
+    {
+      "projectKey": "github:Bruce-Yii/recruitment-agent",
+      "sessionId": "57db68fa-c66a-4fd7-acbf-57bf43ec6d8d",
+      "requests": 1,
+      "mcpRequests": 1,
+      "errors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T02:08:15.163Z",
+      "lastTs": "2026-11-24T02:08:15.163Z",
+      "firstTsRaw": "2026-11-24T02:08:15.163Z",
+      "lastTsRaw": "2026-11-24T02:08:15.163Z",
+      "requestIdSamples": [
+        "7874fa78-93b5-462d-a54a-74d50fca58d1"
+      ],
+      "primaryProjectRequests": 1,
+      "clientPlatforms": [
+        "unknown"
+      ]
+    },
+    {
+      "projectKey": "github:Bruce-Yii/recruitment-agent",
+      "sessionId": "90093089-4744-4073-b6ac-fcf159c3b10c",
+      "requests": 1,
+      "mcpRequests": 1,
+      "errors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T18:03:30.114Z",
+      "lastTs": "2026-11-24T18:03:30.114Z",
+      "firstTsRaw": "2026-11-24T18:03:30.114Z",
+      "lastTsRaw": "2026-11-24T18:03:30.114Z",
+      "requestIdSamples": [
+        "c44c5374-d468-4828-a4de-6a58e99d6db5"
+      ],
+      "primaryProjectRequests": 1,
+      "clientPlatforms": [
+        "gemini"
+      ]
+    },
+    {
+      "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
+      "sessionId": "b2e272cc-ca29-4245-99fb-7169e0ecbc65",
+      "requests": 1,
+      "mcpRequests": 1,
+      "errors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T06:14:28.441Z",
+      "lastTs": "2026-11-24T06:14:28.441Z",
+      "firstTsRaw": "2026-11-24T06:14:28.441Z",
+      "lastTsRaw": "2026-11-24T06:14:28.441Z",
+      "requestIdSamples": [
+        "dee97ebd-5df2-43cc-bf91-e2b7d56197a4"
+      ],
+      "primaryProjectRequests": 1,
+      "clientPlatforms": [
+        "gemini"
+      ]
+    },
+    {
+      "projectKey": "github:Bruce-Yii/gemini-mcp-gateway",
+      "sessionId": "2857ba2b-5cdb-4bd4-bd0e-9a456403fa34",
+      "requests": 1,
+      "mcpRequests": 1,
+      "errors": 0,
+      "toolCalls": 1,
+      "truncationSuspects": 1,
+      "firstTs": "2026-11-24T06:10:58.639Z",
+      "lastTs": "2026-11-24T06:10:58.639Z",
+      "firstTsRaw": "2026-11-24T06:10:58.639Z",
+      "lastTsRaw": "2026-11-24T06:10:58.639Z",
+      "requestIdSamples": [
+        "e1754d59-18fe-4434-9f9d-d82fbcae5e40"
       ],
       "primaryProjectRequests": 1,
       "clientPlatforms": [
