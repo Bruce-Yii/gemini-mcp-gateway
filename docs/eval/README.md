@@ -24,6 +24,10 @@
 - [l1-smoke-report.md](l1-smoke-report.md)
 - [scorecard-2026-11-22.md](scorecard-2026-11-22.md)
 
+## 高频闭环 / M4-C
+
+- [M4-C-FREQ-CLOSED-LOOP-2026-11-24.md](M4-C-FREQ-CLOSED-LOOP-2026-11-24.md) — 跨客户端防串伤规则落地 + 高频闭环实测（R2/analyzer 凭据不可用 → BLOCKED 记录，不伪造）
+
 ## 安全 / 平台
 
 - [CODEMODE-SECURITY-AUDIT.md](CODEMODE-SECURITY-AUDIT.md)
