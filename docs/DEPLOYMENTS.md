@@ -34,7 +34,7 @@
 
 > 2026-11-25 01:56 Notion 网关 OAuth callback 已存储：`owner=gateway`、`source=gateway-dcr`、`refresh=yes`；直接对 Notion `tools/list` 返回 200；生产 gateway runtime 请求下工具挂载待复验。Linear `LINEAR_API_KEY` 已配，`/mcp/readonly` 直连 200。
 
-| 2026-11-25 03:14 | `42caaf2` | CLI（手动，`vercel --prod`，带 `VERCEL_GIT_COMMIT_SHA`） | 部署 main `42caaf2`：PR #28 评测五根因 + #30 R2 weekly scorecard/429 + #31 Notion gateway OAuth token 注入修复 + #32 文档同步；ChatGPT env map 已含 chatgpt 映射 | READY（Notion runtime 待在线实测） | `deploymentId=dpl_DLBySiFi6P63sQnpoYEiSB2DDowM`；healthz `commit=42caaf2…` / `buildHash=27e67f39…` / `builtAt=2026-11-24T19:13:54.938Z`；未声称 Notion 已恢复 |
+| 2026-11-25 03:14 | `42caaf2b9b8d8ce2f894efb2124a4036bf58ce72` | CLI（手动，`vercel --prod`，带 `VERCEL_GIT_COMMIT_SHA`） | 部署 main `42caaf2`：PR #28 评测五根因 + #30 R2 weekly scorecard/429 + #31 Notion gateway OAuth token 注入修复 + #32 文档同步；ChatGPT env map 已含 chatgpt 映射 | READY（Notion runtime 待在线实测） | `deploymentId=dpl_DLBySiFi6P63sQnpoYEiSB2DDowM`；healthz `commit=42caaf2…` / `buildHash=27e67f39…` / `builtAt=2026-11-24T19:13:54.938Z`；未声称 Notion 已恢复 |
 
 ## 规则
 

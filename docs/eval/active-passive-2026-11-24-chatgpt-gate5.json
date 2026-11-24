@@ -1,0 +1,194 @@
+{
+  "schema": "active-passive-comparison.v1",
+  "activeEvalId": "ae_20261124_4889f8f4",
+  "generatedAt": "2026-11-24T19:33:03.278Z",
+  "match": "likely",
+  "reasons": [
+    "window+platform+build align; no requestId with a verified in-window timestamp",
+    "missed finding:F-chatgpt-deploy-sha (passive-not-detected)",
+    "missed finding:F-chatgpt-linear-truncated (passive-not-detected)",
+    "missed finding:F-chatgpt-execute-read-large (passive-not-detected)"
+  ],
+  "checks": {
+    "build": "match",
+    "platform": "match",
+    "window": "match",
+    "requestIds": "unknown"
+  },
+  "requestIds": {
+    "status": "unknown",
+    "matched": [],
+    "verified": [],
+    "unverified": [],
+    "missing": []
+  },
+  "coverage": [
+    {
+      "kind": "service",
+      "subject": "github",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:observed",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "vercel",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:observed",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "linear",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:observed",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "notion",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:observed",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "figma",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:observed",
+      "reason": null
+    },
+    {
+      "kind": "finding",
+      "subject": "F-chatgpt-deploy-sha",
+      "title": "Production deployment meta is empty and has no commit SHA",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-chatgpt-deploy-ledger",
+      "title": "DEPLOYMENTS.md does not list the latest production deployment",
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-chatgpt-linear-truncated",
+      "title": "Linear default issue response is field-truncated",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-chatgpt-execute-read-large",
+      "title": "Large execute_read output hit output truncation",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-chatgpt-search-discovery",
+      "title": "Multiple search rounds needed to find target tools",
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
+    }
+  ],
+  "missed": [
+    {
+      "kind": "finding",
+      "subject": "F-chatgpt-deploy-sha",
+      "title": "Production deployment meta is empty and has no commit SHA",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-chatgpt-linear-truncated",
+      "title": "Linear default issue response is field-truncated",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-chatgpt-execute-read-large",
+      "title": "Large execute_read output hit output truncation",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    }
+  ],
+  "findings": {
+    "total": 5,
+    "detected": 0,
+    "missed": 3,
+    "activeOnly": 2
+  },
+  "passive": {
+    "dataStatus": "HAS_DATA",
+    "requests": 29,
+    "platforms": [
+      "chatgpt",
+      "gemini"
+    ],
+    "buildCommits": [
+      "42caaf2b9b8d8ce2f894efb2124a4036bf58ce72",
+      "f2002d9ca48e55292eb824faa10b85b39ea35440"
+    ],
+    "serviceSnapshots": 2,
+    "connectFailures": 1,
+    "issues": 4
+  }
+}

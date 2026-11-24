@@ -51,7 +51,7 @@
 | 客户端 | 接入 / 认证 | Profile 编码 | 真实窗口任务（B 门） | 当前核心阻塞 / 备注 |
 |---|---|---|---|---|
 | **Gemini Web** | 已接入生产；`clientPlatform=gemini` 分账已通 | text JSON（无 `structuredContent`） | ❌ 未完成 10 条固定任务 | 主客户端；scorecard 2026-11-24 录得 `gemini` 104 请求；M4 Gate 1 PASS。B 门仍需带 exact args / actual / `requestId` 的固定任务记录 |
-| **ChatGPT Web** | DCR/OAuth 连通（client `gmc_4eeeeff9…`） | `structuredContent` + text JSON | ❌ B 门未跑；M4 Gate 5 未执行 | R2 分页修复后实测捕获 10 条请求（重跑口径；scorecard 2026-11-24 `chatgpt=10`）；`server/discover` 400 已定位为协议版本协商（ChatGPT 发 2026-07-28，网关支持到 2025-11-25，随后回退 `initialize` 200），不是待查 bug；AT-GH-01 / AT-LN-01 / AT-XU-01 条件具备 |
+| **ChatGPT Web** | DCR/OAuth 连通（client `gmc_4eeeeff9…`） | `structuredContent` + text JSON | 🔨 B 门未跑；M4 Gate 5 部分通过（ChatGPT 2/3；AT-XU-01 FAIL；Gemini 未复验） | R2 分页修复后实测捕获 10 条请求（重跑口径；scorecard 2026-11-24 `chatgpt=10`）；`server/discover` 400 已定位为协议版本协商（ChatGPT 发 2026-07-28，网关支持到 2025-11-25，随后回退 `initialize` 200），不是待查 bug；AT-GH-01 / AT-LN-01 / AT-XU-01 条件具备 |
 | **Claude Web** | callback 代码已实现 | text + annotations | ❌ 未实测 | 未派发真实 connector 验收 |
 
 ---
@@ -105,7 +105,7 @@
 1. **Pack 2 / Notion runtime**：PR #31 合并并部署后，线上 `codemode.services()` 不再把 Notion 标为 `offline`，`search('notion')` 有工具；
 2. **Pack 1 / weekly**：PR #30 合并后，周报走 0 R2 GET 路径稳定，M4 Gate 2 周报项有结论；
 3. **PR #28 语义发现**：冷却窗重跑 active→passive，`responsePreview` / `observed.findings` 的 `findings`/`missed` 有实测结论（命中或明确 `NOT_ENOUGH`），#14 才可关闭；
-4. **M4 Gate 5**：至少跑完 AT-GH-01 / AT-LN-01 / AT-XU-01，或明确记录 `NOT_ENOUGH`；未跑前只能写“跨客户端未验证”。
+4. **M4 Gate 5**：ChatGPT 已跑 AT-GH-01 / AT-LN-01 / AT-XU-01（2/3 通过，AT-XU-01 FAIL，见 BADCASES M4-C）；Gemini 端未复验，跨客户端仍写“未验证”。
 
 ### 7.2 下一站工作项
 

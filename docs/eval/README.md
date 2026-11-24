@@ -14,7 +14,7 @@
 | **Gate 2** | R2 + 免费模型稳定跑通 | **短窗 PASS；周报代码已部署待重跑**：7 天 weekly-review 受 R2 REST API 429（账户级 1,200 req/5min）；Pack 1 = PR #30 已随 `42caaf2` 部署，周报 0 R2 GET 路径待冷却重跑 | [EVAL-CLOSURE.md](EVAL-CLOSURE.md) §2.2、[CONTINUOUS-EVAL.md](CONTINUOUS-EVAL.md) §8 |
 | **Gate 3** | 主被动精确对齐 + 反哺闭环 | 请求级 `match=exact` 已达成（PR #24）；`responsePreview` / `observed.findings` 已随 PR #28/`42caaf2` 部署，语义级重跑 **待冷却后**，当前未验收 | [active-eval window1](active-eval-2026-11-24-window1.json)、[EVAL-CLOSURE.md](EVAL-CLOSURE.md) §3.1、[ACTIVE-PASSIVE-CORRELATION.md](ACTIVE-PASSIVE-CORRELATION.md) §10 |
 | **Gate 4** | 缺陷闭环修复 | **PASS**：PR #22 修复已线上验证（`3dd206f`/`f2002d9`：`fileResult` 40KB 不误报 `truncated`、`path` 保留；`issue_write` URL 兜底 `number` 随 `3dd206f` 部署） | [BADCASES.md](BADCASES.md) BC-010、[AUTHORITATIVE-SUITE.md](AUTHORITATIVE-SUITE.md) AT-GH-01 |
-| **Gate 5** | ChatGPT 跨客户端防回退 | **未执行**；已具备 AT-GH-01 / AT-LN-01 / AT-XU-01 条件，需真实 ChatGPT 窗口（授权就绪后） | [AUTHORITATIVE-SUITE.md](AUTHORITATIVE-SUITE.md) §跨上游 / 单上游任务集 |
+| **Gate 5** | ChatGPT 跨客户端防回退 | **部分通过（ChatGPT 2/3）**：AT-GH-01 PASS、AT-LN-01 PASS（首次 Linear truncated）、AT-XU-01 FAIL（deployment `meta:{}` 无 SHA + 台账缺记录）；Gemini 当前构建未复验，跨客户端未验证 | [AUTHORITATIVE-SUITE.md](AUTHORITATIVE-SUITE.md) §跨上游 / 单上游任务集 |
 
 ### Pack 1 / Pack 2 / Issue #27 关联
 

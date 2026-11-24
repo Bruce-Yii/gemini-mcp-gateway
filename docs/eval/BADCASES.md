@@ -96,6 +96,8 @@
 |---|---|---|---|---|---|
 | 2026-11-24 | 本任务无公共层代码变更（仅规则 + 闭环实测）；PR80–101 候选：content notice / PR number URL-first / truncation metadata / CI wait helper | 仅旧构建用户反馈，**当前构建未复验** | **未执行**（无真实第二客户端窗口） | `未验证` —— 不得写“公共层已修复” | [M4-C-FREQ-CLOSED-LOOP-2026-11-24.md](M4-C-FREQ-CLOSED-LOOP-2026-11-24.md) |
 
+| 2026-11-25 | ChatGPT Gate 5 只读三任务（公共层：GitHub 正文纯净、Linear list 截断、Vercel deployment meta/台账） | Gemini 当前构建未复验（本次只跑 ChatGPT） | ChatGPT：AT-GH-01 PASS；AT-LN-01 PASS（首次 `truncated:true`/`keys omitted`，精简后正常）；AT-XU-01 FAIL（`meta:{}` 无 SHA，DEPLOYMENTS 未登记最新 dpl） | `部分通过`（ChatGPT 2/3；跨客户端未验证） | [active-eval](active-eval-2026-11-24-chatgpt-gate5.json) / [active-passive](active-passive-2026-11-24-chatgpt-gate5.json)；`ae_20261124_4889f8f4`；`match=likely`；serviceSnapshots 5/5 observed；被动窗口 19:23:31–19:25:10Z 共 9 条 ChatGPT |
+
 ### 跨客户端回归最小检查单（执行时逐项填）
 
 1. 客户端 + buildCommit + requestId（没有写 `unknown`）；
@@ -125,3 +127,13 @@
   - `F-tool-description`（静态工具描述过长，被动日志天生不可见）
 - service snapshots：本历史 passive artifact 是修复前生成的，仍为 0；新的 analyzer `serviceSnapshots` 已支持从 `upstream_connect`/`codemode.services()` 汇总，需部署后重跑同一窗口才能用新证据替换。
 - 结论：**半闭环**。active 原文、passive 对照、active-only/missed 分流已落库；但 `missed=1` 未清零，且没有逐秒同窗/新分析器重跑，不能写“闭环完成/已验收”。下一步是部署新 analyzer 后重跑同一 active，确认 `F-writefiles` 是补采集还是业务修复。
+
+### 2026-11-25 ChatGPT Gate 5 实测明细
+
+- Active：`ae_20261124_4889f8f4`（`active-eval-2026-11-24-chatgpt-gate5.json`，`requestIds: unknown`）
+- Passive：run `45471052427`（分支 `fix/eval-loop-trigger-and-observability`，`last_minutes=45`、`run_weekly=false`）→ `HAS_DATA`，29 条请求（ChatGPT 9 / Gemini 20）；窗口内 ChatGPT 时间 19:23:31–19:25:10Z；**未出现 R2 429**（Gate 2 短窗）。
+- Service snapshots：5/5 observed（GitHub 42 / Vercel 73 / Linear 27 / Notion 53 / Figma 47）；`serviceSnapshots` 生效，不再 `no-snapshot`。
+- Compare：`match=likely`、`window/platform/build` 均 match；active 原报告无 requestId，不能伪造 exact；被动首条 ChatGPT `tools/call` = `b9b2fd35…` @19:23:47.390Z，末条 `3cf07cb5…` @19:25:10.737Z，与人工时间窗对齐；总请求 29 条。
+- Findings：`total=5 / detected=0 / missed=3 / activeOnly=2`；missed 为 F-chatgpt-deploy-sha、F-chatgpt-linear-truncated、F-chatgpt-execute-read-large（均为 passive-observable）；active-only 为 F-chatgpt-deploy-ledger、F-chatgpt-search-discovery。
+- 泛词假绿：本轮无 finding 被 `MCP`/`api`/`error`/`tool` 单泛词判 covered（F-mcp-drop 类假绿被门禁拦下）；但 3 个 passive-observable missed 仍需补 analyzer input/提示词后重跑，当前是 **半闭环**。
+- 结论：ChatGPT Gate 5 部分通过（2/3）；AT-XU-01 的 SHA/台账缺口已由本 PR 的 `DEPLOY-POLICY.md` 强制命令与 `DEPLOYMENTS.md` 登记修补策略覆盖，但本次生产 deployment 的 `meta:{}` 是既成事实，需下次带 `--meta githubCommitSha` 重部署才能消除；不能写“Gate 5 通过”。
