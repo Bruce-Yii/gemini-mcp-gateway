@@ -307,20 +307,28 @@ function buildToolRegistry(upstreamManager, options = {}) {
  */
 export function createGatewayServer(upstreamManager, options = {}) {
   // Thin encoding adapter: resolve once per server instance (one HTTP request
-  // in stateless mode). No tool name/schema/semantics changes.
+  // in stateless mode). No tool name/schema/semantics changes. `oauthClientId`
+  // is an EXACT OAuth client-id mapping signal only (never guessed); when it is
+  // absent the resolution is byte-for-byte the previous behaviour.
   const profile = options.profile ?? resolveClientProfile({
     headers: options.headers,
     body: options.body,
+    oauthClientId: options.oauthClientId,
+    oauthClientMap: options.oauthClientMap,
+    env: options.env,
   });
   const isV2 = options.protocolVersion === PROTOCOL_VERSION;
+  // Pass the resolved profile down so the Code Mode tool factory uses the SAME
+  // per-request profile (annotations / descriptionMode / outputBudgetChars).
+  const toolOptions = { ...options, profile };
   let tools;
   let instructions = INSTRUCTIONS;
   if (options.mode === 'codemode') {
     // v2 swaps only the two execute schemas/handlers; names, order, search and
     // annotations stay identical to v1. v1 path is completely untouched.
     tools = isV2
-      ? createCodeModeToolsV2(upstreamManager, options)
-      : createCodeModeTools(upstreamManager, options);
+      ? createCodeModeToolsV2(upstreamManager, toolOptions)
+      : createCodeModeTools(upstreamManager, toolOptions);
     instructions = isV2
       ? [
         'This gateway exposes three tools: search() to discover upstream tools; execute_read() to run READ-ONLY typed plans; and execute() to run typed plans (or code only as a fallback for logic the op registry cannot express).',
@@ -568,9 +576,17 @@ export function createMcpRequestHandler(upstreamManager, options = {}) {
         gatewayServer = createGatewayServer(upstreamManager, {
           ...options,
           // Explicit per-request client resolution. The adapter only reads
-          // declared headers/body; unknown input resolves to gemini, the
-          // existing legacy behaviour.
-          profile: resolveClientProfile({ headers: req.headers, body }),
+          // declared headers/body/oauth client id; unknown input resolves to
+          // gemini, the existing legacy behaviour. `__gatewayOAuthClientId` is
+          // attached by the auth layer (vercel-app handleMcp) before this
+          // handler runs; it is never logged or echoed.
+          profile: resolveClientProfile({
+            headers: req.headers,
+            body,
+            oauthClientId: req.__gatewayOAuthClientId,
+            oauthClientMap: options.oauthClientMap,
+            env: options.env ?? process.env,
+          }),
           // v2 route selects the versioned tool factory; v1 passes no flag.
           ...(isV2 ? { protocolVersion: PROTOCOL_VERSION } : {}),
         });

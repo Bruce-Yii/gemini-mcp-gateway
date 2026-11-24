@@ -296,9 +296,13 @@ test('B3 Annotations exist on every tool and are informational, NOT a security b
     const projected = applyProfileToTools(tools, CLIENT_PROFILES[profileId]);
     assert.deepEqual(projected.map((t) => t.annotations), tools.map((t) => t.annotations));
   }
-  // Profile objects carry encoding flags only — no auth/permission fields.
+  // Profile objects carry encoding flags + the M1 isolation slots only — no
+  // auth/permission fields.
   for (const p of Object.values(CLIENT_PROFILES)) {
-    assert.deepEqual(Object.keys(p).sort(), ['annotations', 'id', 'structuredContent', 'textJson']);
+    assert.deepEqual(Object.keys(p).sort(), [
+      'annotations', 'descriptionMode', 'id', 'outputBudgetChars',
+      'structuredContent', 'textJson', 'wireEncoding',
+    ]);
   }
   // A read-only-annotated tool's result still follows the ordinary encoding path;
   // annotation flags are not consulted by the adapter.

@@ -22,7 +22,13 @@ import { normalizeCode, sanitizeToolName } from './codemode-util.js';
 import { normalizeToolArguments } from '../shared/sanitize.js';
 import { captureEvent } from '../evidence/capture.js';
 import { searchEntries } from '../shared/catalog.js';
-import { encodeModelOutput, resolveClientProfile } from '../client/client-profile.js';
+import {
+  DEFAULT_OUTPUT_BUDGET_CHARS,
+  DESCRIPTION_MODE_COMPACT,
+  encodeModelOutput,
+  resolveClientProfile,
+  resolveToolAnnotations,
+} from '../client/client-profile.js';
 // B10 integration: canonical adapters are exposed into the sandbox through the
 // existing host bridge (values serialize; guest functions cannot cross it).
 // The existing fileResult/prResult helpers stay byte-for-byte unchanged.
@@ -63,7 +69,9 @@ import { executeTypedPlan } from './typed-plan.js';
 
 const DEFAULT_MAX_CALLS = 50; // max upstream tool calls per execute() (was 30)
 const MAX_TYPED_PLAN_STEPS = 64; // align v1 bridge with the v2 schema's maxItems
-const DEFAULT_MAX_RESULT_CHARS = 20000; // cap the execute() return value
+// M1: single-sourced with client-profile.js so a profile's default
+// `outputBudgetChars` is exactly the historical global threshold.
+const DEFAULT_MAX_RESULT_CHARS = DEFAULT_OUTPUT_BUDGET_CHARS; // cap the execute() return value
 // F-06: the `run` SDK injects every syncHostFunctions group as a guest global.
 // Calling it `__bridge` let guest code bypass __dshInvoke's Error rebuilding and
 // reach the host registry with raw `{value}` / `{__hostError,...}` envelopes.
@@ -2033,14 +2041,59 @@ export function servicesSnapshot(upstreamManager) {
   return { services };
 }
 
+/* -------------------------------------------------------------------------- *
+ * M1 client-isolation slots
+ *
+ * These three helpers are the ONLY places a client profile may influence the
+ * Code Mode tool face. They never change tool names/order, input schemas, or
+ * execution semantics:
+ *   - annotations      -> per-tool hints only (informational, not a boundary);
+ *   - descriptionMode  -> 'full' (default, historical text) | 'compact';
+ *   - outputBudgetChars-> per-execute result budget (default = historical cap).
+ * With the stock profiles every helper returns the historical value, so the
+ * default output stays byte-for-byte identical.
+ * -------------------------------------------------------------------------- */
+
+/**
+ * Per-client output budget for one execute_read/execute result.
+ *
+ * Precedence: an explicit operator/config `maxResultChars` always wins (it may
+ * be a hard global cap); otherwise the profile's `outputBudgetChars` applies;
+ * the final fallback is the historical global default. A null/undefined
+ * `options.maxResultChars` therefore keeps the exact old behaviour.
+ */
+function resolveExecuteOutputBudget(profile, options) {
+  const configured = options?.maxResultChars;
+  if (configured !== undefined && configured !== null) return configured;
+  const profileBudget = profile?.outputBudgetChars;
+  if (typeof profileBudget === 'number' && Number.isFinite(profileBudget) && profileBudget > 0) {
+    return profileBudget;
+  }
+  return DEFAULT_MAX_RESULT_CHARS;
+}
+
+/** Pick the profile's tool-description verbosity; 'full' is byte-identical. */
+function resolveToolDescription(profile, fullDescription, compactDescription) {
+  return profile?.descriptionMode === DESCRIPTION_MODE_COMPACT
+    ? compactDescription
+    : fullDescription;
+}
+
 /**
  * Build the two Code Mode MCP tools bound to an UpstreamManager.
  */
 export function createCodeModeTools(upstreamManager, options = {}) {
-  // Thin client profile: options.profile is resolved per HTTP request by
-  // server.js; direct callers get the default gemini profile. No execution
+  // Thin client profile: options.profile is resolved once per HTTP request by
+  // server.js; direct callers get the same resolution from their own
+  // headers/body/oauthClientId (unknown -> gemini default). No execution
   // semantics change.
-  const profile = options.profile ?? resolveClientProfile({ headers: options.headers, body: options.body });
+  const profile = options.profile ?? resolveClientProfile({
+    headers: options.headers,
+    body: options.body,
+    env: options.env,
+    oauthClientId: options.oauthClientId,
+    oauthClientMap: options.oauthClientMap,
+  });
   const tools = upstreamManager.getEntries?.() ?? [];
   const sanitized = tools.map((t) => ({ ...t, ident: sanitizeToolName(t.name) }));
   const servicesSuffix = connectedServicesSuffix(tools);
@@ -2048,15 +2101,29 @@ export function createCodeModeTools(upstreamManager, options = {}) {
   // reflects local state at call time; it reads no network.
   const getServices = () => servicesSnapshot(upstreamManager);
 
+  // M1 `descriptionMode: 'compact'` is a reserved per-client slot. The default
+  // 'full' path below is the historical text, byte-for-byte; compact only
+  // trims tool-definition prose and keeps the safety boundary line.
+  const compactSearchDescription = 'Search upstream tools. Plain keywords return ranked matches; "select:<exact_tool_name>" returns one tool\'s full inputSchema.'
+    + CALLNAME_GUIDANCE + servicesSuffix;
+  const compactExecuteReadDescription = 'Run READ-ONLY JavaScript via codemode.<tool>(args); return only what the model needs. Example: async () => (await codemode.github__search_repositories({query:"x"})).total_count'
+    + servicesSuffix + EXEC_BOUNDARY_GUIDANCE;
+  const compactExecuteDescription = 'Run JavaScript calling upstream tools via codemode.<tool>(args); process large results inside code and return only a summary. Example: async () => (await codemode.github__search_repositories({query:"x"})).total_count'
+    + servicesSuffix + EXEC_BOUNDARY_GUIDANCE;
+
   const searchTool = {
     name: 'search',
-    description: 'Search upstream tools. Two modes: (1) Plain keywords -> a ranked list of matching tools with compact param signatures (name!: required). (2) To see one tool\'s full inputSchema, pass EXACTLY "select:<name>" where <name> is a tool name copied from a search result (e.g. "select:github__issue_write"). Do NOT put task descriptions or phrases after "select:" — only an exact tool name works; for anything else use plain keyword search. Prefix a service name (e.g. "vercel ...") to focus on that service.' + CALLNAME_GUIDANCE + servicesSuffix,
+    description: resolveToolDescription(
+      profile,
+      'Search upstream tools. Two modes: (1) Plain keywords -> a ranked list of matching tools with compact param signatures (name!: required). (2) To see one tool\'s full inputSchema, pass EXACTLY "select:<name>" where <name> is a tool name copied from a search result (e.g. "select:github__issue_write"). Do NOT put task descriptions or phrases after "select:" — only an exact tool name works; for anything else use plain keyword search. Prefix a service name (e.g. "vercel ...") to focus on that service.' + CALLNAME_GUIDANCE + servicesSuffix,
+      compactSearchDescription,
+    ),
     inputSchema: {
       type: 'object',
       properties: { query: { type: 'string', description: 'Keywords describing the capability you need' }, limit: { type: 'integer', minimum: 1, maximum: 10 } },
       required: ['query'],
     },
-    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    annotations: resolveToolAnnotations('search', profile, { readOnlyHint: true, destructiveHint: false, openWorldHint: false }),
     handler: async (args) => {
       const limit = Number.isFinite(args?.limit) ? args.limit : 8;
       // RC-D4: delegate to the shared routine so this and the in-sandbox
@@ -2073,50 +2140,65 @@ export function createCodeModeTools(upstreamManager, options = {}) {
     },
   };
 
-  const makeExecute = (name, readOnly) => ({
-    name,
-    description: (readOnly
+  const makeExecute = (name, readOnly) => {
+    const fullDescription = (readOnly
       ? 'Write JavaScript to call READ-ONLY upstream tools (get/list/search/query) via codemode.<tool>(args). This tool is annotated read-only so the client may prompt less; it runs the same sandbox as execute(). Only your return value enters the conversation. Available read-only helpers: safeAll(tasks), unwrapBatch(x), unwrap(x), readFileRange(), waitForPrChecks(), github_actions_*. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'
-      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), unwrapBatch(x), unwrap(x), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }') + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + ASYNC_GUIDANCE + ACTIONS_GUIDANCE + GH_HIGHFREQ_GUIDANCE + LINEAR_CONTEXT_GUIDANCE + B15_ERGONOMICS_GUIDANCE + B17_FEEDBACK_GUIDANCE + servicesSuffix + EXEC_BOUNDARY_GUIDANCE,
-    inputSchema: {
-      type: 'object',
-      properties: { code: { type: 'string', description: 'An async arrow function that calls codemode tools and returns a result.' } },
-      required: ['code'],
-    },
-    annotations: readOnly
-      ? { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
-      : { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
-    handler: async (args) => {
-      const code = String(args?.code ?? '');
-      const usable = readOnly ? sanitized.filter(isReadOnlyTool) : sanitized;
-      const unavailable = readOnly ? sanitized.filter((t) => !isReadOnlyTool(t)) : [];
-      const full = await runInSandbox({
-        code,
-        tools: usable,
-        unavailableTools: unavailable,
-        callTool: (server, tool, a) => upstreamManager.callTool(server, tool, a),
-        maxCalls: options.maxCalls,
-        maxResultChars: options.maxResultChars,
-        servicesInfo: getServices,
-        fetch: options.fetch,
-        env: options.env,
-        // B14 typed-plan host helper: read-only is a host-enforced boundary and
-        // the io/ops adapters are injectable for offline tests / future wiring.
-        typedPlanReadOnly: readOnly,
-        typedPlanIO: options.typedPlanIO,
-        typedPlanOps: options.typedPlanOps,
-      });
-      // MakeOutput() attaches a toJSON() that emits the full audit payload;
-      // unwrap it first so the projection below is what server.js serializes.
-      const wire = typeof full.toJSON === 'function' ? full.toJSON() : full;
-      captureEvent('sandbox', {
-        tool: readOnly ? 'execute_read' : 'execute',
-        code,
-        output: wire,
-      });
-      return toModelOutput(wire, profile); // toolCalls + logs never enter model context
-    },
-  });
+      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), unwrapBatch(x), unwrap(x), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }')
+      + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + ASYNC_GUIDANCE + ACTIONS_GUIDANCE
+      + GH_HIGHFREQ_GUIDANCE + LINEAR_CONTEXT_GUIDANCE + B15_ERGONOMICS_GUIDANCE + B17_FEEDBACK_GUIDANCE
+      + servicesSuffix + EXEC_BOUNDARY_GUIDANCE;
+    return {
+      name,
+      description: resolveToolDescription(
+        profile,
+        fullDescription,
+        readOnly ? compactExecuteReadDescription : compactExecuteDescription,
+      ),
+      inputSchema: {
+        type: 'object',
+        properties: { code: { type: 'string', description: 'An async arrow function that calls codemode tools and returns a result.' } },
+        required: ['code'],
+      },
+      annotations: resolveToolAnnotations(
+        name,
+        profile,
+        readOnly
+          ? { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
+          : { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+      ),
+      handler: async (args) => {
+        const code = String(args?.code ?? '');
+        const usable = readOnly ? sanitized.filter(isReadOnlyTool) : sanitized;
+        const unavailable = readOnly ? sanitized.filter((t) => !isReadOnlyTool(t)) : [];
+        const full = await runInSandbox({
+          code,
+          tools: usable,
+          unavailableTools: unavailable,
+          callTool: (server, tool, a) => upstreamManager.callTool(server, tool, a),
+          maxCalls: options.maxCalls,
+          // M1: profile-specific output budget; explicit config still wins.
+          maxResultChars: resolveExecuteOutputBudget(profile, options),
+          servicesInfo: getServices,
+          fetch: options.fetch,
+          env: options.env,
+          // B14 typed-plan host helper: read-only is a host-enforced boundary and
+          // the io/ops adapters are injectable for offline tests / future wiring.
+          typedPlanReadOnly: readOnly,
+          typedPlanIO: options.typedPlanIO,
+          typedPlanOps: options.typedPlanOps,
+        });
+        // MakeOutput() attaches a toJSON() that emits the full audit payload;
+        // unwrap it first so the projection below is what server.js serializes.
+        const wire = typeof full.toJSON === 'function' ? full.toJSON() : full;
+        captureEvent('sandbox', {
+          tool: readOnly ? 'execute_read' : 'execute',
+          code,
+          output: wire,
+        });
+        return toModelOutput(wire, profile); // toolCalls + logs never enter model context
+      },
+    };
+  };
 
   // Two execute tools: read-only (no approval friction) and full (read+write).
   return [searchTool, makeExecute('execute_read', true), makeExecute('execute', false)];
