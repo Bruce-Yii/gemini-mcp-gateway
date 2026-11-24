@@ -17,9 +17,15 @@
  *     "prompt": "...", "expected": { "outcome": "...", "tools": [], "checks": [] },
  *     "observed": { "tools": [], "results": [], "errors": [], "requestIds": [],
  *                    "captureVerified": false, "services": [], "connectFailures": [],
- *                    "findings": [{ "id": "f1", "title": "...", "keywords": ["..."] }] },
+ *                    "findings": [{ "id": "f1", "title": "...", "keywords": ["..."],
+ *                                   "observability": "passive-observable|active-only" }] },
  *     "source": { "window": "...", "messageAt": ISO }
  *   }
+ *
+ * `observability` defaults to `passive-observable`. `active-only` means the
+ * passive capture lane can never see the problem (e.g. client-side context
+ * compaction or static tool-description UX); compare records it but does not
+ * count it as a passive miss.
  *
  * `--now` fixes the timestamp for deterministic tests. The stable activeEvalId
  * is derived from the normalized record (never random).
@@ -35,6 +41,7 @@ import { dirname } from 'node:path';
 
 export const ACTIVE_EVAL_SCHEMA = 'active-eval.v1';
 export const PLATFORMS = Object.freeze(['gemini', 'chatgpt', 'claude', 'unknown']);
+export const OBSERVABILITY_VALUES = Object.freeze(['passive-observable', 'active-only']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/;
 const COMMIT_RE = /^[0-9a-f]{7,40}$/i;
@@ -102,6 +109,9 @@ function validateFindings(value) {
         });
       }
     }
+    if (finding.observability !== undefined && !OBSERVABILITY_VALUES.includes(finding.observability)) {
+      errors.push(`${at}.observability must be one of ${OBSERVABILITY_VALUES.join(', ')}`);
+    }
   });
   return errors;
 }
@@ -122,6 +132,11 @@ function normalizeFindings(list) {
       id: str(finding?.id).trim(),
       title: str(finding?.title).trim(),
       keywords,
+      // Default keeps old records comparable; active-only is excluded from the
+      // passive miss gate by compare-active-passive.
+      observability: OBSERVABILITY_VALUES.includes(finding?.observability)
+        ? finding.observability
+        : 'passive-observable',
     };
   }).filter((finding) => finding.id && finding.title);
 }

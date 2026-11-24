@@ -250,7 +250,7 @@ test('D: passive issues empty → finding forced into missed with passive-not-de
 test('D: empty keywords fall back to title; matching is case-insensitive over the three fields', () => {
   const active = activeWithFindings([
     { id: 'f-title', title: 'grepSnippet window 单位不符', keywords: [] },
-    { id: 'f-case', title: 'expand_tools 未自动重连', keywords: ['NOT-FOUND'] },
+    { id: 'f-case', title: 'expand_tools 未自动重连', keywords: ['expand_tools', 'NOT-FOUND'] },
   ]);
   const result = compareActivePassive(active, analyzerOutput(passiveInput(), [
     { id: 'issue-a', severity: 'P2', category: 'gateway', title: 'grepSnippet window 单位不符：window 按字符截断', likelyCause: '', suggestedFix: '' },
@@ -261,7 +261,7 @@ test('D: empty keywords fall back to title; matching is case-insensitive over th
   assert.equal(rows.find((item) => item.subject === 'f-title').passiveIssueId, 'issue-a');
   assert.equal(rows.find((item) => item.subject === 'f-title').matchedKeyword, 'grepSnippet window 单位不符');
   assert.equal(rows.find((item) => item.subject === 'f-case').passiveIssueId, 'issue-b');
-  assert.equal(rows.find((item) => item.subject === 'f-case').matchedKeyword, 'NOT-FOUND');
+  assert.equal(rows.find((item) => item.subject === 'f-case').matchedKeyword, 'expand_tools');
 });
 
 test('D: record rejects malformed observed.findings (no silent drop)', () => {
@@ -285,7 +285,7 @@ test('D: record rejects malformed observed.findings (no silent drop)', () => {
     observed: { ...observed, findings: [{ id: ' f1 ', title: ' x ', keywords: [' K ', 'k'] }] },
   }), { now: '2026-11-24T06:21:00.000Z', rawText: '原始主动评测原文（逐字保存）' });
   // Trimmed, case-insensitively deduped, and part of `observed` → part of the id.
-  assert.deepEqual(built.observed.findings, [{ id: 'f1', title: 'x', keywords: ['K'] }]);
+  assert.deepEqual(built.observed.findings, [{ id: 'f1', title: 'x', keywords: ['K'], observability: 'passive-observable' }]);
   const plain = buildActiveEval(activeRecord(), { now: '2026-11-24T06:21:00.000Z', rawText: '原始主动评测原文（逐字保存）' });
   assert.notEqual(built.activeEvalId, plain.activeEvalId);
   assert.equal(plain.observed.findings, undefined, 'records without findings keep their pre-D shape/id');
@@ -470,3 +470,58 @@ test('BADCASES: schema requires activeEvalId/regression columns; --strict reject
   assert.ok(strictNew.errors.some((error) => /missing 关联 activeEvalId/.test(error)));
 });
 
+
+test('observability: active-only findings are recorded but excluded from passive miss gate', () => {
+  const active = activeWithFindings([
+    { id: 'f-mcp-drop', title: 'MCP connector not-found after compaction', keywords: ['MCP'], observability: 'active-only' },
+    { id: 'f-writefiles', title: 'writeFiles silent no-op', keywords: ['writeFiles'], observability: 'passive-observable' },
+  ]);
+  const result = compareActivePassive(active, analyzerOutput(passiveInput(), []));
+  assert.deepEqual(result.findings, { total: 2, detected: 0, missed: 1, activeOnly: 1 });
+  const activeOnly = result.coverage.find((row) => row.subject === 'f-mcp-drop');
+  assert.equal(activeOnly.covered, null);
+  assert.equal(activeOnly.passiveStatus, 'active-only');
+  assert.ok(result.missed.some((row) => row.subject === 'f-writefiles'));
+  assert.ok(!result.missed.some((row) => row.subject === 'f-mcp-drop'));
+  assert.ok(result.reasons.every((reason) => !/f-mcp-drop/.test(reason)));
+});
+
+test('estimate: generic keyword alone cannot create a false-green finding', () => {
+  const active = activeWithFindings([
+    { id: 'f-generic', title: 'MCP error tool issue', keywords: ['MCP'] },
+    { id: 'f-specific', title: 'writeFiles silent no-op', keywords: ['writeFiles'] },
+  ]);
+  const genericIssue = {
+    id: 'issue-generic', severity: 'P1', category: 'gateway',
+    title: 'MCP gateway error', likelyCause: 'unrelated tool issue', suggestedFix: 'none',
+  };
+  const result = compareActivePassive(active, analyzerOutput(passiveInput(), [genericIssue]));
+  const generic = result.coverage.find((row) => row.subject === 'f-generic');
+  assert.equal(generic.covered, false, 'a generic word alone must not cover a finding');
+  assert.equal(result.findings.missed, 2);
+});
+
+test('schema: observability rejects unknown values', () => {
+  const record = activeRecord({ observed: { ...activeRecord().observed, findings: [
+    { id: 'f1', title: 'x', keywords: ['writeFiles'], observability: 'not-valid' },
+  ] } });
+  const errors = validateActiveEval(record);
+  assert.ok(errors.some((error) => /observability/.test(error)));
+});
+
+
+test('serviceSnapshots: explicit analyzer serviceSnapshots feeds passive service coverage', () => {
+  const active = buildActiveEval(activeRecord(), { now: '2026-11-24T06:21:00.000Z', rawText: '原始主动评测原文（逐字保存）' });
+  const passive = passiveInput({ serviceState: undefined, serviceSnapshots: {
+    snapshots: 2,
+    byServer: {
+      github: { snapshots: 1, toolCount: 42, statuses: { online: 1 }, needsReauth: false, latest: { status: 'online', needsReauth: false } },
+      notion: { snapshots: 1, toolCount: 0, statuses: { offline: 1 }, needsReauth: true, latest: { status: 'offline', needsReauth: true } },
+    },
+    offlineServers: ['notion'],
+  } });
+  const result = compareActivePassive(active, passive);
+  assert.equal(result.passive.serviceSnapshots, 2);
+  assert.equal(result.coverage.find((row) => row.subject === 'notion').covered, true);
+  assert.equal(result.missed.some((row) => row.kind === 'service'), false);
+});

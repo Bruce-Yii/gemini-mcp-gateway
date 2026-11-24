@@ -29,6 +29,23 @@ import { dirname } from 'node:path';
 
 export const COMPARISON_SCHEMA = 'active-passive-comparison.v1';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const OBSERVABILITY_VALUES = new Set(['passive-observable', 'active-only']);
+
+// Generic/stop words are too weak to prove a finding is covered: "MCP" or
+// "error" can appear in an unrelated issue and turn a miss into a false green.
+// A generic needle only counts when at least two needles hit the same issue.
+const GENERIC_KEYWORDS = new Set([
+  'mcp', 'mcp gateway', 'gateway', 'api', 'apis', 'error', 'errors', 'tool', 'tools',
+  'issue', 'issues', 'failed', 'failure', 'not-found', 'not found', 'null',
+  'undefined', 'offline', 'online', 'timeout', 'gateway error', '模型', '工具',
+]);
+const isGenericNeedle = (value) => {
+  const lower = str(value).trim().toLowerCase();
+  if (!lower) return true;
+  if (GENERIC_KEYWORDS.has(lower)) return true;
+  if (lower.length < 3) return true;
+  return /^\d+$/.test(lower);
+};
 
 const str = (value) => (typeof value === 'string' ? value : '');
 const arr = (value) => (Array.isArray(value) ? value : []);
@@ -89,7 +106,8 @@ export function normalizePassive(passive) {
   idsFromRows(dimensions.byFourDimension);
   idsFromRows(dimensions.byProtocolVersion);
   idsFromRows(dimensions.byClientProfile);
-  for (const row of Object.values(input.serviceState?.byServer ?? {})) idsFromRows([row]);
+  const serviceState = input.serviceSnapshots ?? input.serviceState ?? { snapshots: 0, byServer: {}, offlineServers: [] };
+  for (const row of Object.values(serviceState.byServer ?? {})) idsFromRows([row]);
   for (const row of Object.values(input.connectFailures?.byServer ?? {})) idsFromRows([row]);
 
   const platforms = new Set();
@@ -116,7 +134,8 @@ export function normalizePassive(passive) {
     platforms,
     commits,
     timestamps,
-    serviceState: input.serviceState ?? { snapshots: 0, byServer: {}, offlineServers: [] },
+    serviceState,
+    serviceSnapshots: serviceState,
     connectFailures: input.connectFailures ?? { failures: 0, byServer: {} },
     issues,
   };
@@ -215,30 +234,53 @@ function findingChecks(findings, passiveIssues) {
   return arr(findings).map((finding, index) => {
     const id = str(finding?.id).trim() || `finding-${index + 1}`;
     const title = str(finding?.title).trim();
+    const observability = OBSERVABILITY_VALUES.has(finding?.observability)
+      ? finding.observability
+      : 'passive-observable';
+    if (observability === 'active-only') {
+      return {
+        kind: 'finding',
+        subject: id,
+        title,
+        observability,
+        expected: 'active-only-not-passively-observable',
+        covered: null,
+        passiveStatus: 'active-only',
+        passiveIssueId: null,
+        matchedKeyword: null,
+        matchedKeywords: [],
+        reason: 'active-only-not-passively-observable',
+      };
+    }
     const keywords = arr(finding?.keywords).map((keyword) => str(keyword).trim()).filter(Boolean);
     const needles = (keywords.length ? keywords : [title])
-      .map((value) => ({ value, needle: value.toLowerCase() }))
+      .map((value) => ({ value, needle: value.toLowerCase(), generic: isGenericNeedle(value) }))
       .filter((needle) => needle.needle);
     let hit = null;
-    let matchedKeyword = null;
-    for (const needle of needles) {
-      const issue = passiveIssues.find((row) => row.text.includes(needle.needle));
-      if (issue) {
-        hit = issue;
-        matchedKeyword = needle.value;
-        break;
-      }
+    let matchedNeedles = [];
+    for (const issue of passiveIssues) {
+      const matches = needles.filter((needle) => issue.text.includes(needle.needle));
+      if (!matches.length) continue;
+      const specific = matches.filter((needle) => !needle.generic);
+      // Need at least one specific feature word, or two hits on the same issue
+      // when every hit is a generic/stop word.
+      if (specific.length === 0 && matches.length < 2) continue;
+      hit = issue;
+      matchedNeedles = matches;
+      break;
     }
     const covered = Boolean(hit);
     return {
       kind: 'finding',
       subject: id,
       title,
+      observability,
       expected: 'passive-issue-detected',
       covered,
       passiveStatus: covered ? `issue-detected:${hit.id}` : 'not-detected',
       passiveIssueId: hit ? hit.id : null,
-      matchedKeyword,
+      matchedKeyword: matchedNeedles[0]?.value ?? null,
+      matchedKeywords: matchedNeedles.map((needle) => needle.value),
       reason: covered ? null : 'passive-not-detected',
     };
   });
@@ -267,11 +309,14 @@ export function compareActivePassive(active, passive) {
   const connectResults = connectChecks(active?.observed?.connectFailures, view);
   const findingResults = findingChecks(active?.observed?.findings, view.issues);
   const coverage = [...serviceResults, ...connectResults, ...findingResults];
-  const missed = coverage.filter((row) => !row.covered);
+  const missed = coverage.filter((row) => row.covered === false);
+  const findingResultsPassive = findingResults.filter((row) => row.observability !== 'active-only');
+  const activeOnlyFindings = findingResults.filter((row) => row.observability === 'active-only');
   const findings = {
     total: findingResults.length,
-    detected: findingResults.filter((row) => row.covered).length,
-    missed: findingResults.filter((row) => !row.covered).length,
+    detected: findingResultsPassive.filter((row) => row.covered).length,
+    missed: findingResultsPassive.filter((row) => !row.covered).length,
+    ...(activeOnlyFindings.length ? { activeOnly: activeOnlyFindings.length } : {}),
   };
 
   let match;

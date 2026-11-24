@@ -11,8 +11,8 @@
 | 门 | 口径 | 当前状态 | 入口 / 证据 |
 |---|---|---|---|
 | **Gate 1** | 线上采集 + 平台分账 | **PASS（按本轮指定口径）**：scorecard-2026-11-24 真实采集 335 请求（`gemini` 104 / `chatgpt` 10 / `unknown` 221 旧 envelope）；四维分账与 `--platform` / `--eval-mode` 过滤已用真实采集验证；修复分支 last 180m 重跑进一步恢复 34 条（chatgpt 10） | [M4-A-FOUR-DIM.md](M4-A-FOUR-DIM.md)、[BADCASES.md](BADCASES.md) PR #28 回填、[scorecard-2026-11-24.md](scorecard-2026-11-24.md) |
-| **Gate 2** | R2 + 免费模型稳定跑通 | **短窗 PASS；周报 BLOCKED**：7 天 weekly-review 受 R2 REST API 429（账户级 1,200 req/5min），待 Pack 1 = PR #30 | [EVAL-CLOSURE.md](EVAL-CLOSURE.md) §2.2、[CONTINUOUS-EVAL.md](CONTINUOUS-EVAL.md) §8 |
-| **Gate 3** | 主被动精确对齐 + 反哺闭环 | 请求级 `match=exact` 已达成（PR #24）；`responsePreview` / `observed.findings` 语义级重跑 **待 PR #28 冷却后**，当前未验收 | [active-eval window1](active-eval-2026-11-24-window1.json)、[EVAL-CLOSURE.md](EVAL-CLOSURE.md) §3.1、[ACTIVE-PASSIVE-CORRELATION.md](ACTIVE-PASSIVE-CORRELATION.md) §10 |
+| **Gate 2** | R2 + 免费模型稳定跑通 | **短窗 PASS；周报代码已部署待重跑**：7 天 weekly-review 受 R2 REST API 429（账户级 1,200 req/5min）；Pack 1 = PR #30 已随 `42caaf2` 部署，周报 0 R2 GET 路径待冷却重跑 | [EVAL-CLOSURE.md](EVAL-CLOSURE.md) §2.2、[CONTINUOUS-EVAL.md](CONTINUOUS-EVAL.md) §8 |
+| **Gate 3** | 主被动精确对齐 + 反哺闭环 | 请求级 `match=exact` 已达成（PR #24）；`responsePreview` / `observed.findings` 已随 PR #28/`42caaf2` 部署，语义级重跑 **待冷却后**，当前未验收 | [active-eval window1](active-eval-2026-11-24-window1.json)、[EVAL-CLOSURE.md](EVAL-CLOSURE.md) §3.1、[ACTIVE-PASSIVE-CORRELATION.md](ACTIVE-PASSIVE-CORRELATION.md) §10 |
 | **Gate 4** | 缺陷闭环修复 | **PASS**：PR #22 修复已线上验证（`3dd206f`/`f2002d9`：`fileResult` 40KB 不误报 `truncated`、`path` 保留；`issue_write` URL 兜底 `number` 随 `3dd206f` 部署） | [BADCASES.md](BADCASES.md) BC-010、[AUTHORITATIVE-SUITE.md](AUTHORITATIVE-SUITE.md) AT-GH-01 |
 | **Gate 5** | ChatGPT 跨客户端防回退 | **未执行**；已具备 AT-GH-01 / AT-LN-01 / AT-XU-01 条件，需真实 ChatGPT 窗口（授权就绪后） | [AUTHORITATIVE-SUITE.md](AUTHORITATIVE-SUITE.md) §跨上游 / 单上游任务集 |
 
@@ -20,8 +20,8 @@
 
 | 项 | 内容 | 状态 | 对五门的关系 |
 |---|---|---|---|
-| **Pack 1 = PR #30** | weekly 默认读已提交 daily scorecard（0 R2 GET）；`from_r2=true` 显式回退；429 解析 `Retry-After`/`Ratelimit`，超 120s 抛 `R2_RATE_LIMITED` | **OPEN，未合并/未部署** | 解锁 Gate 2 周报；不改变 Gate 3 的 exact/findings 判定 |
-| **Pack 2 = PR #31** | Notion 无 `tokenEnv` 时也注入 gateway OAuth `Authorization`（运行时 401/offline 根因） | **OPEN，未合并** | 业务代码 bug，不属 M4 修复；是 Gate 5 做 Notion 跨客户端回归的前置 |
+| **Pack 1 = PR #30** | weekly 默认读已提交 daily scorecard（0 R2 GET）；`from_r2=true` 显式回退；429 解析 `Retry-After`/`Ratelimit`，超 120s 抛 `R2_RATE_LIMITED` | **已合并并随 `42caaf2` 部署，待冷却重跑** | 解锁 Gate 2 周报；不改变 Gate 3 的 exact/findings 判定 |
+| **Pack 2 = PR #31** | Notion 无 `tokenEnv` 时也注入 gateway OAuth `Authorization`（运行时 401/offline 根因） | **已合并并随 `42caaf2` 部署，runtime 待在线实测** | 业务代码 bug，不属 M4 修复；是 Gate 5 做 Notion 跨客户端回归的前置 |
 | **Issue #27** | 统一客户端接入：预注册 Client Registry 取代生产 DCR（Gemini/ChatGPT/Claude + 自托管） | **OPEN 设计 issue** | 影响 Gate 1 平台分账的接入方式与 Gate 5 的第二客户端；不阻塞本轮 |
 
 ### 门禁命令入口
@@ -62,7 +62,7 @@ node scripts/check-module-boundaries.mjs              # 模块边界门禁（0 n
 ## 在线反馈与 Scorecard 记录
 
 - 2026-11-24 真实窗口 #1/#2（Gemini）：[active-eval window1](active-eval-2026-11-24-window1.json) / [window2](active-eval-2026-11-24-window2.json)；同窗对照 [window1](active-passive-2026-11-24-window1.json) / [window2](active-passive-2026-11-24-window2.json)
-- 2026-11-24 云端总控长会话：[active-eval cloud-control](active-eval-2026-11-24-cloud-control.json)（`ae_20261124_927eae1a`，含 `observed.findings[]`；同窗被动对照待 R2 冷却后重跑）
+- 2026-11-24 云端总控长会话：[active-eval cloud-control](active-eval-2026-11-24-cloud-control.json)（`ae_20261124_8396a638`，含 `observed.findings[]`；同窗被动对照待 R2 冷却后重跑）
 - [ONLINE-FEEDBACK-2026-11-24-PR80-101.md](ONLINE-FEEDBACK-2026-11-24-PR80-101.md) — PR #80–#101 真实使用反馈
 - [FEEDBACK-2026-11-24-MATRIX.md](FEEDBACK-2026-11-24-MATRIX.md) — F/G/N/J 矩阵
 - [online-feedback-2026-11-23-gemini.md](online-feedback-2026-11-23-gemini.md) / [online-feedback-2026-11-23-chatgpt.md](online-feedback-2026-11-23-chatgpt.md)

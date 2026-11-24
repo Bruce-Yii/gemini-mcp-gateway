@@ -12,19 +12,19 @@
 
 ## 0. 当前真实状态（先读，防止把“代码已修”当“线上已生效”）
 
-- **生产已部署 `f2002d9`**（2026-11-25 01:55 手动 `vercel --prod`，带 `VERCEL_GIT_COMMIT_SHA`）：`https://gemini-mcp-gateway.vercel.app` healthz 已核 `commit=f2002d9…` / `buildHash=3b1a0772…` / `builtAt=2026-11-24T17:54:55.59Z`；`deploymentId=dpl_6P2Ww8vsTHXbbSF98GTE55HKitB4`。
-  本次合并 PR #29：Linear 切 `static_bearer` PAT（`https://mcp.linear.app/mcp/readonly` + `LINEAR_API_KEY`），Notion 改网关自有 OAuth/DCR（`owner=gateway`）；production 新增 `LINEAR_API_KEY` / `UPSTREAM_OAUTH_ADMIN_KEY`。
-- **`main=cd23fdc`**（PR #28 评测工具层修复已合、**未部署**）；不要声称线上包含 #28。
+- **生产已部署 `42caaf2`**（2026-11-25 03:14 手动 `vercel --prod`，带 `VERCEL_GIT_COMMIT_SHA`）：`https://gemini-mcp-gateway.vercel.app` healthz 已核 `commit=42caaf2…` / `buildHash=27e67f39…` / `builtAt=2026-11-24T19:13:54.938Z`；`deploymentId=dpl_DLBySiFi6P63sQnpoYEiSB2DDowM`。
+  本次合并 PR #29/#30/#31/#32：Linear 切 `static_bearer` PAT（`https://mcp.linear.app/mcp/readonly` + `LINEAR_API_KEY`）；Notion 改网关自有 OAuth/DCR（`owner=gateway`），PR #31 修复运行时无 `tokenEnv` 不注入 Authorization 的 bug；PR #30 周报改 scorecard 0 R2 GET；PR #32 文档同步。
+- **`main=42caaf2`**，已包含 PR #28/#30/#31/#32 并部署；代码态=生产态只到构建层，Notion runtime 是否恢复仍需在线 `codemode.services()` 实测。
 - **线上上游实况（`f2002d9` 实测 2026-11-24T18:17Z）**：GitHub 42 / Linear 27 / Vercel 73 / Figma 47 tools 在线（合计 189）；`linear__list_teams` 成功，Linear PAT 路径已验证。
-  **Notion 仍 `offline`（0 tools、`needsReauth`）**：OAuth 授权已落 KV（`owner=gateway`、`source=gateway-dcr`、`refresh=yes`，直接 `tools/list` 200），但运行时 `_resolveToken()` 在无 `tokenEnv` 时提前 return，请求不带 `Authorization`。PR #31 修复中、**未合并**；在合并部署并复验 `codemode.services()` 前，不能写“Notion 可用”。
-- **入站安全变量名**（只记名字，严禁记录值）：生产已生效 `OAUTH_APPROVE_PASSPHRASE`（PR #26，consent 审批口令；缺失/错误 403 不落 code）、`ALLOW_DCR_FOR_CHATGPT=1`（ChatGPT DCR 显式 carve-out）、`UPSTREAM_OAUTH_ADMIN_KEY`（`/upstream/oauth/start` 管理入口）；`CLIENT_PLATFORM_OAUTH_MAP` 已追加 ChatGPT 客户端 → `chatgpt` 映射（Config），截至 `f2002d9` 未 redeploy。
+  **Notion runtime**：OAuth 授权已落 KV（`owner=gateway`、`source=gateway-dcr`、`refresh=yes`）；根因是运行时无 `tokenEnv` 时不读 KV/不注入 Authorization，PR #31 已合并并随 `42caaf2` 部署。**部署成功 ≠ 已恢复**：在云端实测 `codemode.services()` / `search("notion")` 前，不得写“Notion 可用”或“已恢复”。
+- **入站安全变量名**（只记名字，严禁记录值）：生产已生效 `OAUTH_APPROVE_PASSPHRASE`（PR #26，consent 审批口令；缺失/错误 403 不落 code）、`ALLOW_DCR_FOR_CHATGPT=1`（ChatGPT DCR 显式 carve-out）、`UPSTREAM_OAUTH_ADMIN_KEY`（`/upstream/oauth/start` 管理入口）；`CLIENT_PLATFORM_OAUTH_MAP` 已追加 ChatGPT 客户端 → `chatgpt` 映射，随 `42caaf2` 生效（值不记录）。
 - **旧凭据清理/轮换延后**：等 Notion 8h/72h 稳定观测通过后，再移除旧 DSH Notion 连接与旧 `NOTION_*`/`LINEAR_*` refresh env，并轮换暴露过的 Linear PAT；**当前不要删**（见 §2 与 `docs/AUTH-READY.md` §1.9）。
 - **push 自动 production 部署仍关闭**（`git.deploymentEnabled.main=false`，`05f607c` 起已多次复核）；branch push 仍生成 preview。
 - 独立审查见 `docs/OPEN-SOURCE/INDEPENDENT-REVIEW-2026-11-24.md`。
 - **工作区全量测试以最近一次 lead 跑出的结果为准**；不要用其他 agent 的中间态。
-  当前基线：`1583 tests / 1577 pass / 0 fail / 6 todo`（2026-11-25 lead 实跑；docs 分支基于 main cd23fdc，勿引用 PR/子代理数字）。
+  当前基线：`1592 tests / 1586 pass / 0 fail / 6 todo`（2026-11-25 lead 实跑（fix/eval-loop-trigger-and-observability）；勿引用 PR/子代理数字）。
 - **不找用户反复要授权**：授权只有在 `docs/AUTH-READY.md` 全绿后才发起；
-  当前明确 **NOT READY**（Notion runtime offline、8h/72h 未观测、Vercel CIMD BLOCKED、旧凭据未清理）。
+  当前明确 **NOT READY**（Notion runtime 待在线实测、8h/72h 未观测、Vercel CIMD BLOCKED、旧凭据未清理）。
 - **OSS 未公开**：只有 `work/oss-release-staging` / `work/oss-release-repo`
   本地产物；没有远端、没有 push、没有公开仓库。发布前必须过
   `docs/OPEN-SOURCE/RELEASE-LOCAL.md` + `PUBLIC-SAFETY-AUDIT.md`。
@@ -51,9 +51,9 @@
   - OAuth 2.1 / RFC 9700：refresh token 绑定 client/grant，replay 会吊销整个 grant；
   - DSH 与网关必须是两个独立 client / 独立 grant；
   - 二选一：网关独立授权，或 DSH 做 token broker；**网关独立授权是唯一默认，Notion/Linear 生产已按此切换**。
-- **当前生产授权事实（`f2002d9`）**：
+- **当前生产授权事实（`42caaf2`）**：
   - Linear：`static_bearer` PAT，`url=https://mcp.linear.app/mcp/readonly`，`tokenEnv=LINEAR_API_KEY`；不 refresh，实测 27 tools、`list_teams` 成功。
-  - Notion：网关自有 OAuth/DCR，v2 grant `owner=gateway`、`source=gateway-dcr`、`refresh=yes`；DSH 侧不再是 owner。生产 runtime 仍 offline（根因与修复见 §0，PR #31 未合并）。
+  - Notion：网关自有 OAuth/DCR，v2 grant `owner=gateway`、`source=gateway-dcr`、`refresh=yes`；DSH 侧不再是 owner。PR #31 已合并并随 `42caaf2` 部署，runtime 是否恢复待在线 `codemode.services()` 实测。
   - Vercel：OAuth-only，必须 `offline_access`；CIMD 被 AS 拒绝，BLOCKED。
   - Figma 等历史配置仍可能标 `grantOwner=dsh`；`owner=dsh` 只是迁移兼容值，不是产品 owner 类型；完全态 owner 见 `docs/FRAMEWORK-FULL.md`。
 - 网关 token 记录必须带：
@@ -117,6 +117,22 @@ online-feedback.v1 记录
 3. **记入分类 Badcase**：按 `客户端 × 上游(含跨上游) × 问题类别` 登记进 `docs/eval/BADCASES.md`，作为高价值抽测与全量回归资产；
 4. **派单复现修复**：换受控测试仓库复现动作并修复，高频核心问题同步补进离线确定性测试；
 5. **被动反哺核对**：顺手确认“为什么刚才被动分析没抓到/有没有抓到”，若漏抓则补采集字段或调优分析提示词。
+
+### 3.1.0 强制小闭环（2026-11-25 硬规则）
+
+只要收到任何客户端发来的主动在线评测报告——**无论它是否混在文档同步、PR review、部署或其他任务中顺带贴入**——禁止停在“原文落库 + 记 BADCASES”就交差。必须自动连续走完最小闭环：
+
+1. **落库**：`record-active-eval` 保存逐字原文与结构化 JSON；每条 `observed.findings[]` 必须标 `observability: passive-observable|active-only`，并给出**具体特征词**；禁止 `MCP`/`api`/`error`/`tool`/`not-found` 等宽泛单词作为唯一关键词。
+2. **同窗对照**：自动执行同窗或最近窗口 `compare-active-passive`；若 R2 限流、无同窗数据或窗口不匹配，必须写 `NOT_ENOUGH` + 具体原因，**不得静默跳过**。
+3. **missed 分流**：
+   - `passive-observable` 漏检 → 提出或直接实施反哺修复（补采集字段 / 改 analyzer input/提示词），冷却/部署后重跑验证；
+   - `active-only`（如客户端上下文压缩掉线、静态工具描述过长等被动日志天生不可见项）→ 直接登记 `BADCASES.md` / 业务 Issue 推进代码修复，**不纳入被动漏检门禁**。
+4. **汇报**：最终回复必须强制附带 3 行闭环核对单：
+   - `落库结果`：activeEvalId + raw/JSON 路径；
+   - `同窗对照与 missed 分流`：match/dataStatus + missed/active-only 数量与原因；
+   - `反哺动作或明确阻塞原因`：补了什么/重跑结果，或为什么只能 `NOT_ENOUGH`。
+
+未完成以上 4 步前，严禁写“闭环完成 / 已验收”。`docs/eval/EVAL-CLOSURE.md` §3.1 记录关键词具体性与 `active-only` 口径。
 
 ### 3.1.1 主动评测触发探针（开发窗口必跑，M5-E 定型 2026-11-24）
 
@@ -228,12 +244,12 @@ online-feedback.v1 记录
 - 部署前过 `docs/DEPLOY-POLICY.md`；部署后记录 `docs/DEPLOYMENTS.md`，并跑
   `node scripts/check-status-drift.mjs --expected <deployed-commit>` 确认 AGENTS/STATUS 没有旧 build 引用。
 - 能本地/回放验证就不要发 preview。
-- 当前生产：`f2002d9`（2026-11-25 手动部署；`buildHash=3b1a0772…`；A 门当前构建可追溯；B–G 未完成）；下次部署应在 PR #31 合并且全量测试绿后，用于修复 Notion runtime 并复验 `codemode.services()`/`search('notion')`；纯文档/评测脚本改动（如 `main cd23fdc`）不部署。
+- 当前生产：`42caaf2`（2026-11-25 手动部署；`buildHash=27e67f39…`；A 门当前构建可追溯；B–G 未完成）；PR #31 已随该构建上线，Notion 是否恢复以在线 `codemode.services()`/`search("notion")` 实测为准；纯文档/评测脚本改动不部署。
 
 ## 9. 当前不要做的事
 
-- 不要声称 Vercel 已部署最新代码（生产是 `f2002d9`，`main cd23fdc` 未部署）；
-- 不要声称 Notion 生产可用：runtime 仍 offline（0 tools），PR #31 未合并、未部署；
+- 不要把“`42caaf2` 已部署”写成“Notion / M4 已验收”：生产构建可追溯，但 runtime/8h/72h 未测；
+- 不要在云端实测前声称 Notion 已恢复；若 `services()` 仍 offline，按新证据记录，不得沿用旧结论；
 - 不要删除旧 DSH Notion 连接 / 旧 `NOTION_*`/`LINEAR_*` refresh env，也不要轮换 Linear PAT（等 Notion 8h/72h 观测通过）；
 - 不要打印、记录或提交任何 passphrase / admin key / PAT / client secret 值（只写变量名）；
 - 不要声称 ChatGPT Free/Plus 支持完整 MCP；

@@ -473,3 +473,19 @@ test('R2 429 exhaustion throws R2_RATE_LIMITED, never fakes success', async () =
     /R2_RATE_LIMITED/,
   );
 });
+
+test('eval-closure: cold-start upstream_connect events become serviceSnapshots', () => {
+  const events = (rows) => rows.map((row) => ({ type: 'upstream_connect', payload: row }));
+  const metrics = aggregateEnvelopes([
+    envelope(200, 5, '{}', { requestId: 'req-ok', events: events([{ server: 'github', ok: true, toolCount: 42 }]) }),
+    envelope(200, 5, '{}', { requestId: 'req-fail', events: events([{ server: 'notion', ok: false, error: { message: '401 invalid_token' } }]) }),
+  ]);
+  assert.equal(metrics.serviceSnapshots.snapshots, 2);
+  assert.equal(metrics.serviceSnapshotCounts.helper, 0);
+  assert.equal(metrics.serviceSnapshotCounts.connect, 2);
+  assert.equal(metrics.serviceSnapshots.byServer.github.latest.status, 'online');
+  assert.equal(metrics.serviceSnapshots.byServer.notion.latest.status, 'offline');
+  assert.equal(metrics.serviceSnapshots.byServer.notion.needsReauth, true);
+  assert.deepEqual(metrics.serviceSnapshots.onlineServers, ['github']);
+  assert.deepEqual(metrics.serviceSnapshots.currentOfflineServers, ['notion']);
+});

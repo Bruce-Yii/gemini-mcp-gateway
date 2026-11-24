@@ -7,7 +7,7 @@
 ## 0. 当前快照
 
 - 生产 Vercel：**`f2002d9`**（2026-11-25 01:55 手动部署；healthz `commit=f2002d9…` / `buildHash=3b1a0772…` / `deploymentId=dpl_6P2Ww8vsTHXbbSF98GTE55HKitB4`）；`main` HEAD `cd23fdc`（PR #28 已合入、未进入生产构建）
-- 最近全量：`1583 tests / 1577 pass / 0 fail / 6 todo`（2026-11-25 lead 实跑；docs 分支基于 main cd23fdc，引用时以 lead 当次实跑为准）
+- 最近全量：`1592 tests / 1586 pass / 0 fail / 6 todo`（2026-11-25 lead 实跑（fix/eval-loop-trigger-and-observability），引用时以 lead 当次实跑为准）
 - 工作分支：`docs/sync-status-and-milestones`（只同步 `docs/STATUS.md`、`docs/EXECUTION-PLAN.md`、`docs/ACCEPTANCE.md`；不碰业务代码）
 - 已完成 PR 里程碑：`#22` Issue #15 前两项 → `#23` M5-E 闭环工具层 → `#24` 双窗口主动评测 → `#25` 子代理 M1–M6 编排规则 → `#26` 入站审批口令 → `#28` 5 个评测根因（未部署）→ `#29` Linear PAT + Notion gateway OAuth（生产 `f2002d9`）
 - Auth：Linear `static_bearer` + PAT 线上可用；Notion OAuth 凭据已存储但 runtime `offline`（Pack 2 / PR #31 OPEN）；Vercel CIMD BLOCKED；`AUTH-READY.md` = **NOT READY**（已按 2026-11-25 事实重写）
