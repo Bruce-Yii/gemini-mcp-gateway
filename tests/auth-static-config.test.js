@@ -25,19 +25,19 @@ test('linear uses an owner-created PAT via static_bearer', () => {
   assert.equal(linear.grantOwner, undefined);
 });
 
-test('notion uses an owner-created MCP token via static_bearer', () => {
+test('notion uses gateway-owned OAuth/DCR (MCP token only exists on Business/Enterprise)', () => {
   const notion = server('notion');
-  assert.equal(notion.authMode, STATIC_BEARER);
-  assert.equal(notion.tokenEnv, 'NOTION_MCP_TOKEN');
-  assert.equal(notion.dcr, undefined);
-  assert.equal(notion.refreshUrl, undefined);
+  assert.equal(notion.authMode, undefined);
+  assert.equal(notion.grantOwner, 'gateway');
+  assert.equal(notion.dcr, true);
+  assert.equal(notion.tokenEnv, undefined);
   assert.equal(notion.refreshEnv, undefined);
-  assert.equal(notion.grantOwner, undefined);
+  assert.equal(notion.refreshUrl, 'https://mcp.notion.com/token');
 });
 
-test('static_bearer config validates with the two token env vars set', () => {
+test('static_bearer config validates with the linear PAT env set', () => {
   const { warnings } = validateConfig(config, {
-    env: { LINEAR_PAT_STATIC: 'lin_pat_dummy', NOTION_MCP_TOKEN: 'notion_mcp_dummy' },
+    env: { LINEAR_PAT_STATIC: 'lin_pat_dummy' },
   });
   assert.equal(
     warnings.some((warning) => /LINEAR_PAT_STATIC|NOTION_MCP_TOKEN/.test(warning)),

@@ -107,13 +107,13 @@ test('config: refreshEnv without any owner marking warns that refresh is impossi
   assert.ok(warnings.some((w) => /NEVER auto-refresh/.test(w)));
 });
 
-test('config.example.json uses static_bearer for linear/notion and owner=dsh only for legacy figma', async () => {
+test('config.example.json uses static_bearer for linear and gateway-owned OAuth for notion', async () => {
   const parsed = JSON.parse(await readFile(new URL('../config.example.json', import.meta.url), 'utf8'));
   const byName = Object.fromEntries(parsed.servers.map((s) => [s.name, s]));
-  for (const name of ['notion', 'linear']) {
-    assert.equal(byName[name].authMode, 'static_bearer', `${name} must be static_bearer`);
-    assert.equal(byName[name].grantOwner, undefined, `${name} must not be env-seeded as dsh`);
-  }
+  assert.equal(byName.linear.authMode, 'static_bearer', 'linear must be static_bearer');
+  assert.equal(byName.linear.grantOwner, undefined, 'linear must not be env-seeded as dsh');
+  assert.equal(byName.notion.grantOwner, 'gateway', 'notion must be gateway-owned');
+  assert.equal(byName.notion.tokenEnv, undefined, 'notion must not seed a DSH env token');
   assert.equal(byName.figma.grantOwner, 'dsh', 'figma legacy env grant stays explicitly dsh');
 });
 

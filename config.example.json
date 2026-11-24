@@ -50,7 +50,15 @@
       "name": "notion",
       "transport": "http",
       "url": "https://mcp.notion.com/mcp",
-      "tokenEnv": "NOTION_MCP_TOKEN",
+      "authorizeUrl": "https://mcp.notion.com/authorize",
+      "refreshUrl": "https://mcp.notion.com/token",
+      "dcr": true,
+      "registrationEndpoint": "https://mcp.notion.com/register",
+      "resource": "https://mcp.notion.com/mcp",
+      "oauthScopes": [
+        "default"
+      ],
+      "grantOwner": "gateway",
       "allowTools": [],
       "denyTools": [
         "notion-search-agents",
@@ -78,7 +86,7 @@
         "notion-calendar-list-coworkers-events",
         "notion-calendar-list-calendar-resources"
       ],
-      "authMode": "static_bearer"
+      "grantSource": "gateway-oauth"
     },
     {
       "name": "linear",
