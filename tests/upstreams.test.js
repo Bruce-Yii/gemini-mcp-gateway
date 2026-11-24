@@ -93,3 +93,26 @@ test('tokenHeader: raw token goes into a custom header (Figma X-Figma-Token)', a
   assert.equal(headers.Authorization, undefined);
   delete process.env[ENV_KEY];
 });
+
+test('gateway-owned OAuth without tokenEnv resolves KV token and sends Authorization', async () => {
+  const auth = {
+    getAccessToken: async (server, env) => {
+      assert.equal(server, 'notion');
+      assert.equal(env.envToken, undefined);
+      return 'kv-gateway-token';
+    },
+  };
+  const mgr = new UpstreamManager([
+    {
+      name: 'notion',
+      transport: 'http',
+      url: 'https://example.invalid/mcp',
+      authorizeUrl: 'https://mcp.notion.com/authorize',
+      refreshUrl: 'https://mcp.notion.com/token',
+      grantOwner: 'gateway',
+    },
+  ], { auth });
+  const transport = await mgr._createTransport(mgr.configs[0]);
+  const headers = transport._requestInit?.headers ?? transport.requestInit?.headers;
+  assert.equal(headers.Authorization, 'Bearer kv-gateway-token');
+});
