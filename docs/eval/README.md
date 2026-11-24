@@ -24,6 +24,10 @@
 - [l1-smoke-report.md](l1-smoke-report.md)
 - [scorecard-2026-11-22.md](scorecard-2026-11-22.md)
 
+## 四维分账 / M4-A
+
+- [M4-A-FOUR-DIM.md](M4-A-FOUR-DIM.md) — platform × protocol(v1/v2) × profile × build 分账 + `--platform/--eval-mode` 过滤与环境核验
+
 ## 安全 / 平台
 
 - [CODEMODE-SECURITY-AUDIT.md](CODEMODE-SECURITY-AUDIT.md)

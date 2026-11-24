@@ -16,6 +16,8 @@ import { randomUUID } from 'node:crypto';
 import {
   listR2Keys, readR2Envelope, readDirEnvelopes, aggregateEnvelopes, classifyError,
   isTruncated, isModelTruncationSuspect, upstreamOf, digestSessions, digestProjects,
+  clientPlatformOf, clientProfileOf, protocolVersionOf, executorOf,
+  serversOf, evalModeOf, UNKNOWN_BUCKET,
 } from './capture-digest.mjs';
 
 const MAX_CODE = 2000;
@@ -57,12 +59,12 @@ export function dailyTrend(envelopes) {
   });
 }
 
-export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 10, trend = null } = {}) {
+export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 10, trend = null, filters = null } = {}) {
   const mcpOnly = envelopes.filter((envelope) => {
     try {
       const path = new URL(String(envelope?.request?.url ?? '/mcp'), 'http://localhost').pathname;
       const method = String(envelope?.request?.method ?? 'POST').toUpperCase();
-      return path === '/mcp' && method === 'POST';
+      return (path === '/mcp' || path === '/mcp/v2') && method === 'POST';
     } catch { return true; }
   });
   const metrics = aggregateEnvelopes(mcpOnly, { date });
@@ -88,7 +90,10 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
         sample: {
           id: envelope.requestId,
           ts: envelope.ts ?? null,
-          clientPlatform: envelope.clientPlatform ?? 'unknown',
+          clientPlatform: clientPlatformOf(envelope),
+          clientProfile: clientProfileOf(envelope),
+          protocolVersion: protocolVersionOf(envelope),
+          executor: executorOf(envelope),
           evalMode: envelope.evalMode ?? null,
           buildCommit: envelope.deployment?.commit ?? null,
           servers: Array.isArray(envelope.servers) && envelope.servers.length
@@ -232,9 +237,27 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
       .filter((key) => projectRollup.projectTimelines.filter((r) => r.projectKey === key).length > 1)).size,
   };
 
+  // M4-A: additive four-dimension summary, computed from the SAME explicit
+  // fields as the digest (clientPlatform × protocolVersion × clientProfile ×
+  // buildCommit). Buckets are independent; the analyzer prompt is told never to
+  // compare across them or across builds.
+  const dimensions = {
+    byClientPlatform: metrics.platformSummary ?? [],
+    byProtocolVersion: metrics.byProtocolVersion ?? {},
+    byClientProfile: metrics.byClientProfile ?? {},
+    byBuildCommit: metrics.byBuildCommit ?? {},
+    byEvalMode: metrics.byEvalMode ?? {},
+    byServerTag: metrics.byServerTag ?? {},
+    multiServerRequests: metrics.multiServerRequests ?? 0,
+    byFourDimension: metrics.fourDimensionSummary ?? [],
+    unknownBucket: UNKNOWN_BUCKET,
+  };
+
   return {
     schema: 'analyzer-input.v1',
     date,
+    filters: filters ?? null,
+    dimensions,
     sessionWindows,
     sessionWindowsNote: 'Advisory clustering: sessionId when present, otherwise initialize / 15-min idle windows. windowId is analysis-only; cite requestId samples for replay. Do not treat cluster boundaries as verified client sessions.',
     // Project-level views (additive, advisory-only).
@@ -367,6 +390,9 @@ function analyzerPrompt(input) {
   const projectHint = input.projectSummary && input.projectSummary.projects > 0
     ? 'projectWindows / projectSummary group captures by project key, which is a DERIVED label extracted deterministically from explicit owner/repo arguments or code literals at capture time — NOT a client-declared or verified repository identity. Projects are orthogonal to sessions: the same project key may appear in several sessions (handoff), and one session may touch several projects. Do not claim a shared project key proves the same client, task, or root cause; cite requestId samples for replay.'
     : '';
+  const dimensionHint = input.dimensions
+    ? 'dimensions.byFourDimension / byProtocolVersion / byClientProfile / byBuildCommit / byEvalMode are INDEPENDENT buckets. Never compare metrics across buckets, and never hard-compare across builds (cross-build hard comparison is forbidden). Treat unknown as a real bucket, not as a missing value to be guessed.'
+    : '';
   return [
     {
       role: 'system',
@@ -378,6 +404,7 @@ function analyzerPrompt(input) {
         truncationHint,
         sessionHint,
         projectHint,
+        dimensionHint,
         'Return ONLY strict JSON matching analyzer-output.v1:',
         '{"schema":"analyzer-output.v1","summary":"...","issues":[{"id":"issue-1","severity":"P0|P1|P2|P3","category":"gateway|upstream|model|data|unknown","title":"...","evidenceEventIds":["..."],"likelyCause":"...","suggestedFix":"...","confidence":0.0,"regressionTask":{"prompt":"...","expectedTool":"...","assertions":["..."]}}],"ignored":[{"clusterId":"c1","reason":"..."}]}',
         'Each issue MUST cite at least one evidenceEventIds from the input. If unsure, use ignored.',
@@ -427,10 +454,64 @@ export async function callAnalyzer(input, options = {}) {
   return JSON.parse(content.slice(start, end + 1));
 }
 
-export function filterEnvelopes(envelopes, { lastMinutes = 0, commit = '', nowMs = Date.now() } = {}) {
+/** Recognized values for the CLI dimension filters (closed sets). */
+export const FILTER_PLATFORMS = Object.freeze(['gemini', 'chatgpt', 'claude']);
+export const FILTER_EVAL_MODES = Object.freeze(['active', 'passive']);
+
+/**
+ * Parse and VALIDATE the M4-A dimension filter flags. Invalid or valueless
+ * flags throw with an actionable message — they are never silently ignored.
+ */
+export function parseCliFilters(argv = []) {
+  const list = Array.isArray(argv) ? argv : [];
+  const valueOf = (flag) => {
+    const index = list.indexOf(flag);
+    if (index < 0) return undefined;
+    const value = list[index + 1];
+    if (value === undefined || value.startsWith('--')) throw new Error(`${flag} requires a value`);
+    return value;
+  };
+  const platformRaw = valueOf('--platform');
+  const evalModeRaw = valueOf('--eval-mode');
+  const lastMinutesRaw = valueOf('--last-minutes');
+  const commitRaw = valueOf('--commit');
+
+  const platform = platformRaw === undefined ? '' : String(platformRaw).trim().toLowerCase();
+  if (platform && !FILTER_PLATFORMS.includes(platform)) {
+    throw new Error(`invalid --platform "${platformRaw}": expected ${FILTER_PLATFORMS.join('|')}`);
+  }
+  const evalMode = evalModeRaw === undefined ? '' : String(evalModeRaw).trim().toLowerCase();
+  if (evalMode && !FILTER_EVAL_MODES.includes(evalMode)) {
+    throw new Error(`invalid --eval-mode "${evalModeRaw}": expected ${FILTER_EVAL_MODES.join('|')}`);
+  }
+  let lastMinutes = 0;
+  if (lastMinutesRaw !== undefined) {
+    const parsed = Number(lastMinutesRaw);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      throw new Error(`invalid --last-minutes "${lastMinutesRaw}": expected a positive number`);
+    }
+    lastMinutes = Math.floor(parsed);
+  }
+  if (commitRaw !== undefined && !String(commitRaw).trim()) {
+    throw new Error('--commit requires a non-empty commit prefix');
+  }
+  return { platform, evalMode, lastMinutes, commit: commitRaw === undefined ? '' : String(commitRaw).trim() };
+}
+
+export function filterEnvelopes(envelopes, {
+  lastMinutes = 0, commit = '', platform = '', evalMode = '', nowMs = Date.now(),
+} = {}) {
   const mins = Number(lastMinutes);
   const cutoff = Number.isFinite(mins) && mins > 0 ? nowMs - mins * 60 * 1000 : null;
   const commitPrefix = typeof commit === 'string' ? commit.trim() : '';
+  const wantedPlatform = typeof platform === 'string' ? platform.trim().toLowerCase() : '';
+  const wantedEvalMode = typeof evalMode === 'string' ? evalMode.trim().toLowerCase() : '';
+  if (wantedPlatform && !FILTER_PLATFORMS.includes(wantedPlatform)) {
+    throw new Error(`invalid platform filter "${platform}": expected ${FILTER_PLATFORMS.join('|')}`);
+  }
+  if (wantedEvalMode && !FILTER_EVAL_MODES.includes(wantedEvalMode)) {
+    throw new Error(`invalid evalMode filter "${evalMode}": expected ${FILTER_EVAL_MODES.join('|')}`);
+  }
   return (Array.isArray(envelopes) ? envelopes : []).filter((env) => {
     if (cutoff !== null) {
       const t = Date.parse(env?.ts ?? env?.timestamp ?? '');
@@ -440,6 +521,8 @@ export function filterEnvelopes(envelopes, { lastMinutes = 0, commit = '', nowMs
       const c = String(env?.deployment?.commit ?? '');
       if (!c.startsWith(commitPrefix)) return false;
     }
+    if (wantedPlatform && clientPlatformOf(env) !== wantedPlatform) return false;
+    if (wantedEvalMode && evalModeOf(env) !== wantedEvalMode) return false;
     return true;
   });
 }
@@ -453,8 +536,15 @@ async function main() {
   const dryRun = args.includes('--dry-run');
   const since = arg('--since');
   const days = Number(arg('--days') || 7);
-  const lastMinutes = Number(arg('--last-minutes') || 0);
-  const commit = arg('--commit') || '';
+  let filters;
+  try {
+    filters = parseCliFilters(args);
+  } catch (error) {
+    console.error(`[analyze] ${error.message}`);
+    process.exitCode = 1;
+    return;
+  }
+  const { lastMinutes, commit, platform, evalMode } = filters;
 
   let envelopes;
   if (dir) {
@@ -481,15 +571,27 @@ async function main() {
     envelopes = await Promise.all((await listR2Keys(`capture/${date}/`)).map(readR2Envelope));
   }
 
-  envelopes = filterEnvelopes(envelopes, { lastMinutes, commit });
+  envelopes = filterEnvelopes(envelopes, { lastMinutes, commit, platform, evalMode });
   const trend = since || dir ? dailyTrend(envelopes) : null;
-  const labelSuffix = lastMinutes > 0 ? `last-${lastMinutes}m` : '';
-  const input = buildAnalyzerInput(envelopes, { date: since || (labelSuffix ? `${date}-${labelSuffix}` : date), maxClusters: 10, trend });
+  const filterSuffix = [
+    lastMinutes > 0 ? `last-${lastMinutes}m` : '',
+    platform ? `platform-${platform}` : '',
+    evalMode ? `eval-${evalMode}` : '',
+    commit ? `commit-${commit}` : '',
+  ].filter(Boolean).join('-');
+  const baseLabel = since || date;
+  const label = filterSuffix ? `${baseLabel}-${filterSuffix}` : baseLabel;
+  const input = buildAnalyzerInput(envelopes, { date: label, maxClusters: 10, trend, filters });
   await mkdir(out, { recursive: true });
-  const label = since || date;
   await writeFile(join(out, `analyzer-input-${label}.json`), JSON.stringify(input, null, 2), 'utf8');
   if (dryRun) {
-    console.log(`[analyze] dry-run: ${input.clusters.length} clusters, ${input.metrics.requests} requests, ${trend?.length ?? 0} days`);
+    const filterText = [
+      platform ? `platform=${platform}` : null,
+      evalMode ? `evalMode=${evalMode}` : null,
+      lastMinutes ? `lastMinutes=${lastMinutes}` : null,
+      commit ? `commit=${commit}` : null,
+    ].filter(Boolean).join(', ') || 'none';
+    console.log(`[analyze] dry-run: ${input.clusters.length} clusters, ${input.metrics.requests} requests, ${trend?.length ?? 0} days, filters=${filterText}`);
     return;
   }
   const raw = await callAnalyzer(input);
