@@ -1,0 +1,343 @@
+{
+  "schema": "gold-eval-suite.v1",
+  "batch": "batch-1-mcpmark",
+  "version": "1.0.0",
+  "updatedAt": "2026-11-25T00:00:00Z",
+  "maintainedBy": "[云端总控]",
+  "sourceBenchmark": {
+    "name": "MCPMark",
+    "license": "Apache-2.0",
+    "repo": "https://github.com/eval-sys/mcpmark",
+    "notes": "逐篇阅读 eval-sys/mcpmark 仓库 tasks/github/standard（23 题）与 tasks/notion/standard（28 题）原始任务后，精选高区分度题型并完整改写为面向我方真实仓库/工作区的可直跑精题。"
+  },
+  "summary": {
+    "total": 16,
+    "byUpstream": {
+      "github": 9,
+      "notion": 7
+    },
+    "byAccess": {
+      "read": 9,
+      "write": 7
+    }
+  },
+  "tasks": [
+    {
+      "id": "MK-GH-01",
+      "upstream": "github",
+      "access": "write",
+      "tier": "T2",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/github/standard/claude-code/automated_changelog_generation/description.md",
+      "trap": "push_files 原子双文件写、防 writeFiles 静默坑、commitSha 非 blobSha、PR number 非内部 DB ID、端内聚合防爆上下文",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 2
+      },
+      "userPrompt": "请分析 Bruce-Yii/gemini-mcp-gateway 仓库最近 15 个已合并 PR 和全部 open Issues，然后在受控测试仓 Bruce-Yii/gateway-acceptance-test 从 main 新建分支 eval/mk-gh-01-changelog，一次性原子推送 2 个文件：(1) CHANGELOG-GENERATED.md，必须包含 # Changelog、### Fixes、### Docs、### Statistics 四节，每条 PR 严格按 `- **#<NUMBER>**: <Title> (<7位SHA>)` 列出，Statistics 节给出总合并 PR 数及 fix/docs/feat 前缀分布；(2) OPEN_ISSUES.md，按编号升序列出全部 open Issues。最后提交 PR 并返回真实 commitSha 与 PR number。",
+      "verifiableClaims": [
+        "在 Bruce-Yii/gateway-acceptance-test 的 eval/mk-gh-01-changelog 分支仅产生 1 个原子 commit",
+        "CHANGELOG-GENERATED.md 包含 4 个指定标题且条数与真实最近 15 个已合并 PR 一致",
+        "每条记录严格符合 `- **#<NUMBER>**: <Title> (<7位SHA>)` 格式且 SHA 真实存在",
+        "OPEN_ISSUES.md 按编号升序覆盖当前全部 open Issues",
+        "返回的 PR number 为正整数非内部 DB ID，且 commitSha 非 blobSha"
+      ]
+    },
+    {
+      "id": "MK-GH-02",
+      "upstream": "github",
+      "access": "read",
+      "tier": "T1",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/github/standard/easyr1/config_parameter_audit/description.md",
+      "trap": "commit 历史精准定位 + diff 精确行号提取 + 零工具名 search_code 召回 + 大文件纯净度（零 .slice()、零幻觉行号）",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "userPrompt": "请对 Bruce-Yii/gemini-mcp-gateway 做一次只读代码与提交审计：(1) 找出把 src/upstream/upstreams.js 中 _resolveToken 改成允许无 tokenEnv 时也能解析网关 OAuth token 的精确 commit SHA、作者与 UTC 提交时间；(2) 在同一次 commit diff 里，指出 _createTransport 中新增变量 needsToken 的精确行号及修改前后的判断表达式；(3) 全仓检索所有包含 CLIENT_PLATFORM_OAUTH_MAP 的源码与文档文件（排除 tests/ 目录），列出每个文件路径与首次出现行号。",
+      "verifiableClaims": [
+        "定位到的 commit SHA 精确匹配 PR #31 合并提交 de974ee5",
+        "准确给出 commit 作者与 UTC 时间戳",
+        "准确指出 needsToken 变量名及修改前 `if (config.tokenEnv)` 与修改后表达式",
+        "列出全部含 CLIENT_PLATFORM_OAUTH_MAP 的非 tests/ 文件且行号经原文核验 100% 匹配",
+        "全程 0 写入、0 手工字符截断"
+      ]
+    },
+    {
+      "id": "MK-GH-03",
+      "upstream": "github",
+      "access": "write",
+      "tier": "T2",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/github/standard/harmony/multi_branch_commit_aggregation/description.md",
+      "trap": "跨分支 ref/branch 隔离（防静默回退 main）、safeAll 并发拉取 commit 详情计算 files_changed、写前 JSON 语法预检",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 2
+      },
+      "userPrompt": "请并发读取 Bruce-Yii/gemini-mcp-gateway 仓库中 main 以及另外 2 个现存分支（共 3 个分支）各自最近 3 条 commit，每条记录必须包含精确的 sha、author、message 首行和 files_changed（修改文件数整数）。然后在受控仓 Bruce-Yii/gateway-acceptance-test 建分支 eval/mk-gh-03-branch-agg，写入严格合法的 JSON 文件 BRANCH_COMMITS.json 和 Markdown 汇总 CROSS_BRANCH_ANALYSIS.md（含 `## Top Authors` 按提交数降序表），最后建 PR。",
+      "verifiableClaims": [
+        "3 个分支的 commit SHA 均真实属于对应分支，未出现非 main 分支静默回退读 main 的情况",
+        "BRANCH_COMMITS.json 可被严格 JSON.parse 解析且每条含 sha/author/message/files_changed",
+        "files_changed 为真实非负整数而非 null 或估算值",
+        "CROSS_BRANCH_ANALYSIS.md 含 `## Top Authors` 且按提交数降序排列",
+        "双文件原子推送并成功创建 PR"
+      ]
+    },
+    {
+      "id": "MK-GH-04",
+      "upstream": "github",
+      "access": "write",
+      "tier": "T2",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/github/standard/claude-code/critical_issue_hotfix_workflow/description.md",
+      "trap": "跨步真值传递（Step 1 若返回 number:null 或内部 ID，Step 3/4 当场暴露）、createIssue 幂等防重",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 1,
+        "maxExecuteCalls": 3
+      },
+      "userPrompt": "请在受控仓 Bruce-Yii/gateway-acceptance-test 完成一次热修闭环：(1) 创建追踪 Issue，精确标题为 `HOTFIX: Eval Acceptance Tracking`，正文必须包含 `## Root Cause`、`## Verification` 两个标题及关键词 `compaction`、`writeFiles`、`normalizeMerge`；(2) 从 main 建分支 hotfix/mk-gh-04-eval；(3) 在该分支新建 docs/HOTFIX_NOTE.md，正文中用 `#<IssueNumber>` 引用刚创建的真实 Issue 编号；(4) 创建 PR 并在正文写 `Fixes #<IssueNumber>`；(5) 回读验证未产生重复 Issue 且 Issue/PR 编号均为真实小整数。",
+      "verifiableClaims": [
+        "仅创建 1 个标题为 `HOTFIX: Eval Acceptance Tracking` 的 Issue（无重复创建）",
+        "Issue 正文包含全部 2 个标题与 3 个关键词",
+        "docs/HOTFIX_NOTE.md 与 PR 正文中的 `#<N>` 均等于真实 Issue 编号（非 null、非 DB 大整数）",
+        "回读确认分支、文件、Issue、PR 四者状态一致"
+      ]
+    },
+    {
+      "id": "MK-GH-05",
+      "upstream": "github",
+      "access": "write",
+      "tier": "T2",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/github/standard/mcpmark-cicd/pr_automation_workflow/description.md",
+      "trap": "YAML 精确写入 + waitForPrChecks 单次等待（非碎轮询）+ 顶层 status/conclusion 准确聚合",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 2
+      },
+      "userPrompt": "请在受控仓 Bruce-Yii/gateway-acceptance-test 建分支 ci/mk-gh-05-check，新增最小可运行的 .github/workflows/eval-smoke.yml（触发事件 pull_request，包含 lint 与 unit 两个快速成功的 job），提交 PR 后等待全部 CI 检查结束，准确回报顶层 status、conclusion 以及每个 check run 的名称与结论。",
+      "verifiableClaims": [
+        ".github/workflows/eval-smoke.yml 语法合法且成功触发 pull_request workflow",
+        "检查等待轮次 <= 2（不出现 3–4 轮手动碎轮询）",
+        "全部 check runs 完成后顶层返回 status: \"completed\" 且 conclusion 非 null",
+        "逐条列出 lint 与 unit 的真实运行结论"
+      ]
+    },
+    {
+      "id": "MK-GH-06",
+      "upstream": "github",
+      "access": "read",
+      "tier": "T3",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/github/standard/harmony/release_management_workflow/description.md",
+      "trap": "Release/Tag 空态诚实汇报 + 最近合并 PR 分类汇总 + 零幻觉编造版本号",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "userPrompt": "请对 Bruce-Yii/gemini-mcp-gateway 做一次只读发布准备审计：(1) 检查仓库所有 releases 与 git tags（若为空请明确报告为空，严禁编造）；(2) 对比当前生产已部署 commit（从 docs/DEPLOYMENTS.md 最新 READY 行读取）与 main HEAD 之间尚未部署的全部提交，按 breaking / feature / fix / docs 四类列出 SHA 与标题；(3) 输出是否具备发版条件的客观清单。",
+      "verifiableClaims": [
+        "如实报告当前 releases 与 tags 真实数量（空则报空，零编造）",
+        "准确提取 docs/DEPLOYMENTS.md 最新 READY 行的部署 commit SHA",
+        "准确列出生产 commit 到 main HEAD 之间的未部署提交清单，无遗漏无虚构",
+        "全程只读 0 写入"
+      ]
+    },
+    {
+      "id": "MK-GH-07",
+      "upstream": "github",
+      "access": "read",
+      "tier": "T2",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/github/standard/easyr1/performance_regression_investigation/description.md",
+      "trap": "跨多 commit 追溯特定逻辑引入点 + 精确文件前后对比 + 沙箱端内筛选防上下文爆炸",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "userPrompt": "请只读追溯 Bruce-Yii/gemini-mcp-gateway 中两处关键评测逻辑的引入历史：(1) 找出 scripts/capture-digest.mjs 中 `listR2Keys` 从单页改成全量 cursor 分页的精确 commit SHA 与关联 PR 号；(2) 找出 scripts/weekly-from-scorecards.mjs 首次新增的精确 commit SHA、文件行数以及它在 .github/workflows/capture-daily.yml 中是如何被触发的。",
+      "verifiableClaims": [
+        "准确给出 listR2Keys 分页改造对应的 PR #28 合并提交 cd23fdcc",
+        "准确给出 weekly-from-scorecards.mjs 首次新增对应的 PR #30 合并提交 af072501",
+        "准确说明 capture-daily.yml 中 run_weekly 默认值与触发条件",
+        "全部结论均有真实 SHA 与代码行依据"
+      ]
+    },
+    {
+      "id": "MK-GH-08",
+      "upstream": "github",
+      "access": "write",
+      "tier": "T3",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/github/standard/claude-code/label_color_standardization/description.md",
+      "trap": "Issue 列表筛选 + 批量评论/状态更新幂等性 + 写后回读核验",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 1,
+        "maxExecuteCalls": 2
+      },
+      "userPrompt": "请在受控仓 Bruce-Yii/gateway-acceptance-test 中：(1) 列出所有 open Issues 及其标签；(2) 创建 2 个测试 Issue（标题分别为 `[MK-GH-08] Alpha` 与 `[MK-GH-08] Beta`），为它们分别补充一条含时间戳的校验评论，随后关闭这两个测试 Issue（保留其他原有 Issue 不动）；(3) 回读确认 2 个 Issue 均处于 closed 状态且各自评论存在。",
+      "verifiableClaims": [
+        "两个测试 Issue 创建成功且各自返回真实非 null 的小整数 number",
+        "两条评论分别落在对应 Issue 下且可回读",
+        "两个测试 Issue 最终状态为 closed，且未误关仓库中其他原有 Issue"
+      ]
+    },
+    {
+      "id": "MK-GH-09",
+      "upstream": "github",
+      "access": "read",
+      "tier": "T3",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/github/standard/missing-semester/find_salient_file/description.md",
+      "trap": "深层目录并发扫描 + 大文件大小排序 + 首次引入 commit 精确溯源（防截断漏文件）",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 1,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "userPrompt": "请只读扫描 Bruce-Yii/gemini-mcp-gateway 仓库的 src/ 目录下全部子目录（递归），找出字节数最大的前 3 个 .js 文件，给出每个文件的完整路径、精确字节数、行数，以及每个文件最早一次创建的 commit SHA 与日期。",
+      "verifiableClaims": [
+        "覆盖 src/ 下全部子目录无遗漏",
+        "前 3 大 .js 文件的精确字节数与行数经核验准确且按字节降序排列",
+        "每个文件的最早创建 commit SHA 真实存在",
+        "单次或两次 execute_read 端内完成排序，未把全文件正文塞进上下文"
+      ]
+    },
+    {
+      "id": "MK-NT-01",
+      "upstream": "notion",
+      "access": "read",
+      "tier": "T1",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/notion/standard/company_in_a_box/quarterly_review_dashboard/description.md",
+      "trap": "零工具名多 Notion 工具发现（list-recent-pages / list-page-backlinks / get-comments）+ 并发汇总防爆窗",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "userPrompt": "请在我的 Notion 工作区中找出最近活跃的前 5 个非空页面，并发查询每个页面的反向链接数量与评论数量，按最后编辑时间降序输出一张严格 4 列 Markdown 表格（表头必须为 `Page | Last Edited | Backlinks | Comments`），无数据填 0，严禁编造页面或数字。",
+      "verifiableClaims": [
+        "5 篇页面全部为工作区真实存在页面",
+        "表格严格包含 4 个指定表头且按 Last Edited 降序排列",
+        "Backlinks 与 Comments 数值来自真实工具调用而非猜测",
+        "无 execute_read 输出层截断"
+      ]
+    },
+    {
+      "id": "MK-NT-02",
+      "upstream": "notion",
+      "access": "read",
+      "tier": "T1",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/notion/standard/team_projects/priority_tasks_table/description.md",
+      "trap": "notion-query-data-sources 结构化查询 + Notion 复杂属性解包 + 精确排序与空值规范化",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "userPrompt": "请在我的 Notion 工作区定位一个包含任务或项目的数据库（若有多个先列出名称并选最近编辑的 1 个），查询其中未完成或高优先级记录，在沙箱内按截止日期升序排列，输出严格 5 列表格（表头：`Title | Status | Priority | Due Date | URL`，缺失字段统一填 `N/A`），禁止将整库原始属性 JSON 塞回对话。",
+      "verifiableClaims": [
+        "目标数据库真实存在（若工作区无此类数据库则诚实报空，零编造）",
+        "表格严格 5 列、按 Due Date 升序排列且缺值统一为 N/A",
+        "URL 均为真实 Notion 页面链接",
+        "返回体精简，未触发输出层截断"
+      ]
+    },
+    {
+      "id": "MK-NT-03",
+      "upstream": "notion",
+      "access": "write",
+      "tier": "T2",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/notion/standard/standard_operating_procedure/deployment_process_sop/description.md",
+      "trap": "Notion 有状态建页 + notion-update-page 局部更新防整页覆盖（BC-009）+ 终态回读核验",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 2
+      },
+      "userPrompt": "请在我的 Notion 受控测试父页（若无 `Gateway Eval Sandbox` 则先在私有区确认后再建）下执行：(1) 新建子页 `MK-NT-03 SOP Test`，写入 3 个编号章节 `1. Pre-check`、`2. Deploy`、`3. Verify`；(2) 仅对第 `2. Deploy` 章节追加一条 `vercel --prod --meta githubCommitSha` 规则，不得修改第 1、3 章节任何文字；(3) 回读整页逐节比对，证明第 1、3 节完整保留且第 2 节包含新增行。",
+      "verifiableClaims": [
+        "子页 `MK-NT-03 SOP Test` 成功创建在受控测试父页下",
+        "局部更新后回读确认第 1 节与第 3 节原文 100% 保留未丢失",
+        "第 2 节包含新增的 `vercel --prod --meta githubCommitSha` 行"
+      ]
+    },
+    {
+      "id": "MK-NT-04",
+      "upstream": "notion",
+      "access": "read",
+      "tier": "T3",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/notion/standard/computer_science_student_dashboard/courses_internships_relation/description.md",
+      "trap": "双数据源/多页面交叉关联分析 + 零工具名 schema 探索 + 沙箱端内 join 汇总",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "userPrompt": "请只读检查我 Notion 工作区中任意 2 个存在互链或反链关系的页面/数据源，提取它们的属性 schema 列表、双向引用关系（A 指向 B 与 B 的 backlinks），并输出一份结构化关联核对表；若当前工作区不存在带 relation 属性的数据库，请如实列出已有数据源的 schema 并说明。",
+      "verifiableClaims": [
+        "准确列出真实页面/数据源的 schema 字段名与类型",
+        "双向引用或反链核对基于真实工具返回，无编造关系",
+        "无输出截断或原始大块 JSON 泄漏"
+      ]
+    },
+    {
+      "id": "MK-NT-05",
+      "upstream": "notion",
+      "access": "read",
+      "tier": "T2",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/notion/standard/it_trouble_shooting_hub/asset_retirement_migration/description.md",
+      "trap": "version-changes 历史变更审计 + 时间窗过滤 + 空态/权限受限诚实归因",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "userPrompt": "请只读审计我 Notion 工作区最近 14 天内被编辑过的前 5 个页面：拉取每个页面的版本变更记录（谁在何时修改、是否由 AI/Agent/MCP 触发），按时间倒序汇总成审计表；若某页面因权限或版本历史受限无法读取，请明确标注上游限制原因而非静默跳过。",
+      "verifiableClaims": [
+        "调用真实版本变更查询工具并覆盖全部目标页面",
+        "明确区分人工修改与 AI/MCP 修改（若字段可用）",
+        "遇到上游权限/套餐限制时清晰归因，不伪装成功"
+      ]
+    },
+    {
+      "id": "MK-NT-06",
+      "upstream": "notion",
+      "access": "read",
+      "tier": "T3",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/notion/standard/japan_travel_planner/packing_progress_summary/description.md",
+      "trap": "多级子页/Checklist/内容块端内解析 + 精确百分比计算 + 防大页撑爆上下文",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 0
+      },
+      "userPrompt": "请在我的 Notion 工作区找 1 个包含待办列表（to-do checklist）或多节子项的页面（若无则选内容最丰富的前 2 篇近期页面），在沙箱内解析其全部标题结构与勾选进度，精确计算已完成项数、未完成项数与完成百分比（保留 1 位小数），仅返回统计汇总与未完成项清单。",
+      "verifiableClaims": [
+        "目标页面真实存在且完整读取（无截断丢尾）",
+        "已完成/未完成计数与百分比计算数学精确",
+        "未将整页原始 block 树吐进对话上下文"
+      ]
+    },
+    {
+      "id": "MK-NT-07",
+      "upstream": "notion",
+      "access": "write",
+      "tier": "T3",
+      "referenceSource": "https://github.com/eval-sys/mcpmark/blob/main/tasks/notion/standard/it_trouble_shooting_hub/security_audit_ticket/description.md",
+      "trap": "多源过滤交叉拼接 + 严格单行格式 `<ID> - <Tag> - <Action>` + 写后回读核验",
+      "efficiencyBaseline": {
+        "maxSearchCalls": 2,
+        "maxExecuteReadCalls": 2,
+        "maxExecuteCalls": 2
+      },
+      "userPrompt": "请在我的 Notion 受控测试父页下新建子页 `MK-NT-07 Audit Ticket`，汇总 Bruce-Yii/gemini-mcp-gateway 当前 `docs/eval/BADCASES.md` 中状态仍为待修复的 P0/P1 条目，在页面正文用无序列表逐条写出，**每条必须严格符合格式 `<BC-ID> - <Upstream> - <Next Action>`**，写完后回读该页验证条数与格式 100% 匹配。",
+      "verifiableClaims": [
+        "子页 `MK-NT-07 Audit Ticket` 成功创建在受控测试父页下",
+        "每条列表项严格匹配 `<BC-ID> - <Upstream> - <Next Action>` 格式（含短横线与空格）",
+        "条目全部来自真实 `BADCASES.md` 无编造，且回读验证一致"
+      ]
+    }
+  ]
+}
