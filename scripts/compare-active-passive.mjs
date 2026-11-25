@@ -13,6 +13,17 @@
  * It never guesses a requestId, never treats EMPTY_WINDOW as a pass, and never
  * calls a model.
  *
+ * Hard closure gate (2026-11-25): a passive artifact only counts as real
+ * evidence when it proves the free model actually ran —
+ * `analyzerRun.llmExecuted === true`. A dry-run / unconfigured / empty-window /
+ * failed-call artifact has `llmExecuted: false`, so it can NEVER produce a
+ * green closure:
+ *   - default: `closureStatus: "INVALID_NO_LLM"`, non-zero exit;
+ *   - explicit `--infra-blocked-reason "<reason>"`: `closureStatus:
+ *     "BLOCKED_INFRA"` (reason recorded), still non-zero exit;
+ *   - model actually executed: `closureStatus: "CLOSED"`, and only then do the
+ *     existing match/missed exit rules apply.
+ *
  * An active `observed.findings` entry that the passive analyzer issues do not
  * mention is never a pass: it is forced into `missed[]` (`kind=finding`,
  * `reason=passive-not-detected`) and the CLI exits non-zero by default, even
@@ -23,11 +34,23 @@
  *     --active docs/eval/active-eval-2026-11-24.json \
  *     --passive work/run-<id>/analyzer/analyzer-output-2026-11-24-last-60m-commit-3dd206f.json \
  *     --out docs/eval/active-passive-<id>.json --json
+ *   node scripts/compare-active-passive.mjs --active ... --passive ... \
+ *     --infra-blocked-reason "R2 限流，同窗数据不可用"   # BLOCKED_INFRA, still non-zero
  */
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 export const COMPARISON_SCHEMA = 'active-passive-comparison.v1';
+
+/**
+ * Closure verdict. `CLOSED` means the passive lane proved a real free-model
+ * execution; the other two are explicit non-green outcomes (never a pass).
+ */
+export const CLOSURE_STATUS = Object.freeze({
+  CLOSED: 'CLOSED',
+  INVALID_NO_LLM: 'INVALID_NO_LLM',
+  BLOCKED_INFRA: 'BLOCKED_INFRA',
+});
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const OBSERVABILITY_VALUES = new Set(['passive-observable', 'active-only']);
 
@@ -49,6 +72,36 @@ const isGenericNeedle = (value) => {
 
 const str = (value) => (typeof value === 'string' ? value : '');
 const arr = (value) => (Array.isArray(value) ? value : []);
+
+/**
+ * Extract the `analyzerRun` hard-closure marker from a passive artifact.
+ * Accepted locations (first hit wins): the analyzer-output wrapper's top level,
+ * `validated.analyzerRun`, or `input.analyzerRun`. Missing => null, which is
+ * treated as "the free model never ran".
+ */
+export function analyzerRunOf(passive) {
+  for (const candidate of [passive?.analyzerRun, passive?.validated?.analyzerRun, passive?.input?.analyzerRun]) {
+    if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) return candidate;
+  }
+  return null;
+}
+
+/** True only when the artifact positively proves a real, parsed model call. */
+export function llmExecutedOf(passive) {
+  return analyzerRunOf(passive)?.llmExecuted === true;
+}
+
+/** Leak-free copy of the closure marker (only the four documented fields). */
+function summarizeAnalyzerRun(passive) {
+  const run = analyzerRunOf(passive);
+  if (!run) return null;
+  return {
+    llmExecuted: run.llmExecuted === true,
+    model: str(run.model) || null,
+    skippedReason: str(run.skippedReason) || null,
+    executedAt: str(run.executedAt) || null,
+  };
+}
 
 /**
  * Normalize the passive analyzer's candidate issues. Both the
@@ -289,11 +342,30 @@ function findingChecks(findings, passiveIssues) {
 /**
  * Pure comparison. `active` is an active-eval.v1 object; `passive` is an
  * analyzer-input/analyzer-output object (or their wrapper).
+ *
+ * `options.infraBlockedReason` is only set by the explicit CLI flag; it turns a
+ * non-executed model run into `BLOCKED_INFRA` (still non-green) instead of
+ * `INVALID_NO_LLM`.
  */
-export function compareActivePassive(active, passive) {
+export function compareActivePassive(active, passive, options = {}) {
   const view = normalizePassive(passive);
   const activeEvalId = str(active?.activeEvalId) || 'unknown';
   const window = active?.window ?? {};
+  const analyzerRun = summarizeAnalyzerRun(passive);
+  const llmExecuted = analyzerRun?.llmExecuted === true;
+  const infraBlockedReason = str(options?.infraBlockedReason).trim();
+  const closureStatus = llmExecuted
+    ? CLOSURE_STATUS.CLOSED
+    : (infraBlockedReason ? CLOSURE_STATUS.BLOCKED_INFRA : CLOSURE_STATUS.INVALID_NO_LLM);
+  const closureStatusReason = llmExecuted
+    ? null
+    : (infraBlockedReason || `passive analyzerRun.llmExecuted !== true (skippedReason=${analyzerRun?.skippedReason ?? 'missing'}); no free-model analysis to compare against`);
+  const closureReasons = [];
+  if (!llmExecuted) {
+    closureReasons.push(closureStatus === CLOSURE_STATUS.BLOCKED_INFRA
+      ? `BLOCKED_INFRA: ${infraBlockedReason}`
+      : `INVALID_NO_LLM: ${closureStatusReason}`);
+  }
   const checks = {
     build: buildCheck(active?.buildCommit, view.commits),
     platform: platformCheck(active?.platform, view.platforms),
@@ -320,7 +392,7 @@ export function compareActivePassive(active, passive) {
   };
 
   let match;
-  const reasons = [];
+  const reasons = [...closureReasons];
   if (view.dataStatus === 'EMPTY_WINDOW') {
     match = 'unmatched';
     reasons.push('passive-window-is-empty (EMPTY_WINDOW is NOT a pass)');
@@ -348,6 +420,11 @@ export function compareActivePassive(active, passive) {
     schema: COMPARISON_SCHEMA,
     activeEvalId,
     generatedAt: new Date().toISOString(),
+    // Hard closure gate: only CLOSED means a real free-model analysis exists.
+    closureStatus,
+    closureStatusReason,
+    llmExecuted,
+    analyzerRun,
     match,
     reasons,
     checks,
@@ -379,8 +456,18 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
   const activePath = arg('--active');
   const passivePath = arg('--passive');
   if (!activePath || !passivePath) {
-    stderr('usage: compare-active-passive.mjs --active <active-eval.json> --passive <analyzer-input|output.json> [--request-index <full-index.json>] [--out <file>] [--json] [--require-match] [--allow-unmatched] [--allow-missed-findings]');
+    stderr('usage: compare-active-passive.mjs --active <active-eval.json> --passive <analyzer-input|output.json> [--request-index <full-index.json>] [--out <file>] [--json] [--require-match] [--allow-unmatched] [--allow-missed-findings] [--infra-blocked-reason <reason>]');
     return 2;
+  }
+  let infraBlockedReason = '';
+  const infraIndex = argv.indexOf('--infra-blocked-reason');
+  if (infraIndex >= 0) {
+    const value = argv[infraIndex + 1];
+    if (value === undefined || String(value).startsWith('--') || !String(value).trim()) {
+      stderr('[compare] --infra-blocked-reason requires a non-empty reason (e.g. "R2 限流，同窗数据不可用")');
+      return 2;
+    }
+    infraBlockedReason = String(value).trim();
   }
   let active;
   let passive;
@@ -398,7 +485,7 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
     stderr(`[compare] cannot read input: ${error.message}`);
     return 2;
   }
-  const result = compareActivePassive(active, passive);
+  const result = compareActivePassive(active, passive, { infraBlockedReason });
   const out = arg('--out');
   if (out) {
     await mkdir(dirname(out), { recursive: true });
@@ -406,7 +493,19 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
     stdout(`[compare] wrote ${out}`);
   }
   if (argv.includes('--json')) stdout(JSON.stringify(result, null, 2));
-  else stdout(`[compare] ${result.activeEvalId}: match=${result.match} missed=${result.missed.length} findings=${result.findings.missed}/${result.findings.total} dataStatus=${result.passive.dataStatus}`);
+  else stdout(`[compare] ${result.activeEvalId}: closureStatus=${result.closureStatus} match=${result.match} missed=${result.missed.length} findings=${result.findings.missed}/${result.findings.total} dataStatus=${result.passive.dataStatus}`);
+  // Hard closure gate: a passive artifact without `analyzerRun.llmExecuted===true`
+  // is not evidence. No flag combination can turn this green; the only
+  // alternative outcome is an explicit, still-non-zero BLOCKED_INFRA.
+  if (result.closureStatus !== CLOSURE_STATUS.CLOSED) {
+    if (result.closureStatus === CLOSURE_STATUS.BLOCKED_INFRA) {
+      stderr(`[compare] BLOCKED_INFRA: ${result.closureStatusReason} (closure NOT passed)`);
+    } else {
+      stderr(`[compare] INVALID_NO_LLM: ${result.closureStatusReason}`);
+      stderr('[compare] pass --infra-blocked-reason "<reason>" only if the free model genuinely could not run; it still exits non-zero and is never a pass');
+    }
+    return 1;
+  }
   if (argv.includes('--require-match') && result.match !== 'exact' && result.match !== 'likely') return 1;
   // G4: empty/unmatched must not be green by default; explicit --allow-unmatched
   // is required for deliberate "we know this window is empty" runs.

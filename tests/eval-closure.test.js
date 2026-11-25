@@ -100,11 +100,19 @@ function activeWithFindings(findings, overrides = {}) {
 }
 
 /** analyzer-output.v1 wrapper: issues live under `validated.issues`. */
-function analyzerOutput(input, issues) {
+const REAL_ANALYZER_RUN = Object.freeze({
+  llmExecuted: true,
+  model: 'hy4-flash-free',
+  skippedReason: null,
+  executedAt: '2026-11-24T06:20:30.000Z',
+});
+
+function analyzerOutput(input, issues, analyzerRun = REAL_ANALYZER_RUN) {
   return {
     schema: 'analyzer-output.v1',
     input,
     raw: null,
+    analyzerRun,
     validated: {
       schema: 'analyzer-output.v1',
       policy: 'free-model-advisory-v1',
@@ -114,6 +122,7 @@ function analyzerOutput(input, issues) {
       summary: 'advisory',
       issues,
       ignored: [],
+      analyzerRun,
     },
   };
 }

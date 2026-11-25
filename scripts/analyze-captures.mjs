@@ -9,6 +9,14 @@
  * The model never runs in the gateway path and never gets tools; it only labels
  * clusters and proposes issue drafts. The validator is the source of truth and
  * is intentionally unchanged: all model output stays advisory-only.
+ *
+ * `analyzerRun` (hard closure marker): every analyzer-output artifact carries
+ * `{ llmExecuted, model, skippedReason, executedAt }` at its top level (and on
+ * `validated`). Only a real, parsed free-model response sets
+ * `llmExecuted: true`; `--dry-run`, missing baseUrl/apiKey, an empty window, a
+ * failed call or an unparseable response all keep `llmExecuted: false` plus a
+ * `skippedReason`. `compare-active-passive.mjs` refuses to mark a closure valid
+ * unless the passive artifact proves `llmExecuted: true`.
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -489,7 +497,7 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
       ...truncationCluster,
     ],
     samples,
-    limits: { maxIssues: 5, maxCharsPerIssue: 1200 },
+    limits: { maxIssues: 6, maxCharsPerIssue: 1200 },
   };
 }
 
@@ -499,8 +507,14 @@ const SEVERITIES = new Set(['P0', 'P1', 'P2', 'P3']);
 /**
  * G4: an empty filtered window must never reach the model and must never look
  * like a clean analysis. Produces a deterministic, non-model output artifact.
+ *
+ * The `analyzerRun` marker is always present (llmExecuted=false,
+ * skippedReason='empty_window' unless a caller supplies an explicit run), so a
+ * downstream consumer can never mistake "no data / no model call" for a real
+ * free-model analysis.
  */
-export function buildEmptyWindowAnalyzerOutput(input) {
+export function buildEmptyWindowAnalyzerOutput(input, analyzerRun = buildAnalyzerRun({ skippedReason: 'empty_window' })) {
+  const run = buildAnalyzerRun(analyzerRun ?? {});
   return {
     schema: 'analyzer-output.v1',
     policy: 'free-model-advisory-v1',
@@ -514,10 +528,11 @@ export function buildEmptyWindowAnalyzerOutput(input) {
       clusterId: 'empty-window',
       reason: 'No MCP requests in the filtered window; the model was not called and no conclusion may be drawn.',
     }],
+    analyzerRun: run,
   };
 }
 
-export function validateAnalyzerOutput(output, input) {
+export function validateAnalyzerOutput(output, input, analyzerRun = null) {
   const evidenceIds = new Set([
     ...input.clusters.flatMap((cluster) => cluster.sampleEventIds),
     ...(input.samples ?? []).map((sample) => sample.id),
@@ -552,7 +567,7 @@ export function validateAnalyzerOutput(output, input) {
         : [],
       regressionTask: issue.regressionTask ?? null,
     });
-    if (issues.length >= (input.limits?.maxIssues ?? 5)) break;
+    if (issues.length >= (input.limits?.maxIssues ?? 6)) break;
   }
   return {
     schema: 'analyzer-output.v1',
@@ -564,6 +579,7 @@ export function validateAnalyzerOutput(output, input) {
     issues,
     serviceSnapshots: input?.serviceSnapshots ?? input?.serviceState ?? { snapshots: 0, byServer: {} },
     ignored: Array.isArray(output?.ignored) ? output.ignored.slice(0, 20) : [],
+    ...(analyzerRun ? { analyzerRun: buildAnalyzerRun(analyzerRun) } : {}),
   };
 }
 
@@ -644,6 +660,12 @@ export function analyzerPrompt(input) {
   const responsePreviewHint = Array.isArray(input.samples) && input.samples.length
     ? 'Each sample also carries responsePreview: a bounded preview (first characters, with an explicit truncation marker) of the captured HTTP response body plus a parsed outline (topLevelKeys / nullKeys / arrays / nested one-level keys) and subCalls[] entries may carry error{name,message} or resultShape. Combine responsePreview + subCalls + clientPlatform + servers[] to look for HTTP-200 SUCCESS-STATE semantic friction that error clusters cannot show: (a) null fields on success (a key field such as number:null where a PR/issue number was expected), (b) double-layer nesting where the real payload is buried inside result.content[0].text as an escaped JSON string, (c) false-positive / mistaken truncation (a complete successful body treated as truncated) and reverse cases, (d) cross-upstream handoff redundancy (the same unwrap/parse/format repeated between github / vercel / notion calls), and (e) repeated defensive parsing or re-wrapping that the gateway or the client keeps doing on every successful call. responsePreview is BOUNDED: absence of a field inside the preview is not proof that it is absent from the full body — say so instead of over-claiming. Attribute each such issue with clientPlatform and servers.'
     : '';
+  // Friction-token guidance: live active-eval reports repeatedly name concrete
+  // symptoms that the model overlooked because nothing told it to look for the
+  // literal token. These are the machine-matchable signals compare/distill rely on.
+  const frictionSignalHint = Array.isArray(input.samples) && input.samples.length
+    ? 'MANDATORY friction-token scan — reserve at least half of the issue slots for these signals before writing any generic unwrap/parsing-redundancy issue, and do not spend more than 2 issues on that generic theme. Quote the token in the issue title so it stays matchable: (a) `incomplete_results":true` or `total_count":0` from a search the client expected to hit; (b) 200-body gating notices like `Business-plan options were omitted` (host limit, not auth); (c) `--- TRUNCATED ---` / `truncated":true` / `next":"readFileRange"`, or a truncated sample followed by a re-read; (d) search-heavy thrash: >=5 search calls, or >=4 consecutive searches before any execute_read/execute (count from requestIndex); (e) sandbox call-budget exhaustion in a broad scan. Cover each distinct signal with its own issue.'
+    : '';
   return [
     {
       role: 'system',
@@ -659,6 +681,7 @@ export function analyzerPrompt(input) {
         dataStatusHint,
         serviceStateHint,
         responsePreviewHint,
+        frictionSignalHint,
         'Return ONLY strict JSON matching analyzer-output.v1:',
         '{"schema":"analyzer-output.v1","summary":"...","issues":[{"id":"issue-1","severity":"P0|P1|P2|P3","category":"gateway|upstream|model|data|unknown","title":"...","evidenceEventIds":["..."],"likelyCause":"...","suggestedFix":"...","confidence":0.0,"clientPlatform":"gemini|chatgpt|claude|unknown|null","servers":["github"],"regressionTask":{"prompt":"...","expectedTool":"...","assertions":["..."]}}],"ignored":[{"clusterId":"c1","reason":"..."}]}',
         'Each issue MUST cite at least one evidenceEventIds from the input. If unsure, use ignored.',
@@ -677,36 +700,103 @@ function analyzerEndpoint(base) {
   return trimmed.endsWith('/chat/completions') ? trimmed : `${trimmed}/chat/completions`;
 }
 
+/**
+ * Reasons an analyzer run may legitimately end WITHOUT a free-model result.
+ * Any of them keeps `analyzerRun.llmExecuted = false`; there is no silent
+ * degradation path that looks like a real model-backed analysis.
+ */
+export const ANALYZER_SKIP_REASONS = Object.freeze([
+  'dry_run',
+  'not_configured',
+  'empty_window',
+  'parse_failed',
+  'http_error',
+  'call_failed',
+]);
+
+/**
+ * Build the hard closure marker attached to every analyzer-output artifact.
+ *
+ * `llmExecuted` is true ONLY for a real call whose response parsed into JSON.
+ * `model` is the model actually requested, `executedAt` is the ISO time the
+ * call was initiated (or the time the skip was decided). `skippedReason` is
+ * null on success and a stable enum value otherwise.
+ */
+export function buildAnalyzerRun({
+  llmExecuted = false, model = null, skippedReason = null, executedAt = null,
+} = {}) {
+  const executed = llmExecuted === true;
+  const reason = typeof skippedReason === 'string' && skippedReason.trim()
+    ? skippedReason.trim()
+    : 'not_configured';
+  const modelName = typeof model === 'string' && model.trim() ? model.trim() : null;
+  const at = typeof executedAt === 'string' && executedAt.trim()
+    ? executedAt.trim()
+    : new Date().toISOString();
+  return {
+    llmExecuted: executed,
+    model: executed ? modelName : null,
+    skippedReason: executed ? null : reason,
+    executedAt: at,
+  };
+}
+
+/** Typed failure so the CLI can map a degraded run to a stable skippedReason. */
+export class AnalyzerCallError extends Error {
+  constructor(reason, message, options = {}) {
+    super(message, options);
+    this.name = 'AnalyzerCallError';
+    this.reason = ANALYZER_SKIP_REASONS.includes(reason) ? reason : 'call_failed';
+    if (options?.cause !== undefined) this.cause = options.cause;
+  }
+}
+
 export async function callAnalyzer(input, options = {}) {
   const base = options.baseUrl ?? process.env.ANALYZER_BASE_URL ?? '';
   const model = options.model ?? process.env.ANALYZER_MODEL ?? 'hy4-flash-free';
   const apiKey = options.apiKey ?? process.env.ANALYZER_API_KEY ?? '';
   const fetchImpl = options.fetchImpl ?? fetch;
-  const response = await fetchImpl(analyzerEndpoint(base), {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
-      'x-opencode-session': randomUUID(),
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0,
-      max_tokens: 6000,
-      reasoning_effort: 'none',
-      messages: analyzerPrompt(input),
-    }),
-  });
+  let response;
+  try {
+    response = await fetchImpl(analyzerEndpoint(base), {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
+        'x-opencode-session': randomUUID(),
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0,
+        max_tokens: 7000,
+        reasoning_effort: 'none',
+        messages: analyzerPrompt(input),
+      }),
+    });
+  } catch (error) {
+    throw new AnalyzerCallError('call_failed', `analyzer request failed: ${error?.message ?? String(error)}`, { cause: error });
+  }
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`analyzer HTTP ${response.status}: ${text.slice(0, 500)}`);
+    throw new AnalyzerCallError('http_error', `analyzer HTTP ${response.status}: ${text.slice(0, 500)}`);
   }
-  const body = await response.json();
+  let body;
+  try {
+    body = await response.json();
+  } catch (error) {
+    throw new AnalyzerCallError('parse_failed', `analyzer response is not JSON: ${error?.message ?? String(error)}`, { cause: error });
+  }
   const content = body?.choices?.[0]?.message?.content ?? body?.choices?.[0]?.message?.reasoning_content ?? '';
   const start = content.indexOf('{');
   const end = content.lastIndexOf('}');
-  if (start < 0 || end <= start) throw new Error(`analyzer returned no JSON: ${JSON.stringify(body).slice(0, 800)}`);
-  return JSON.parse(content.slice(start, end + 1));
+  if (start < 0 || end <= start) {
+    throw new AnalyzerCallError('parse_failed', `analyzer returned no JSON: ${JSON.stringify(body).slice(0, 800)}`);
+  }
+  try {
+    return JSON.parse(content.slice(start, end + 1));
+  } catch (error) {
+    throw new AnalyzerCallError('parse_failed', `analyzer JSON did not parse: ${error?.message ?? String(error)}`, { cause: error });
+  }
 }
 
 /** Recognized values for the CLI dimension filters (closed sets). */
@@ -782,10 +872,40 @@ export function filterEnvelopes(envelopes, {
   });
 }
 
-async function main() {
-  const args = process.argv.slice(2);
+function isoOf(clock) {
+  let value;
+  try {
+    value = typeof clock === 'function' ? clock() : clock;
+  } catch {
+    value = new Date();
+  }
+  const date = value instanceof Date ? value : new Date(value ?? Date.now());
+  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+}
+
+/**
+ * CLI entry point. Returns the process exit code instead of setting
+ * `process.exitCode`, so deterministic tests can drive every branch (including
+ * the degraded ones) with injected env/fetch/clock without touching the
+ * network.
+ *
+ * Exit codes:
+ *   0  success, --dry-run, or EMPTY_WINDOW (all three write artifacts)
+ *   1  invalid filters, missing LLM config, or a failed/unparseable model call
+ *      (degraded artifacts are still written with `analyzerRun.llmExecuted=false`)
+ */
+export async function main(argv = process.argv.slice(2), deps = {}) {
+  const {
+    stdout = console.log,
+    stderr = console.error,
+    fetchImpl = fetch,
+    env = process.env,
+    now = () => new Date(),
+  } = deps ?? {};
+  const args = Array.isArray(argv) ? argv : [];
   const arg = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : '');
-  const date = arg('--date') || new Date().toISOString().slice(0, 10);
+  const stamp = () => isoOf(now);
+  const date = arg('--date') || stamp().slice(0, 10);
   const dir = arg('--dir');
   // Single-read reuse: capture-digest already fetched these envelopes and wrote
   // an NDJSON bundle; reading it here avoids a second R2 REST burst (1200/5min).
@@ -798,9 +918,8 @@ async function main() {
   try {
     filters = parseCliFilters(args);
   } catch (error) {
-    console.error(`[analyze] ${error.message}`);
-    process.exitCode = 1;
-    return;
+    stderr(`[analyze] ${error.message}`);
+    return 1;
   }
   const { lastMinutes, commit, platform, evalMode } = filters;
 
@@ -810,9 +929,9 @@ async function main() {
   } else if (dir) {
     envelopes = await readDirEnvelopes(dir);
   } else if (lastMinutes > 0) {
-    const now = new Date();
-    const start = new Date(now.getTime() - lastMinutes * 60 * 1000);
-    const daySet = new Set([start.toISOString().slice(0, 10), now.toISOString().slice(0, 10)]);
+    const nowDate = new Date(stamp());
+    const start = new Date(nowDate.getTime() - lastMinutes * 60 * 1000);
+    const daySet = new Set([start.toISOString().slice(0, 10), nowDate.toISOString().slice(0, 10)]);
     const keys = [];
     for (const d of daySet) {
       keys.push(...await listR2Keys(`capture/${d}/`));
@@ -831,7 +950,8 @@ async function main() {
     envelopes = await Promise.all((await listR2Keys(`capture/${date}/`)).map(readR2Envelope));
   }
 
-  envelopes = filterEnvelopes(envelopes, { lastMinutes, commit, platform, evalMode });
+  const nowMs = Date.parse(stamp());
+  envelopes = filterEnvelopes(envelopes, { lastMinutes, commit, platform, evalMode, nowMs });
   const trend = since || dir ? dailyTrend(envelopes) : null;
   const filterSuffix = [
     lastMinutes > 0 ? `last-${lastMinutes}m` : '',
@@ -844,33 +964,78 @@ async function main() {
   const input = buildAnalyzerInput(envelopes, { date: label, maxClusters: 10, trend, filters });
   await mkdir(out, { recursive: true });
   await writeFile(join(out, `analyzer-input-${label}.json`), JSON.stringify(input, null, 2), 'utf8');
+  const outputPath = join(out, `analyzer-output-${label}.json`);
+  const writeArtifact = async ({ raw = null, validated = null, analyzerRun }) => {
+    const run = buildAnalyzerRun(analyzerRun);
+    await writeFile(outputPath, JSON.stringify({
+      date: label,
+      input,
+      raw,
+      validated: validated == null ? null : { ...validated, analyzerRun: run },
+      analyzerRun: run,
+    }, null, 2), 'utf8');
+    return outputPath;
+  };
+  const baseUrl = typeof env?.ANALYZER_BASE_URL === 'string' ? env.ANALYZER_BASE_URL.trim() : '';
+  const apiKey = typeof env?.ANALYZER_API_KEY === 'string' ? env.ANALYZER_API_KEY.trim() : '';
+  const model = (typeof env?.ANALYZER_MODEL === 'string' && env.ANALYZER_MODEL.trim()) || 'hy4-flash-free';
+
   if (dryRun) {
+    const analyzerRun = buildAnalyzerRun({ skippedReason: 'dry_run', executedAt: stamp() });
+    await writeArtifact({ analyzerRun });
     const filterText = [
       platform ? `platform=${platform}` : null,
       evalMode ? `evalMode=${evalMode}` : null,
       lastMinutes ? `lastMinutes=${lastMinutes}` : null,
       commit ? `commit=${commit}` : null,
     ].filter(Boolean).join(', ') || 'none';
-    console.log(`[analyze] dry-run: dataStatus=${input.dataStatus} ${input.clusters.length} clusters, ${input.metrics.requests} requests, ${trend?.length ?? 0} days, filters=${filterText}`);
-    return;
+    stdout(`[analyze] dry-run: dataStatus=${input.dataStatus} ${input.clusters.length} clusters, ${input.metrics.requests} requests, ${trend?.length ?? 0} days, filters=${filterText}; llmExecuted=false skippedReason=dry_run`);
+    return 0;
   }
   // G4: never spend a model call on an empty window, and never emit an output
   // that could be read as "0 issues = healthy".
   if (input.dataStatus === 'EMPTY_WINDOW') {
-    const validated = buildEmptyWindowAnalyzerOutput(input);
-    await writeFile(join(out, `analyzer-output-${label}.json`), JSON.stringify({ date: label, input, raw: null, validated }, null, 2), 'utf8');
-    console.log(`[analyze] ${label}: EMPTY_WINDOW (model not called; NOT_ENOUGH)`);
-    return;
+    const analyzerRun = buildAnalyzerRun({ skippedReason: 'empty_window', executedAt: stamp() });
+    const validated = buildEmptyWindowAnalyzerOutput(input, analyzerRun);
+    await writeArtifact({ validated, analyzerRun });
+    stdout(`[analyze] ${label}: EMPTY_WINDOW (model not called; NOT_ENOUGH; llmExecuted=false skippedReason=empty_window)`);
+    return 0;
   }
-  const raw = await callAnalyzer(input);
-  const validated = validateAnalyzerOutput(raw, input);
-  await writeFile(join(out, `analyzer-output-${label}.json`), JSON.stringify({ date: label, input, raw, validated }, null, 2), 'utf8');
-  console.log(`[analyze] ${label}: ${validated.issues.length} issues, ${validated.ignored.length} ignored`);
+  // Missing config is a hard degraded run: no network attempt, explicit reason,
+  // and a non-zero exit so no caller can mistake the artifact for a real run.
+  if (!baseUrl || !apiKey) {
+    const analyzerRun = buildAnalyzerRun({ skippedReason: 'not_configured', executedAt: stamp() });
+    await writeArtifact({ analyzerRun });
+    stderr('[analyze] free model is not configured (ANALYZER_BASE_URL / ANALYZER_API_KEY); refusing to emit a model-backed analysis (llmExecuted=false skippedReason=not_configured)');
+    return 1;
+  }
+  const executedAt = stamp();
+  let raw;
+  try {
+    raw = await callAnalyzer(input, { baseUrl, apiKey, model, fetchImpl });
+  } catch (error) {
+    const reason = error instanceof AnalyzerCallError ? error.reason : 'call_failed';
+    const analyzerRun = buildAnalyzerRun({ skippedReason: reason, executedAt });
+    await writeArtifact({ analyzerRun });
+    stderr(`[analyze] free model call failed (${reason}); degraded artifact written with llmExecuted=false: ${error?.message ?? String(error)}`);
+    return 1;
+  }
+  const analyzerRun = buildAnalyzerRun({ llmExecuted: true, model, executedAt });
+  const validated = validateAnalyzerOutput(raw, input, analyzerRun);
+  await writeArtifact({ raw, validated, analyzerRun });
+  stdout(`[analyze] ${label}: ${validated.issues.length} issues, ${validated.ignored.length} ignored (llmExecuted=true model=${model})`);
+  return 0;
 }
 
 if (process.argv[1] && process.argv[1].endsWith('analyze-captures.mjs')) {
-  main().catch((error) => {
+  main().then((code) => {
+    if (Number.isInteger(code)) process.exitCode = code;
+  }).catch((error) => {
     console.error(`[analyze] failed: ${error?.message ?? String(error)}`);
     process.exitCode = 1;
   });
 }
+
+
+
+

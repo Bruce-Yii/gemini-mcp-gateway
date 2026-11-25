@@ -128,6 +128,31 @@ jobs:
           ARGS=(--analyzer-input "$IN" --candidates docs/eval/suites/candidates.json --out work/candidates-updated.json --json)
           if [ -n "$OUT" ]; then ARGS+=(--analyzer-output "$OUT"); fi
           node scripts/distill-r2-candidates.mjs "${ARGS[@]}"
+      - name: Require a real free-model analyzer run (no silent dry-run closure)
+        if: always()
+        run: |
+          # HARD GATE: analyzer-captures always writes an analyzer-output artifact,
+          # so "artifact exists" no longer proves the free model actually ran. The
+          # artifact must carry analyzerRun.llmExecuted === true; any dry-run,
+          # missing credential, failed call or unparsed response fails this step.
+          OUT="$(ls work/analyzer/analyzer-output-*.json 2>/dev/null | tail -n 1 || true)"
+          if [ -z "$OUT" ]; then
+            echo "::error::no analyzer-output artifact; cannot prove the free model ran"
+            exit 1
+          fi
+          node -e '
+            const fs = require("fs");
+            const file = process.argv[1];
+            const doc = JSON.parse(fs.readFileSync(file, "utf8"));
+            const run = doc.analyzerRun ?? doc.validated?.analyzerRun ?? doc.input?.analyzerRun ?? null;
+            const ok = run?.llmExecuted === true;
+            console.log("analyzerRun=" + JSON.stringify(run));
+            if (!ok) {
+              console.error("::error::free model did not execute (llmExecuted != true, skippedReason=" + (run?.skippedReason ?? "absent") + "). A closure without a real model call is forbidden.");
+              process.exit(1);
+            }
+            console.log("free model executed: model=" + run.model + " at " + run.executedAt);
+          ' "$OUT"
       - name: Reject EMPTY_WINDOW (manual runs fail, scheduled runs warn)
         if: always()
         env:
