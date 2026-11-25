@@ -25,6 +25,8 @@ jobs:
       - run: npm ci
       - name: Unit + integration tests
         run: npm test
+      - name: Gate eval closure records (free model actually executed)
+        run: node scripts/check-eval-closure.mjs
       - name: Audit module boundaries
         run: node scripts/check-module-boundaries.mjs
       - name: Audit silent truncation (P0 blocks, P1 warns)

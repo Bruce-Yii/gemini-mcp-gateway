@@ -120,19 +120,27 @@ online-feedback.v1 记录
 
 ### 3.1.0 强制小闭环（2026-11-25 硬规则）
 
-只要收到任何客户端发来的主动在线评测报告——**无论它是否混在文档同步、PR review、部署或其他任务中顺带贴入**——禁止停在“原文落库 + 记 BADCASES”就交差。必须自动连续走完最小闭环：
+只要收到任何客户端发来的主动在线评测报告——**无论它是否混在文档同步、PR review、部署或其他任务中顺带贴入**——禁止停在“原文落库 + 记 BADCASES”就交差。**唯一标准动作**是一条命令（运行它 = 完整闭环，不允许手工拆步降级）：
+
+```bash
+ANALYZER_BASE_URL=... ANALYZER_API_KEY=... \
+node scripts/run-active-closure.mjs \
+  --active-input work/active-<date>.json --raw work/active-<date>.txt \
+  --since <ISO> --until <ISO>        # 或 --last-minutes 60
+# 默认 --store work/capture-store、--out-dir docs/eval；可选 --infra-blocked-reason "<原因>"
+```
+
+该单入口按序强制完成原有 4 步语义（缺一步即失败、失败即停并透出原因）：
 
 1. **落库**：`record-active-eval` 保存逐字原文与结构化 JSON；每条 `observed.findings[]` 必须标 `observability: passive-observable|active-only`，并给出**具体特征词**；禁止 `MCP`/`api`/`error`/`tool`/`not-found` 等宽泛单词作为唯一关键词。
-2. **同窗对照**：自动执行同窗或最近窗口 `compare-active-passive`；若 R2 限流、无同窗数据或窗口不匹配，必须写 `NOT_ENOUGH` + 具体原因，**不得静默跳过**。
-3. **missed 分流**：
-   - `passive-observable` 漏检 → 提出或直接实施反哺修复（补采集字段 / 改 analyzer input/提示词），冷却/部署后重跑验证；
-   - `active-only`（如客户端上下文压缩掉线、静态工具描述过长等被动日志天生不可见项）→ 直接登记 `BADCASES.md` / 业务 Issue 推进代码修复，**不纳入被动漏检门禁**。
-4. **汇报**：最终回复必须强制附带 3 行闭环核对单：
+2. **同窗对照**：本地增量 store 切窗后强制执行**真实免费模型**的 `analyze-captures`（`--bundle`，0 额外 R2 GET）；`--dry-run`、缺 `ANALYZER_BASE_URL`/`ANALYZER_API_KEY`、空窗口、调用/解析失败一律写 `analyzerRun.llmExecuted=false` + `skippedReason`，`compare-active-passive` 必须判 `closureStatus=INVALID_NO_LLM` 且非零退出；只有 `analyzerRun.llmExecuted===true` 才可能 `closureStatus=CLOSED`。R2 限流、无同窗数据等真实基础设施阻塞只能显式 `--infra-blocked-reason "<原因>"` 记为 `BLOCKED_INFRA`，**仍非零退出、不得标闭环通过**。
+3. **missed 分流**：`passive-observable` 漏检 → 提出或直接实施反哺修复（补采集字段 / 改 analyzer input/提示词），冷却/部署后重跑验证；`active-only`（如客户端上下文压缩掉线、静态工具描述过长等被动日志天生不可见项）→ 直接登记 `BADCASES.md` / 业务 Issue 推进代码修复，**不纳入被动漏检门禁**。
+4. **汇报 + 反哺候选**：单入口同链跑 `distill-r2-candidates`（0 额外 R2 GET）产出候选池，终端强制打印 3 行闭环核对单：
    - `落库结果`：activeEvalId + raw/JSON 路径；
-   - `同窗对照与 missed 分流`：match/dataStatus + missed/active-only 数量与原因；
-   - `反哺动作或明确阻塞原因`：补了什么/重跑结果，或为什么只能 `NOT_ENOUGH`。
+   - `同窗对照与 missed 分流`：match/dataStatus/closureStatus + missed/active-only 数量与原因；
+   - `反哺动作或明确阻塞原因`：补了什么/重跑结果，或为什么只能 `BLOCKED_INFRA`。
 
-未完成以上 4 步前，严禁写“闭环完成 / 已验收”。`docs/eval/EVAL-CLOSURE.md` §3.1 记录关键词具体性与 `active-only` 口径。
+未完成以上 4 步前，严禁写“闭环完成 / 已验收”。CI 门禁 `node scripts/check-eval-closure.mjs` 对 2026-11-25 起新增/更新的 `docs/eval/active-passive-*.json` 强制要求 `analyzerRun.llmExecuted===true`（或合法 `closureStatus=BLOCKED_INFRA` + reason），否则红灯并列出违规文件；缺该字段的 2026-11-24 及更早历史快照跳过。`docs/eval/EVAL-CLOSURE.md` §3.1 记录关键词具体性与 `active-only` 口径。
 
 ### 3.1.1 主动评测触发探针（开发窗口必跑，M5-E 定型 2026-11-24）
 
