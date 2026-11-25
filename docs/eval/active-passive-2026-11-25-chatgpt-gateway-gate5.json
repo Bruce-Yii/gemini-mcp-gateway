@@ -1,0 +1,219 @@
+{
+  "schema": "active-passive-comparison.v1",
+  "activeEvalId": "ae_20261125_58ba7cbe",
+  "generatedAt": "2026-11-25T01:05:06.048Z",
+  "match": "likely",
+  "reasons": [
+    "window+platform+build align; no requestId with a verified in-window timestamp",
+    "missed finding:F-gw-exec-timeout (passive-not-detected)",
+    "missed finding:F-gw-invalid-path (passive-not-detected)",
+    "missed finding:F-gw-search-duplicates (passive-not-detected)"
+  ],
+  "checks": {
+    "build": "match",
+    "platform": "match",
+    "window": "match",
+    "requestIds": "unknown"
+  },
+  "requestIds": {
+    "status": "unknown",
+    "matched": [],
+    "verified": [],
+    "unverified": [],
+    "missing": []
+  },
+  "coverage": [
+    {
+      "kind": "service",
+      "subject": "github",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:observed",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "vercel",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:observed",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "linear",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:observed",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "notion",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:observed",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "figma",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:observed",
+      "reason": null
+    },
+    {
+      "kind": "finding",
+      "subject": "F-gw-exec-timeout",
+      "title": "First execute_read timed out after ~60s",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-gw-notion-schema-name",
+      "title": "Notion tool display name differs from call name so select returns zero",
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-gw-display-truncation",
+      "title": "Two client display-layer truncations on large results",
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-gw-invalid-path",
+      "title": "Query for .vercel/project.json returned not-found",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-gw-prod-main-gap",
+      "title": "Production deployment lags main HEAD by 5 commits",
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-gw-servers-no-evidence",
+      "title": "servers field had no independently visible evidence",
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-gw-search-duplicates",
+      "title": "Repeated search and duplicate schema loads",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    }
+  ],
+  "missed": [
+    {
+      "kind": "finding",
+      "subject": "F-gw-exec-timeout",
+      "title": "First execute_read timed out after ~60s",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-gw-invalid-path",
+      "title": "Query for .vercel/project.json returned not-found",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-gw-search-duplicates",
+      "title": "Repeated search and duplicate schema loads",
+      "observability": "passive-observable",
+      "expected": "passive-issue-detected",
+      "covered": false,
+      "passiveStatus": "not-detected",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "passive-not-detected"
+    }
+  ],
+  "findings": {
+    "total": 7,
+    "detected": 0,
+    "missed": 3,
+    "activeOnly": 4
+  },
+  "passive": {
+    "dataStatus": "HAS_DATA",
+    "requests": 32,
+    "platforms": [
+      "chatgpt",
+      "gemini"
+    ],
+    "buildCommits": [
+      "13287877a0de4b9e9c9a0ce78577a4db9c3a3ca4"
+    ],
+    "serviceSnapshots": 2,
+    "connectFailures": 0,
+    "issues": 0
+  }
+}

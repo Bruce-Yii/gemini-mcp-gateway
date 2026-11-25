@@ -1,0 +1,176 @@
+{
+  "schema": "active-eval.v1",
+  "activeEvalId": "ae_20261125_86e4069d",
+  "recordedAt": "2026-11-25T02:08:28.989Z",
+  "platform": "chatgpt",
+  "buildCommit": "69af629",
+  "window": {
+    "from": "2026-11-25T00:28:47.821Z",
+    "to": "2026-11-25T00:36:09.379Z"
+  },
+  "anchors": {
+    "repos": [
+      "Bruce-Yii/gemini-mcp-gateway"
+    ],
+    "prs": [
+      45,
+      46,
+      47,
+      48,
+      49
+    ],
+    "issues": [],
+    "branches": [
+      "main"
+    ],
+    "files": [
+      "docs/eval/AUTHORITATIVE-SUITE.md",
+      "src/evidence/capture.js",
+      "docs/DEPLOYMENTS.md",
+      "src/execution/tool-format.js"
+    ],
+    "startAction": "GitHub MCP fetch_file 读取 docs/eval/AUTHORITATIVE-SUITE.md（00:28:47.821Z）",
+    "endAction": "GitHub Compare + tool-format.js 生产/main 差异核验（观察至 00:36:09.379Z）"
+  },
+  "prompt": "# M4 Gate 5 跨客户端实测｜Direct MCP 执行组\n\n你现在作为 ChatGPT 客户端，对 `gemini-mcp-gateway` 执行一轮 **M4 Gate 5 跨客户端实测（全程只读，严禁任何写操作）**。\n\n本轮与另一个使用 MCP Gateway 的 ChatGPT 窗口进行对照测试。两边必须使用相同的权威测试定义、任务范围、验收标准和统计口径。唯一变量是工具调用通道。\n\n## 一、执行通道与安全约束\n\n1. 所有上游工具发现和调用必须直接使用 ChatGPT 已接入的 MCP 连接器。\n2. 允许使用已接入的 GitHub、Vercel、Linear、Notion、Figma 等连接器。\n3. 必须通过 `functions.exec` 调用对应工具，例如：\n\n```js\ntools.mcp__GitHub__<tool_name>(args)\ntools.mcp__Vercel__<tool_name>(args)\ntools.mcp__Linear__<tool_name>(args)\ntools.mcp__Notion__<tool_name>(args)\n```\n\n4. 允许在 `functions.exec` 的 JavaScript 执行环境中进行合理的并发、分页、条件处理和结果归一化。\n5. 严禁调用以下 Gateway 工具：\n   - `mcp__mcp_gateway__search`\n   - `mcp__mcp_gateway__execute_read`\n   - `mcp__mcp_gateway__execute`\n6. 不得通过其他间接路径调用 Gateway。\n7. 全程只读，禁止任何文件、分支、PR、Issue、Project、Notion 页面或部署的创建和修改。\n\n## 二、执行步骤\n\n### Step 1：读取权威测试定义\n\n直接通过 GitHub MCP 只读工具，读取：\n\n- 仓库：`Bruce-Yii/gemini-mcp-gateway`\n- 分支：`main`\n- 文件：`docs/eval/AUTHORITATIVE-SUITE.md`\n\n完整读取文件，确认其中“模板一”的任务定义、执行要求、验收标准、评分规则和输出结构。\n\n后续全部测试以该文件为唯一权威定义。不得自行改写、替换、缩减或重新设计题目。\n\n记录：\n- 文件读取工具名称和参数；\n- 文件 SHA；\n- 正文字符数；\n- `truncated` 状态；\n- 是否需要分段读取；\n- 最终是否取得完整正文。\n\n如果正文被截断，必须继续读取，不能基于不完整内容执行。\n\n### Step 2：上游服务状态与 Notion 验证\n\n直接通过已接入的 MCP 连接器完成权威文件规定的准备步骤。\n\n特别注意：\n\nGateway 的 `codemode.services()` 是 Gateway 特有的服务快照能力。Direct MCP 不得假装拥有这一接口，也不得调用 Gateway 获取服务状态。\n\n对于五个服务：\n- github\n- vercel\n- linear\n- notion\n- figma\n\n尽可能记录直连环境中能够实际确认的服务状态和工具可用性，包括：\n- 是否已挂载；\n- 是否可发现对应工具；\n- 可用工具数量（只有能够完整确认时才记录）；\n- 实际调用是否成功；\n- 无法确认的字段写 `unavailable`。\n\n随后直接调用 Notion 对应的 `notion_get_self` 只读工具，验证 Notion 接口是否正常返回 HTTP 200（如果返回结构提供 status）。\n\n如果工具不可用、未挂载或鉴权失败，记录真实错误，不得绕过直连路径补做。\n\n### Step 3：执行权威测试中的三项任务\n\n严格按照 `AUTHORITATIVE-SUITE.md` 中“模板一”的定义，执行：\n\n- `AT-GH-01`\n- `AT-LN-01`\n- `AT-XU-01`\n\n不得用其他测试题替代。\n\n尽量通过一次或少量 `functions.exec` 调用，合理使用 JavaScript 并发、条件分支、分页和数据处理，避免无谓拆分轮次，但不能牺牲证据完整性。\n\n**AT-GH-01**\n- 按权威文件读取 `Bruce-Yii/gemini-mcp-gateway` 的 `src/evidence/capture.js`。\n- 核验 `fileResult.content` 是否为纯正文、是否包含 download notice。\n- 核验 `path` 是否非 null。\n- 核验是否误报 `truncated: true`。\n- 记录真实返回字段和必要正文证据。\n\n**AT-LN-01**\n- 按权威文件查询 Linear 团队与少量 Issue 列表。\n- `limit <= 50`。\n- 核验查询是否正常返回。\n- 核验返回结构、字段和分页信息。\n- 检查是否出现 GraphQL Complexity 超限或其他异常。\n\n**AT-XU-01**\n- 按权威文件跨 GitHub × Vercel 查询 `gemini-mcp-gateway` 最新 Production 部署。\n- 获取 `deploymentId` 和 commit SHA。\n- 获取 GitHub `main` HEAD。\n- 读取 `docs/DEPLOYMENTS.md`。\n- 对照三方数据，判断线上部署、代码 HEAD 和文档记录是否一致，是否存在漂移。\n\n所有任务均以权威文件的详细定义为准。上面仅用于确认任务对象，不得替代权威文件中的具体验收条件。\n\n## 三、效率与成本观测\n\n完整记录以下指标。\n\n### 1. 工具定义与 Schema 成本\n\n- 客户端实际可见的 MCP 工具数量（能够确认时）。\n- 本轮实际使用的工具数量。\n- 实际获取完整 Schema 的工具数量。\n- Schema 获取次数和重复获取次数。\n- Schema 原始字符数。\n- Schema Token 数（能实际测量时）。\n- 是否发生工具定义重复加载。\n- 是否存在工具发现困难或工具名称不明确。\n\n注意：不得把连接器总工具数量直接当作模型实际加载的工具定义数量。\n\n### 2. 模型与工具交互成本\n\n- 模型发起工具调用的轮次。\n- 每轮发起的工具调用数量。\n- `functions.exec` 调用次数。\n- 每次 `functions.exec` 内实际执行的上游工具数量。\n- 并行调用数量。\n- 串行调用数量。\n- 每次执行是否发生多步编排。\n\n严格区分模型工具调用轮次、`functions.exec` 次数和上游 MCP 工具调用次数。\n\n### 3. 数据传输与上下文成本\n\n尽可能记录：\n\n- 上游工具原始返回数据量（字符数或字节数）。\n- JavaScript 执行环境内部处理的数据量。\n- 最终返回给模型的结果字符数。\n- 最终返回记录数量。\n- 实际进入模型上下文的工具结果 Token 数（能测量时）。\n- 是否存在重复数据、冗余字段或大量无关输出。\n- 是否出现输出层截断。\n\n不得将执行环境内部处理的数据量等同于模型上下文占用。\n\n### 4. 时间与执行效率\n\n- 首个关键调用时间（UTC）。\n- 最后一个关键调用时间（UTC）。\n- 测试总耗时。\n- 每项任务耗时。\n- 工具调用耗时。\n- 数据处理耗时。\n- 分页和重读耗时（能测量时）。\n- 重试造成的额外耗时。\n\n### 5. 分页、截断与读取成本\n\n- 输出层截断次数。\n- 权威文件正文截断次数。\n- 源码正文截断次数。\n- 切片读取次数。\n- 分页次数。\n- 重复读取次数。\n- 数组分批次数。\n- 是否因单次执行调用限制提前终止任务。\n\n### 6. 失败恢复与稳定性\n\n- 工具参数猜测次数。\n- 参数错误及修正次数。\n- Schema 理解或调用契约错误次数。\n- text JSON / `structuredContent` 解包失败次数。\n- 返回体解析异常次数。\n- 异常嵌套次数。\n- 超时、限流、权限和鉴权错误次数。\n- 脚本语法错误与重试次数。\n- 重试成功次数。\n- 最终未恢复的问题。\n\n### 7. 客户端体感与安全\n\n- 客户端审批弹窗次数。\n- 审批造成的中断次数。\n- 是否发生工具超时。\n- 是否发生工具不可发现。\n- 是否发生服务不可用。\n- Gateway 调用次数，必须为 0。\n- 任何写操作，必须为 0。\n\n如果没有客户端遥测，审批次数写 `unknown`，不得猜测。\n\n### 8. Token 与模型成本\n\n- 实际工具定义 Token。\n- 实际模型输入 Token。\n- 实际模型输出 Token。\n- 实际上下文占用。\n\n只有存在真实遥测时才填写数字。否则写 `unavailable`，不得根据字符数估算后冒充实测。\n\n## 四、结果质量与验收\n\n每项任务必须保留：\n\n- 实际调用的工具名称；\n- 实际传入参数；\n- 关键原始返回字段；\n- 必要的证据正文；\n- 是否出现异常；\n- 是否完成全部验收条件；\n- PASS / FAIL；\n- Coverage；\n- Claim 评分（按权威文件原始规则）。\n\n不能只依据工具返回成功就判定 PASS。\n\n不能把局部成功说成完整成功。\n\n不能把未检查的范围说成没有问题。\n\n不能编造任何未实际返回的数据或 `requestId`。\n\n## 五、摩擦与缺陷清单\n\n按严重程度列出真实遇到的问题：\n\n- 工具描述不清晰；\n- Schema 不完整或难以理解；\n- 参数契约不明确；\n- 工具发现困难；\n- 重复加载；\n- 返回体格式不稳定；\n- 异常嵌套；\n- text JSON 与 `structuredContent` 解包问题；\n- 输出截断；\n- 分页或切片重读；\n- 工具调用限制；\n- 审批打断；\n- 上游服务不可用；\n- 鉴权失败；\n- 其他实际缺陷。\n\n每项写明发生环节、证据、影响和是否恢复。\n\n没有踩到的明确写“无”。\n\n## 六、最终报告\n\n严格按 `AUTHORITATIVE-SUITE.md` 的“模板一”输出，不得改变其原始结构。\n\n在模板一基础上补充以下内容：\n\n### Section 0：动作范围与起止锚点\n- 客户端：`chatgpt`\n- 执行通道：`Direct MCP`\n- 精确执行时间窗：起止 UTC 时间\n- 首个关键调用动作名称与目标对象\n- 最后一个关键调用动作名称与目标对象\n- 所有可见 `requestId`\n- 不可见写 `unknown`\n\n### Section 1：上游服务与准备步骤\n- 五个服务的直连可用性及可确认的工具信息\n- Notion 只读验证\n- 权威文件读取完整性\n- 不可观测的 Gateway 专有服务快照字段明确标注 unavailable\n\n### Section 2：三项任务逐项验收\n- AT-GH-01\n- AT-LN-01\n- AT-XU-01\n\n### Section 3：效率与客户端体感定量表\n包含第三节所有可观测指标。\n\n### Section 4：摩擦与缺陷清单\n按严重程度列出真实问题。\n\n### Section 5：最终结论\n- M4 Gate 5 是否通过；\n- 每项任务的实际完成情况；\n- Direct MCP 的优势、限制和失败模式；\n- 哪些收益有证据，哪些目前无法证明。\n\n## 七、对照实验纪律\n\n另一个窗口正在通过 MCP Gateway 执行相同任务。\n\n必须保证：\n- 相同权威测试文件；\n- 相同三项任务；\n- 相同数据范围；\n- 相同验收标准；\n- 相同评分规则；\n- 相同统计口径；\n- 相同只读约束。\n\n不得为了表现 Direct MCP 优势而减少检查项。\n\n不得将并行调用、JavaScript 编排、数据过滤等能力直接认定为 Direct MCP 独有优势，因为 Gateway Code Mode 同样可能实现这些操作。\n\n最终报告必须区分：\n1. Direct MCP 独有能力；\n2. Gateway 同样可以实现的能力；\n3. Direct MCP 带来的实际额外成本；\n4. Direct MCP 带来的可验证净收益；\n5. 当前无法测量的指标。\n\n## 八、最终纪律\n\n本轮目标是完成可审计、可复现的 M4 Gate 5 跨客户端实测，而不是展示性演示。\n\n所有数据必须来自真实工具调用和返回结果。\n\n无法观测的写 `unknown` 或 `unavailable`，并解释原因。\n\n不得伪造 requestId、耗时、Token、审批次数或执行结果。\n\n不得执行任何写操作。\n\n---\n\n# M4 Gate 5 跨客户端实测报告｜Direct MCP\n\n执行中\n只读约束已生效\n\n测试客户端： ChatGPT\n执行通道： Direct MCP\n测试套餐： T1 · Smoke 最小烟测包\n测试对象： Bruce-Yii/gemini-mcp-gateway\n\n## Section 0：动作范围与起止锚点\n\n| 项目 | 当前记录 |\n|---|---|\n| 执行开始 UTC | 2026-11-25 00:28:47.821 |\n| 首个关键动作 | GitHub MCP 读取权威测试定义 |\n| 目标文件 | docs/eval/AUTHORITATIVE-SUITE.md |\n| 工具 | mcp__GitHub__fetch_file |\n| Gateway 调用 | 0 |\n| 写操作 | 0 |\n\n### 权威测试定义读取结果\n\n完整正文已取得\n\n| 指标 | 实测结果 |\n|---|---|\n| 分支 | main |\n| Git Blob SHA | d887ba35baf49bf8f686283b32081619f2d23a89 |\n| 正文字符数 | 10,700 |\n| Encoding | UTF-8 |\n| 返回字段 | content, encoding, sha, display_url, display_title |\n| truncated | 字段未返回 |\n| 分段读取 | 不需要 |\n| 完整正文 | 是 |\n\n读取调用参数：\n\n```json\n{\n  \"repository_full_name\": \"Bruce-Yii/gemini-mcp-gateway\",\n  \"path\": \"docs/eval/AUTHORITATIVE-SUITE.md\",\n  \"ref\": \"main\",\n  \"encoding\": \"utf-8\"\n}\n```\n\n已确认权威文件中的 T1 包含三项任务：\n- AT-GH-01\n- AT-LN-01\n- AT-XU-01\n\n并且模板一要求保留 0–8 共九个报告模块。后续报告将保留这些模块的原始含义，同时纳入你要求的效率、服务状态和安全观测数据，不自行更改验收标准。\n\n## Section 1：上游服务与准备步骤\n\n### 1.1 五个服务的直连状态\n\n5/5 服务均可发现并取得实际调用证据\n\n以下数量是执行环境 ALL_TOOLS 注册表中实际发现的工具数量，不代表模型实际加载的 Schema 数量。\n\n| 服务 | 注册工具数 | 实际调用 | 结果 |\n|---|---|---|---|\n| GitHub | 89 | 是 | 成功 |\n| Vercel | 281 | 是 | 成功 |\n| Linear | 93 | 是 | 成功 |\n| Notion | 79 | 是 | 成功 |\n| Figma | 48 | 是 | 成功 |\n\nGateway 专有的 codemode.services() 没有调用，其对应服务快照字段记为 unavailable。\n\n### 1.2 Notion 验证\n\n实际调用：\n\n```js\ntools.mcp__Notion__notion_get_self({})\n```\n\n返回：\n- Workspace：yu Bruce的工作空间\n- User：yi\n- 返回结构：text，内部为 JSON\n- 身份信息正常返回\n- HTTP 状态码：unavailable（连接器没有暴露 status 字段）\n\n因此可以确认 Notion 只读接口实际可用，但不能把它表述成已独立验证 HTTP 200。\n\n### 1.3 工具发现与 Schema\n\n本轮完整获取了 13 个不同工具的 Schema。\n\n| 指标 | 结果 |\n|---|---|\n| 不同工具 Schema | 13 |\n| Schema 获取次数 | 15 |\n| 重复获取次数 | 2 |\n| 唯一 Schema 原始字符数 | 20,594 |\n| Schema Token 数 | unavailable |\n| 模型实际加载定义数量 | unavailable |\n| 工具发现失败 | 0 |\n\n重复获取发生在 list_deployments 和 get_project，属于执行过程中再次查阅契约，不是连接器自动重复加载的证据。\n\n## Section 2：三项任务逐项验收\n\n### AT-GH-01｜GitHub 大文件读取\n\nPARTIAL\n\n实际调用工具\n\n```js\nmcp__GitHub__fetch_file\n```\n\n参数：\n\n```json\n{\n  \"repository_full_name\": \"Bruce-Yii/gemini-mcp-gateway\",\n  \"path\": \"src/evidence/capture.js\",\n  \"ref\": \"main\",\n  \"encoding\": \"utf-8\"\n}\n```\n\n关键返回字段：\n\n| 字段 | 实测结果 |\n|---|---|\n| content | 存在 |\n| encoding | utf-8 |\n| sha | 9f9a36748e89e04936550122f6a5c0130b37557c |\n| display_title | capture.js |\n| display_url | GitHub main 文件地址 |\n| 正文字符数 | 41,278 |\n| path | 未返回 |\n| truncated | 未返回 |\n\n完整性复核\n\n额外调用：\n\n```js\nmcp__GitHub__fetch\n```\n\n参数：\n\n```json\n{\n  \"url\": \"https://raw.githubusercontent.com/Bruce-Yii/gemini-mcp-gateway/main/src/evidence/capture.js\"\n}\n```\n\n结果：\n- 两次读取正文均为 41,278 字符。\n- 两份正文逐字符完全一致。\n- 未发现 download notice。\n- 未发现混入正文的独立 SHA 字段。\n- 文件以源码注释开头，完整返回至文件末尾。\n\n这次独立读取验证了正文完整性，而不是仅凭一次工具调用成功就认定完整。\n\n验收判断\n\n| 验收项 | 结果 |\n|---|---|\n| 文件超过 30KB | 通过 |\n| content 为纯正文 | 通过 |\n| 无 download notice | 通过 |\n| 无正文 SHA 污染 | 通过 |\n| path 非 null | 无法验证 |\n| 未误报 truncated:true | 无法验证字段是否存在 |\n\n不能把没有返回 truncated 字段说成 truncated:false。同样，不能把输入参数中的 path 当成实际返回的 path 字段。\n\n因此本项不判完整 PASS。\n\n### AT-LN-01｜Linear 团队、项目、Issue 与评论\n\nPASS-FRICTION\n\n实际调用工具：\n1. mcp__Linear__list_teams\n2. mcp__Linear__list_projects\n3. mcp__Linear__list_issues\n4. mcp__Linear__list_comments\n\n关键参数：\n\n| 工具 | 参数 |\n|---|---|\n| list_teams | {limit:10} |\n| list_projects | {team:\"LAJI\",limit:10,fields:[\"id\",\"name\",\"url\",\"status\",\"teams\",\"updatedAt\"]} |\n| list_issues | {team:\"LAJI\",limit:5,fields:[\"id\",\"title\",\"url\",\"status\",\"team\",\"updatedAt\"],orderBy:\"updatedAt\"} |\n| list_comments | {issueId:\"LAJI-36\",limit:10} |\n\n团队查询返回两个团队：\n- LAJI：垃圾堆\n- YU：Yu\n\nLAJI 团队项目查询返回：\n- P-LAJI-8\n- [ARCHIVE｜DO NOT EXECUTE] Agent Evaluation Lab v1\n- 状态：Canceled\n\nIssue 查询返回 5 条记录，其中包括：\n- LAJI-36：MCP probe issue 2026-11-22\n- LAJI-35：Gateway Smoke Test 写操作连通性验证\n- LAJI-33\n- LAJI-34\n- LAJI-32\n\n选择返回的 LAJI-36 进行评论读取，获得一条评论：\n- Comment ID：f868d0a8-c583-4368-bc30-548c61406da1\n- Body：probe comment\n- hasNextPage:false\n\n返回结构与异常检查\n- Linear 连接器返回 text JSON。\n- 四项查询均成功解析。\n- limit 最大使用值为 10，远低于 50。\n- 未出现 GraphQL Complexity 超限。\n- 未出现参数错误。\n- 未出现异常嵌套或 JSON 解包失败。\n- Issue 列表存在下一页，未继续读取全部工作区数据，因为本次只要求小规模列表。\n\n说明：权威文件没有给出具体 Issue ID，因此使用本次团队查询中返回的 MCP probe Issue LAJI-36 完成评论读取。这是执行时的对象选择，不应冒充权威文件指定了该 ID。\n\n### AT-XU-01｜GitHub × Vercel 部署一致性\n\nFAIL-GOVERNANCE（待最终提交关系复核）\n\n实际调用工具\n- mcp__Vercel__get_project\n- mcp__Vercel__list_deployments\n- mcp__Vercel__get_deployment\n- mcp__GitHub__fetch\n- mcp__GitHub__fetch_file\n- mcp__GitHub__fetch_commit\n\nVercel 项目：\n- Name：gemini-mcp-gateway\n- Project ID：prj_lo9xcadrDV0cEOFGbiDbV4awZ4Br\n\n部署查询参数：\n\n```json\n{\n  \"projectId\": \"prj_lo9xcadrDV0cEOFGbiDbV4awZ4Br\",\n  \"target\": \"production\",\n  \"limit\": 10\n}\n```\n\n最新 Production 部署：\n\nVercel Production\nREADY\nDeployment ID\n\ndpl_BtmSxXazqvfP2yJvpp1zPz6WeDZs\n\n部署 Commit SHA\n\n13287877a0de4b9e9c9a0ce78577a4db9c3a3ca4\n\nDeployment 创建时间 UTC\n\n2026-11-24T22:52:40.659Z\n\nGitHub main HEAD：\n\n69af629d0b145f8feea30d32b4bb737db5c34c5a\n\nHEAD 提交信息：\n\ndocs(eval): T0 ChatGPT 小闭环 + 蒸馏命中 search_thrash/truncation_reread (#49)\n\n提交时间：2026-11-25T00:12:41Z\n\n部署台账：\n- 文件：docs/DEPLOYMENTS.md\n- Blob SHA：9c8cc693364f2e83671f0ccc2c3227409d5552de\n- 最新登记的 Production 部署 Commit：13287877a0de4b9e9c9a0ce78577a4db9c3a3ca4\n- Deployment ID：dpl_BtmSxXazqvfP2yJvpp1zPz6WeDZs\n\n目前三方数据呈现：\n\n| 对象 | Commit |\n|---|---|\n| Vercel 最新 Production | 1328787... |\n| GitHub main HEAD | 69af629... |\n| DEPLOYMENTS.md 最新部署记录 | 1328787... |\n\n线上部署与台账记录一致，但线上部署并非当前 GitHub HEAD。\n\n这不能直接判定为部署事故：DEPLOYMENTS.md 明确规定 main push 不再自动触发 Production，且 HEAD 提交标题表明这是评测文档类提交。\n\n还需要核对 HEAD 与部署 Commit 的提交父子关系，才能最终判断是否为预期的 docs-only 漂移。\n\n部署漂移复核的重要补充：\n\nGitHub Compare API 返回：\n- 比较基准：Production commit 13287877...\n- 比较目标：main HEAD 69af629...\n- status: ahead\n- ahead_by: 5\n- behind_by: 0\n\n这五个提交并非全部文档更新。其中提交 faba0d8 修改了：\n\nsrc/execution/tool-format.js\n\n因此不能再把本次差异简单归类为 docs-only 更新。当前已经确认存在一项未进入 Production 的运行时代码变更。\n\n这构成需要进一步核验的真实部署治理风险。我正在检查该文件在 Production commit 和 main HEAD 之间的具体差异，不会仅凭提交标题判断其影响。\n\nAT-XU-01 最终核验：代码差异\n\n对五个提交逐一读取实际文件变更：\n\n| Commit | 主要变更 | 性质 |\n|---|---|---|\n| 0b9a83d | DEPLOYMENTS、STATUS、ACCEPTANCE 等 | 文档 |\n| a2aaf5a | 评测 Runner、Index、R2 设计 | 文档 |\n| faba0d8 | R2 蒸馏、评测脚本、tool-format.js | 含运行时代码 |\n| 15550a7 | AGENTS、评测题库 | 文档/规则 |\n| 69af629 | BADCASES、主动评测结果 | 评测记录 |\n\n进一步对 src/execution/tool-format.js 进行生产版本与 main 版本的直接比较：\n\n| 指标 | Production | main |\n|---|---|---|\n| Blob SHA | 8a000ab... | 583c418... |\n| 字符数 | 34,644 | 35,054 |\n| 行数 | 749 | 755 |\n\nmain 新增了三组凭证识别规则：\n\n```js\n/\\blin_api_[A-Za-z0-9]{8,}/g\n/\\bntn_[A-Za-z0-9]{8,}/g\n/\\bfigd_[A-Za-z0-9_-]{8,}/g\n```\n\n分别用于识别 Linear、Notion、Figma 凭证。\n\n最终判断：\nFAIL-GOVERNANCE\nProduction 仍然运行在旧版本，没有包含上述新增凭证脱敏规则。\n\n这是一个实际存在的安全治理差异，不是简单的文档版本不同。当前没有证据表明已经发生凭证泄漏，但生产环境尚未包含 main 中的这项防护改进。\n\n另外，Direct MCP 没有返回 Gateway 的 servers 字段，因此该字段记为 unavailable，不能伪造为 [\"github\",\"vercel\"]。\n\n## Section 3：效率与客户端体感定量表\n\n### 3.1 工具定义与 Schema 成本\n\n工具注册表统计与主动读取的 Schema 分开计算\n\n| 指标 | 实测值 |\n|---|---|\n| 五个服务注册工具总数 | 590 |\n| 本轮实际使用的不同工具 | 13 |\n| 主动获取完整 Schema 的不同工具 | 13 |\n| Schema 获取次数 | 15 |\n| 重复获取次数 | 2 |\n| 唯一 Schema 字符数 | 20,594 |\n| 包含重复获取的字符数 | 22,656 |\n| Schema Token 数 | unavailable |\n| 模型实际加载的工具定义数量 | unavailable |\n| 自动重复加载证据 | 无 |\n\n这里的 590 只是连接器工具注册表中的工具总数，不能当成 ChatGPT 模型实际加载了 590 个工具定义。\n\n重复读取的 Schema：\n- mcp__Vercel__list_deployments\n- mcp__Vercel__get_project\n\n均为两次主动查询。\n\n### 3.2 模型与工具交互成本\n\n| 指标 | 实测值 |\n|---|---|\n| 模型工具调用轮次 | 17 |\n| functions.exec 调用次数 | 17 |\n| 其中包含上游调用的 exec | 11 |\n| 上游 MCP 调用总数 | 33 |\n| 实际使用的不同上游工具 | 13 |\n| 串行上游调用（单个 exec 内） | 0 |\n| 并行调用批次 | 11 |\n| 最大单批并发 | 8 |\n| 数组分批执行 | 0 |\n\n每次包含上游调用的 functions.exec 内部执行数量：\n\n共 33 次\n\n1\n\n8\n\n6\n\n3\n\n2\n\n2\n\n2\n\n1\n\n1\n\n5\n\n2\n\n各批次分别执行 1、8、6、3、2、2、2、1、1、5、2 次上游调用\n\n注意：\n- 17 是模型发起的 functions.exec 轮次。\n- 33 是执行环境内部实际调用的上游 MCP 工具次数。\n- 两者不是同一个指标。\n- 跨上游任务通过多轮 exec 完成，不能把它包装成一次 Gateway 调用。\n\n### 3.3 数据传输与上下文成本\n\n能够实际取得的部分数据量：\n\n| 数据对象 | 原始字符数 |\n|---|---|\n| AUTHORITATIVE-SUITE.md | 10,700 |\n| capture.js | 41,278 |\n| DEPLOYMENTS.md | 6,790 |\n| GitHub main commit API 响应 | 37,686 |\n| Vercel 部署列表响应 | 6,927 |\n| Vercel deployment 详情 | 953 |\n| Linear LAJI 项目列表 | 425 |\n| Linear LAJI Issue 列表 | 1,219 |\n| Linear Issue 评论 | 341 |\n| GitHub Compare API 响应 | 209,228 |\n\n其中 GitHub Compare 的 209,228 字符由 JavaScript 执行环境内部处理，最终只向模型返回了比较摘要。\n\n这说明执行环境确实可以承担较大的数据处理工作，但不能据此推算模型实际节省了多少 Token。\n\n| 指标 | 结果 |\n|---|---|\n| 内部处理数据总量 | unavailable（未完整计量） |\n| 最终进入模型的工具结果总字符数 | unavailable |\n| 实际模型上下文 Token | unavailable |\n| 实际工具结果 Token | unavailable |\n| 模型输出 Token | unavailable |\n| 重复数据 | 存在，主要来自源码复核 |\n| 大量无关输出 | 有一次 |\n| 最终结果层截断 | 1 次 |\n\n### 3.4 时间与执行效率\n\n测试执行完成\n\n| 指标 | UTC 时间 |\n|---|---|\n| 首个关键调用 | 2026-11-25 00:28:47.821 |\n| 最后一次观察结束 | 2026-11-25 00:36:09.379 |\n| 总观察时间 | 7 分 21.558 秒 |\n\n各任务的时间口径：\n\n| 任务 | 可确认时间 |\n|---|---|\n| AT-GH-01 | 初次读取至独立复核结束，约 156.6 秒 |\n| AT-LN-01 | 团队查询至评论查询完成，约 31.2 秒 |\n| AT-XU-01 | 基础部署与 HEAD 数据获取约 51.3 秒；之后继续进行五个提交和运行时代码差异审查 |\n\n上述任务存在并行执行，不能简单相加作为总耗时。\n\n其他指标：\n\n| 指标 | 结果 |\n|---|---|\n| 首个工具批次完成时间 | 约 00:28:48–00:28:50 UTC |\n| 最后一个上游调用精确完成时间 | unavailable |\n| 单工具调用耗时 | 部分可测 |\n| 数据处理耗时 | unavailable |\n| 分页续读耗时 | 0 |\n| 外部工具重试额外耗时 | 0 |\n| 本地脚本错误造成的额外耗时 | 有，精确值 unavailable |\n\n### 3.5 分页、截断与读取成本\n\n| 指标 | 实测值 |\n|---|---|\n| 权威文件正文截断 | 0 |\n| 源码正文截断 | 0 |\n| exec 输出层截断 | 1 |\n| 权威文件分段读取 | 0 |\n| 源码重复读取 | 3 次额外 fetch_file 读取 |\n| 源码独立交叉读取 | 1 次 |\n| DEPLOYMENTS.md 重复读取 | 1 次 |\n| hasNextPage:true 返回次数 | 3 |\n| 实际 cursor 续读 | 0 |\n| 数组分批次数 | 0 |\n| 单次执行限制导致提前终止 | 0 |\n\n需要区分两种截断：\n- GitHub 源码工具本身没有截断正文，且通过另一读取路径确认正文完全一致。\n- 第一次大型 functions.exec 输出因为打印完整源码及其他返回值而被执行环境输出层截断。\n\n第二种是实际发生的上下文输出问题。后续改为在执行环境内部处理并仅返回摘要。\n\n### 3.6 失败恢复与稳定性\n\n| 指标 | 次数 |\n|---|---|\n| 工具参数猜测 | 0 |\n| 参数错误 | 0 |\n| Schema 契约错误 | 0 |\n| text JSON 解包失败 | 0 |\n| structuredContent 解包失败 | 0 |\n| 返回体解析异常 | 1 |\n| 异常嵌套 | 0 |\n| 超时 | 0 |\n| 限流 | 0 |\n| 权限错误 | 0 |\n| 鉴权错误 | 0 |\n| 脚本语法错误 | 0 |\n| 本地脚本运行错误 | 1 |\n| 恢复成功 | 1 |\n| 最终未恢复的问题 | 2 项验收字段不可观测；1 项生产部署治理差异 |\n\n具体异常：\n1. TextEncoder is not defined：执行环境没有该全局对象。导致一次本地后处理失败，改用普通字符串长度统计后恢复。\n2. GitHub Blob API 读取返回原始源码文本，尝试将其解析为 JSON 不成功。随后改为按原始文本处理，正文校验正常。\n\n没有发生上游服务失败。\n\n### 3.7 客户端体感与安全\n\n| 指标 | 结果 |\n|---|---|\n| 审批弹窗次数 | unknown |\n| 审批中断次数 | unknown |\n| 工具超时 | 无 |\n| 工具不可发现 | 无 |\n| 服务不可用 | 无 |\n| Gateway 调用次数 | 0 |\n| 写操作次数 | 0 |\n\n审批次数没有独立客户端遥测，不能推断为零。\n\n全程没有调用任何 Gateway 工具，也没有执行任何写入。\n\n### 3.8 Token 与模型成本\n\n| 指标 | 结果 |\n|---|---|\n| 实际工具定义 Token | unavailable |\n| 模型输入 Token | unavailable |\n| 模型输出 Token | unavailable |\n| 实际上下文占用 | unavailable |\n\n没有真实 Token 遥测，不以字符数估算代替实测。\n\n## Section 4：摩擦与缺陷清单\n\n按影响程度排序。\n\n| 严重程度 | 问题 | 发生环节 | 影响 | 恢复情况 |\n|---|---|---|---|---|\n| 高 | Production 未包含新增凭证脱敏规则 | AT-XU-01 | 运行时安全防护与 main 不一致 | 已定位，未修改部署 |\n| 中 | GitHub fetch_file 缺少 path 字段 | AT-GH-01 | 无法验证 path 非 null | 无法恢复 |\n| 中 | GitHub fetch_file 缺少 truncated 字段 | AT-GH-01 | 无法直接验证截断标记 | 正文独立复核成功，但元数据不可验证 |\n| 中 | 不同连接器返回结构不统一 | 全局 | 增加结果解析和归一化工作 | 已处理 |\n| 低 | exec 大型输出截断 | AT-GH-01 | 初次源码输出不完整进入模型上下文 | 已通过摘要处理恢复 |\n| 低 | TextEncoder 不存在 | 本地后处理 | 一次脚本运行失败 | 已恢复 |\n| 低 | Blob 响应按 JSON 解析不适用 | GitHub 交叉复核 | 一次解析尝试失败 | 已恢复 |\n\n没有遇到的缺陷：\n- 工具名称发现困难：无。\n- 工具参数名称不明确：无。\n- Linear GraphQL Complexity 超限：无。\n- Linear limit > 50：无。\n- 上游鉴权失败：无。\n- Figma Starter 配额限流：无。\n- 工具超时：无。\n- 审批打断：unknown，不能判定为无。\n- Gateway 服务快照缺失：这是 Direct MCP 的能力边界，不属于工具故障。\n\n## Section 5：最终结论\n\nM4 Gate 5：未通过完整验收\n\n### 5.1 三项任务最终结果\n\n| 任务 | 结果 | Coverage |\n|---|---|---|\n| AT-GH-01 | PARTIAL | 4/6 |\n| AT-LN-01 | PASS-FRICTION | 7/7 |\n| AT-XU-01 | FAIL-GOVERNANCE | 5/6 |\n\nCoverage 是根据本次实际核验的原子条件统计，不是权威文件定义的 Claim 评分。\n\nClaim 评分：unavailable。 权威文件没有提供 Claim 评分公式，不能自行发明评分标准。\n\n### 5.2 Direct MCP 与 Gateway 的能力边界\n\n| 维度 | Direct MCP | Gateway Code Mode |\n|---|---|---|\n| 原生上游工具调用 | 支持 | 支持 |\n| 多工具并行 | 支持 | 支持 |\n| JavaScript 编排 | 本轮通过 exec 实现 | 支持 |\n| 内部数据过滤 | 支持 | 支持 |\n| 跨上游串联 | 本轮已验证 | 支持 |\n| 统一服务快照 services() | 不具备 | Gateway 专有能力 |\n| 工具返回结构 | 本轮观察到多种格式 | 有自己的封装与归一化层 |\n| Gateway 内部 requestId | 不可见 | 需以实际 Gateway 返回为准 |\n\n不能把并发、数据过滤和跨上游编排认定为 Direct MCP 独有能力。\n\n### 5.3 哪些收益有证据\n\n已验证：\n1. 五个连接器均能发现并实际调用。\n2. GitHub 41,278 字符源码完整返回，并完成独立正文一致性验证。\n3. Linear 团队、项目、Issue、评论查询成功，没有触发复杂度限制。\n4. Vercel 最新 Production 部署能够取得真实 deploymentId 和 commit SHA。\n5. GitHub 与 Vercel 的跨上游核验成功发现真实部署治理差异。\n\n尚不能证明：\n1. Direct MCP 比 Gateway 节省多少 Token。\n2. Direct MCP 比 Gateway 少多少工具调用轮次。\n3. Direct MCP 是否具有更低的端到端延迟。\n4. Direct MCP 是否减少审批弹窗。\n5. Direct MCP 是否在长会话中更稳定。\n6. Direct MCP 是否具有更低的总体执行成本。\n\n这些都需要另一窗口的 Gateway 原始实测数据进行同口径比较。\n\n### 5.4 对本轮执行的最终判断\n\n这轮最重要的结果不是 Direct MCP 调用成功，而是三个层次的问题被分开了：\n- 连接层： 五个服务均正常。\n- 工具契约层： GitHub 返回字段不足，导致部分验收无法完成。\n- 项目治理层： 生产部署落后于 main，且存在尚未部署的凭证脱敏改进。\n\nDirect MCP 完成了实际跨上游读取，也发现了真实问题。但它没有完整满足三项任务的全部验收条件，因此不能报 PASS。\n\n### 5.5 对照实验纪律\n\n本轮最终统计\n\n5/5\n服务实际可用\n\n13\n实际使用工具种类\n\n33\n上游调用次数\n\n0\nGateway 调用及写操作\n\n最终任务状态\n- AT-GH-01：PARTIAL\n- AT-LN-01：PASS-FRICTION\n- AT-XU-01：FAIL-GOVERNANCE\n\n给 Gateway 对照窗口的关键数据：\n- 权威文件 SHA：d887ba35baf49bf8f686283b32081619f2d23a89\n- capture.js SHA：9f9a36748e89e04936550122f6a5c0130b37557c\n- GitHub main HEAD：69af629d0b145f8feea30d32b4bb737db5c34c5a\n- Vercel Production deploymentId：dpl_BtmSxXazqvfP2yJvpp1zPz6WeDZs\n- Production commit：13287877a0de4b9e9c9a0ce78577a4db9c3a3ca4\n- DEPLOYMENTS.md SHA：9c8cc693364f2e83671f0ccc2c3227409d5552de\n- main 相对 Production：ahead 5 commits\n- requestId：unknown\n- 精确审批次数：unknown\n\n本轮没有修改任何仓库、Issue、Project、Notion 页面或部署。\n\n后续对照时，应重点比较两边对同一部署差异的发现能力、GitHub 文件返回契约、工具调用数量、原始数据进入模型上下文的比例，以及真实 Token 和时间成本，而不是简单比较谁调用得更少。",
+  "expected": {
+    "outcome": "Direct MCP 通道：AT-GH-01 PARTIAL、AT-LN-01 PASS-FRICTION、AT-XU-01 FAIL-GOVERNANCE；Gateway 调用 0、写操作 0",
+    "tools": [
+      "mcp__GitHub__fetch_file",
+      "mcp__GitHub__fetch",
+      "mcp__GitHub__fetch_commit",
+      "mcp__Vercel__get_project",
+      "mcp__Vercel__list_deployments",
+      "mcp__Vercel__get_deployment",
+      "mcp__Linear__list_teams",
+      "mcp__Linear__list_projects",
+      "mcp__Linear__list_issues",
+      "mcp__Linear__list_comments",
+      "mcp__Notion__notion_get_self"
+    ],
+    "checks": [
+      "直连上游 5/5 可用，注册工具 590 个",
+      "GitHub fetch_file 41,278 字符正文与独立 fetch 逐字符一致",
+      "Linear 团队/项目/Issue/评论均成功，无 Complexity 错误",
+      "Vercel Production dpl_BtmSxXazqvfP2yJvpp1zPz6WeDZs = 1328787",
+      "main HEAD 69af629 领先 Production 5 个提交，且包含未部署的 tool-format.js 凭证脱敏规则"
+    ]
+  },
+  "observed": {
+    "tools": [
+      "functions.exec（Direct MCP 通道，未经过网关）"
+    ],
+    "results": [
+      "Direct MCP 通道：5/5 服务可用；13 种上游工具；33 次上游调用；Gateway 调用 0；写操作 0",
+      "AT-GH-01 PARTIAL 4/6：GitHub fetch_file 不返回 path / truncated 字段",
+      "AT-LN-01 PASS-FRICTION 7/7",
+      "AT-XU-01 FAIL-GOVERNANCE 5/6：Production 1328787 缺 main 的 lin_api_/ntn_/figd_ 脱敏规则",
+      "权威文件 SHA d887ba35…，capture.js SHA 9f9a3674…"
+    ],
+    "errors": [
+      "GitHub fetch_file 返回字段无 path / truncated",
+      "1 次 exec 输出层截断",
+      "TextEncoder is not defined（客户端沙箱）",
+      "Blob API 原始文本按 JSON 解析失败（1 次）"
+    ],
+    "requestIds": [
+      "unknown"
+    ],
+    "captureVerified": false,
+    "services": [
+      {
+        "name": "github",
+        "status": "observed",
+        "needsReauth": false
+      },
+      {
+        "name": "vercel",
+        "status": "observed",
+        "needsReauth": false
+      },
+      {
+        "name": "linear",
+        "status": "observed",
+        "needsReauth": false
+      },
+      {
+        "name": "notion",
+        "status": "observed",
+        "needsReauth": false
+      },
+      {
+        "name": "figma",
+        "status": "observed",
+        "needsReauth": false
+      }
+    ],
+    "connectFailures": [],
+    "findings": [
+      {
+        "id": "F-directmcp-prod-missing-redaction",
+        "title": "Production 1328787 lacks the lin_api/ntn/figd redaction rules merged in faba0d8",
+        "keywords": [
+          "lin_api_",
+          "ntn_",
+          "figd_",
+          "tool-format.js",
+          "583c418"
+        ],
+        "observability": "active-only"
+      },
+      {
+        "id": "F-directmcp-gh-fetch-missing-path",
+        "title": "GitHub fetch_file returns no path field so AT-GH-01 path check is unverifiable",
+        "keywords": [
+          "path 未返回",
+          "fetch_file",
+          "display_title"
+        ],
+        "observability": "active-only"
+      },
+      {
+        "id": "F-directmcp-gh-fetch-missing-truncated",
+        "title": "GitHub fetch_file returns no truncated field so truncation flag is unverifiable",
+        "keywords": [
+          "truncated 未返回",
+          "抓取字段缺失"
+        ],
+        "observability": "active-only"
+      },
+      {
+        "id": "F-directmcp-connector-shape-divergence",
+        "title": "Direct connectors return inconsistent result structures requiring normalization",
+        "keywords": [
+          "返回结构不统一",
+          "text JSON",
+          "归一化"
+        ],
+        "observability": "active-only"
+      },
+      {
+        "id": "F-directmcp-exec-output-truncation",
+        "title": "One functions.exec output was truncated when returning the full source",
+        "keywords": [
+          "exec 输出层截断",
+          "摘要处理"
+        ],
+        "observability": "active-only"
+      },
+      {
+        "id": "F-directmcp-textencoder-missing",
+        "title": "Direct MCP sandbox has no TextEncoder global",
+        "keywords": [
+          "TextEncoder is not defined",
+          "字符串长度统计"
+        ],
+        "observability": "active-only"
+      }
+    ]
+  },
+  "source": {
+    "window": "M4 Gate 5 cross-client control run — ChatGPT Direct MCP channel (no gateway traffic)",
+    "messageAt": "2026-11-25T08:44:00.000Z",
+    "rawTextSha256": "f0cc5e8c7197a5ad0fa60add60b27e26d119a57596371204ef6e98071ca52965",
+    "rawBytes": 31746
+  }
+}
