@@ -38,6 +38,8 @@
 
 | 2026-11-25 06:52 | `13287877a0de4b9e9c9a0ce78577a4db9c3a3ca4` | CLI（手动，`vercel --prod --meta githubCommitSha=<sha> --build-env VERCEL_GIT_COMMIT_SHA=<sha>`） | 部署 main `1328787`：PR #33 评测闭环/防假绿、#39 Issue #15 契约收口（waitForPrChecks 聚合、writeFiles 防静默、normalizeMerge 补 number/url、Linear 防爆窗）、#38 客户端 Profile 隔离（OAuth client_id → profile + 4 维插槽）、#45 wireShape 指纹 + 单次 R2 读取/增量同步 | READY（runtime 待真实客户端复验） | `deploymentId=dpl_BtmSxXazqvfP2yJvpp1zPz6WeDZs`；healthz `commit=1328787…` / `buildHash=1e73e4aa…` / `builtAt=2026-11-24T22:52:44.956Z`；Vercel API 实查 `meta.githubCommitSha=1328787…`（非空，AT-XU-01 SHA 缺口消除） |
 
+| 2026-11-25 09:35 | 9af629d0b145f8feea30d32b4bb737db5c34c5a | CLI（手动，ercel --prod --meta githubCommitSha=<sha> --build-env VERCEL_GIT_COMMIT_SHA=<sha>） | 部署 main 9af629：PR #47 评测 Runner/Index + R2 设计骨架、#48 蒸馏管道 + 凭证脱敏规则、#50 题库口径、#49 T0 小闭环 | READY | deploymentId=dpl_BuxyBEru1DJawNxg5i1FAtKzpUjs；healthz commit=69af629… / uildHash=fbdcefdf… / uiltAt=2026-11-25T01:35:07.491Z；Vercel API 实查 meta.githubCommitSha=69af629d0b145f8feea30d32b4bb737db5c34c5a |
+
 ## 规则
 
 - 每次部署前过 [DEPLOY-POLICY.md](DEPLOY-POLICY.md) 检查；
