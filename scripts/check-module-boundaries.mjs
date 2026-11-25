@@ -9,10 +9,23 @@
  *
  * Existing cross-module edges are explicitly baselined so new violations fail.
  *
+ * M1 physical client isolation adds two more rules over src/clients/:
+ *   Rule A — src/clients/<platformA>/** must NEVER import
+ *            src/clients/<platformB>/** (A != B), and the shared base
+ *            src/clients/_base/** must never import a concrete platform.
+ *   Rule B — src/execution/**, src/upstream/** and src/evidence/** must NEVER
+ *            import a concrete client (src/clients/{gemini,chatgpt,claude}/**).
+ *            They may import the router (src/clients/index.js) or the shared
+ *            base (src/clients/_base/**).
+ * Both rules are physical (filesystem) rules: a violation exits non-zero and is
+ * reported with a distinct rule id, while the pre-existing module rules and
+ * their output format are preserved unchanged.
+ *
  * Usage:
  *   node scripts/check-module-boundaries.mjs
  *   node scripts/check-module-boundaries.mjs --json
  *   node scripts/check-module-boundaries.mjs --strict   # fail on legacy too
+ *   node scripts/check-module-boundaries.mjs --src <dir> # audit another tree
  */
 
 import fs from 'node:fs';
@@ -90,8 +103,10 @@ export function canonicalKey(file) {
 }
 
 /**
- * Parse relative ESM imports. Handles both legacy './x.js' (used by unit
- * tests) and migrated '../module/x.js' paths.
+ * Parse relative ESM imports for the legacy flat-module API. `./x.js` and
+ * `x.js` are normalized to the same basename (the legacy analyzer only needs a
+ * basename lookup, and existing callers/tests depend on this normalization).
+ * For path-based physical rules use relativeImportsOf() instead.
  */
 export function importsOf(source) {
   const out = new Set();
@@ -100,6 +115,23 @@ export function importsOf(source) {
     if (!target.endsWith('.js')) target += '.js';
     out.add(target);
   }
+  return [...out];
+}
+
+/**
+ * Parse relative ESM imports WITHOUT dropping the leading './' (plus
+ * side-effect imports such as `import '../clients/gemini/prompts.js'`).
+ * Required by the client-isolation rules, which must resolve each specifier
+ * against the importing file's own directory.
+ */
+export function relativeImportsOf(source) {
+  const out = new Set();
+  const text = String(source);
+  const add = (spec) => {
+    out.add(spec.endsWith('.js') ? spec : `${spec}.js`);
+  };
+  for (const m of text.matchAll(/from\s+['"](\.[^'"]+)['"]/g)) add(m[1]);
+  for (const m of text.matchAll(/\bimport\s+['"](\.[^'"]+)['"]/g)) add(m[1]);
   return [...out];
 }
 
@@ -146,16 +178,206 @@ export function scanModules(srcDir = SRC) {
   return files;
 }
 
-function main() {
-  const args = new Set(process.argv.slice(2));
-  const json = args.has('--json');
-  const strict = args.has('--strict');
-  const files = scanModules(SRC);
-  const graph = {};
-  for (const file of files) {
-    graph[file] = importsOf(fs.readFileSync(path.join(SRC, file), 'utf8'));
+/* ========================================================================== *
+ * M1 physical client isolation (rules A and B)
+ * ========================================================================== */
+
+/** The concrete client platforms that own a physical directory. */
+export const CLIENT_PLATFORMS = Object.freeze(['gemini', 'chatgpt', 'claude']);
+
+const CLIENT_PLATFORM_DIRS = new Set(CLIENT_PLATFORMS);
+
+/** Shared, platform-agnostic client code: the only cross-platform imports. */
+export const CLIENT_SHARED_DIR = '_base';
+
+/** Objective layers that must talk to clients only through the router/base. */
+export const OBJECTIVE_MODULES = Object.freeze(['execution', 'upstream', 'evidence']);
+
+const OBJECTIVE_DIRS = new Set(OBJECTIVE_MODULES);
+
+/** Distinct, reportable rule ids (stable strings used by tests/CI logs). */
+export const CLIENT_BOUNDARY_RULES = Object.freeze({
+  CROSS_CLIENT_IMPORT: 'rule-a/cross-client-import',
+  OBJECTIVE_IMPORTS_CLIENT: 'rule-b/objective-imports-client',
+});
+
+export function toPosixPath(file) {
+  return String(file).replace(/\\/g, '/');
+}
+
+/**
+ * Resolve one relative import specifier against the importing file, returning a
+ * src-relative posix path (e.g. 'clients/chatgpt/index.js'). Bare package
+ * specifiers return null (never a client-boundary edge).
+ */
+export function resolveImportTarget(fromFile, specifier) {
+  const spec = toPosixPath(specifier);
+  if (!spec.startsWith('.')) return null;
+  const from = toPosixPath(fromFile);
+  const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(from), spec));
+  return resolved.replace(/^\.\//, '');
+}
+
+/** Platform id owning a path under src/clients/<platform>/, else null. */
+export function clientPlatformOf(file) {
+  const match = /^clients\/([^/]+)\//.exec(toPosixPath(file));
+  if (!match) return null;
+  return CLIENT_PLATFORM_DIRS.has(match[1]) ? match[1] : null;
+}
+
+/** True for the shared base (src/clients/_base/**). */
+export function isClientBaseFile(file) {
+  return toPosixPath(file).startsWith(`clients/${CLIENT_SHARED_DIR}/`);
+}
+
+/** True for the sole router (src/clients/index.js). */
+export function isClientRouterFile(file) {
+  return toPosixPath(file) === 'clients/index.js';
+}
+
+/** Objective layer owning a path, else null. */
+export function objectiveModuleOf(file) {
+  const match = /^([^/]+)\//.exec(toPosixPath(file));
+  return match && OBJECTIVE_DIRS.has(match[1]) ? match[1] : null;
+}
+
+function layerName(file) {
+  const platform = clientPlatformOf(file);
+  if (platform) return `clients/${platform}`;
+  if (isClientBaseFile(file)) return `clients/${CLIENT_SHARED_DIR}`;
+  if (isClientRouterFile(file)) return 'clients/index.js';
+  const head = toPosixPath(file).split('/')[0];
+  return head || file;
+}
+
+/**
+ * Audit the client-isolation rules over a src-relative import graph.
+ *
+ * Rule A violation: a concrete platform imports another concrete platform, or
+ * the shared base imports any concrete platform.
+ * Rule B violation: execution/upstream/evidence imports a concrete platform.
+ * Imports of src/clients/index.js and src/clients/_base/** are always allowed.
+ *
+ * @param {Record<string, string[]>} graph src-relative file -> relative imports
+ * @returns {{edges: object[], violations: object[]}}
+ */
+export function analyzeClientBoundaries(graph) {
+  const edges = [];
+  const violations = [];
+  for (const [file, deps] of Object.entries(graph)) {
+    const fromFile = toPosixPath(file);
+    const fromPlatform = clientPlatformOf(fromFile);
+    const fromBase = isClientBaseFile(fromFile);
+    const fromObjective = objectiveModuleOf(fromFile);
+    for (const dep of deps ?? []) {
+      const target = resolveImportTarget(fromFile, dep);
+      if (!target) continue;
+      const toPlatform = clientPlatformOf(target);
+      const toSharedClient = isClientRouterFile(target) || isClientBaseFile(target);
+      // Only edges that touch the physical client tree are client-rule edges.
+      if (!fromPlatform && !fromBase && !toPlatform && !toSharedClient) continue;
+
+      const edge = {
+        fromFile,
+        toFile: target,
+        rawSpecifier: dep,
+        from: layerName(fromFile),
+        to: layerName(target),
+        rule: null,
+        allowed: true,
+        reason: 'allowed',
+      };
+      if (fromPlatform && toPlatform && fromPlatform !== toPlatform) {
+        edge.rule = CLIENT_BOUNDARY_RULES.CROSS_CLIENT_IMPORT;
+        edge.allowed = false;
+        edge.reason = `concrete client ${fromPlatform} must not import concrete client ${toPlatform}`;
+      } else if (fromBase && toPlatform) {
+        edge.rule = CLIENT_BOUNDARY_RULES.CROSS_CLIENT_IMPORT;
+        edge.allowed = false;
+        edge.reason = `shared base clients/_base must not import concrete client ${toPlatform}`;
+      } else if (fromObjective && toPlatform) {
+        edge.rule = CLIENT_BOUNDARY_RULES.OBJECTIVE_IMPORTS_CLIENT;
+        edge.allowed = false;
+        edge.reason = `${fromObjective} must import clients/index.js or clients/_base, not concrete client ${toPlatform}`;
+      }
+      edges.push(edge);
+      if (!edge.allowed) violations.push(edge);
+    }
   }
-  const { edges, violations } = analyzeGraph(graph);
+  return { edges, violations };
+}
+
+/** Recursively collect every .js file under src/clients (src-relative paths). */
+export function scanClientModules(srcDir = SRC) {
+  const root = path.join(srcDir, 'clients');
+  const files = [];
+  if (!fs.existsSync(root)) return files;
+  const walk = (dir, prefix) => {
+    const entries = fs.readdirSync(dir, { withFileTypes: true })
+      .sort((a, b) => a.name.localeCompare(b.name));
+    for (const entry of entries) {
+      const rel = `${prefix}${entry.name}`;
+      if (entry.isDirectory()) {
+        walk(path.join(dir, entry.name), `${rel}/`);
+      } else if (entry.name.endsWith('.js')) {
+        files.push(rel);
+      }
+    }
+  };
+  walk(root, 'clients/');
+  return files;
+}
+
+/**
+ * Build the import graph needed by rules A/B: every logical module file plus
+ * every file under src/clients. Uses RAW relative specifiers (leading './'
+ * preserved) so each target can be resolved against the importing file.
+ * Reads only files that exist in `srcDir`.
+ */
+export function buildClientGraph(moduleFiles, clientFiles, srcDir = SRC) {
+  const graph = {};
+  for (const file of [...moduleFiles, ...clientFiles]) {
+    graph[file] = relativeImportsOf(fs.readFileSync(path.join(srcDir, file), 'utf8'));
+  }
+  return graph;
+}
+
+/**
+ * Build the legacy module graph, excluding imports that target src/clients/**
+ * (those are owned by rules A/B so they are not misreported as unmapped).
+ */
+export function buildLegacyGraph(moduleFiles, srcDir = SRC) {
+  const graph = {};
+  for (const file of moduleFiles) {
+    graph[file] = importsOf(fs.readFileSync(path.join(srcDir, file), 'utf8'))
+      .filter((dep) => !resolveImportTarget(file, dep)?.startsWith('clients/'));
+  }
+  return graph;
+}
+
+export function parseArgs(argv) {
+  const args = new Set(argv);
+  let srcDir = SRC;
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === '--src' && argv[i + 1]) srcDir = path.resolve(argv[i + 1]);
+    else if (arg.startsWith('--src=')) srcDir = path.resolve(arg.slice('--src='.length));
+  }
+  return { json: args.has('--json'), strict: args.has('--strict'), srcDir };
+}
+
+function main() {
+  const { json, strict, srcDir } = parseArgs(process.argv.slice(2));
+  const files = scanModules(srcDir);
+  const { edges, violations } = analyzeGraph(buildLegacyGraph(files, srcDir));
+
+  const clientFiles = scanClientModules(srcDir);
+  const clientGraph = buildClientGraph(files, clientFiles, srcDir);
+  const clientBoundaries = analyzeClientBoundaries(clientGraph);
+  const clientViolations = clientBoundaries.violations;
+  const ruleACount = clientViolations.filter((e) => e.rule === CLIENT_BOUNDARY_RULES.CROSS_CLIENT_IMPORT).length;
+  const ruleBCount = clientViolations.filter((e) => e.rule === CLIENT_BOUNDARY_RULES.OBJECTIVE_IMPORTS_CLIENT).length;
+
   const legacy = edges.filter((e) => e.legacy);
   const unmapped = files.filter((f) => moduleOf(f) === 'unmapped');
 
@@ -168,6 +390,16 @@ function main() {
       newViolations: violations.length,
       unmapped,
       violations,
+      clients: {
+        files: clientFiles.length,
+        platforms: CLIENT_PLATFORMS,
+        rules: CLIENT_BOUNDARY_RULES,
+        edges: clientBoundaries.edges.length,
+        newViolations: clientViolations.length,
+        ruleAViolations: ruleACount,
+        ruleBViolations: ruleBCount,
+        violations: clientViolations,
+      },
     }, null, 2));
   } else {
     console.log(`[module-boundaries] src modules=${files.length} edges=${edges.length} (shims excluded)`);
@@ -187,10 +419,23 @@ function main() {
     } else {
       console.log('  new violations=0');
     }
+
+    console.log(`[client-boundaries] client files=${clientFiles.length} edges=${clientBoundaries.edges.length} rules=A(${CLIENT_BOUNDARY_RULES.CROSS_CLIENT_IMPORT}),B(${CLIENT_BOUNDARY_RULES.OBJECTIVE_IMPORTS_CLIENT})`);
+    console.log(`  rule A cross-client imports: ${ruleACount}`);
+    console.log(`  rule B objective-layer -> concrete client imports: ${ruleBCount}`);
+    if (clientViolations.length) {
+      console.error(`  NEW CLIENT VIOLATIONS=${clientViolations.length}`);
+      for (const e of clientViolations) {
+        console.error(`    x [${e.rule}] ${e.fromFile} -> ${e.toFile} (${e.reason})`);
+      }
+    } else {
+      console.log('  new violations=0');
+    }
   }
 
   if (unmapped.length) process.exitCode = 1;
   if (violations.length) process.exitCode = 1;
+  if (clientViolations.length) process.exitCode = 1;
   if (strict && legacy.length) process.exitCode = 1;
 }
 

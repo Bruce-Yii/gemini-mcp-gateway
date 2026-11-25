@@ -25,7 +25,10 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { sanitizeTool } from '../shared/sanitize.js';
-import { resolveClientProfile, encodeToolResult, applyProfileToTools } from '../client/client-profile.js';
+import { resolveClientProfile } from '../client/client-profile.js';
+// Client adaptation is physically isolated per platform; the runtime only talks
+// to the router (src/clients/index.js) and never to a concrete platform dir.
+import { applyClientToTools, resolveClientAdapter } from '../clients/index.js';
 import { searchEntries } from '../shared/catalog.js';
 import { UpstreamManager } from '../upstream/upstreams.js';
 import { createCodeModeTools } from '../execution/codemode.js';
@@ -318,9 +321,13 @@ export function createGatewayServer(upstreamManager, options = {}) {
     env: options.env,
   });
   const isV2 = options.protocolVersion === PROTOCOL_VERSION;
-  // Pass the resolved profile down so the Code Mode tool factory uses the SAME
-  // per-request profile (annotations / descriptionMode / outputBudgetChars).
-  const toolOptions = { ...options, profile };
+  // Resolve the physical client adapter once per server instance; the Code Mode
+  // factory, the annotations pass and the MCP result encoding all reuse the SAME
+  // adapter, so one request can never be adapted for two different clients.
+  const clientAdapter = options.clientAdapter ?? resolveClientAdapter({ profile });
+  // Pass the resolved profile + adapter down so the Code Mode tool factory uses
+  // the SAME per-request face (annotations / descriptionMode / outputBudgetChars).
+  const toolOptions = { ...options, profile, clientAdapter };
   let tools;
   let instructions = INSTRUCTIONS;
   if (options.mode === 'codemode') {
@@ -391,10 +398,10 @@ export function createGatewayServer(upstreamManager, options = {}) {
     } : {}),
   });
 
-  // Profile may adjust annotation defaults, but never tool names/count/schema.
-  // applyProfileToTools returns a new array; the underlying `tools`/`byName`
-  // registry is untouched.
-  const listedTools = applyProfileToTools(tools, profile);
+  // The client adapter may adjust annotation defaults, but never tool
+  // names/count/schema. applyClientToTools returns a new array; the underlying
+  // `tools`/`byName` registry is untouched.
+  const listedTools = applyClientToTools(clientAdapter, tools);
   server.setRequestHandler(ListToolsRequestSchema, () => ({
     tools: listedTools.map(({ name, description, inputSchema, annotations }) => ({
       name,
@@ -421,10 +428,12 @@ export function createGatewayServer(upstreamManager, options = {}) {
     const tool = byName.get(name);
     if (!tool) return errorResult(new Error(`unknown tool: ${name}`));
     try {
-      const encoded = encodeToolResult(textResult(await tool.handler(request.params?.arguments ?? {})), profile);
-      // ByName handlers already produced a text-JSON result; encodeToolResult
-      // only strips/adds structuredContent per profile. The default gemini
-      // path returns the identical shape to the pre-adapter code.
+      // ByName handlers already produced a text-JSON result; the client
+      // adapter only strips/adds structuredContent per platform (Gemini/Claude:
+      // text only; ChatGPT: text + structuredContent). No handler may change.
+      const encoded = clientAdapter.encodeToolResult(
+        textResult(await tool.handler(request.params?.arguments ?? {})),
+      );
       return encoded;
     } catch (error) {
       return errorResult(error);

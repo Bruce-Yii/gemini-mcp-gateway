@@ -22,13 +22,17 @@ import { normalizeCode, sanitizeToolName } from './codemode-util.js';
 import { normalizeToolArguments } from '../shared/sanitize.js';
 import { captureEvent } from '../evidence/capture.js';
 import { searchEntries } from '../shared/catalog.js';
+// Client adaptation (tool descriptions, output encoding, output budget, search
+// policy) lives PHYSICALLY in src/clients/<platform>/. This module only ever
+// holds the router + shared assembler; it must never import a concrete
+// platform directory (module-boundary rule B).
 import {
   DEFAULT_OUTPUT_BUDGET_CHARS,
-  DESCRIPTION_MODE_COMPACT,
-  encodeModelOutput,
-  resolveClientProfile,
-  resolveToolAnnotations,
-} from '../client/client-profile.js';
+  assembleToolDefinitions,
+  isClientAdapter,
+  resolveClientAdapter,
+  resolveOutputBudget,
+} from '../clients/index.js';
 // B10 integration: canonical adapters are exposed into the sandbox through the
 // existing host bridge (values serialize; guest functions cannot cross it).
 // The existing fileResult/prResult helpers stay byte-for-byte unchanged.
@@ -69,8 +73,9 @@ import { executeTypedPlan } from './typed-plan.js';
 
 const DEFAULT_MAX_CALLS = 50; // max upstream tool calls per execute() (was 30)
 const MAX_TYPED_PLAN_STEPS = 64; // align v1 bridge with the v2 schema's maxItems
-// M1: single-sourced with client-profile.js so a profile's default
-// `outputBudgetChars` is exactly the historical global threshold.
+// Client-owned budgets live in src/clients/<platform>/; the default here is the
+// shared historical threshold re-exported by the client router, so the untuned
+// path stays byte-for-byte unchanged.
 const DEFAULT_MAX_RESULT_CHARS = DEFAULT_OUTPUT_BUDGET_CHARS; // cap the execute() return value
 // F-06: the `run` SDK injects every syncHostFunctions group as a guest global.
 // Calling it `__bridge` let guest code bypass __dshInvoke's Error rebuilding and
@@ -780,8 +785,14 @@ function makeOutput({ legacyResult, structuredResult, logs, toolCalls, isError =
  * This is applied by the execute handlers at the tool boundary, after
  * runInSandbox() has produced its full internal result. Direct callers of
  * runInSandbox() still see `toolCalls`/`logs` for audit and diagnostics.
+ *
+ * `profileOrAdapter` is optional for backward callers:
+ *   - undefined  -> the historical plain projection (no client encoding);
+ *   - adapter    -> that adapter's own encodeModelOutput;
+ *   - profile    -> the router resolves the matching platform adapter and
+ *                   encodes with it (unknown -> gemini, the legacy default).
  */
-export function toModelOutput(output, profile) {
+export function toModelOutput(output, profileOrAdapter) {
   if (output === null || typeof output !== 'object' || Array.isArray(output)) {
     return { result: toJsonSafe(output) };
   }
@@ -792,10 +803,13 @@ export function toModelOutput(output, profile) {
   const { toolCalls, calls, logs, toJSON, ...rest } = output;
   void toolCalls; void calls; void logs; void toJSON;
   const projected = toJsonSafe(rest); // cycles / BigInt → {error}, never throws
-  // Thin encoding adapter: gemini (default) keeps the exact projected shape;
-  // chatgpt additionally gets structuredContent derived from `result`.
-  // No execution semantics change; profile is optional for backward callers.
-  return profile === undefined ? projected : encodeModelOutput(projected, profile);
+  if (profileOrAdapter === undefined || profileOrAdapter === null) return projected;
+  // Encoding selection is owned by the physical client adapter; this module
+  // never reads `profile.structuredContent` / any client flag itself.
+  const adapter = isClientAdapter(profileOrAdapter)
+    ? profileOrAdapter
+    : resolveClientAdapter({ profile: profileOrAdapter });
+  return adapter.encodeModelOutput(projected);
 }
 
 /** JSON-only copy of a wire value; mirrors Cloudflare's `toJSONValue` helper. */
@@ -2042,164 +2056,149 @@ export function servicesSnapshot(upstreamManager) {
 }
 
 /* -------------------------------------------------------------------------- *
- * M1 client-isolation slots
+ * Objective upstream/sandbox contract (shared by EVERY client platform)
  *
- * These three helpers are the ONLY places a client profile may influence the
- * Code Mode tool face. They never change tool names/order, input schemas, or
- * execution semantics:
- *   - annotations      -> per-tool hints only (informational, not a boundary);
- *   - descriptionMode  -> 'full' (default, historical text) | 'compact';
- *   - outputBudgetChars-> per-execute result budget (default = historical cap).
- * With the stock profiles every helper returns the historical value, so the
- * default output stays byte-for-byte identical.
+ * The per-client tool face — description wording/order, annotations, output
+ * encoding, output budget, search policy — is physically owned by
+ * src/clients/<platform>/ and reached only through src/clients/index.js.
+ *
+ * What stays here is the part that describes REAL gateway behaviour and must
+ * therefore be identical for every client: the helper list, result-shape and
+ * truncation rules, the read/write boundary line, and the "connected services"
+ * suffix built from the actually-mounted upstreams. They are injected into the
+ * adapter as an immutable description context; no client flag is read here.
  * -------------------------------------------------------------------------- */
 
+/** Build the objective contract context handed to the client adapter. */
+function buildDescriptionContext(servicesSuffix) {
+  return Object.freeze({
+    servicesSuffix,
+    guidance: Object.freeze({
+      callName: CALLNAME_GUIDANCE,
+      execBoundary: EXEC_BOUNDARY_GUIDANCE,
+      returnShape: RETURN_SHAPE_GUIDANCE,
+      services: SERVICES_GUIDANCE,
+      async: ASYNC_GUIDANCE,
+      actions: ACTIONS_GUIDANCE,
+      ghHighFreq: GH_HIGHFREQ_GUIDANCE,
+      linearContext: LINEAR_CONTEXT_GUIDANCE,
+      b15: B15_ERGONOMICS_GUIDANCE,
+      b17: B17_FEEDBACK_GUIDANCE,
+    }),
+  });
+}
+
 /**
- * Per-client output budget for one execute_read/execute result.
+ * Build the three Code Mode MCP tools bound to an UpstreamManager.
  *
- * Precedence: an explicit operator/config `maxResultChars` always wins (it may
- * be a hard global cap); otherwise the profile's `outputBudgetChars` applies;
- * the final fallback is the historical global default. A null/undefined
- * `options.maxResultChars` therefore keeps the exact old behaviour.
- */
-function resolveExecuteOutputBudget(profile, options) {
-  const configured = options?.maxResultChars;
-  if (configured !== undefined && configured !== null) return configured;
-  const profileBudget = profile?.outputBudgetChars;
-  if (typeof profileBudget === 'number' && Number.isFinite(profileBudget) && profileBudget > 0) {
-    return profileBudget;
-  }
-  return DEFAULT_MAX_RESULT_CHARS;
-}
-
-/** Pick the profile's tool-description verbosity; 'full' is byte-identical. */
-function resolveToolDescription(profile, fullDescription, compactDescription) {
-  return profile?.descriptionMode === DESCRIPTION_MODE_COMPACT
-    ? compactDescription
-    : fullDescription;
-}
-
-/**
- * Build the two Code Mode MCP tools bound to an UpstreamManager.
+ * Tool names, order, input schemas, handlers and execution semantics are the
+ * objective contract and are defined HERE. Only the client-owned face —
+ * description text, annotations, output encoding, output budget and search
+ * policy — comes from the resolved adapter. The adapter is the ONLY client
+ * dispatch point (src/clients/index.js); this module never imports a concrete
+ * platform and never reads a client flag itself.
  */
 export function createCodeModeTools(upstreamManager, options = {}) {
-  // Thin client profile: options.profile is resolved once per HTTP request by
-  // server.js; direct callers get the same resolution from their own
-  // headers/body/oauthClientId (unknown -> gemini default). No execution
-  // semantics change.
-  const profile = options.profile ?? resolveClientProfile({
-    headers: options.headers,
-    body: options.body,
-    env: options.env,
-    oauthClientId: options.oauthClientId,
-    oauthClientMap: options.oauthClientMap,
-  });
+  // Resolve once per factory call: server.js may hand over an already-resolved
+  // adapter; direct callers get the same resolution from their own
+  // headers/body/oauthClientId (unknown -> gemini, the historical default).
+  const adapter = isClientAdapter(options.clientAdapter)
+    ? options.clientAdapter
+    : resolveClientAdapter({
+      profile: options.profile,
+      headers: options.headers,
+      body: options.body,
+      env: options.env,
+      oauthClientId: options.oauthClientId,
+      oauthClientMap: options.oauthClientMap,
+    });
   const tools = upstreamManager.getEntries?.() ?? [];
   const sanitized = tools.map((t) => ({ ...t, ident: sanitizeToolName(t.name) }));
   const servicesSuffix = connectedServicesSuffix(tools);
   // Gemini new feedback #3: pass a getter (not a frozen copy) so codemode.services()
   // reflects local state at call time; it reads no network.
   const getServices = () => servicesSnapshot(upstreamManager);
+  // Objective contract text only; per-client wording lives in the adapter.
+  const descriptionContext = buildDescriptionContext(servicesSuffix);
+  // Per-client search/retrieval policy (stock defaults are the historical ones).
+  const searchPolicy = adapter.search;
 
-  // M1 `descriptionMode: 'compact'` is a reserved per-client slot. The default
-  // 'full' path below is the historical text, byte-for-byte; compact only
-  // trims tool-definition prose and keeps the safety boundary line.
-  const compactSearchDescription = 'Search upstream tools. Plain keywords return ranked matches; "select:<exact_tool_name>" returns one tool\'s full inputSchema.'
-    + CALLNAME_GUIDANCE + servicesSuffix;
-  const compactExecuteReadDescription = 'Run READ-ONLY JavaScript via codemode.<tool>(args); return only what the model needs. Example: async () => (await codemode.github__search_repositories({query:"x"})).total_count'
-    + servicesSuffix + EXEC_BOUNDARY_GUIDANCE;
-  const compactExecuteDescription = 'Run JavaScript calling upstream tools via codemode.<tool>(args); process large results inside code and return only a summary. Example: async () => (await codemode.github__search_repositories({query:"x"})).total_count'
-    + servicesSuffix + EXEC_BOUNDARY_GUIDANCE;
-
-  const searchTool = {
+  const searchDefinition = {
     name: 'search',
-    description: resolveToolDescription(
-      profile,
-      'Search upstream tools. Two modes: (1) Plain keywords -> a ranked list of matching tools with compact param signatures (name!: required). (2) To see one tool\'s full inputSchema, pass EXACTLY "select:<name>" where <name> is a tool name copied from a search result (e.g. "select:github__issue_write"). Do NOT put task descriptions or phrases after "select:" — only an exact tool name works; for anything else use plain keyword search. Prefix a service name (e.g. "vercel ...") to focus on that service.' + CALLNAME_GUIDANCE + servicesSuffix,
-      compactSearchDescription,
-    ),
     inputSchema: {
       type: 'object',
       properties: { query: { type: 'string', description: 'Keywords describing the capability you need' }, limit: { type: 'integer', minimum: 1, maximum: 10 } },
       required: ['query'],
     },
-    annotations: resolveToolAnnotations('search', profile, { readOnlyHint: true, destructiveHint: false, openWorldHint: false }),
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     handler: async (args) => {
-      const limit = Number.isFinite(args?.limit) ? args.limit : 8;
+      const limit = Number.isFinite(args?.limit) ? args.limit : searchPolicy.defaultLimit;
       // RC-D4: delegate to the shared routine so this and the in-sandbox
       // codemode.search cannot drift apart again. select: still bypasses the
       // fallback and is rendered as a full detail (formatToolDetail).
       const { res, hint, isSelect } = searchWithFallback(tools, args?.query ?? '', limit);
       const formatter = isSelect ? formatToolDetail : formatToolSummary;
       return {
-        // List mode -> compact description; select: -> full description.
-        matches: res.matches.map((e) => withCallName(e, formatter, { compact: !isSelect })),
+        // List mode -> the client's search policy decides description depth;
+        // select: always keeps the full description.
+        matches: res.matches.map((e) => withCallName(e, formatter, {
+          compact: !isSelect && searchPolicy.compactListDescriptions,
+        })),
         total: res.total,
         hint,
       };
     },
   };
 
-  const makeExecute = (name, readOnly) => {
-    const fullDescription = (readOnly
-      ? 'Write JavaScript to call READ-ONLY upstream tools (get/list/search/query) via codemode.<tool>(args). This tool is annotated read-only so the client may prompt less; it runs the same sandbox as execute(). Only your return value enters the conversation. Available read-only helpers: safeAll(tasks), unwrapBatch(x), unwrap(x), readFileRange(), waitForPrChecks(), github_actions_*. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }'
-      : 'Write JavaScript to call upstream tools via codemode.<tool>(args). Only your returned value enters the conversation — process large results inside code and return a summary. Available: codemode.listTools(), codemode.search(q), codemode.remainingCalls(), codemode.services(), safeAll(tasks), unwrapBatch(x), unwrap(x), global search(), TextEncoder/atob/URL/crypto, and one method per upstream tool. Example: async () => { const r = await codemode.github__search_repositories({query:"x"}); return r.total_count; }')
-      + RETURN_SHAPE_GUIDANCE + SERVICES_GUIDANCE + ASYNC_GUIDANCE + ACTIONS_GUIDANCE
-      + GH_HIGHFREQ_GUIDANCE + LINEAR_CONTEXT_GUIDANCE + B15_ERGONOMICS_GUIDANCE + B17_FEEDBACK_GUIDANCE
-      + servicesSuffix + EXEC_BOUNDARY_GUIDANCE;
-    return {
-      name,
-      description: resolveToolDescription(
-        profile,
-        fullDescription,
-        readOnly ? compactExecuteReadDescription : compactExecuteDescription,
-      ),
-      inputSchema: {
-        type: 'object',
-        properties: { code: { type: 'string', description: 'An async arrow function that calls codemode tools and returns a result.' } },
-        required: ['code'],
-      },
-      annotations: resolveToolAnnotations(
-        name,
-        profile,
-        readOnly
-          ? { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
-          : { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
-      ),
-      handler: async (args) => {
-        const code = String(args?.code ?? '');
-        const usable = readOnly ? sanitized.filter(isReadOnlyTool) : sanitized;
-        const unavailable = readOnly ? sanitized.filter((t) => !isReadOnlyTool(t)) : [];
-        const full = await runInSandbox({
-          code,
-          tools: usable,
-          unavailableTools: unavailable,
-          callTool: (server, tool, a) => upstreamManager.callTool(server, tool, a),
-          maxCalls: options.maxCalls,
-          // M1: profile-specific output budget; explicit config still wins.
-          maxResultChars: resolveExecuteOutputBudget(profile, options),
-          servicesInfo: getServices,
-          fetch: options.fetch,
-          env: options.env,
-          // B14 typed-plan host helper: read-only is a host-enforced boundary and
-          // the io/ops adapters are injectable for offline tests / future wiring.
-          typedPlanReadOnly: readOnly,
-          typedPlanIO: options.typedPlanIO,
-          typedPlanOps: options.typedPlanOps,
-        });
-        // MakeOutput() attaches a toJSON() that emits the full audit payload;
-        // unwrap it first so the projection below is what server.js serializes.
-        const wire = typeof full.toJSON === 'function' ? full.toJSON() : full;
-        captureEvent('sandbox', {
-          tool: readOnly ? 'execute_read' : 'execute',
-          code,
-          output: wire,
-        });
-        return toModelOutput(wire, profile); // toolCalls + logs never enter model context
-      },
-    };
-  };
+  const makeExecuteDefinition = (name, readOnly) => ({
+    name,
+    inputSchema: {
+      type: 'object',
+      properties: { code: { type: 'string', description: 'An async arrow function that calls codemode tools and returns a result.' } },
+      required: ['code'],
+    },
+    annotations: readOnly
+      ? { readOnlyHint: true, destructiveHint: false, openWorldHint: true }
+      : { readOnlyHint: false, destructiveHint: true, openWorldHint: true },
+    handler: async (args) => {
+      const code = String(args?.code ?? '');
+      const usable = readOnly ? sanitized.filter(isReadOnlyTool) : sanitized;
+      const unavailable = readOnly ? sanitized.filter((t) => !isReadOnlyTool(t)) : [];
+      const full = await runInSandbox({
+        code,
+        tools: usable,
+        unavailableTools: unavailable,
+        callTool: (server, tool, a) => upstreamManager.callTool(server, tool, a),
+        maxCalls: options.maxCalls,
+        // Client-owned truncation budget; an explicit config value still wins.
+        maxResultChars: resolveOutputBudget(adapter, options),
+        servicesInfo: getServices,
+        fetch: options.fetch,
+        env: options.env,
+        // B14 typed-plan host helper: read-only is a host-enforced boundary and
+        // the io/ops adapters are injectable for offline tests / future wiring.
+        typedPlanReadOnly: readOnly,
+        typedPlanIO: options.typedPlanIO,
+        typedPlanOps: options.typedPlanOps,
+      });
+      // MakeOutput() attaches a toJSON() that emits the full audit payload;
+      // unwrap it first so the projection below is what server.js serializes.
+      const wire = typeof full.toJSON === 'function' ? full.toJSON() : full;
+      captureEvent('sandbox', {
+        tool: readOnly ? 'execute_read' : 'execute',
+        code,
+        output: wire,
+      });
+      // Adapter owns the wire encoding (text JSON vs structuredContent);
+      // toolCalls + logs never enter the model context either way.
+      return toModelOutput(wire, adapter);
+    },
+  });
 
   // Two execute tools: read-only (no approval friction) and full (read+write).
-  return [searchTool, makeExecute('execute_read', true), makeExecute('execute', false)];
+  return assembleToolDefinitions(adapter, descriptionContext, [
+    searchDefinition,
+    makeExecuteDefinition('execute_read', true),
+    makeExecuteDefinition('execute', false),
+  ]);
 }
