@@ -497,7 +497,7 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
       ...truncationCluster,
     ],
     samples,
-    limits: { maxIssues: 8, maxCharsPerIssue: 1200 },
+    limits: { maxIssues: 6, maxCharsPerIssue: 1200 },
   };
 }
 
@@ -567,7 +567,7 @@ export function validateAnalyzerOutput(output, input, analyzerRun = null) {
         : [],
       regressionTask: issue.regressionTask ?? null,
     });
-    if (issues.length >= (input.limits?.maxIssues ?? 8)) break;
+    if (issues.length >= (input.limits?.maxIssues ?? 6)) break;
   }
   return {
     schema: 'analyzer-output.v1',
@@ -664,15 +664,7 @@ export function analyzerPrompt(input) {
   // symptoms that the model overlooked because nothing told it to look for the
   // literal token. These are the machine-matchable signals compare/distill rely on.
   const frictionSignalHint = Array.isArray(input.samples) && input.samples.length
-    ? [
-      'MANDATORY friction-token scan — inspect responsePreview.preview, subCalls[].resultShape/error and requestIndex before writing issues, and raise an issue whenever you see one of these literal signals, quoting the token in the title so it stays machine-matchable:',
-      '(a) upstream search returned partial results: `incomplete_results":true` or a search call with `total_count":0` while the client clearly expected matches (e.g. GitHub search_code on a symbol that exists);',
-      '(b) plan/capability gating notices in a 200 body such as `Business-plan options were omitted` / `edited_by_user_ids` / `sort` omitted — this is a host capability limit, not an auth failure;',
-      '(c) output-layer truncation: `truncated":true`, `--- TRUNCATED ---`, `next":"readFileRange"` or a sample whose `truncated` flag is true followed by a re-read of the same tool;',
-      '(d) tool-selection thrash: requestIndex shows `search` dominating the window (for example >= 5 searches, or >= 4 consecutive searches before any execute_read/execute); report the counts you actually counted from requestIndex;',
-      '(e) tool-call budget exhaustion inside the sandbox (e.g. a broad recursive scan that stops at a call limit and returns partial evidence).',
-      'When a window contains several of these, prefer breadth: cover each distinct signal with its own issue instead of merging them into one generic "friction" issue.',
-    ].join(' ')
+    ? 'MANDATORY friction-token scan (quote the token in the issue title so it stays matchable): (a) `incomplete_results":true` or `total_count":0` from a search the client expected to hit; (b) 200-body gating notices like `Business-plan options were omitted` (host limit, not auth); (c) `--- TRUNCATED ---` / `truncated":true` / `next":"readFileRange"`, or a truncated sample followed by a re-read; (d) search-heavy thrash: >=5 search calls, or >=4 consecutive searches before any execute_read/execute (count from requestIndex); (e) sandbox call-budget exhaustion in a broad scan. Cover each distinct signal with its own issue.'
     : '';
   return [
     {
@@ -776,7 +768,7 @@ export async function callAnalyzer(input, options = {}) {
       body: JSON.stringify({
         model,
         temperature: 0,
-        max_tokens: 6000,
+        max_tokens: 7000,
         reasoning_effort: 'none',
         messages: analyzerPrompt(input),
       }),
@@ -1043,4 +1035,6 @@ if (process.argv[1] && process.argv[1].endsWith('analyze-captures.mjs')) {
     process.exitCode = 1;
   });
 }
+
+
 
