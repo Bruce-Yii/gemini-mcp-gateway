@@ -1,0 +1,161 @@
+{
+  "schema": "active-passive-comparison.v1",
+  "activeEvalId": "ae_20261125_86e4069d",
+  "generatedAt": "2026-11-25T00:47:26.267Z",
+  "match": "unmatched",
+  "reasons": [
+    "no window/platform/build overlap, or passive data is missing",
+    "clientPlatform does not match the passive window"
+  ],
+  "checks": {
+    "build": "unknown",
+    "platform": "mismatch",
+    "window": "match",
+    "requestIds": "unknown"
+  },
+  "requestIds": {
+    "status": "unknown",
+    "matched": [],
+    "verified": [],
+    "unverified": [],
+    "missing": []
+  },
+  "coverage": [
+    {
+      "kind": "service",
+      "subject": "github",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:online",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "vercel",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:online",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "linear",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:online",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "notion",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:online",
+      "reason": null
+    },
+    {
+      "kind": "service",
+      "subject": "figma",
+      "expected": "online",
+      "covered": true,
+      "passiveStatus": "latest:online",
+      "reason": null
+    },
+    {
+      "kind": "finding",
+      "subject": "F-directmcp-prod-missing-redaction",
+      "title": "Production 1328787 lacks the lin_api/ntn/figd redaction rules merged in faba0d8",
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-directmcp-gh-fetch-missing-path",
+      "title": "GitHub fetch_file returns no path field so AT-GH-01 path check is unverifiable",
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-directmcp-gh-fetch-missing-truncated",
+      "title": "GitHub fetch_file returns no truncated field so truncation flag is unverifiable",
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-directmcp-connector-shape-divergence",
+      "title": "Direct connectors return inconsistent result structures requiring normalization",
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-directmcp-exec-output-truncation",
+      "title": "One functions.exec output was truncated when returning the full source",
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
+    },
+    {
+      "kind": "finding",
+      "subject": "F-directmcp-textencoder-missing",
+      "title": "Direct MCP sandbox has no TextEncoder global",
+      "observability": "active-only",
+      "expected": "active-only-not-passively-observable",
+      "covered": null,
+      "passiveStatus": "active-only",
+      "passiveIssueId": null,
+      "matchedKeyword": null,
+      "matchedKeywords": [],
+      "reason": "active-only-not-passively-observable"
+    }
+  ],
+  "missed": [],
+  "findings": {
+    "total": 6,
+    "detected": 0,
+    "missed": 0,
+    "activeOnly": 6
+  },
+  "passive": {
+    "dataStatus": "HAS_DATA",
+    "requests": 3,
+    "platforms": [
+      "gemini"
+    ],
+    "buildCommits": [],
+    "serviceSnapshots": 5,
+    "connectFailures": 0,
+    "issues": 0
+  }
+}
