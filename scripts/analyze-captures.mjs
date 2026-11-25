@@ -664,7 +664,7 @@ export function analyzerPrompt(input) {
   // symptoms that the model overlooked because nothing told it to look for the
   // literal token. These are the machine-matchable signals compare/distill rely on.
   const frictionSignalHint = Array.isArray(input.samples) && input.samples.length
-    ? 'MANDATORY friction-token scan (quote the token in the issue title so it stays matchable): (a) `incomplete_results":true` or `total_count":0` from a search the client expected to hit; (b) 200-body gating notices like `Business-plan options were omitted` (host limit, not auth); (c) `--- TRUNCATED ---` / `truncated":true` / `next":"readFileRange"`, or a truncated sample followed by a re-read; (d) search-heavy thrash: >=5 search calls, or >=4 consecutive searches before any execute_read/execute (count from requestIndex); (e) sandbox call-budget exhaustion in a broad scan. Cover each distinct signal with its own issue.'
+    ? 'MANDATORY friction-token scan — reserve at least half of the issue slots for these signals before writing any generic unwrap/parsing-redundancy issue, and do not spend more than 2 issues on that generic theme. Quote the token in the issue title so it stays matchable: (a) `incomplete_results":true` or `total_count":0` from a search the client expected to hit; (b) 200-body gating notices like `Business-plan options were omitted` (host limit, not auth); (c) `--- TRUNCATED ---` / `truncated":true` / `next":"readFileRange"`, or a truncated sample followed by a re-read; (d) search-heavy thrash: >=5 search calls, or >=4 consecutive searches before any execute_read/execute (count from requestIndex); (e) sandbox call-budget exhaustion in a broad scan. Cover each distinct signal with its own issue.'
     : '';
   return [
     {
@@ -1035,6 +1035,7 @@ if (process.argv[1] && process.argv[1].endsWith('analyze-captures.mjs')) {
     process.exitCode = 1;
   });
 }
+
 
 
 
