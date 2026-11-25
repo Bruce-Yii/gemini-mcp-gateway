@@ -497,7 +497,7 @@ export function buildAnalyzerInput(envelopes, { date = 'unknown', maxClusters = 
       ...truncationCluster,
     ],
     samples,
-    limits: { maxIssues: 5, maxCharsPerIssue: 1200 },
+    limits: { maxIssues: 8, maxCharsPerIssue: 1200 },
   };
 }
 
@@ -567,7 +567,7 @@ export function validateAnalyzerOutput(output, input, analyzerRun = null) {
         : [],
       regressionTask: issue.regressionTask ?? null,
     });
-    if (issues.length >= (input.limits?.maxIssues ?? 5)) break;
+    if (issues.length >= (input.limits?.maxIssues ?? 8)) break;
   }
   return {
     schema: 'analyzer-output.v1',
@@ -660,6 +660,20 @@ export function analyzerPrompt(input) {
   const responsePreviewHint = Array.isArray(input.samples) && input.samples.length
     ? 'Each sample also carries responsePreview: a bounded preview (first characters, with an explicit truncation marker) of the captured HTTP response body plus a parsed outline (topLevelKeys / nullKeys / arrays / nested one-level keys) and subCalls[] entries may carry error{name,message} or resultShape. Combine responsePreview + subCalls + clientPlatform + servers[] to look for HTTP-200 SUCCESS-STATE semantic friction that error clusters cannot show: (a) null fields on success (a key field such as number:null where a PR/issue number was expected), (b) double-layer nesting where the real payload is buried inside result.content[0].text as an escaped JSON string, (c) false-positive / mistaken truncation (a complete successful body treated as truncated) and reverse cases, (d) cross-upstream handoff redundancy (the same unwrap/parse/format repeated between github / vercel / notion calls), and (e) repeated defensive parsing or re-wrapping that the gateway or the client keeps doing on every successful call. responsePreview is BOUNDED: absence of a field inside the preview is not proof that it is absent from the full body — say so instead of over-claiming. Attribute each such issue with clientPlatform and servers.'
     : '';
+  // Friction-token guidance: live active-eval reports repeatedly name concrete
+  // symptoms that the model overlooked because nothing told it to look for the
+  // literal token. These are the machine-matchable signals compare/distill rely on.
+  const frictionSignalHint = Array.isArray(input.samples) && input.samples.length
+    ? [
+      'MANDATORY friction-token scan — inspect responsePreview.preview, subCalls[].resultShape/error and requestIndex before writing issues, and raise an issue whenever you see one of these literal signals, quoting the token in the title so it stays machine-matchable:',
+      '(a) upstream search returned partial results: `incomplete_results":true` or a search call with `total_count":0` while the client clearly expected matches (e.g. GitHub search_code on a symbol that exists);',
+      '(b) plan/capability gating notices in a 200 body such as `Business-plan options were omitted` / `edited_by_user_ids` / `sort` omitted — this is a host capability limit, not an auth failure;',
+      '(c) output-layer truncation: `truncated":true`, `--- TRUNCATED ---`, `next":"readFileRange"` or a sample whose `truncated` flag is true followed by a re-read of the same tool;',
+      '(d) tool-selection thrash: requestIndex shows `search` dominating the window (for example >= 5 searches, or >= 4 consecutive searches before any execute_read/execute); report the counts you actually counted from requestIndex;',
+      '(e) tool-call budget exhaustion inside the sandbox (e.g. a broad recursive scan that stops at a call limit and returns partial evidence).',
+      'When a window contains several of these, prefer breadth: cover each distinct signal with its own issue instead of merging them into one generic "friction" issue.',
+    ].join(' ')
+    : '';
   return [
     {
       role: 'system',
@@ -675,6 +689,7 @@ export function analyzerPrompt(input) {
         dataStatusHint,
         serviceStateHint,
         responsePreviewHint,
+        frictionSignalHint,
         'Return ONLY strict JSON matching analyzer-output.v1:',
         '{"schema":"analyzer-output.v1","summary":"...","issues":[{"id":"issue-1","severity":"P0|P1|P2|P3","category":"gateway|upstream|model|data|unknown","title":"...","evidenceEventIds":["..."],"likelyCause":"...","suggestedFix":"...","confidence":0.0,"clientPlatform":"gemini|chatgpt|claude|unknown|null","servers":["github"],"regressionTask":{"prompt":"...","expectedTool":"...","assertions":["..."]}}],"ignored":[{"clusterId":"c1","reason":"..."}]}',
         'Each issue MUST cite at least one evidenceEventIds from the input. If unsure, use ignored.',
@@ -1028,3 +1043,4 @@ if (process.argv[1] && process.argv[1].endsWith('analyze-captures.mjs')) {
     process.exitCode = 1;
   });
 }
+
